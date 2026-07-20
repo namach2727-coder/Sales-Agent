@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#102a43" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>آموزش دستیار فروش</title>
+    <link rel="stylesheet" href="/static/admin.css" />
+  </head>
+  <body>
+    <div class="page-glow glow-one" aria-hidden="true"></div>
+    <div class="page-glow glow-two" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <a class="brand" href="/admin" aria-label="صفحه اصلی کنسول فروشگاه">
+        <span class="brand-mark" aria-hidden="true">ف</span>
+        <span>
+          <small>کنسول مدیر فروشگاه</small>
+          <strong>آموزش دستیار فروش</strong>
+        </span>
+      </a>
+      <div class="topbar-actions">
+        <button class="module-marketplace-trigger" id="module-marketplace-trigger" type="button" aria-haspopup="dialog" aria-controls="module-marketplace-dialog">
+          <span class="module-trigger-icon" aria-hidden="true">▦</span>
+          <span class="module-trigger-label">ماژول‌ها و قیمت‌ها</span>
+        </button>
+        <div class="topbar-status" aria-live="polite">
+          <span class="status-dot" id="status-dot"></span>
+          <span id="active-version-label">در حال دریافت وضعیت...</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="admin-shell">
+      <aside class="step-sidebar" aria-label="مراحل آماده‌سازی دستیار">
+        <div class="store-summary">
+          <span class="store-avatar" aria-hidden="true">AI</span>
+          <div>
+            <small>فروشگاه فعال</small>
+            <strong id="sidebar-store-name">فروشگاه من</strong>
+          </div>
+        </div>
+
+        <nav class="step-nav" id="step-nav">
+          <button class="step-button active" type="button" data-step="1" aria-current="step">
+            <span class="step-number">۱</span>
+            <span><strong>اطلاعات فروشگاه</strong><small>محصولات و پاسخ‌ها</small></span>
+          </button>
+          <button class="step-button" type="button" data-step="2" disabled>
+            <span class="step-number">۲</span>
+            <span><strong>بررسی پیشنهادها</strong><small>دسته‌بندی و کلمات</small></span>
+          </button>
+          <button class="step-button" type="button" data-step="3" disabled>
+            <span class="step-number">۳</span>
+            <span><strong>فعال‌سازی</strong><small>تأیید نسخه جدید</small></span>
+          </button>
+          <button class="step-button" type="button" data-step="4" disabled>
+            <span class="step-number">۴</span>
+            <span><strong>آزمایش دستیار</strong><small>مثل یک خریدار</small></span>
+          </button>
+          <button class="step-button" type="button" data-step="5" disabled>
+            <span class="step-number">۵</span>
+            <span><strong>استودیوی محتوا</strong><small>عکس، متن و انتشار</small></span>
+          </button>
+        </nav>
+
+        <div class="sidebar-note">
+          <span aria-hidden="true">i</span>
+          <p>قیمت و موجودی فقط از اطلاعات شما برداشته می‌شود و دستیار آن‌ها را حدس نمی‌زند.</p>
+        </div>
+      </aside>
+
+      <section class="workspace" aria-live="polite">
+        <div class="global-message" id="global-message" role="status" hidden></div>
+
+        <section class="step-panel active" id="step-1" data-step-panel="1">
+          <header class="panel-header">
+            <div>
+              <p class="eyebrow">مرحله اول</p>
+              <h1>دانسته‌های فروشگاه را وارد کنید</h1>
+              <p>اطلاعات خام کافی است؛ مرتب‌سازی، دسته‌بندی و ساخت عبارت‌های مشابه را دستیار انجام می‌دهد.</p>
+            </div>
+            <span class="draft-badge" id="draft-badge" hidden>پیش‌نویس ذخیره‌شده</span>
+          </header>
+
+          <section class="form-section compact-section">
+            <div class="section-heading">
+              <div>
+                <span class="section-icon" aria-hidden="true">۱</span>
+                <div>
+                  <h2>نام فروشگاه</h2>
+                  <p>این نام فقط برای شناسایی محیط شماست.</p>
+                </div>
+              </div>
+            </div>
+            <label class="field single-field">
+              <span>نام فروشگاه</span>
+              <input id="store-name" type="text" maxlength="120" autocomplete="organization" placeholder="مثلاً فروشگاه موبایل آفتاب" required />
+            </label>
+          </section>
+
+          <section class="form-section">
+            <div class="section-heading">
+              <div>
+                <span class="section-icon" aria-hidden="true">۲</span>
+                <div>
+                  <h2>محصولات</h2>
+                  <p>برای هر محصول نام، قیمت، موجودی و چند کلمه‌ای که مشتری ممکن است بگوید وارد کنید.</p>
+                </div>
+              </div>
+              <button class="secondary-button" id="add-product-button" type="button">
+                <span aria-hidden="true">＋</span> افزودن محصول
+              </button>
+            </div>
+            <div class="entry-list" id="product-entry-list"></div>
+          </section>
+
+          <section class="form-section">
+            <div class="section-heading">
+              <div>
+                <span class="section-icon" aria-hidden="true">۳</span>
+                <div>
+                  <h2>سؤال‌ها و قوانین فروشگاه</h2>
+                  <p>پاسخ ارسال، پرداخت، ضمانت، مرجوعی و سؤال‌های پرتکرار را اینجا بنویسید.</p>
+                </div>
+              </div>
+              <button class="secondary-button" id="add-knowledge-button" type="button">
+                <span aria-hidden="true">＋</span> افزودن پاسخ
+              </button>
+            </div>
+            <div class="entry-list" id="knowledge-entry-list"></div>
+            <div class="empty-inline" id="knowledge-empty">
+              <span aria-hidden="true">؟</span>
+              <p>هنوز پاسخی اضافه نشده است. این بخش اختیاری است.</p>
+            </div>
+          </section>
+
+          <footer class="panel-actions align-end">
+            <p><strong>قدم بعد:</strong> دستیار اطلاعات را مرتب می‌کند و نتیجه را قبل از فعال‌سازی به شما نشان می‌دهد.</p>
+            <button class="primary-button" id="analyze-button" type="button">
+              <span class="button-label">مرتب‌سازی خودکار</span>
+              <span aria-hidden="true">←</span>
+            </button>
+          </footer>
+        </section>
+
+        <section class="step-panel" id="step-2" data-step-panel="2" hidden>
+          <header class="panel-header">
+            <div>
+              <p class="eyebrow">مرحله دوم</p>
+              <h1>پیشنهادهای دستیار را بررسی کنید</h1>
+              <p>دسته‌بندی‌ها و عبارت‌های مشابه قابل ویرایش‌اند. موارد مهم با علامت مشخص شده‌اند.</p>
+            </div>
+            <div class="result-count" id="result-count">۰ محصول</div>
+          </header>
+
+          <section class="warning-panel" id="warning-panel" hidden>
+            <div class="warning-title">
+              <span aria-hidden="true">!</span>
+              <strong>موارد نیازمند توجه</strong>
+            </div>
+            <ul id="warning-list"></ul>
+          </section>
+
+          <section class="preview-section">
+            <div class="section-title-row">
+              <div>
+                <h2>محصولات مرتب‌شده</h2>
+                <p>عبارت‌های مشابه کمک می‌کنند دستیار غلط املایی، فارسی، انگلیسی و فینگلیش را تشخیص دهد.</p>
+              </div>
+            </div>
+            <div class="preview-grid" id="product-preview-list"></div>
+          </section>
+
+          <section class="preview-section" id="knowledge-preview-section">
+            <div class="section-title-row">
+              <div>
+                <h2>پاسخ‌ها و قوانین</h2>
+                <p>فقط موارد تأییدشده به دستیار فروش منتقل می‌شوند.</p>
+              </div>
+            </div>
+            <div class="preview-grid knowledge-preview-grid" id="knowledge-preview-list"></div>
+          </section>
+
+          <footer class="panel-actions">
+            <button class="ghost-button" type="button" data-go-step="1">بازگشت و ویرایش اطلاعات</button>
+            <button class="primary-button" id="review-complete-button" type="button">
+              ادامه برای فعال‌سازی <span aria-hidden="true">←</span>
+            </button>
+          </footer>
+        </section>
+
+        <section class="step-panel" id="step-3" data-step-panel="3" hidden>
+          <header class="panel-header centered-header">
+            <div>
+              <p class="eyebrow">مرحله سوم</p>
+              <h1>نسخه جدید آماده فعال‌شدن است</h1>
+              <p>تا زمانی که دکمه زیر را نزنید، پاسخ‌های فعلی دستیار فروشگاه تغییری نمی‌کنند.</p>
+            </div>
+          </header>
+
+          <div class="publish-card">
+            <div class="publish-illustration" aria-hidden="true">
+              <span>AI</span>
+              <i></i>
+            </div>
+            <div class="publish-summary">
+              <p>نسخه پیشنهادی برای</p>
+              <h2 id="publish-store-name">فروشگاه من</h2>
+              <div class="summary-stats">
+                <div><strong id="publish-product-count">۰</strong><span>محصول</span></div>
+                <div><strong id="publish-alias-count">۰</strong><span>عبارت مشابه</span></div>
+                <div><strong id="publish-knowledge-count">۰</strong><span>پاسخ تأییدشده</span></div>
+              </div>
+            </div>
+            <label class="confirm-box">
+              <input id="publish-confirmation" type="checkbox" />
+              <span>اطلاعات و قیمت‌ها را بررسی کردم و می‌خواهم این نسخه فعال شود.</span>
+            </label>
+            <button class="publish-button" id="publish-button" type="button" disabled>
+              تأیید و فعال‌سازی دستیار
+            </button>
+            <button class="text-button" type="button" data-go-step="2">بازگشت به بررسی پیشنهادها</button>
+          </div>
+        </section>
+
+        <section class="step-panel" id="step-4" data-step-panel="4" hidden>
+          <header class="panel-header">
+            <div>
+              <p class="eyebrow">مرحله چهارم</p>
+              <h1>مثل یک خریدار امتحان کنید</h1>
+              <p>سؤال واقعی مشتری را بنویسید و ببینید دستیار با نسخه فعال چه پاسخی می‌دهد.</p>
+            </div>
+            <span class="live-badge"><span></span> نسخه فعال</span>
+          </header>
+
+          <div class="test-layout">
+            <section class="test-chat" aria-label="محیط آزمایش دستیار فروش">
+              <header class="test-chat-header">
+                <span class="assistant-avatar" aria-hidden="true">AI</span>
+                <div><strong>دستیار فروش</strong><small>آماده پاسخ‌گویی</small></div>
+              </header>
+              <div class="test-messages" id="test-messages" aria-live="polite">
+                <div class="chat-row assistant-row">
+                  <div class="chat-bubble">سلام! درباره محصولات، قیمت، موجودی یا شرایط خرید از من بپرسید.</div>
+                </div>
+              </div>
+              <div class="test-suggestions" id="test-suggestions">
+                <button type="button" data-test-message="چه محصولاتی موجود دارید؟">محصولات موجود</button>
+                <button type="button" data-test-message="شرایط ارسال چطور است؟">شرایط ارسال</button>
+                <button type="button" data-test-message="قیمت این محصول چنده؟">پرسش قیمت</button>
+              </div>
+              <form class="test-composer" id="test-form">
+                <label class="sr-only" for="test-message-input">پیام آزمایشی</label>
+                <input id="test-message-input" type="text" maxlength="4096" autocomplete="off" placeholder="پیام یک خریدار را بنویسید..." required />
+                <button id="test-send-button" type="submit">ارسال <span aria-hidden="true">←</span></button>
+              </form>
+            </section>
+
+            <aside class="test-help">
+              <span class="success-mark" aria-hidden="true">✓</span>
+              <h2>دستیار شما فعال است</h2>
+              <p id="published-version-copy">نسخه جدید با موفقیت آماده استفاده شد.</p>
+              <ul>
+                <li>نام کوتاه یا غلط املایی محصول را امتحان کنید.</li>
+                <li>درباره قیمت، موجودی یا قوانین فروشگاه سؤال کنید.</li>
+                <li>اگر پاسخی دقیق نبود، به مرحله اول برگردید و اطلاعات را کامل‌تر کنید.</li>
+              </ul>
+              <button class="secondary-button full-button" type="button" data-go-step="1">ویرایش دانسته‌های دستیار</button>
+            </aside>
+          </div>
+        </section>
+
+        <section class="step-panel" id="step-5" data-step-panel="5" hidden>
+          <header class="panel-header">
+            <div>
+              <p class="eyebrow">استودیوی محتوای محصول</p>
+              <h1>از عکس محصول تا پست آماده انتشار</h1>
+              <p>عکس را انتخاب کنید؛ دستیار متن پست، هشتگ و عبارت فروش را از اطلاعات تأییدشده همان محصول می‌سازد. هیچ پستی بدون تأیید جداگانه شما منتشر نمی‌شود.</p>
+            </div>
+            <span class="content-status-badge" id="content-draft-status">هنوز پیش‌نویسی ساخته نشده</span>
+          </header>
+
+          <section class="publish-readiness" id="content-publish-status" role="status">
+            <span aria-hidden="true">i</span>
+            <div>
+              <strong>در حال بررسی امکان انتشار...</strong>
+              <p>وضعیت اتصال به اینستاگرام دریافت می‌شود.</p>
+            </div>
+          </section>
+
+          <div class="content-studio-grid">
+            <section class="content-builder-card">
+              <div class="section-title-row">
+                <div>
+                  <h2>۱. محصول و تصویر</h2>
+                  <p>برای هر محصول می‌توانید چند عکس نگه دارید و یکی را برای پست انتخاب کنید.</p>
+                </div>
+              </div>
+
+              <label class="field">
+                <span>محصول</span>
+                <select id="content-product-select" aria-label="انتخاب محصول"></select>
+              </label>
+
+              <label class="image-upload-zone" id="content-upload-zone" for="content-image-input">
+                <input id="content-image-input" type="file" accept="image/jpeg,image/png,image/webp" />
+                <span class="upload-icon" aria-hidden="true">＋</span>
+                <strong>افزودن تصویر محصول</strong>
+                <small>JPG، PNG یا WebP؛ تصویر قبل از ذخیره برای اینستاگرام آماده می‌شود.</small>
+              </label>
+
+              <div class="asset-gallery" id="content-asset-gallery" aria-live="polite"></div>
+              <div class="empty-inline" id="content-assets-empty">
+                <span aria-hidden="true">▧</span>
+                <p>هنوز تصویری برای این محصول ثبت نشده است.</p>
+              </div>
+
+              <button class="primary-button full-button" id="content-generate-button" type="button" disabled>
+                ساخت متن و هشتگ از اطلاعات محصول <span aria-hidden="true">←</span>
+              </button>
+            </section>
+
+            <aside class="instagram-preview-card" aria-label="پیش‌نمایش پست اینستاگرام">
+              <header>
+                <span class="instagram-avatar" aria-hidden="true">ف</span>
+                <div><strong id="content-preview-store">فروشگاه من</strong><small>پیش‌نمایش پست</small></div>
+                <span aria-hidden="true">•••</span>
+              </header>
+              <div class="instagram-image-placeholder" id="content-image-placeholder">
+                <span aria-hidden="true">▧</span>
+                <p>تصویر انتخاب‌شده اینجا نمایش داده می‌شود.</p>
+              </div>
+              <img id="content-preview-image" alt="پیش‌نمایش تصویر محصول" hidden />
+              <div class="instagram-actions" aria-hidden="true"><span>♡</span><span>◯</span><span>⌁</span></div>
+              <p class="instagram-caption" id="content-preview-caption">بعد از ساخت محتوا، متن نهایی پست را اینجا می‌بینید.</p>
+            </aside>
+          </div>
+
+          <section class="content-editor" id="content-editor" hidden>
+            <div class="section-title-row">
+              <div>
+                <h2>۲. بازبینی مدیر</h2>
+                <p>متن را ویرایش کنید، ذخیره کنید و سپس تأیید نهایی را بزنید.</p>
+              </div>
+            </div>
+            <div class="content-editor-grid">
+              <label class="field span-2">
+                <span>متن پست <em>حداکثر ۲۲۰۰ نویسه</em></span>
+                <textarea id="content-caption-input" rows="9" maxlength="2200"></textarea>
+              </label>
+              <label class="field">
+                <span>هشتگ‌ها</span>
+                <textarea id="content-hashtags-input" rows="5" maxlength="2500" placeholder="#آیفون_۱۵ #فروشگاه_موبایل"></textarea>
+              </label>
+              <label class="field">
+                <span>توضیح تصویر برای دسترس‌پذیری</span>
+                <textarea id="content-alt-input" rows="5" maxlength="1000"></textarea>
+              </label>
+            </div>
+            <div class="sales-keywords-box">
+              <strong>عبارت‌هایی که خریدار می‌تواند در دایرکت یا کامنت بنویسد</strong>
+              <div class="chip-list" id="content-sales-keywords"></div>
+            </div>
+            <div class="content-editor-actions">
+              <button class="secondary-button" id="content-save-button" type="button">ذخیره ویرایش‌ها</button>
+              <button class="primary-button" id="content-approve-button" type="button">تأیید عکس و متن</button>
+              <button class="publish-button" id="content-publish-button" type="button" disabled>انتشار در اینستاگرام</button>
+            </div>
+            <p class="publish-help" id="content-publish-help"></p>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <dialog class="module-marketplace-dialog" id="module-marketplace-dialog" aria-labelledby="module-marketplace-title">
+      <div class="module-dialog-shell">
+        <header class="module-dialog-header">
+          <div>
+            <p class="eyebrow">مدیریت پکیج فروشگاه‌ها</p>
+            <h2 id="module-marketplace-title">ماژول‌ها و قیمت‌گذاری</h2>
+            <p>امکانات هر فروشگاه را جداگانه انتخاب کنید و قیمت نمونه پکیج‌ها را ببینید.</p>
+          </div>
+          <button class="module-dialog-close" id="module-dialog-close" type="button" aria-label="بستن پنجره ماژول‌ها">×</button>
+        </header>
+
+        <div class="module-dialog-body">
+          <aside class="provider-store-panel">
+            <div class="provider-label"><span aria-hidden="true">P</span> پنل ارائه‌دهنده</div>
+            <label class="module-field">
+              <span>فروشگاه موردنظر</span>
+              <select id="module-store-select" aria-label="انتخاب فروشگاه"></select>
+            </label>
+
+            <section class="store-domain-card" aria-live="polite">
+              <small>ساب‌دامین اختصاصی</small>
+              <strong id="module-store-name">—</strong>
+              <div>
+                <a id="module-store-domain" href="#" target="_blank" rel="noreferrer">—</a>
+                <button id="copy-store-domain" type="button" aria-label="کپی ساب‌دامین">کپی</button>
+              </div>
+            </section>
+
+            <button class="create-store-toggle" id="create-store-toggle" type="button" aria-expanded="false" aria-controls="provider-store-form">
+              <span aria-hidden="true">＋</span> ساخت فروشگاه جدید
+            </button>
+
+            <form class="provider-store-form" id="provider-store-form" hidden novalidate>
+              <label class="module-field">
+                <span>نام فروشگاه</span>
+                <input id="provider-store-name" type="text" minlength="2" maxlength="200" placeholder="مثلاً گالری ماه" required />
+              </label>
+              <label class="module-field">
+                <span>نام ساب‌دامین</span>
+                <input id="provider-store-slug" type="text" inputmode="url" minlength="2" maxlength="63" autocomplete="off" spellcheck="false" placeholder="maah-gallery" required />
+                <small>فقط حروف انگلیسی کوچک، عدد و خط تیره</small>
+              </label>
+              <div class="provider-form-actions">
+                <button class="module-muted-button" id="cancel-store-create" type="button">انصراف</button>
+                <button class="module-primary-button" id="submit-store-create" type="submit">ساخت فروشگاه</button>
+              </div>
+            </form>
+
+            <div class="manual-activation-note">
+              <span aria-hidden="true">i</span>
+              <p><strong>فعال‌سازی دستی است.</strong> در این نسخه پس از هماهنگی فروش و پرداخت، وضعیت هر ماژول را از همین پنجره فعال کنید.</p>
+            </div>
+          </aside>
+
+          <section class="module-marketplace-main">
+            <div class="module-marketplace-metrics">
+              <article>
+                <span>مجموع ماهانه فعال</span>
+                <strong id="module-monthly-total">۰ تومان</strong>
+                <small>بر اساس ماژول‌های همین فروشگاه</small>
+              </article>
+              <article>
+                <span>ماژول‌های فعال</span>
+                <strong id="module-active-count">۰ از ۰</strong>
+                <small id="module-store-status">وضعیت فروشگاه: —</small>
+              </article>
+            </div>
+
+            <div class="module-list-heading">
+              <div>
+                <h3>امکانات قابل ارائه</h3>
+                <p>قیمت‌ها در این صفحه به تومان نمایش داده می‌شوند؛ مقادیر ذخیره‌شده سیستم ریال هستند.</p>
+              </div>
+              <span id="module-list-count">۰ ماژول</span>
+            </div>
+
+            <div class="module-marketplace-error" id="module-marketplace-error" role="alert" hidden></div>
+            <div class="module-marketplace-loading" id="module-marketplace-loading" aria-live="polite">
+              <span aria-hidden="true"></span>
+              <p>در حال دریافت ماژول‌ها...</p>
+            </div>
+            <div class="module-marketplace-grid" id="module-marketplace-grid"></div>
+          </section>
+        </div>
+
+        <footer class="module-dialog-footer">
+          <p><span aria-hidden="true">●</span> قیمت‌های این بخش نمونه فروش‌اند و اتصال پرداخت و صدور صورتحساب خودکار هنوز انجام نشده است.</p>
+          <button class="module-muted-button" id="module-dialog-done" type="button">بستن</button>
+        </footer>
+      </div>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+    <template id="product-entry-template">
+      <article class="entry-card product-entry">
+        <header class="entry-card-header">
+          <div><span class="entry-index">۱</span><strong>محصول</strong></div>
+          <button class="icon-button remove-entry" type="button" aria-label="حذف محصول">×</button>
+        </header>
+        <div class="form-grid">
+          <label class="field span-2">
+            <span>نام محصول <em>ضروری</em></span>
+            <input class="product-name" type="text" maxlength="200" placeholder="مثلاً آیفون ۱۵ حافظه ۱۲۸ گیگ" required />
+          </label>
+          <label class="field span-2">
+            <span>توضیح کوتاه</span>
+            <textarea class="product-description" rows="2" maxlength="2000" placeholder="رنگ‌ها، اندازه‌ها یا ویژگی‌هایی که خریدار باید بداند"></textarea>
+          </label>
+          <label class="field">
+            <span>قیمت به تومان <em>ضروری</em></span>
+            <input class="product-price" type="text" inputmode="numeric" maxlength="18" placeholder="۷۲۵۰۰۰۰۰" required />
+            <small class="price-preview"></small>
+          </label>
+          <label class="availability-field">
+            <span>وضعیت فروش</span>
+            <span class="switch-row">
+              <input class="product-available" type="checkbox" checked />
+              <span class="switch" aria-hidden="true"></span>
+              <span class="availability-copy">موجود است</span>
+            </span>
+          </label>
+          <div class="field span-2 keyword-field">
+            <span>کلماتی که مشتری استفاده می‌کند</span>
+            <div class="chip-input-row">
+              <input class="keyword-input" type="text" maxlength="100" placeholder="مثلاً آیفون پانزده یا iphone 15" />
+              <button class="add-chip-button" type="button">افزودن</button>
+            </div>
+            <div class="chip-list keyword-list" aria-label="کلمات ثبت‌شده"></div>
+            <small>هر عبارت را بنویسید و Enter بزنید.</small>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <template id="knowledge-entry-template">
+      <article class="entry-card knowledge-entry">
+        <header class="entry-card-header">
+          <div><span class="entry-index">۱</span><strong>پاسخ فروشگاه</strong></div>
+          <button class="icon-button remove-entry" type="button" aria-label="حذف پاسخ">×</button>
+        </header>
+        <div class="form-grid">
+          <label class="field">
+            <span>نوع پاسخ</span>
+            <select class="knowledge-kind">
+              <option value="faq">سؤال پرتکرار</option>
+              <option value="rule">قانون فروشگاه</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>سؤال یا عنوان <em>ضروری</em></span>
+            <input class="knowledge-title" type="text" maxlength="500" placeholder="مثلاً ارسال به شهرستان دارید؟" required />
+          </label>
+          <label class="field span-2">
+            <span>پاسخ فروشگاه <em>ضروری</em></span>
+            <textarea class="knowledge-answer" rows="3" maxlength="4000" placeholder="پاسخی که دستیار باید به خریدار بدهد" required></textarea>
+          </label>
+          <div class="field span-2 keyword-field">
+            <span>کلمات مرتبط</span>
+            <div class="chip-input-row">
+              <input class="keyword-input" type="text" maxlength="100" placeholder="مثلاً پست، پیک، چند روز" />
+              <button class="add-chip-button" type="button">افزودن</button>
+            </div>
+            <div class="chip-list keyword-list" aria-label="کلمات ثبت‌شده"></div>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <template id="product-preview-template">
+      <article class="preview-card product-preview">
+        <header class="preview-card-header">
+          <div>
+            <span class="preview-number">۱</span>
+            <div><h3 class="preview-product-name"></h3><p class="preview-product-facts"></p></div>
+          </div>
+          <span class="review-badge">پیشنهاد دستیار</span>
+        </header>
+        <label class="field">
+          <span>دسته‌بندی</span>
+          <input class="preview-category" type="text" maxlength="200" placeholder="مثلاً موبایل / اپل" />
+        </label>
+        <div class="field alias-field">
+          <span>عبارت‌های مشابه</span>
+          <div class="chip-input-row">
+            <input class="alias-input" type="text" maxlength="100" placeholder="عبارت تازه" />
+            <button class="add-chip-button" type="button">افزودن</button>
+          </div>
+          <div class="chip-list alias-list" aria-label="عبارت‌های مشابه"></div>
+        </div>
+        <div class="card-warning" hidden></div>
+      </article>
+    </template>
+
+    <template id="knowledge-preview-template">
+      <article class="preview-card knowledge-preview">
+        <header class="preview-card-header">
+          <div><span class="knowledge-kind-badge"></span><h3 class="preview-knowledge-title"></h3></div>
+          <label class="approval-switch">
+            <input class="knowledge-approved" type="checkbox" checked />
+            <span>تأیید شده</span>
+          </label>
+        </header>
+        <label class="field">
+          <span>پاسخ</span>
+          <textarea class="preview-knowledge-answer" rows="4" maxlength="4000"></textarea>
+        </label>
+        <div class="field alias-field">
+          <span>کلمات مرتبط</span>
+          <div class="chip-input-row">
+            <input class="knowledge-keyword-input" type="text" maxlength="100" placeholder="کلمه تازه" />
+            <button class="add-chip-button" type="button">افزودن</button>
+          </div>
+          <div class="chip-list knowledge-keyword-list" aria-label="کلمات مرتبط"></div>
+        </div>
+      </article>
+    </template>
+
+    <script src="/static/admin.js" defer></script>
+    <script src="/static/admin_content.js" defer></script>
+    <script src="/static/admin_modules.js" defer></script>
+  </body>
+</html>

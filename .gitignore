@@ -1,0 +1,16 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+*.db
+.pytest_cache/
+private_media/
+
+logs/
+.codex/
+.codex-test-temp-*/
+test_temp_run/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

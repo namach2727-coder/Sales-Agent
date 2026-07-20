@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#102a43" />
+    <title>دموی دستیار فروش</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="page-glow page-glow-one" aria-hidden="true"></div>
+    <div class="page-glow page-glow-two" aria-hidden="true"></div>
+
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">ف</div>
+          <div>
+            <p class="eyebrow">نسخه نمایشی فروشگاه</p>
+            <h1>دستیار فروش هوشمند</h1>
+          </div>
+        </div>
+        <div class="connection-pill" id="connection-pill" role="status">
+          <span class="status-dot"></span>
+          <span id="connection-text">در حال اتصال...</span>
+        </div>
+      </header>
+
+      <section class="workspace" aria-label="محیط دموی دستیار فروش">
+        <aside class="side-panel products-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">کاتالوگ دمو</p>
+              <h2>محصولات</h2>
+            </div>
+            <span class="count-badge" id="product-count">۰</span>
+          </div>
+          <div class="product-list" id="product-list" aria-live="polite">
+            <p class="loading-copy">در حال دریافت محصولات...</p>
+          </div>
+          <p class="panel-note">قیمت‌ها و موجودی‌ها فرضی‌اند و فقط برای آزمایش استفاده می‌شوند.</p>
+        </aside>
+
+        <section class="chat-card">
+          <header class="chat-header">
+            <div class="shop-avatar" aria-hidden="true">DM</div>
+            <div class="shop-info">
+              <div class="shop-title-row">
+                <h2>فروشگاه موبایل دمو</h2>
+                <span class="verified-mark" title="حساب آزمایشی">✓</span>
+              </div>
+              <p><span class="online-dot"></span> پاسخ‌گویی خودکار فعال است</p>
+            </div>
+            <span class="demo-tag">DEMO</span>
+          </header>
+
+          <div class="messages" id="messages" aria-live="polite" aria-label="پیام‌های گفتگو">
+            <div class="message-row assistant-row">
+              <div class="mini-avatar" aria-hidden="true">ف</div>
+              <div class="message assistant-message">
+                <p>سلام! 👋 من دستیار فروش آزمایشی هستم.</p>
+                <p>فارسی یا فینگلیش درباره آیفون ۱۵، سامسونگ A55، قاب آیفون، ارسال یا گارانتی از من بپرس.</p>
+                <time>همین حالا</time>
+              </div>
+            </div>
+          </div>
+
+          <div class="suggestions" aria-label="پیشنهادهای آماده">
+            <button type="button" class="suggestion-chip" data-message="چه محصولاتی دارید؟">محصولات موجود</button>
+            <button type="button" class="suggestion-chip" data-message="قیمت آیفون ۱۵ چنده؟">قیمت آیفون</button>
+            <button type="button" class="suggestion-chip" data-message="همینجا سفارش من را ثبت کن">ثبت سفارش</button>
+            <button type="button" class="suggestion-chip" data-message="gheymat samsung A55 chande?">تست فینگلیش</button>
+            <button type="button" class="suggestion-chip" data-message="شرایط ارسال چیه؟">شرایط ارسال</button>
+          </div>
+
+          <form class="composer" id="chat-form">
+            <label class="sr-only" for="message-input">پیام شما</label>
+            <input
+              id="message-input"
+              name="message"
+              type="text"
+              autocomplete="off"
+              maxlength="2000"
+              placeholder="فارسی یا فینگلیش بنویس..."
+              required
+            />
+            <button class="send-button" id="send-button" type="submit" aria-label="ارسال پیام">
+              <span>ارسال</span>
+              <span aria-hidden="true">←</span>
+            </button>
+          </form>
+        </section>
+
+        <aside class="side-panel leads-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">پیگیری فروش</p>
+              <h2>سرنخ‌ها</h2>
+            </div>
+            <button class="refresh-button" id="refresh-leads" type="button" aria-label="به‌روزرسانی فروش">↻</button>
+          </div>
+
+          <div class="sales-tabs" role="tablist" aria-label="پیگیری فروش">
+            <button class="sales-tab active" id="leads-tab" type="button" role="tab" aria-selected="true" aria-controls="leads-view" data-sales-tab="leads">سرنخ‌ها</button>
+            <button class="sales-tab" id="orders-tab" type="button" role="tab" aria-selected="false" aria-controls="orders-view" data-sales-tab="orders">سفارش‌ها</button>
+          </div>
+
+          <section class="sales-view active" id="leads-view" role="tabpanel" aria-labelledby="leads-tab">
+            <div class="lead-summary">
+              <strong id="lead-count">۰</strong>
+              <span>شماره آماده پیگیری</span>
+            </div>
+            <div class="lead-list" id="lead-list" aria-live="polite">
+              <div class="empty-state">
+                <div class="empty-icon" aria-hidden="true">＋</div>
+                <p>هنوز شماره‌ای ثبت نشده</p>
+                <span>در چت یک شماره موبایل بفرست تا اینجا نمایش داده شود.</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="sales-view" id="orders-view" role="tabpanel" aria-labelledby="orders-tab" hidden>
+            <div class="lead-summary order-summary">
+              <strong id="order-count">۰</strong>
+              <span>سفارش در انتظار پیگیری</span>
+            </div>
+            <div class="lead-list order-list" id="order-list" aria-live="polite">
+              <div class="empty-state">
+                <div class="empty-icon" aria-hidden="true">✓</div>
+                <p>هنوز سفارشی ثبت نشده</p>
+                <span>یک محصول انتخاب کن و بنویس «سفارشم را ثبت کن».</span>
+              </div>
+            </div>
+          </section>
+
+          <div class="test-hint">
+            <span aria-hidden="true">●</span>
+            <p><strong>برای تست:</strong> محصول را انتخاب کن، شماره بده و بنویس «سفارشم را ثبت کن».</p>
+          </div>
+        </aside>
+      </section>
+
+      <button class="operator-fab" id="operator-button" type="button" aria-label="ارتباط با اپراتور">
+        <span class="operator-icon" aria-hidden="true">☎</span>
+        <span>ارتباط با اپراتور</span>
+      </button>
+
+      <footer class="page-footer">
+        <p>دموی محلی — هنوز به اینستاگرام واقعی متصل نیست.</p>
+        <a href="/docs" target="_blank" rel="noreferrer">مشاهده API</a>
+      </footer>
+    </main>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>

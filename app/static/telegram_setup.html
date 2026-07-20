@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>اتصال امن ربات تلگرام</title>
+  <style nonce="__CSP_NONCE__">
+    :root {
+      color-scheme: light;
+      font-family: Tahoma, "Segoe UI", sans-serif;
+      background: #f4f7fb;
+      color: #172033;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(circle at 15% 15%, rgba(47, 157, 255, .16), transparent 35%),
+        radial-gradient(circle at 85% 80%, rgba(42, 190, 151, .14), transparent 35%),
+        #f4f7fb;
+    }
+    main {
+      width: min(520px, 100%);
+      background: #fff;
+      border: 1px solid #e4e9f2;
+      border-radius: 24px;
+      box-shadow: 0 22px 60px rgba(27, 44, 75, .12);
+      padding: 30px;
+    }
+    .icon {
+      width: 58px;
+      height: 58px;
+      display: grid;
+      place-items: center;
+      border-radius: 18px;
+      background: #e9f5ff;
+      color: #168bd2;
+      font-size: 28px;
+      margin-bottom: 18px;
+    }
+    h1 { margin: 0 0 10px; font-size: 25px; }
+    p { margin: 0 0 18px; color: #5d687d; line-height: 1.85; }
+    .safe {
+      padding: 13px 15px;
+      border-radius: 14px;
+      background: #effaf5;
+      color: #147253;
+      font-size: 14px;
+      margin-bottom: 22px;
+    }
+    label { display: block; font-weight: 700; margin-bottom: 9px; }
+    input {
+      width: 100%;
+      border: 1px solid #ccd5e4;
+      border-radius: 14px;
+      padding: 14px 15px;
+      font: inherit;
+      direction: ltr;
+      text-align: left;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    input:focus { border-color: #238fd1; box-shadow: 0 0 0 4px rgba(35, 143, 209, .12); }
+    button {
+      width: 100%;
+      border: 0;
+      border-radius: 14px;
+      padding: 14px 18px;
+      margin-top: 14px;
+      background: #168bd2;
+      color: #fff;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .55; cursor: wait; }
+    #status { min-height: 28px; margin: 14px 0 0; font-size: 14px; }
+    #status.error { color: #bd2f42; }
+    #status.success { color: #147253; }
+    .done { display: none; text-align: center; }
+    .done.visible { display: block; }
+    .form-hidden { display: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <section id="setup-panel">
+      <div class="icon" aria-hidden="true">✈</div>
+      <h1>اتصال امن ربات تلگرام</h1>
+      <p>توکن جدیدی را که بعد از باطل‌کردن توکن قبلی از BotFather گرفته‌اید، فقط در کادر زیر وارد کنید.</p>
+      <div class="safe">🔒 توکن از این صفحه خارج نمی‌شود و فقط در فایل محرمانه روی همین لپ‌تاپ ذخیره خواهد شد.</div>
+      <form id="setup-form" autocomplete="off">
+        <label for="bot-token">توکن جدید ربات</label>
+        <input id="bot-token" name="bot-token" type="password" inputmode="text" autocomplete="new-password" spellcheck="false" required minlength="20" placeholder="123456789:AA...">
+        <button id="save-button" type="submit">ذخیره امن و آماده‌سازی اتصال</button>
+        <p id="status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+    <section id="done-panel" class="done" aria-live="polite">
+      <div class="icon" aria-hidden="true">✓</div>
+      <h1>تنظیمات ذخیره شد</h1>
+      <p id="done-message">حالا به گفت‌وگوی Codex برگردید و فقط بنویسید: «ذخیره شد».</p>
+    </section>
+  </main>
+  <script nonce="__CSP_NONCE__">
+    const setupNonce = "__SETUP_NONCE__";
+    const form = document.getElementById("setup-form");
+    const tokenInput = document.getElementById("bot-token");
+    const button = document.getElementById("save-button");
+    const status = document.getElementById("status");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      button.disabled = true;
+      status.className = "";
+      status.textContent = "در حال ذخیره امن تنظیمات…";
+      try {
+        const response = await fetch("/telegram/setup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: tokenInput.value.trim(), setup_nonce: setupNonce })
+        });
+        const result = await response.json();
+        tokenInput.value = "";
+        if (!response.ok) {
+          throw new Error(result.detail || "ذخیره تنظیمات ناموفق بود. صفحه را تازه‌سازی کنید.");
+        }
+        if (!result.token_verified) {
+          document.getElementById("done-message").textContent =
+            "تنظیمات امن ذخیره شد. بررسی آنلاین هنگام اجرای ربات در ویندوز انجام می‌شود. حالا در Codex بنویسید: «ذخیره شد».";
+        }
+        document.getElementById("setup-panel").classList.add("form-hidden");
+        document.getElementById("done-panel").classList.add("visible");
+      } catch (error) {
+        status.className = "error";
+        status.textContent = error.message;
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

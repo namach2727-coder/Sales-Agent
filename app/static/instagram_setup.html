@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>تنظیم امن اتصال اینستاگرام</title>
+  <style nonce="__CSP_NONCE__">
+    :root { color-scheme: light; font-family: Tahoma, "Segoe UI", sans-serif; background: #f6f4fb; color: #1d1930; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at 12% 12%, rgba(132, 80, 255, .14), transparent 34%), radial-gradient(circle at 88% 85%, rgba(255, 68, 139, .12), transparent 34%), #f6f4fb; }
+    main { width: min(620px, 100%); background: #fff; border: 1px solid #e7e2f2; border-radius: 24px; box-shadow: 0 22px 60px rgba(42, 30, 76, .12); padding: 30px; }
+    .icon { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 18px; background: #f0eaff; color: #7048d7; font-size: 27px; margin-bottom: 18px; }
+    h1 { margin: 0 0 10px; font-size: 25px; }
+    p { margin: 0 0 18px; color: #625b73; line-height: 1.85; }
+    .safe { padding: 13px 15px; border-radius: 14px; background: #effaf5; color: #147253; font-size: 14px; margin-bottom: 22px; }
+    .field { margin-bottom: 17px; }
+    label { display: block; font-weight: 700; margin-bottom: 8px; }
+    .hint { display: block; color: #777084; font-size: 12px; font-weight: 400; margin-top: 5px; }
+    input { width: 100%; border: 1px solid #cec8dc; border-radius: 14px; padding: 13px 15px; font: inherit; direction: ltr; text-align: left; outline: none; }
+    input:focus { border-color: #7651d5; box-shadow: 0 0 0 4px rgba(118, 81, 213, .12); }
+    button { border: 0; border-radius: 14px; padding: 12px 16px; background: #7048d7; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: wait; }
+    .secret-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: stretch; direction: ltr; }
+    .secret-row input { min-width: 0; }
+    .toggle-secret { min-width: 82px; background: #eee9f8; color: #4e3d78; font-size: 13px; }
+    .verify-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .verify-button { width: 100%; background: #eee9f8; color: #4e3d78; font-size: 13px; }
+    .rotate-button { width: 100%; background: #147253; font-size: 14px; }
+    #save-button { width: 100%; padding: 14px 18px; margin-top: 4px; }
+    #status { min-height: 28px; margin: 14px 0 0; font-size: 14px; }
+    #status.error { color: #bd2f42; }
+    #status.success { color: #147253; }
+    .done { display: none; text-align: center; }
+    .done.visible { display: block; }
+    .form-hidden { display: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <section id="setup-panel">
+      <div class="icon" aria-hidden="true">◎</div>
+      <h1>تنظیم امن اتصال اینستاگرام</h1>
+      <p>مقادیر را مستقیماً از پنل Meta در این صفحهٔ محلی وارد کنید. این صفحه هیچ اتصال آزمایشی به Meta برقرار نمی‌کند.</p>
+      <div class="safe">🔒 مقادیر محرمانه فقط در فایل محلی لپ‌تاپ ذخیره می‌شوند و در پاسخ صفحه، وضعیت سیستم یا لاگ نمایش داده نمی‌شوند.</div>
+      <form id="setup-form" autocomplete="off">
+        <div class="field">
+          <label for="access-token">Access Token</label>
+          <div class="secret-row">
+            <input id="access-token" type="password" autocomplete="new-password" spellcheck="false" required minlength="20">
+            <button class="toggle-secret" type="button" data-target="access-token" aria-controls="access-token" aria-pressed="false">نمایش</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="app-secret">Instagram App Secret</label>
+          <div class="secret-row">
+            <input id="app-secret" type="password" autocomplete="new-password" spellcheck="false" required minlength="32">
+            <button class="toggle-secret" type="button" data-target="app-secret" aria-controls="app-secret" aria-pressed="false">نمایش</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="ig-user-id">Instagram Account ID</label>
+          <input id="ig-user-id" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" required pattern="[0-9]{5,30}">
+        </div>
+        <div class="field">
+          <label for="verify-token">Webhook Verify Token <span class="hint">این مقدار روی همین صفحه و داخل مرورگر ساخته می‌شود. آن را کپی کنید تا بعداً عیناً در پنل Meta وارد کنید.</span></label>
+          <div class="verify-actions">
+            <input id="verify-token" type="text" autocomplete="off" spellcheck="false" minlength="20" aria-describedby="verify-help">
+            <button id="generate-verify-token" class="verify-button" type="button">ساخت و کپی Verify Token</button>
+            <button id="rotate-verify-token" class="rotate-button" type="button">ساخت، ذخیره و کپی توکن جدید</button>
+          </div>
+          <span id="verify-help" class="hint">تا پیش از ذخیره قابل مشاهده است؛ پس از ذخیره، سرور آن را دوباره نمایش نمی‌دهد.</span>
+        </div>
+        <button id="save-button" type="submit">ذخیرهٔ امن تنظیمات</button>
+        <p id="status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+    <section id="done-panel" class="done" aria-live="polite">
+      <div class="icon" aria-hidden="true">✓</div>
+      <h1>تنظیمات ذخیره شد</h1>
+      <p>مقادیر محرمانه نمایش داده نمی‌شوند. حالا به گفت‌وگوی Codex برگردید و بنویسید: «تنظیمات Meta ذخیره شد».</p>
+    </section>
+  </main>
+  <script nonce="__CSP_NONCE__">
+    const form = document.getElementById("setup-form");
+    const button = document.getElementById("save-button");
+    const status = document.getElementById("status");
+    const secretInputs = ["access-token", "app-secret", "verify-token"].map((id) => document.getElementById(id));
+    const verifyTokenInput = document.getElementById("verify-token");
+
+    function generateStrongVerifyToken() {
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      let binary = "";
+      bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+      return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    }
+
+    function setFreshVerifyToken() {
+      verifyTokenInput.value = generateStrongVerifyToken();
+    }
+
+    async function copyText(value) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(value);
+        return;
+      }
+      verifyTokenInput.focus();
+      verifyTokenInput.select();
+      document.execCommand("copy");
+    }
+
+    setFreshVerifyToken();
+
+    document.getElementById("generate-verify-token").addEventListener("click", async () => {
+      setFreshVerifyToken();
+      try {
+        await copyText(verifyTokenInput.value);
+        status.className = "success";
+        status.textContent = "Verify Token جدید ساخته و کپی شد؛ آن را در فیلد Verify token پنل Meta بچسبانید.";
+      } catch (_) {
+        verifyTokenInput.focus();
+        verifyTokenInput.select();
+        status.className = "error";
+        status.textContent = "کپی خودکار ممکن نبود؛ مقدار انتخاب‌شده را دستی کپی کنید.";
+      }
+    });
+
+    document.getElementById("rotate-verify-token").addEventListener("click", async (event) => {
+      const rotateButton = event.currentTarget;
+      rotateButton.disabled = true;
+      setFreshVerifyToken();
+      try {
+        await copyText(verifyTokenInput.value);
+        const response = await fetch("/instagram/setup/verify-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ verify_token: verifyTokenInput.value.trim() })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || "ذخیره توکن ناموفق بود؛ صفحه را تازه‌سازی و دوباره تلاش کنید.");
+        status.className = "success";
+        status.textContent = "توکن جدید در برنامه ذخیره و در کلیپ‌بورد کپی شد. حالا آن را در فیلد Verify token پنل Meta بچسبانید.";
+      } catch (error) {
+        status.className = "error";
+        status.textContent = error.message;
+        rotateButton.disabled = false;
+      }
+    });
+
+    document.querySelectorAll(".toggle-secret").forEach((toggle) => {
+      toggle.addEventListener("click", () => {
+        const input = document.getElementById(toggle.dataset.target);
+        const shouldShow = input.type === "password";
+        input.type = shouldShow ? "text" : "password";
+        toggle.textContent = shouldShow ? "پنهان" : "نمایش";
+        toggle.setAttribute("aria-pressed", shouldShow ? "true" : "false");
+      });
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      button.disabled = true;
+      status.className = "";
+      status.textContent = "در حال ذخیرهٔ امن تنظیمات…";
+      const payload = {
+        access_token: document.getElementById("access-token").value.trim(),
+        app_secret: document.getElementById("app-secret").value.trim(),
+        ig_user_id: document.getElementById("ig-user-id").value.trim(),
+        verify_token: document.getElementById("verify-token").value.trim()
+      };
+      try {
+        const response = await fetch("/instagram/setup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || "ذخیره ناموفق بود؛ صفحه را تازه‌سازی و دوباره تلاش کنید.");
+        secretInputs.forEach((input) => { input.value = ""; });
+        payload.access_token = "";
+        payload.app_secret = "";
+        payload.verify_token = "";
+        document.getElementById("ig-user-id").value = "";
+        document.getElementById("setup-panel").classList.add("form-hidden");
+        document.getElementById("done-panel").classList.add("visible");
+      } catch (error) {
+        status.className = "error";
+        status.textContent = error.message;
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
