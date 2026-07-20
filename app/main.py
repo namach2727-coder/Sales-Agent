@@ -11,22 +11,19 @@ from app.chat import order_to_dict, process_chat
 from app.admin import router as admin_router
 from app.admin_content import router as admin_content_router
 from app.admin_modules import router as admin_modules_router
-from app.catalog_training import ensure_default_store
 from app.catalog_runtime import list_products as list_catalog_products
 from app.config import get_settings
-from app.database import Base, SessionLocal, engine, get_db
+from app.database import Base, engine, get_db
 from app.instagram import router as instagram_router
 from app.instagram_setup import router as instagram_setup_router
 from app.legal import router as legal_router
 from app.manychat import router as manychat_router
-from app.module_catalog import ensure_default_instagram_connection, ensure_store_modules
 from app.public_media import router as public_media_router
 from app.telegram import router as telegram_router
 from app.telegram_setup import router as telegram_setup_router
 from app import models  # noqa: F401 - registers database models
 from app.models import Customer, FAQ, Order, Product
 from app.schemas import ChatRequest, ChatResponse, FAQRead, LeadRead, OrderRead, ProductRead
-from app.seed import seed_demo_catalog
 
 settings = get_settings()
 STATIC_DIR = Path(__file__).parent / "static"
@@ -35,13 +32,6 @@ STATIC_DIR = Path(__file__).parent / "static"
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
-    if settings.seed_demo_data:
-        with SessionLocal() as db:
-            seed_demo_catalog(db)
-            store = ensure_default_store(db)
-            ensure_store_modules(db, store, activate_legacy_defaults=True)
-            ensure_default_instagram_connection(db, store, settings)
-            db.commit()
     yield
 
 

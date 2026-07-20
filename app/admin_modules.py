@@ -13,14 +13,12 @@ from app.admin_schemas import (
     StoreCreateInput,
     StoreModuleUpdateInput,
 )
-from app.catalog_training import ensure_default_store
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.models import AdminAuditLog, ModuleDefinition, Store, StoreModule
 from app.module_catalog import (
     ensure_store_modules,
     module_enabled,
-    seed_module_catalog,
     serialize_store_marketplace,
     store_subdomain,
 )
@@ -30,11 +28,20 @@ from app.tenancy import normalize_store_slug, store_by_slug
 router = APIRouter(tags=["admin-module-marketplace"])
 
 
+def _ensure_module_catalog(db: Session) -> None:
+    catalog_exists = db.scalar(select(ModuleDefinition.code).limit(1)) is not None
+    if not catalog_exists:
+        raise HTTPException(
+            status_code=503,
+            detail="Required seed data is missing; run the explicit seed command.",
+        )
+
+
 def _ensure_catalog_and_legacy_store(db: Session) -> Store:
-    store = ensure_default_store(db)
-    seed_module_catalog(db)
-    ensure_store_modules(db, store, activate_legacy_defaults=True)
-    db.commit()
+    _ensure_module_catalog(db)
+    store = db.scalar(select(Store).where(Store.slug == "default"))
+    if store is None:
+        raise HTTPException(status_code=404, detail="Store not found")
     return store
 
 
@@ -53,8 +60,6 @@ def module_marketplace(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     store = store_by_slug(db, slug)
-    ensure_store_modules(db, store)
-    db.commit()
     return serialize_store_marketplace(
         db, store, settings, can_manage_modules=True
     )
@@ -68,7 +73,7 @@ def provider_stores(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict[str, object]:
-    _ensure_catalog_and_legacy_store(db)
+    _ensure_module_catalog(db)
     stores = list(db.scalars(select(Store).order_by(Store.id)).all())
     return {
         "stores": [
@@ -95,7 +100,7 @@ def create_provider_store(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict[str, object]:
-    _ensure_catalog_and_legacy_store(db)
+    _ensure_module_catalog(db)
     try:
         slug = normalize_store_slug(payload.slug)
     except ValueError as exc:
@@ -164,7 +169,7 @@ def update_store_module(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict[str, object]:
-    _ensure_catalog_and_legacy_store(db)
+    _ensure_module_catalog(db)
     try:
         normalized_slug = normalize_store_slug(store_slug)
     except ValueError as exc:
@@ -228,8 +233,9 @@ def update_catalog_price(
     module_code: str,
     payload: ModulePriceUpdateInput,
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> dict[str, object]:
-    _ensure_catalog_and_legacy_store(db)
+    _ensure_module_catalog(db)
     definition = db.get(ModuleDefinition, module_code)
     if definition is None:
         raise HTTPException(status_code=404, detail="ماژول پیدا نشد.")

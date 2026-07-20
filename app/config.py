@@ -11,7 +11,8 @@ class Settings(BaseSettings):
     app_name: str = "Sales Assistant MVP"
     app_env: str = "development"
     database_url: str = "sqlite:///./sales_assistant.db"
-    seed_demo_data: bool = True
+    # Deprecated compatibility setting. Seed execution is now CLI-only.
+    seed_demo_data: bool = False
     meta_verify_token: str = ""
     meta_access_token: str = ""
     meta_app_secret: str = ""

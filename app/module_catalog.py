@@ -314,7 +314,6 @@ def serialize_store_marketplace(
     *,
     can_manage_modules: bool,
 ) -> dict[str, object]:
-    ensure_store_modules(db, store)
     db.flush()
     entitlements = list(
         db.scalars(

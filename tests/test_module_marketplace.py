@@ -5,8 +5,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.config import Settings
+from app.catalog_training import ensure_default_store
 from app.database import Base, get_db
 from app.main import app, settings
+from app.module_catalog import ensure_store_modules
 from app.tenancy import normalize_store_slug, parse_tenant_slug
 
 
@@ -23,6 +25,10 @@ def module_client(monkeypatch):
     )
     TestSession = sessionmaker(bind=test_engine, autoflush=False, autocommit=False)
     Base.metadata.create_all(bind=test_engine)
+    with TestSession() as db:
+        store = ensure_default_store(db)
+        ensure_store_modules(db, store, activate_legacy_defaults=True)
+        db.commit()
 
     def override_get_db():
         db = TestSession()

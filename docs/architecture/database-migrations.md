@@ -75,7 +75,8 @@ Create the next numbered revision instead.
 7. Commit the model and migration together after approval.
 
 Never place credentials, production URLs, environment-specific values, or tenant
-seed records in a migration.
+seed records in a migration. Environment and tenant defaults use the explicit
+[seed-data framework](seed-data.md).
 
 ## Applying migrations
 
@@ -219,3 +220,6 @@ dialect explicitly.
 
 Escalate destructive, partial, or cross-tenant failures to the database and
 application owners. Recovery decisions must account for data, not only schema.
+
+Seed execution, profiles, tenant resolution, idempotency, and audit history are
+defined separately in the [production seed-data policy](seed-data.md).

@@ -534,3 +534,22 @@ class StoreInstagramConnection(Base):
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )
     store: Mapped[Store] = relationship()
+
+
+class SeedHistory(Base):
+    """Credential-free audit record for one explicit seed execution."""
+
+    __tablename__ = "seed_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    seed_name: Mapped[str] = mapped_column(String(100), index=True)
+    seed_version: Mapped[str] = mapped_column(String(50))
+    profile: Mapped[str] = mapped_column(String(20))
+    scope: Mapped[str] = mapped_column(String(20))
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("stores.id"), nullable=True, index=True
+    )
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    summary: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

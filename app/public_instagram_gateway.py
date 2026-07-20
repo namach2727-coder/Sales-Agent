@@ -15,13 +15,10 @@ from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
 
 from app import models  # noqa: F401 - registers all database tables
-from app.catalog_training import ensure_default_store
-from app.config import get_settings
-from app.database import Base, SessionLocal, engine
+from app.database import Base, engine
 from app.instagram import receive_instagram_webhook, verify_instagram_webhook
 from app.legal import router as legal_router
 from app.public_media import router as public_media_router
-from app.module_catalog import ensure_default_instagram_connection, ensure_store_modules
 
 
 LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
@@ -71,11 +68,6 @@ async def lifespan(_: FastAPI):
 
     configure_safe_access_logger()
     Base.metadata.create_all(bind=engine)
-    with SessionLocal() as db:
-        store = ensure_default_store(db)
-        ensure_store_modules(db, store, activate_legacy_defaults=True)
-        ensure_default_instagram_connection(db, store, get_settings())
-        db.commit()
     yield
 
 

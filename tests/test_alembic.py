@@ -14,6 +14,7 @@ from app import models  # noqa: F401 - registers metadata
 
 
 ROOT = Path(__file__).resolve().parents[1]
+BASELINE_TABLES = set(Base.metadata.tables) - {"seed_history"}
 ALEMBIC_AVAILABLE = importlib.util.find_spec("alembic.config") is not None
 requires_alembic = pytest.mark.skipif(
     not ALEMBIC_AVAILABLE,
@@ -37,16 +38,17 @@ def assignment_value(module: ast.Module, name: str):
     raise AssertionError(f"{name} is not defined in baseline revision")
 
 
-def test_baseline_source_tracks_all_application_tables() -> None:
+def test_baseline_source_remains_an_immutable_pre_seed_history_snapshot() -> None:
     source = ROOT / "alembic" / "versions" / "0001_baseline_schema.py"
     module = ast.parse(source.read_text(encoding="utf-8"))
     table_order = assignment_value(module, "TABLE_ORDER")
     indexes = assignment_value(module, "INDEXES")
-    assert set(table_order) == set(Base.metadata.tables)
+    assert set(table_order) == BASELINE_TABLES
     assert len(table_order) == 25
     expected_indexes = {
         index.name
-        for table in Base.metadata.tables.values()
+        for table_name, table in Base.metadata.tables.items()
+        if table_name in BASELINE_TABLES
         for index in table.indexes
     }
     declared_indexes = {
@@ -57,9 +59,14 @@ def test_baseline_source_tracks_all_application_tables() -> None:
     assert declared_indexes == expected_indexes
 
 
-def metadata_signature(metadata: sa.MetaData) -> dict:
+def metadata_signature(
+    metadata: sa.MetaData,
+    table_names: set[str] | None = None,
+) -> dict:
     result = {}
     for table_name, table in metadata.tables.items():
+        if table_names is not None and table_name not in table_names:
+            continue
         result[table_name] = {
             "columns": {
                 column.name: (
@@ -121,22 +128,25 @@ def test_baseline_operations_match_metadata_without_database(monkeypatch) -> Non
         str(ROOT / "alembic" / "versions" / "0001_baseline_schema.py")
     )
     namespace["upgrade"]()
-    assert metadata_signature(operations.metadata) == metadata_signature(Base.metadata)
+    assert metadata_signature(operations.metadata) == metadata_signature(
+        Base.metadata, BASELINE_TABLES
+    )
     namespace["downgrade"]()
     assert not operations.metadata.tables
 
 
 @requires_alembic
-def test_alembic_loads_with_one_baseline_head() -> None:
+def test_alembic_loads_with_one_linear_head() -> None:
     from alembic.config import Config
     from alembic.script import ScriptDirectory
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0001_baseline_schema"]
-    revision = scripts.get_revision("0001_baseline_schema")
-    assert revision is not None
-    assert revision.down_revision is None
+    assert scripts.get_heads() == ["0002_create_seed_history"]
+    baseline = scripts.get_revision("0001_baseline_schema")
+    head = scripts.get_revision("0002_create_seed_history")
+    assert baseline is not None and baseline.down_revision is None
+    assert head is not None and head.down_revision == "0001_baseline_schema"
 
 
 @requires_alembic
@@ -190,7 +200,10 @@ def test_migration_history_loads(tmp_path) -> None:
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
-    assert [revision.revision for revision in history] == ["0001_baseline_schema"]
+    assert [revision.revision for revision in history] == [
+        "0002_create_seed_history",
+        "0001_baseline_schema",
+    ]
 
 
 @requires_alembic
@@ -200,7 +213,7 @@ def test_upgrade_downgrade_upgrade_round_trip_uses_temporary_database(tmp_path) 
     database_path = tmp_path / "round-trip.db"
     config = alembic_config(database_path)
     command.upgrade(config, "head")
-    command.downgrade(config, "-1")
+    command.downgrade(config, "base")
     after_downgrade = set(
         inspect(create_engine(f"sqlite:///{database_path.as_posix()}")).get_table_names()
     )

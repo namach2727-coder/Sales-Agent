@@ -21,6 +21,22 @@ never stamp an empty database. Full naming, destructive-operation, downgrade,
 multi-tenant, recovery, and PostgreSQL guidance is in the
 [production migration policy](docs/architecture/database-migrations.md).
 
+## Seed data
+
+Seed execution is explicit and never runs during application startup. List the
+registered seeds, dry-run them against an already migrated database, then execute
+with an explicit profile and database selection:
+
+    python -m tools.seed_data --list
+    python -m tools.seed_data --profile development --dry-run --database-url sqlite:///./local.db
+    python -m tools.seed_data --profile production --database-url YOUR_DATABASE_URL
+    python -m tools.seed_data --profile production --tenant store-slug --database-url YOUR_DATABASE_URL
+
+The production profile accepts only explicitly production-safe seeds. Tenant
+seeds require a resolved tenant slug, re-runs are idempotent, and database URLs
+are not printed. See the [production seed-data framework](docs/architecture/seed-data.md)
+for ownership, audit, recovery, concurrency, and secrets rules.
+
 ## داده‌های آزمایشی
 
 - Apple iPhone 15 128GB — قیمت فرضی ۷۲٬۵۰۰٬۰۰۰ تومان
