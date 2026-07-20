@@ -63,6 +63,88 @@ class SeedRunner:
             results = tuple(completed)
         return SeedReport(profile=resolved_profile, dry_run=dry_run, results=results)
 
+    def run_in_session(
+        self,
+        session: Session,
+        profile: str | SeedProfile,
+        *,
+        tenant: TenantContext,
+        seed_names: tuple[str, ...],
+        dry_run: bool = False,
+    ) -> SeedReport:
+        """Run selected seeds inside a caller-owned transaction.
+
+        This entry point never begins, commits, rolls back, retries, or closes the
+        supplied session. It is intended for larger atomic workflows such as
+        tenant provisioning, where seed mutations and their history must share
+        the same transaction as tenant creation.
+        """
+
+        resolved_profile = SeedProfile.parse(profile)
+        definitions = self.registry.select(
+            resolved_profile,
+            names=seed_names,
+            tenant_supplied=True,
+        )
+        results: list[SeedResult] = []
+        current: SeedDefinition | None = None
+        started_at = datetime.now(UTC)
+        try:
+            for current in definitions:
+                started_at = datetime.now(UTC)
+                mutation = current.handler(
+                    SeedContext(
+                        session=session,
+                        profile=resolved_profile,
+                        tenant=tenant,
+                        dry_run=dry_run,
+                    )
+                )
+                session.flush()
+                result = self._result(current, mutation, tenant, dry_run=dry_run)
+                results.append(result)
+                session.add(
+                    SeedHistory(
+                        seed_name=current.name,
+                        seed_version=current.version,
+                        profile=resolved_profile.value,
+                        scope=current.scope.value,
+                        tenant_id=(
+                            tenant.store_id
+                            if current.scope.value == "tenant"
+                            else None
+                        ),
+                        status=result.status.value,
+                        summary=self._history_summary(result),
+                        started_at=started_at,
+                        completed_at=datetime.now(UTC),
+                    )
+                )
+                session.flush()
+        except Exception as exc:
+            if current is None:
+                raise
+            failed = SeedResult(
+                seed_name=current.name,
+                seed_version=current.version,
+                status=SeedStatus.FAILED,
+                scope=current.scope,
+                tenant_slug=tenant.store_slug,
+                dry_run=dry_run,
+                summary={"error_type": type(exc).__name__},
+            )
+            report = SeedReport(
+                profile=resolved_profile,
+                dry_run=dry_run,
+                results=(*results, failed),
+            )
+            raise SeedExecutionError(current.name, failed, report) from exc
+        return SeedReport(
+            profile=resolved_profile,
+            dry_run=dry_run,
+            results=tuple(results),
+        )
+
     def _run_dry_run(
         self,
         definitions: tuple[SeedDefinition, ...],

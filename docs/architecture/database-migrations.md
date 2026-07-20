@@ -4,8 +4,8 @@
 
 Alembic is the authoritative history for production schema changes. SQLAlchemy
 models are the runtime mapping; immutable Alembic revisions are the audited path
-between schema versions. The current history has one root and one head:
-`0001_baseline_schema`.
+between schema versions. The current history has one root,
+`0001_baseline_schema`, and one head, `0002_create_seed_history`.
 
 Application startup must never silently run Alembic migrations. Migrations are a
 separate release operation with one owner. The current application still uses
@@ -223,3 +223,6 @@ application owners. Recovery decisions must account for data, not only schema.
 
 Seed execution, profiles, tenant resolution, idempotency, and audit history are
 defined separately in the [production seed-data policy](seed-data.md).
+Explicit Store creation, atomic tenant defaults, and entitlement initialization
+are defined in the [tenant provisioning policy](tenant-provisioning.md). The
+current workflow reuses existing schema and adds no migration revision.

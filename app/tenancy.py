@@ -19,16 +19,23 @@ CORRELATION_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 CORRELATION_ID_HEADER = "x-correlation-id"
 INACTIVE_STORE_STATUSES = frozenset({"deleted", "disabled", "suspended"})
 RESERVED_STORE_SLUGS = {
-    "www",
+    "admin",
     "api",
     "app",
-    "admin",
-    "static",
-    "media",
-    "webhook",
-    "webhooks",
+    "auth",
     "docs",
     "health",
+    "internal",
+    "login",
+    "logout",
+    "static",
+    "media",
+    "openapi",
+    "public",
+    "system",
+    "webhook",
+    "webhooks",
+    "www",
 }
 
 
@@ -164,7 +171,11 @@ def correlation_id_from_request(request: Request) -> str:
 
 def normalize_store_slug(value: str) -> str:
     slug = value.strip().lower()
-    if not STORE_SLUG_PATTERN.fullmatch(slug) or slug in RESERVED_STORE_SLUGS:
+    if (
+        not STORE_SLUG_PATTERN.fullmatch(slug)
+        or "--" in slug
+        or slug in RESERVED_STORE_SLUGS
+    ):
         raise ValueError(
             "ساب‌دامنه باید فقط شامل حروف انگلیسی کوچک، عدد یا خط تیره باشد."
         )

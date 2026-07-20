@@ -115,6 +115,11 @@ DEFAULT_ACTIVE_MODULES = {
     "operator_handoff",
 }
 
+# New commercial tenants receive no billable capability implicitly. The
+# provider must request modules explicitly; dependency expansion is handled by
+# the provisioning workflow. Legacy demo-store activation remains separate.
+DEFAULT_PROVISIONING_MODULES: frozenset[str] = frozenset()
+
 
 def seed_module_catalog(db: Session) -> None:
     existing = {

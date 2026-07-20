@@ -126,11 +126,23 @@ class ContentPublishInput(ContentRevisionInput):
 class StoreCreateInput(BaseModel):
     name: str = Field(min_length=2, max_length=200)
     slug: str = Field(min_length=2, max_length=63)
+    profile: str | None = None
+    modules: list[str] = Field(default_factory=list)
 
     @field_validator("name", "slug")
     @classmethod
     def strip_store_fields(cls, value: str) -> str:
         return value.strip()
+
+    @field_validator("profile")
+    @classmethod
+    def strip_store_profile(cls, value: str | None) -> str | None:
+        return value.strip() if value is not None else None
+
+    @field_validator("modules")
+    @classmethod
+    def strip_store_modules(cls, value: list[str]) -> list[str]:
+        return [item.strip() for item in value]
 
 
 class StoreModuleUpdateInput(BaseModel):

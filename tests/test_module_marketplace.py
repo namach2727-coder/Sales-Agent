@@ -108,6 +108,28 @@ def test_provider_creates_store_and_activates_dependent_modules(module_client) -
     assert modules["comments_to_dm"]["trial_ends_at"] is not None
 
 
+def test_provider_store_endpoint_delegates_to_provisioning_service(
+    module_client, monkeypatch
+) -> None:
+    from app.provisioning.service import TenantProvisioningService
+
+    calls: list[str] = []
+    original = TenantProvisioningService.provision
+
+    def observed(self, request, *, dry_run=False):
+        calls.append(request.slug)
+        return original(self, request, dry_run=dry_run)
+
+    monkeypatch.setattr(TenantProvisioningService, "provision", observed)
+    response = module_client.post(
+        "/admin/api/provider/stores",
+        json={"name": "Delegated Store", "slug": "delegated-store"},
+        headers=MUTATION_HEADERS,
+    )
+    assert response.status_code == 200, response.text
+    assert calls == ["delegated-store"]
+
+
 def test_provider_can_edit_sample_price_and_slugs_are_validated(module_client) -> None:
     changed = module_client.patch(
         "/admin/api/provider/module-catalog/content_strategy",

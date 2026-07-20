@@ -165,6 +165,12 @@ For a new tenant, create the `Store` through the trusted provisioning workflow,
 then run tenant seeds with its explicit slug. Never create or infer a default
 production tenant.
 
+The implemented [tenant provisioning workflow](tenant-provisioning.md) uses
+`SeedRunner.run_in_session()` so tenant creation, catalog dependencies,
+tenant-scoped entitlements, seed history, verification, and activation share
+one transaction. The standalone seed CLI retains its existing transactions;
+callers must not combine the two transaction ownership models.
+
 Development/demo profiles must use isolated databases. A production invocation
 rejects every definition whose `production_safe` flag is false even if profile
 metadata was configured incorrectly.

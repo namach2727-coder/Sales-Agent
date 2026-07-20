@@ -4,7 +4,6 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.admin import require_admin_mutation, require_admin_read
@@ -21,6 +20,13 @@ from app.module_catalog import (
     module_enabled,
     serialize_store_marketplace,
     store_subdomain,
+)
+from app.provisioning import (
+    ProvisioningConflictError,
+    ProvisioningError,
+    ProvisioningValidationError,
+    TenantProvisioningRequest,
+    TenantProvisioningService,
 )
 from app.tenancy import normalize_store_slug, store_by_slug
 
@@ -100,31 +106,29 @@ def create_provider_store(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict[str, object]:
-    _ensure_module_catalog(db)
     try:
-        slug = normalize_store_slug(payload.slug)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    store = Store(name=payload.name.strip(), slug=slug, status="onboarding")
-    db.add(store)
-    try:
-        db.flush()
-    except IntegrityError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=409, detail="این ساب‌دامنه قبلاً استفاده شده است."
-        ) from exc
-    ensure_store_modules(db, store, activate_legacy_defaults=False)
-    db.add(
-        AdminAuditLog(
-            store_id=store.id,
-            action="store_created",
-            entity_type="store",
-            entity_id=str(store.id),
-            details_json={"slug": store.slug},
+        profile = payload.profile or (
+            settings.app_env
+            if settings.app_env in {"production", "development", "test", "demo"}
+            else "development"
         )
-    )
-    db.commit()
+        result = TenantProvisioningService(db).provision(
+            TenantProvisioningRequest(
+                name=payload.name,
+                slug=payload.slug,
+                profile=profile,
+                requested_module_codes=tuple(payload.modules),
+            )
+        )
+    except ProvisioningConflictError as exc:
+        raise HTTPException(status_code=409, detail="Tenant slug already exists") from exc
+    except ProvisioningValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ProvisioningError as exc:
+        raise HTTPException(status_code=500, detail="Tenant provisioning failed") from exc
+    store = db.get(Store, result.tenant_id)
+    if store is None:
+        raise HTTPException(status_code=500, detail="Tenant provisioning failed")
     return serialize_store_marketplace(
         db, store, settings, can_manage_modules=True
     )

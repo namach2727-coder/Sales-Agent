@@ -37,6 +37,21 @@ seeds require a resolved tenant slug, re-runs are idempotent, and database URLs
 are not printed. See the [production seed-data framework](docs/architecture/seed-data.md)
 for ownership, audit, recovery, concurrency, and secrets rules.
 
+## Tenant provisioning
+
+Create commercial tenants only through the explicit transactional workflow. A
+tenant remains uncommitted in `provisioning` state until tenant seeds, module
+entitlements, verification, active status, and safe audit all succeed. Dry-run
+executes the same plan and rolls everything back:
+
+    python -m tools.provision_tenant --name "Validation Store" --slug validation-store --profile development --dry-run --database-url sqlite:///./temp_provisioning_validation.db
+
+Use repeated `--module MODULE_CODE` arguments for modules that should be active;
+otherwise every entitlement remains inactive. The database must already be at
+Alembic head. See [tenant provisioning architecture](docs/architecture/tenant-provisioning.md)
+for lifecycle, slug rules, transactions, CLI exit codes, audit, concurrency,
+and recovery.
+
 ## داده‌های آزمایشی
 
 - Apple iPhone 15 128GB — قیمت فرضی ۷۲٬۵۰۰٬۰۰۰ تومان
