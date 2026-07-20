@@ -57,6 +57,17 @@ The registry intentionally starts small:
 - `tenant.module_entitlements` (`tenant`, version 1): creates missing inactive
   `StoreModule` rows for one resolved tenant using the existing unique
   `(store_id, module_code)` constraint. It depends on the global module catalog.
+- `system.auth_permissions` (`global`, version 1): creates the centrally defined
+  stable permission codes.
+- `system.auth_roles` (`global`, version 1): creates system platform and tenant
+  role definitions.
+- `system.auth_role_permissions` (`global`, version 1): creates the validated
+  role-to-permission mappings after both catalogs exist.
+
+The three authorization seeds are create-only, production-safe, and
+credential-free. They do not assign roles, create memberships, or create users.
+Authorization bootstrap and catalog ownership are detailed in
+[authorization-rbac.md](authorization-rbac.md).
 
 No production seed creates customers, leads, orders, conversations, messages,
 products, FAQs, social-media connections, credentials, or tokens. Existing MVP

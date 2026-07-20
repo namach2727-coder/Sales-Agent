@@ -9,7 +9,14 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from app.models import AdminAuditLog, ModuleDefinition, SeedHistory, Store, StoreModule
+from app.models import (
+    AdminAuditLog,
+    ModuleDefinition,
+    SeedHistory,
+    Store,
+    StoreModule,
+    TenantMembership,
+)
 from app.provisioning import (
     ProvisioningConflictError,
     ProvisioningExecutionError,
@@ -98,6 +105,7 @@ def test_valid_provisioning_is_atomic_audited_and_tenant_scoped(
         )
         assert audit is not None
         assert audit.details_json["operation_id"] == result.operation_id
+        assert session.scalar(select(func.count()).select_from(TenantMembership)) == 0
 
 
 def test_slug_is_trimmed_and_lowercased(provisioning_engine: Engine) -> None:

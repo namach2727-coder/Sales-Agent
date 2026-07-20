@@ -130,6 +130,44 @@ def test_provider_store_endpoint_delegates_to_provisioning_service(
     assert calls == ["delegated-store"]
 
 
+def test_high_risk_provider_routes_require_explicit_rbac_permissions(
+    module_client, monkeypatch
+) -> None:
+    from app.authz.context import AuthorizationPrincipal, PrincipalType
+    from app.authz import dependencies
+
+    monkeypatch.setattr(
+        dependencies,
+        "local_provider_admin_principal",
+        lambda: AuthorizationPrincipal(
+            "authenticated-without-role",
+            PrincipalType.PROVIDER_ADMIN,
+            True,
+        ),
+    )
+    create = module_client.post(
+        "/admin/api/provider/stores",
+        json={"name": "Denied Store", "slug": "denied-store"},
+        headers=MUTATION_HEADERS,
+    )
+    catalog = module_client.patch(
+        "/admin/api/provider/module-catalog/content_strategy",
+        json={"monthly_price_irr": 1, "setup_price_irr": 0},
+        headers=MUTATION_HEADERS,
+    )
+    entitlement = module_client.patch(
+        "/admin/api/provider/stores/default/modules/sales_agent_core",
+        json={"status": "inactive"},
+        headers=MUTATION_HEADERS,
+    )
+    assert create.status_code == 403
+    assert catalog.status_code == 403
+    assert entitlement.status_code == 403
+    assert create.json() == catalog.json() == entitlement.json() == {
+        "detail": "Permission denied"
+    }
+
+
 def test_provider_can_edit_sample_price_and_slugs_are_validated(module_client) -> None:
     changed = module_client.patch(
         "/admin/api/provider/module-catalog/content_strategy",

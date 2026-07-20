@@ -553,3 +553,135 @@ class SeedHistory(Base):
     summary: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AuthPermission(Base):
+    """Stable, system-seeded authorization capability."""
+
+    __tablename__ = "auth_permissions"
+
+    code: Mapped[str] = mapped_column(String(100), primary_key=True)
+    scope: Mapped[str] = mapped_column(String(20), index=True)
+    description: Mapped[str] = mapped_column(String(500))
+    system_managed: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+class AuthRole(Base):
+    """Role definition; assignments are stored separately by scope."""
+
+    __tablename__ = "auth_roles"
+
+    code: Mapped[str] = mapped_column(String(100), primary_key=True)
+    display_name: Mapped[str] = mapped_column(String(200))
+    scope: Mapped[str] = mapped_column(String(20), index=True)
+    description: Mapped[str] = mapped_column(String(500), default="")
+    system_managed: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+class AuthRolePermission(Base):
+    __tablename__ = "auth_role_permissions"
+    __table_args__ = (
+        UniqueConstraint("role_code", "permission_code", name="uq_auth_role_permission"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    role_code: Mapped[str] = mapped_column(
+        ForeignKey("auth_roles.code"), index=True
+    )
+    permission_code: Mapped[str] = mapped_column(
+        ForeignKey("auth_permissions.code"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class TenantMembership(Base):
+    """Explicit principal membership in exactly one tenant."""
+
+    __tablename__ = "tenant_memberships"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "principal_type",
+            "principal_id",
+            name="uq_tenant_membership_principal",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("stores.id"), index=True)
+    principal_type: Mapped[str] = mapped_column(String(30))
+    principal_id: Mapped[str] = mapped_column(String(200), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+class AuthPlatformRoleAssignment(Base):
+    __tablename__ = "auth_platform_role_assignments"
+    __table_args__ = (
+        UniqueConstraint(
+            "principal_type",
+            "principal_id",
+            "role_code",
+            name="uq_auth_platform_principal_role",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    principal_type: Mapped[str] = mapped_column(String(30))
+    principal_id: Mapped[str] = mapped_column(String(200), index=True)
+    role_code: Mapped[str] = mapped_column(ForeignKey("auth_roles.code"), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+class AuthTenantRoleAssignment(Base):
+    __tablename__ = "auth_tenant_role_assignments"
+    __table_args__ = (
+        UniqueConstraint("membership_id", "role_code", name="uq_auth_tenant_membership_role"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    membership_id: Mapped[int] = mapped_column(
+        ForeignKey("tenant_memberships.id"), index=True
+    )
+    role_code: Mapped[str] = mapped_column(ForeignKey("auth_roles.code"), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+class AuthAuditLog(Base):
+    """Credential-free audit for access configuration mutations."""
+
+    __tablename__ = "auth_audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("stores.id"), nullable=True, index=True
+    )
+    actor_principal_type: Mapped[str] = mapped_column(String(30))
+    actor_principal_id: Mapped[str] = mapped_column(String(200), index=True)
+    action: Mapped[str] = mapped_column(String(100), index=True)
+    target_principal_type: Mapped[str] = mapped_column(String(30))
+    target_principal_id: Mapped[str] = mapped_column(String(200))
+    target_role_code: Mapped[str] = mapped_column(String(100))
+    outcome: Mapped[str] = mapped_column(String(20), default="succeeded")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, index=True
+    )

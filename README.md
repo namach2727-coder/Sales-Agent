@@ -52,6 +52,21 @@ Alembic head. See [tenant provisioning architecture](docs/architecture/tenant-pr
 for lifecycle, slug rules, transactions, CLI exit codes, audit, concurrency,
 and recovery.
 
+## Authorization and RBAC
+
+Platform and Store access is deny-by-default and resolves through explicit,
+seeded role-to-permission mappings. Tenant membership alone grants no access,
+tenant permissions require an explicit trusted tenant context, and module
+entitlement is separate from principal permission. Apply migrations, run the
+production-safe authorization seeds, then use the explicit administration CLI:
+
+    python -m tools.seed_data --profile production --database-url YOUR_DATABASE_URL
+    python -m tools.manage_access list-roles --database-url YOUR_DATABASE_URL
+    python -m tools.manage_access assign-role --principal-type provider_admin --principal-id admin-1 --role platform_operator --database-url YOUR_DATABASE_URL
+
+No identity or tenant is inferred or created by the access CLI. See the
+[RBAC architecture and bootstrap runbook](docs/architecture/authorization-rbac.md).
+
 ## داده‌های آزمایشی
 
 - Apple iPhone 15 128GB — قیمت فرضی ۷۲٬۵۰۰٬۰۰۰ تومان

@@ -20,7 +20,16 @@ from tools.seeding import (
 from tools.migration_policy import load_script_directory
 
 
-REQUIRED_TABLES = {"module_definitions", "seed_history", "store_modules", "stores"}
+REQUIRED_TABLES = {
+    "auth_permissions",
+    "auth_roles",
+    "auth_role_permissions",
+    "module_definitions",
+    "seed_history",
+    "store_modules",
+    "stores",
+    "tenant_memberships",
+}
 
 
 def build_parser() -> argparse.ArgumentParser:

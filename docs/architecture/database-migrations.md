@@ -226,3 +226,9 @@ defined separately in the [production seed-data policy](seed-data.md).
 Explicit Store creation, atomic tenant defaults, and entitlement initialization
 are defined in the [tenant provisioning policy](tenant-provisioning.md). The
 current workflow reuses existing schema and adds no migration revision.
+
+Authorization tables are introduced by `0003_authorization_rbac`, immediately
+after `0002_create_seed_history`. The revision has a full downgrade and must
+remain the single head until the next sequential revision. Role and permission
+definitions are data owned by explicit seeds, not by the migration. See the
+[RBAC architecture](authorization-rbac.md).

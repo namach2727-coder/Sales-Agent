@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app.admin import require_admin_mutation, require_admin_read
+from app.authz.dependencies import require_admin_permission
+from app.authz.permissions import PermissionCode
 from app.admin_schemas import (
     ModulePriceUpdateInput,
     StoreCreateInput,
@@ -53,7 +54,7 @@ def _ensure_catalog_and_legacy_store(db: Session) -> Store:
 
 @router.get(
     "/admin/api/module-marketplace",
-    dependencies=[Depends(require_admin_read)],
+    dependencies=[Depends(require_admin_permission(PermissionCode.TENANT_READ, mutation=False))],
 )
 def module_marketplace(
     store_slug: str = Query(default="default", min_length=1, max_length=63),
@@ -73,7 +74,7 @@ def module_marketplace(
 
 @router.get(
     "/admin/api/provider/stores",
-    dependencies=[Depends(require_admin_read)],
+    dependencies=[Depends(require_admin_permission(PermissionCode.TENANT_READ, mutation=False))],
 )
 def provider_stores(
     db: Session = Depends(get_db),
@@ -99,7 +100,7 @@ def provider_stores(
 
 @router.post(
     "/admin/api/provider/stores",
-    dependencies=[Depends(require_admin_mutation)],
+    dependencies=[Depends(require_admin_permission(PermissionCode.TENANT_PROVISION, mutation=True))],
 )
 def create_provider_store(
     payload: StoreCreateInput,
@@ -164,7 +165,7 @@ def _dependency_names(
 
 @router.patch(
     "/admin/api/provider/stores/{store_slug}/modules/{module_code}",
-    dependencies=[Depends(require_admin_mutation)],
+    dependencies=[Depends(require_admin_permission(PermissionCode.TENANT_UPDATE, mutation=True))],
 )
 def update_store_module(
     store_slug: str,
@@ -231,7 +232,7 @@ def update_store_module(
 
 @router.patch(
     "/admin/api/provider/module-catalog/{module_code}",
-    dependencies=[Depends(require_admin_mutation)],
+    dependencies=[Depends(require_admin_permission(PermissionCode.MODULE_CATALOG_MANAGE, mutation=True))],
 )
 def update_catalog_price(
     module_code: str,

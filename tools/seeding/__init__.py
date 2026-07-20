@@ -16,11 +16,13 @@ from tools.seeding.context import (
 from tools.seeding.registry import SeedDefinition, SeedRegistry
 from tools.seeding.runner import SeedRunner
 from tools.seeding.seeds.system import register_system_seeds
+from tools.seeding.seeds.authorization import register_authorization_seeds
 
 
 def default_registry() -> SeedRegistry:
     registry = SeedRegistry()
     register_system_seeds(registry)
+    register_authorization_seeds(registry)
     return registry
 
 
@@ -41,4 +43,3 @@ __all__ = [
     "SeedValidationError",
     "default_registry",
 ]
-

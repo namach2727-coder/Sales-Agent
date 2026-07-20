@@ -14,7 +14,17 @@ from app import models  # noqa: F401 - registers metadata
 
 
 ROOT = Path(__file__).resolve().parents[1]
-BASELINE_TABLES = set(Base.metadata.tables) - {"seed_history"}
+POST_BASELINE_TABLES = {
+    "seed_history",
+    "auth_permissions",
+    "auth_roles",
+    "auth_role_permissions",
+    "tenant_memberships",
+    "auth_platform_role_assignments",
+    "auth_tenant_role_assignments",
+    "auth_audit_logs",
+}
+BASELINE_TABLES = set(Base.metadata.tables) - POST_BASELINE_TABLES
 ALEMBIC_AVAILABLE = importlib.util.find_spec("alembic.config") is not None
 requires_alembic = pytest.mark.skipif(
     not ALEMBIC_AVAILABLE,
@@ -142,11 +152,13 @@ def test_alembic_loads_with_one_linear_head() -> None:
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0002_create_seed_history"]
+    assert scripts.get_heads() == ["0003_authorization_rbac"]
     baseline = scripts.get_revision("0001_baseline_schema")
-    head = scripts.get_revision("0002_create_seed_history")
+    seed_history = scripts.get_revision("0002_create_seed_history")
+    head = scripts.get_revision("0003_authorization_rbac")
     assert baseline is not None and baseline.down_revision is None
-    assert head is not None and head.down_revision == "0001_baseline_schema"
+    assert seed_history is not None and seed_history.down_revision == "0001_baseline_schema"
+    assert head is not None and head.down_revision == "0002_create_seed_history"
 
 
 @requires_alembic
@@ -201,6 +213,7 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
+        "0003_authorization_rbac",
         "0002_create_seed_history",
         "0001_baseline_schema",
     ]

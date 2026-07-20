@@ -35,6 +35,13 @@ deferred to a separately designed workflow.
 No credentials, access tokens, connector accounts, customer records, fake
 orders, or social-media data are accepted or provisioned.
 
+Provisioning also does not infer an owner identity. When no explicit owner
+principal is part of the contract (the current state), it creates no
+`TenantMembership` and no tenant role assignment. Onboarding must explicitly
+assign `tenant_owner` through the authorization administration workflow after
+the Store commits. Membership alone would still grant no permission. See
+[authorization-rbac.md](authorization-rbac.md).
+
 ## Slug rules and reserved names
 
 Slugs are trimmed and lowercased. A valid slug is 1 through 63 ASCII characters,
