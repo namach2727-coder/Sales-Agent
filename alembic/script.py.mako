@@ -17,6 +17,10 @@ down_revision: Union[str, Sequence[str], None] = ${repr(down_revision)}
 branch_labels: Union[str, Sequence[str], None] = ${repr(branch_labels)}
 depends_on: Union[str, Sequence[str], None] = ${repr(depends_on)}
 
+# Set either acknowledgement to True only after explicit review and documentation.
+DESTRUCTIVE_MIGRATION_ACKNOWLEDGED = False
+EMPTY_DOWNGRADE_ALLOWED = False
+
 
 def upgrade() -> None:
     ${upgrades if upgrades else "pass"}
