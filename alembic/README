@@ -1,0 +1,2 @@
+Alembic is the authoritative database migration framework for this project.
+Revision files are stored in versions/. See docs/architecture/database-migrations.md.

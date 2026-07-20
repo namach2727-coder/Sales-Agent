@@ -9,6 +9,7 @@ routes do not exist on this app.
 from contextlib import asynccontextmanager
 import logging
 from pathlib import Path
+from threading import RLock
 
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
@@ -24,22 +25,51 @@ from app.module_catalog import ensure_default_instagram_connection, ensure_store
 
 
 LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
-LOG_DIR.mkdir(exist_ok=True)
-SAFE_ACCESS_LOG = logging.getLogger("instagram_gateway.safe_access")
-if not SAFE_ACCESS_LOG.handlers:
-    handler = logging.FileHandler(
-        LOG_DIR / "instagram_gateway_access.log", encoding="utf-8"
-    )
-    handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
-    SAFE_ACCESS_LOG.addHandler(handler)
-    SAFE_ACCESS_LOG.setLevel(logging.INFO)
-    SAFE_ACCESS_LOG.propagate = False
+SAFE_ACCESS_LOG_PATH = LOG_DIR / "instagram_gateway_access.log"
+_SAFE_ACCESS_LOG_LOCK = RLock()
+
+
+def configure_safe_access_logger() -> tuple[logging.Logger, logging.FileHandler]:
+    """Return the process-wide safe access logger in a usable state.
+
+    The function is idempotent and intentionally owns only the file handler for
+    this log.  It neither clears nor replaces handlers installed by the host
+    process.  Re-enabling the named logger also makes startup deterministic when
+    third-party code has configured logging before this app is created.
+    """
+
+    with _SAFE_ACCESS_LOG_LOCK:
+        LOG_DIR.mkdir(exist_ok=True)
+        logger = logging.getLogger("instagram_gateway.safe_access")
+        expected_path = SAFE_ACCESS_LOG_PATH.resolve()
+        handler = next(
+            (
+                candidate
+                for candidate in logger.handlers
+                if isinstance(candidate, logging.FileHandler)
+                and Path(candidate.baseFilename).resolve() == expected_path
+            ),
+            None,
+        )
+        if handler is None:
+            handler = logging.FileHandler(SAFE_ACCESS_LOG_PATH, encoding="utf-8")
+            handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+            logger.addHandler(handler)
+
+        logger.disabled = False
+        logger.setLevel(logging.INFO)
+        logger.propagate = False
+        return logger, handler
+
+
+SAFE_ACCESS_LOG, _ = configure_safe_access_logger()
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Create shared database tables when this entry point starts alone."""
 
+    configure_safe_access_logger()
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         store = ensure_default_store(db)
@@ -63,9 +93,10 @@ app = FastAPI(
 async def log_safe_access(request: Request, call_next):
     """Log only method, path, and status; never query strings or secrets."""
     response = await call_next(request)
-    SAFE_ACCESS_LOG.info(
-        "%s %s %s", request.method, request.url.path, response.status_code
-    )
+    logger, handler = configure_safe_access_logger()
+    with _SAFE_ACCESS_LOG_LOCK:
+        logger.info("%s %s %s", request.method, request.url.path, response.status_code)
+        handler.flush()
     return response
 
 app.include_router(legal_router)
