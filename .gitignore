@@ -14,3 +14,11 @@ test_temp_run/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local tools and tunnel artifacts
+tools/*.exe
+tools/*.log
+tools/*.json
+tools/*known-hosts*
+tools/pinggy-python/
+tools/pinggy-python-dist/
