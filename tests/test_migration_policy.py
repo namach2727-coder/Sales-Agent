@@ -77,7 +77,7 @@ def test_current_migration_history_satisfies_policy() -> None:
 
 def test_current_history_has_exactly_one_head_and_valid_baseline_name() -> None:
     scripts = load_script_directory(ROOT)
-    assert scripts.get_heads() == ["0003_authorization_rbac"]
+    assert scripts.get_heads() == ["0004_authentication_identity"]
     baseline = ROOT / "alembic" / "versions" / "0001_baseline_schema.py"
     assert parse_revision_source(baseline).revision == baseline.stem
 

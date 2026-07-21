@@ -23,6 +23,9 @@ POST_BASELINE_TABLES = {
     "auth_platform_role_assignments",
     "auth_tenant_role_assignments",
     "auth_audit_logs",
+    "user_identities",
+    "auth_sessions",
+    "identity_audit_logs",
 }
 BASELINE_TABLES = set(Base.metadata.tables) - POST_BASELINE_TABLES
 ALEMBIC_AVAILABLE = importlib.util.find_spec("alembic.config") is not None
@@ -152,13 +155,15 @@ def test_alembic_loads_with_one_linear_head() -> None:
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0003_authorization_rbac"]
+    assert scripts.get_heads() == ["0004_authentication_identity"]
     baseline = scripts.get_revision("0001_baseline_schema")
     seed_history = scripts.get_revision("0002_create_seed_history")
-    head = scripts.get_revision("0003_authorization_rbac")
+    rbac = scripts.get_revision("0003_authorization_rbac")
+    head = scripts.get_revision("0004_authentication_identity")
     assert baseline is not None and baseline.down_revision is None
     assert seed_history is not None and seed_history.down_revision == "0001_baseline_schema"
-    assert head is not None and head.down_revision == "0002_create_seed_history"
+    assert rbac is not None and rbac.down_revision == "0002_create_seed_history"
+    assert head is not None and head.down_revision == "0003_authorization_rbac"
 
 
 @requires_alembic
@@ -213,6 +218,7 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
+        "0004_authentication_identity",
         "0003_authorization_rbac",
         "0002_create_seed_history",
         "0001_baseline_schema",

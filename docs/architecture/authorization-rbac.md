@@ -27,10 +27,11 @@ other authorization failures and do not disclose resource existence.
 - temporary server-generated bootstrap roles used only by the local provider
   compatibility adapter.
 
-The RBAC schema deliberately does not invent a persistent user model. Principal
-identifiers refer to identities owned by the current or future authentication
-provider. Anonymous principals are always denied. Direct permission grants are
-not implemented; all grants resolve through role-to-permission mappings.
+FOUNDATION-04 now resolves persistent `UserIdentity` records through opaque
+sessions into this abstraction; future providers can use the same boundary.
+Anonymous principals are always denied. Direct permission grants are not
+implemented; all grants resolve through role-to-permission mappings. See
+[authentication-identity.md](authentication-identity.md).
 
 ## Permission codes and scopes
 
@@ -214,14 +215,15 @@ Commands include `list-permissions`, `list-roles`,
 Exit codes are 0 success, 1 execution/database failure, 2 validation failure,
 and 3 assignment conflict. Output does not echo database URLs or credentials.
 
-The current application has no production identity provider. During migration,
+During migration,
 the already-authenticated development-only local provider admin is mapped
 server-side to the finite `platform_super_admin` catalog role. The controlled
 CLI uses the same explicit bootstrap authority so an operator can assign the
 first persistent platform principal after migrations and authorization seeds.
 This is a documented compatibility adapter, not a public bypass. Replace it
-with a verified deployment/service identity when production OIDC is introduced,
-then remove the adapter after at least one tested persistent super-admin exists.
+with verified persistent administration, then remove the adapter after at least
+one tested persistent super-admin exists. A future OIDC provider must resolve
+through the same principal boundary.
 
 ## Concurrency and database behavior
 

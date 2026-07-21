@@ -232,3 +232,9 @@ after `0002_create_seed_history`. The revision has a full downgrade and must
 remain the single head until the next sequential revision. Role and permission
 definitions are data owned by explicit seeds, not by the migration. See the
 [RBAC architecture](authorization-rbac.md).
+
+Persistent identities and opaque sessions are introduced by
+`0004_authentication_identity`. It extends tenant membership with an optional
+constrained user foreign key without selecting an owner. Identity data and
+passwords are never embedded in migrations. See
+[authentication-identity.md](authentication-identity.md).

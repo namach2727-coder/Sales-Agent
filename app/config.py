@@ -2,6 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 
 
 ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
@@ -33,6 +34,15 @@ class Settings(BaseSettings):
     telegram_poll_timeout: int = 25
     manychat_dynamic_block_secret: str = ""
     openai_api_key: str = ""
+    authentication_enabled: bool = True
+    legacy_admin_adapter_enabled: bool = True
+    session_ttl_minutes: int = Field(default=480, ge=5, le=43200)
+    session_cookie_name: str = Field(default="sales_agent_session", min_length=3, max_length=64)
+    session_cookie_secure: bool = True
+    password_min_length: int = Field(default=12, ge=10, le=128)
+    password_max_length: int = Field(default=1024, ge=128, le=4096)
+    login_max_failures: int = Field(default=5, ge=2, le=100)
+    login_lockout_minutes: int = Field(default=15, ge=1, le=1440)
 
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 

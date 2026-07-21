@@ -67,6 +67,19 @@ production-safe authorization seeds, then use the explicit administration CLI:
 No identity or tenant is inferred or created by the access CLI. See the
 [RBAC architecture and bootstrap runbook](docs/architecture/authorization-rbac.md).
 
+## Authentication and identities
+
+Persistent users authenticate with Argon2id passwords and revocable opaque
+server-side sessions. Raw tokens are never stored, membership alone grants no
+permission, and client user/tenant/role claims are not trusted. Create users
+only through the interactive CLI; there is no public registration or production
+default user:
+
+    python -m tools.manage_identities create-user --email admin@example.com --display-name "Admin" --database-url YOUR_DATABASE_URL
+    python -m tools.manage_access assign-role --principal-type user --principal-id USER_ID --role platform_operator --database-url YOUR_DATABASE_URL
+
+See the [authentication and identity architecture](docs/architecture/authentication-identity.md).
+
 ## داده‌های آزمایشی
 
 - Apple iPhone 15 128GB — قیمت فرضی ۷۲٬۵۰۰٬۰۰۰ تومان

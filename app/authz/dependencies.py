@@ -78,11 +78,19 @@ def require_admin_permission(
         db: Session = Depends(get_db),
         settings: Settings = Depends(get_settings),
     ) -> AuthorizationPrincipal:
-        if mutation:
-            require_admin_mutation(request, settings)
+        from app.authentication.dependencies import resolve_request_principal
+
+        authenticated = resolve_request_principal(request, db, settings)
+        if authenticated is not None:
+            principal = authenticated.as_authorization_principal()
         else:
-            require_admin_read(request, settings)
-        principal = local_provider_admin_principal()
+            if not settings.legacy_admin_adapter_enabled:
+                raise HTTPException(status_code=401, detail="Authentication required")
+            if mutation:
+                require_admin_mutation(request, settings)
+            else:
+                require_admin_read(request, settings)
+            principal = local_provider_admin_principal()
         try:
             AuthorizationService(db).require(principal, permission_code)
         except PermissionDeniedError as exc:

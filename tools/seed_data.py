@@ -29,6 +29,9 @@ REQUIRED_TABLES = {
     "store_modules",
     "stores",
     "tenant_memberships",
+    "user_identities",
+    "auth_sessions",
+    "identity_audit_logs",
 }
 
 

@@ -17,12 +17,14 @@ from tools.seeding.registry import SeedDefinition, SeedRegistry
 from tools.seeding.runner import SeedRunner
 from tools.seeding.seeds.system import register_system_seeds
 from tools.seeding.seeds.authorization import register_authorization_seeds
+from tools.seeding.seeds.identity import register_identity_seeds
 
 
 def default_registry() -> SeedRegistry:
     registry = SeedRegistry()
     register_system_seeds(registry)
     register_authorization_seeds(registry)
+    register_identity_seeds(registry)
     return registry
 
 

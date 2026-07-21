@@ -16,6 +16,7 @@ from app.models import (
     AuthPermission,
     AuthRole,
     AuthRolePermission,
+    UserIdentity,
     ModuleDefinition,
     SeedHistory,
     Store,
@@ -192,6 +193,7 @@ def test_dry_run_shows_dependency_operations_but_persists_nothing(seed_engine: E
         "system.auth_permissions",
         "system.auth_roles",
         "system.auth_role_permissions",
+        "development.disabled_identity_placeholder",
     ]
     assert all(result.status is SeedStatus.CREATED for result in report.results)
     with Session(seed_engine) as session:
@@ -200,6 +202,7 @@ def test_dry_run_shows_dependency_operations_but_persists_nothing(seed_engine: E
         assert session.scalar(select(func.count()).select_from(AuthPermission)) == 0
         assert session.scalar(select(func.count()).select_from(AuthRole)) == 0
         assert session.scalar(select(func.count()).select_from(AuthRolePermission)) == 0
+        assert session.scalar(select(func.count()).select_from(UserIdentity)) == 0
         assert session.scalar(select(func.count()).select_from(SeedHistory)) == 0
 
 
@@ -397,7 +400,7 @@ def test_migration_graph_still_has_exactly_one_head() -> None:
     from alembic.script import ScriptDirectory
 
     scripts = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
-    assert scripts.get_heads() == ["0003_authorization_rbac"]
+    assert scripts.get_heads() == ["0004_authentication_identity"]
 
 
 def test_application_startup_does_not_seed_data(tmp_path: Path, monkeypatch) -> None:

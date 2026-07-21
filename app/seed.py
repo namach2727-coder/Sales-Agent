@@ -54,6 +54,11 @@ DEMO_FAQS = [
 
 
 def seed_demo_catalog(db: Session) -> None:
+    _add_demo_catalog(db)
+    db.commit()
+
+
+def _add_demo_catalog(db: Session) -> None:
     existing_products = set(db.scalars(select(Product.name)).all())
     for data in DEMO_PRODUCTS:
         if data["name"] not in existing_products:
@@ -64,4 +69,19 @@ def seed_demo_catalog(db: Session) -> None:
         if data["question"] not in existing_faqs:
             db.add(FAQ(**data))
 
-    db.commit()
+
+def bootstrap_development_demo_data(db: Session) -> None:
+    """Restore the legacy business demo for application-managed sessions.
+
+    This is intentionally separate from application startup and from the
+    production seed framework. It is called only by the development/demo/test
+    session factory, remains idempotent, and creates no identities or secrets.
+    """
+
+    from app.catalog_training import ensure_default_store
+    from app.module_catalog import ensure_store_modules
+
+    with db.begin():
+        _add_demo_catalog(db)
+        store = ensure_default_store(db)
+        ensure_store_modules(db, store, activate_legacy_defaults=True)

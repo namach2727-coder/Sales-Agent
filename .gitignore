@@ -4,6 +4,7 @@ __pycache__/
 *.py[cod]
 *.db
 .pytest_cache/
+.pytest-tmp-*/
 private_media/
 
 logs/

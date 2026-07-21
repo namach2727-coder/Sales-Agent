@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -613,9 +614,17 @@ class TenantMembership(Base):
             "principal_id",
             name="uq_tenant_membership_principal",
         ),
+        UniqueConstraint("tenant_id", "user_id", name="uq_tenant_membership_user"),
+        CheckConstraint(
+            "status IN ('active', 'disabled')",
+            name="ck_tenant_memberships_status",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("user_identities.id"), nullable=True, index=True
+    )
     tenant_id: Mapped[int] = mapped_column(ForeignKey("stores.id"), index=True)
     principal_type: Mapped[str] = mapped_column(String(30))
     principal_id: Mapped[str] = mapped_column(String(200), index=True)
@@ -623,6 +632,90 @@ class TenantMembership(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+class UserIdentity(Base):
+    """Persistent login identity; hashes are never serialized by API schemas."""
+
+    __tablename__ = "user_identities"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('active', 'disabled')", name="ck_user_identities_status"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(320))
+    normalized_email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(200))
+    password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    is_service_account: Mapped[bool] = mapped_column(Boolean, default=False)
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    password_changed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+class AuthSession(Base):
+    """Revocable opaque session. Only a one-way token digest is persisted."""
+
+    __tablename__ = "auth_sessions"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('active', 'revoked', 'expired')",
+            name="ck_auth_sessions_status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user_identities.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    user_agent_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class IdentityAuditLog(Base):
+    """Sanitized security event without credentials or request payloads."""
+
+    __tablename__ = "identity_audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event_code: Mapped[str] = mapped_column(String(100), index=True)
+    actor_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("user_identities.id"), nullable=True, index=True
+    )
+    target_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("user_identities.id"), nullable=True, index=True
+    )
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("stores.id"), nullable=True, index=True
+    )
+    session_id: Mapped[str | None] = mapped_column(
+        ForeignKey("auth_sessions.id"), nullable=True, index=True
+    )
+    outcome: Mapped[str] = mapped_column(String(20), default="succeeded")
+    reason_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, index=True
     )
 
 

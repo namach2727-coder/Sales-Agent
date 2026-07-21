@@ -69,6 +69,14 @@ credential-free. They do not assign roles, create memberships, or create users.
 Authorization bootstrap and catalog ownership are detailed in
 [authorization-rbac.md](authorization-rbac.md).
 
+- `development.disabled_identity_placeholder` (`global`, version 1) creates a
+  disabled passwordless `.invalid` placeholder only for development, demo, and
+  test. It is not production-safe and cannot authenticate.
+
+No profile seeds a login-capable user or reusable password, and production
+selection contains no identity seed. Create users explicitly through the
+interactive CLI described in [authentication-identity.md](authentication-identity.md).
+
 No production seed creates customers, leads, orders, conversations, messages,
 products, FAQs, social-media connections, credentials, or tokens. Existing MVP
 demo catalog helpers remain legacy application utilities; they are not registered

@@ -42,6 +42,11 @@ assign `tenant_owner` through the authorization administration workflow after
 the Store commits. Membership alone would still grant no permission. See
 [authorization-rbac.md](authorization-rbac.md).
 
+Persistent identities do not change this rule. Onboarding explicitly adds the
+user membership with `tools.manage_identities`, then assigns the tenant role
+with `tools.manage_access`; provisioning never infers an owner from email,
+session, or caller.
+
 ## Slug rules and reserved names
 
 Slugs are trimmed and lowercased. A valid slug is 1 through 63 ASCII characters,
