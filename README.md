@@ -65,6 +65,25 @@ Alembic head. See [tenant provisioning architecture](docs/architecture/tenant-pr
 for lifecycle, slug rules, transactions, CLI exit codes, audit, concurrency,
 and recovery.
 
+## Tenant and store management
+
+FOUNDATION-05 separates the commercial tenant boundary from its operational
+stores. Versioned management APIs are available under `/api/v1`; they use opaque
+public IDs, tenant-scoped authorization, explicit store assignments, lifecycle
+controls, and credential-free audit records.
+
+Provision a tenant and its first store atomically for an existing verified
+identity:
+
+```powershell
+python -m tools.bootstrap_tenant --database-url $env:DATABASE_URL `
+  --owner-email owner@example.com --tenant-name "Example Commerce" `
+  --tenant-slug example --store-name "Main Store" --store-slug main
+```
+
+See [Tenant and Store Management](docs/architecture/tenant-store-management.md)
+for the boundary model, API behavior, lifecycle, and deployment procedure.
+
 ## Authorization and RBAC
 
 Platform and Store access is deny-by-default and resolves through explicit,

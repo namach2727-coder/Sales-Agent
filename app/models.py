@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+import uuid
 
 from sqlalchemy import (
     JSON,
@@ -8,6 +9,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    Index,
     String,
     Text,
     UniqueConstraint,
@@ -19,6 +21,10 @@ from app.database import Base
 
 def utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def new_public_id() -> str:
+    return str(uuid.uuid4())
 
 
 class Product(Base):
@@ -174,22 +180,94 @@ class ManyChatEvent(Base):
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-class Store(Base):
-    __tablename__ = "stores"
+class Tenant(Base):
+    """Top-level customer boundary. Business data is never hard-deleted."""
+
+    __tablename__ = "tenants"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('active', 'suspended', 'archived')",
+            name="ck_tenants_status",
+        ),
+        Index("ix_tenants_slug_lower", "slug", unique=True),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), default=new_public_id, unique=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(200))
-    slug: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    slug: Mapped[str] = mapped_column(String(63))
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    created_by_identity_id: Mapped[int | None] = mapped_column(
+        ForeignKey("user_identities.id"), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    stores: Mapped[list["Store"]] = relationship(back_populates="tenant")
+    memberships: Mapped[list["TenantMembership"]] = relationship(back_populates="tenant")
+
+
+class Store(Base):
+    __tablename__ = "stores"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "slug", name="uq_stores_tenant_slug"),
+        UniqueConstraint("subdomain", name="uq_stores_subdomain"),
+        UniqueConstraint("custom_domain", name="uq_stores_custom_domain"),
+        CheckConstraint(
+            "status IN ('active', 'suspended', 'archived', 'onboarding', 'provisioning', 'disabled', 'deleted')",
+            name="ck_stores_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), default=new_public_id, unique=True, index=True
+    )
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    slug: Mapped[str] = mapped_column(String(63), index=True)
     status: Mapped[str] = mapped_column(String(20), default="onboarding", index=True)
+    timezone: Mapped[str] = mapped_column(String(64), default="Asia/Tehran")
+    locale: Mapped[str] = mapped_column(String(16), default="fa-IR")
+    currency_code: Mapped[str] = mapped_column(String(3), default="IRR")
+    subdomain: Mapped[str | None] = mapped_column(String(63), nullable=True)
+    custom_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
     active_version_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    tenant: Mapped[Tenant] = relationship(back_populates="stores")
     drafts: Mapped[list["TrainingDraft"]] = relationship(back_populates="store")
     versions: Mapped[list["KnowledgeVersion"]] = relationship(back_populates="store")
     audit_logs: Mapped[list["AdminAuditLog"]] = relationship(back_populates="store")
     modules: Mapped[list["StoreModule"]] = relationship(back_populates="store")
+
+    def __init__(self, **kwargs: object) -> None:
+        # Compatibility for legacy development/tests that created a Store as
+        # the tenant root. Production services always pass an explicit tenant.
+        if "tenant" not in kwargs and "tenant_id" not in kwargs:
+            legacy_status = str(kwargs.get("status", "active"))
+            tenant_status = (
+                "archived" if legacy_status in {"deleted", "archived"}
+                else "suspended" if legacy_status in {"disabled", "suspended"}
+                else "active"
+            )
+            kwargs["tenant"] = Tenant(
+                name=str(kwargs.get("name", "Store")),
+                slug=str(kwargs.get("slug", new_public_id())).strip().lower(),
+                status=tenant_status,
+            )
+        super().__init__(**kwargs)
 
 
 class TrainingDraft(Base):
@@ -548,7 +626,7 @@ class SeedHistory(Base):
     profile: Mapped[str] = mapped_column(String(20))
     scope: Mapped[str] = mapped_column(String(20))
     tenant_id: Mapped[int | None] = mapped_column(
-        ForeignKey("stores.id"), nullable=True, index=True
+        ForeignKey("tenants.id"), nullable=True, index=True
     )
     status: Mapped[str] = mapped_column(String(20), index=True)
     summary: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
@@ -616,22 +694,85 @@ class TenantMembership(Base):
         ),
         UniqueConstraint("tenant_id", "user_id", name="uq_tenant_membership_user"),
         CheckConstraint(
-            "status IN ('active', 'disabled')",
+            "status IN ('invited', 'active', 'suspended', 'revoked', 'disabled')",
             name="ck_tenant_memberships_status",
         ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), default=new_public_id, unique=True, index=True
+    )
     user_id: Mapped[int | None] = mapped_column(
         ForeignKey("user_identities.id"), nullable=True, index=True
     )
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("stores.id"), index=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
     principal_type: Mapped[str] = mapped_column(String(30))
     principal_id: Mapped[str] = mapped_column(String(200), index=True)
     status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    all_store_access: Mapped[bool] = mapped_column(Boolean, default=False)
+    invited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+    tenant: Mapped[Tenant] = relationship(back_populates="memberships")
+    store_access: Mapped[list["StoreAccessAssignment"]] = relationship(
+        back_populates="membership"
+    )
+
+
+class StoreAccessAssignment(Base):
+    """Explicit store access layered on top of tenant RBAC roles."""
+
+    __tablename__ = "store_access_assignments"
+    __table_args__ = (
+        UniqueConstraint("membership_id", "store_id", name="uq_store_access_membership_store"),
+        CheckConstraint(
+            "status IN ('active', 'suspended', 'revoked')",
+            name="ck_store_access_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    membership_id: Mapped[int] = mapped_column(
+        ForeignKey("tenant_memberships.id"), index=True
+    )
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id"), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    created_by_identity_id: Mapped[int | None] = mapped_column(
+        ForeignKey("user_identities.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+    membership: Mapped[TenantMembership] = relationship(back_populates="store_access")
+    store: Mapped[Store] = relationship()
+
+
+class TenantAuditLog(Base):
+    """Credential-free lifecycle and access audit for tenants and stores."""
+
+    __tablename__ = "tenant_audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    store_id: Mapped[int | None] = mapped_column(
+        ForeignKey("stores.id"), nullable=True, index=True
+    )
+    actor_identity_id: Mapped[int | None] = mapped_column(
+        ForeignKey("user_identities.id"), nullable=True, index=True
+    )
+    action: Mapped[str] = mapped_column(String(100), index=True)
+    target_type: Mapped[str] = mapped_column(String(50))
+    target_public_id: Mapped[str] = mapped_column(String(100))
+    details_json: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, index=True
     )
 
 
@@ -707,7 +848,7 @@ class IdentityAuditLog(Base):
         ForeignKey("user_identities.id"), nullable=True, index=True
     )
     tenant_id: Mapped[int | None] = mapped_column(
-        ForeignKey("stores.id"), nullable=True, index=True
+        ForeignKey("tenants.id"), nullable=True, index=True
     )
     session_id: Mapped[str | None] = mapped_column(
         ForeignKey("auth_sessions.id"), nullable=True, index=True
@@ -766,7 +907,7 @@ class AuthAuditLog(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     tenant_id: Mapped[int | None] = mapped_column(
-        ForeignKey("stores.id"), nullable=True, index=True
+        ForeignKey("tenants.id"), nullable=True, index=True
     )
     actor_principal_type: Mapped[str] = mapped_column(String(30))
     actor_principal_id: Mapped[str] = mapped_column(String(200), index=True)

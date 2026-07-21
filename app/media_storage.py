@@ -177,6 +177,14 @@ def _signature_payload(asset_id: str, expires: int) -> bytes:
     return f"{asset_id}:{expires}".encode("utf-8")
 
 
+def _public_media_signature(asset_id: str, expires: int, secret: str) -> str:
+    """Return a version-marked signature while keeping the HMAC itself unchanged."""
+    digest = hmac.new(
+        secret.encode("utf-8"), _signature_payload(asset_id, expires), hashlib.sha256
+    ).hexdigest()
+    return f"{digest}.v1"
+
+
 def create_public_media_url(
     asset_id: str,
     settings: Settings,
@@ -188,9 +196,7 @@ def create_public_media_url(
     if not base_url or not secret or secret.lower() == "replace-me-with-a-long-random-secret":
         raise ValueError("میزبانی عمومی امن تصاویر هنوز تنظیم نشده است.")
     expires = int(time.time()) + lifetime_seconds
-    signature = hmac.new(
-        secret.encode("utf-8"), _signature_payload(asset_id, expires), hashlib.sha256
-    ).hexdigest()
+    signature = _public_media_signature(asset_id, expires, secret)
     return f"{base_url}/media/publish/{quote(asset_id)}?exp={expires}&sig={signature}"
 
 
@@ -205,8 +211,12 @@ def validate_public_media_signature(
     secret = settings.media_signing_secret.strip()
     if not secret:
         raise HTTPException(status_code=404, detail="Not found")
-    expected = hmac.new(
-        secret.encode("utf-8"), _signature_payload(asset_id, expires), hashlib.sha256
-    ).hexdigest()
-    if not hmac.compare_digest(expected, signature):
+    expected = _public_media_signature(asset_id, expires, secret)
+    # Links generated before the version marker was introduced remain valid for
+    # their short lifetime, avoiding a deployment-time publishing interruption.
+    legacy_expected = expected.removesuffix(".v1")
+    if not (
+        hmac.compare_digest(expected, signature)
+        or hmac.compare_digest(legacy_expected, signature)
+    ):
         raise HTTPException(status_code=403, detail="Invalid media link")

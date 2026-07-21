@@ -17,6 +17,8 @@ class PermissionCode:
     TENANT_READ = "tenant.read"
     TENANT_UPDATE = "tenant.update"
     TENANT_DISABLE = "tenant.disable"
+    TENANT_SUSPEND = "tenant.suspend"
+    TENANT_ARCHIVE = "tenant.archive"
     TENANT_PROVISION = "tenant.provision"
     TENANT_ACCESS_MANAGE = "tenant.access_manage"
     PLATFORM_AUDIT_READ = "platform.audit_read"
@@ -28,6 +30,13 @@ class PermissionCode:
     TENANT_SETTINGS_UPDATE = "tenant.settings_update"
     TENANT_MEMBERS_READ = "tenant.members_read"
     TENANT_MEMBERS_MANAGE = "tenant.members_manage"
+    TENANT_MEMBERS_MANAGE_V2 = "tenant.members.manage"
+    STORE_CREATE = "store.create"
+    STORE_READ = "store.read"
+    STORE_UPDATE = "store.update"
+    STORE_SUSPEND = "store.suspend"
+    STORE_ARCHIVE = "store.archive"
+    STORE_MEMBERS_MANAGE = "store.members.manage"
     MODULE_ENTITLEMENT_READ = "module.entitlement_read"
     MODULE_ENTITLEMENT_MANAGE = "module.entitlement_manage"
     PRODUCT_READ = "product.read"
@@ -79,6 +88,8 @@ PLATFORM_PERMISSIONS = (
     _permission(PermissionCode.TENANT_READ, PermissionScope.PLATFORM, "Read provider tenant inventory."),
     _permission(PermissionCode.TENANT_UPDATE, PermissionScope.PLATFORM, "Update tenant configuration and entitlements."),
     _permission(PermissionCode.TENANT_DISABLE, PermissionScope.PLATFORM, "Disable a tenant."),
+    _permission(PermissionCode.TENANT_SUSPEND, PermissionScope.PLATFORM, "Suspend and reactivate tenants."),
+    _permission(PermissionCode.TENANT_ARCHIVE, PermissionScope.PLATFORM, "Archive tenants."),
     _permission(PermissionCode.TENANT_PROVISION, PermissionScope.PLATFORM, "Run tenant provisioning."),
     _permission(PermissionCode.TENANT_ACCESS_MANAGE, PermissionScope.PLATFORM, "Manage access across explicit tenants."),
     _permission(PermissionCode.PLATFORM_AUDIT_READ, PermissionScope.PLATFORM, "Read platform audit records."),
@@ -92,6 +103,13 @@ TENANT_PERMISSIONS = (
     _permission(PermissionCode.TENANT_SETTINGS_UPDATE, PermissionScope.TENANT, "Update tenant settings."),
     _permission(PermissionCode.TENANT_MEMBERS_READ, PermissionScope.TENANT, "Read tenant membership."),
     _permission(PermissionCode.TENANT_MEMBERS_MANAGE, PermissionScope.TENANT, "Manage tenant membership and roles."),
+    _permission(PermissionCode.TENANT_MEMBERS_MANAGE_V2, PermissionScope.TENANT, "Manage tenant membership lifecycle."),
+    _permission(PermissionCode.STORE_CREATE, PermissionScope.TENANT, "Create stores in the active tenant."),
+    _permission(PermissionCode.STORE_READ, PermissionScope.TENANT, "Read explicitly authorized stores."),
+    _permission(PermissionCode.STORE_UPDATE, PermissionScope.TENANT, "Update explicitly authorized stores."),
+    _permission(PermissionCode.STORE_SUSPEND, PermissionScope.TENANT, "Suspend and reactivate stores."),
+    _permission(PermissionCode.STORE_ARCHIVE, PermissionScope.TENANT, "Archive stores."),
+    _permission(PermissionCode.STORE_MEMBERS_MANAGE, PermissionScope.TENANT, "Manage explicit store access assignments."),
     _permission(PermissionCode.MODULE_ENTITLEMENT_READ, PermissionScope.TENANT, "Read tenant module entitlements."),
     _permission(PermissionCode.MODULE_ENTITLEMENT_MANAGE, PermissionScope.TENANT, "Manage tenant module entitlements."),
     _permission(PermissionCode.PRODUCT_READ, PermissionScope.TENANT, "Read tenant products."),
@@ -175,6 +193,23 @@ ROLE_DEFINITIONS = (
         PermissionCode.CONTENT_READ, PermissionCode.CONNECTOR_READ,
         PermissionCode.CONVERSATION_READ, PermissionCode.ORDER_READ,
         PermissionCode.ANALYTICS_READ, PermissionCode.AUDIT_READ,
+    )),
+    RoleDefinition("store_manager", "Store Manager", PermissionScope.TENANT, "Manage explicitly assigned stores.", (
+        PermissionCode.STORE_READ, PermissionCode.STORE_UPDATE,
+        PermissionCode.STORE_SUSPEND, PermissionCode.STORE_MEMBERS_MANAGE,
+        PermissionCode.PRODUCT_READ, PermissionCode.PRODUCT_MANAGE,
+        PermissionCode.CONTENT_READ, PermissionCode.CONTENT_MANAGE,
+        PermissionCode.ORDER_READ, PermissionCode.ORDER_MANAGE,
+    )),
+    RoleDefinition("operator", "Operator", PermissionScope.TENANT, "Operate assigned stores without access administration.", (
+        PermissionCode.STORE_READ, PermissionCode.PRODUCT_READ,
+        PermissionCode.CONVERSATION_READ, PermissionCode.CONVERSATION_MANAGE,
+        PermissionCode.ORDER_READ, PermissionCode.ORDER_MANAGE,
+    )),
+    RoleDefinition("read_only", "Read Only", PermissionScope.TENANT, "Read assigned store data.", (
+        PermissionCode.STORE_READ, PermissionCode.PRODUCT_READ,
+        PermissionCode.CONTENT_READ, PermissionCode.CONVERSATION_READ,
+        PermissionCode.ORDER_READ, PermissionCode.ANALYTICS_READ,
     )),
 )
 

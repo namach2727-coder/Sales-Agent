@@ -26,6 +26,9 @@ POST_BASELINE_TABLES = {
     "user_identities",
     "auth_sessions",
     "identity_audit_logs",
+    "tenants",
+    "store_access_assignments",
+    "tenant_audit_logs",
 }
 BASELINE_TABLES = set(Base.metadata.tables) - POST_BASELINE_TABLES
 ALEMBIC_AVAILABLE = importlib.util.find_spec("alembic.config") is not None
@@ -64,6 +67,7 @@ def test_baseline_source_remains_an_immutable_pre_seed_history_snapshot() -> Non
         if table_name in BASELINE_TABLES
         for index in table.indexes
     }
+    expected_indexes -= {"ix_stores_public_id", "ix_stores_tenant_id"}
     declared_indexes = {
         index_name
         for definitions in indexes.values()
@@ -141,8 +145,12 @@ def test_baseline_operations_match_metadata_without_database(monkeypatch) -> Non
         str(ROOT / "alembic" / "versions" / "0001_baseline_schema.py")
     )
     namespace["upgrade"]()
-    assert metadata_signature(operations.metadata) == metadata_signature(
-        Base.metadata, BASELINE_TABLES
+    # The stores table is intentionally evolved by 0005; the immutable 0001
+    # snapshot is still verified above and all unchanged baseline tables must
+    # continue to match current metadata.
+    unchanged = BASELINE_TABLES - {"stores"}
+    assert metadata_signature(operations.metadata, unchanged) == metadata_signature(
+        Base.metadata, unchanged
     )
     namespace["downgrade"]()
     assert not operations.metadata.tables
@@ -155,15 +163,17 @@ def test_alembic_loads_with_one_linear_head() -> None:
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0004_authentication_identity"]
+    assert scripts.get_heads() == ["0005_tenant_store_management"]
     baseline = scripts.get_revision("0001_baseline_schema")
     seed_history = scripts.get_revision("0002_create_seed_history")
     rbac = scripts.get_revision("0003_authorization_rbac")
-    head = scripts.get_revision("0004_authentication_identity")
+    identity = scripts.get_revision("0004_authentication_identity")
+    head = scripts.get_revision("0005_tenant_store_management")
     assert baseline is not None and baseline.down_revision is None
     assert seed_history is not None and seed_history.down_revision == "0001_baseline_schema"
     assert rbac is not None and rbac.down_revision == "0002_create_seed_history"
-    assert head is not None and head.down_revision == "0003_authorization_rbac"
+    assert identity is not None and identity.down_revision == "0003_authorization_rbac"
+    assert head is not None and head.down_revision == "0004_authentication_identity"
 
 
 @requires_alembic
@@ -218,6 +228,7 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
+        "0005_tenant_store_management",
         "0004_authentication_identity",
         "0003_authorization_rbac",
         "0002_create_seed_history",

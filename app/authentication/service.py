@@ -35,7 +35,7 @@ from app.models import (
     AuthSession,
     AuthTenantRoleAssignment,
     IdentityAuditLog,
-    Store,
+    Tenant,
     TenantMembership,
     UserIdentity,
 )
@@ -302,8 +302,8 @@ class AuthenticationService:
         )
         memberships: list[PrincipalMembership] = []
         for membership in self.repository.user_memberships(user.id):
-            store = self.session.get(Store, membership.tenant_id)
-            if store is None:
+            tenant = self.session.get(Tenant, membership.tenant_id)
+            if tenant is None:
                 continue
             roles = tuple(
                 sorted(
@@ -319,7 +319,7 @@ class AuthenticationService:
                 PrincipalMembership(
                     membership_id=membership.id,
                     tenant_id=membership.tenant_id,
-                    tenant_slug=store.slug,
+                    tenant_slug=tenant.slug,
                     status=membership.status,
                     role_codes=roles,
                 )
@@ -437,8 +437,8 @@ class AuthenticationService:
         try:
             with self.session.begin():
                 user = self.session.get(UserIdentity, user_id)
-                store = self.session.get(Store, tenant_id)
-                if user is None or store is None:
+                tenant = self.session.get(Tenant, tenant_id)
+                if user is None or tenant is None:
                     raise AuthenticationValidationError("identity or tenant not found")
                 existing = self.session.scalar(
                     select(TenantMembership).where(
@@ -486,7 +486,9 @@ class AuthenticationService:
             )
             if membership is None:
                 raise AuthenticationValidationError("membership not found")
-            membership.status = "active" if enabled else "disabled"
+            membership.status = "active" if enabled else "suspended"
+            membership.activated_at = self.now() if enabled else membership.activated_at
+            membership.suspended_at = None if enabled else self.now()
             self._audit(
                 "tenant.membership_enabled" if enabled else "tenant.membership_disabled",
                 actor_user_id=actor_user_id,

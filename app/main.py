@@ -26,6 +26,7 @@ from app.manychat import router as manychat_router
 from app.public_media import router as public_media_router
 from app.telegram import router as telegram_router
 from app.telegram_setup import router as telegram_setup_router
+from app.tenant_management.router import router as tenant_management_router
 from app.authentication.router import router as authentication_router
 from app import models  # noqa: F401 - registers database models
 from app.models import Customer, FAQ, Order, Product
@@ -100,6 +101,7 @@ app.include_router(public_media_router)
 app.include_router(telegram_router)
 app.include_router(telegram_setup_router)
 app.include_router(authentication_router)
+app.include_router(tenant_management_router)
 
 
 @app.get("/", include_in_schema=False)
