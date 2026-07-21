@@ -1,5 +1,7 @@
 """Explicit login, logout, current identity, and session endpoints."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
@@ -23,6 +25,7 @@ from app.database import get_db
 
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
+logger = logging.getLogger("sales_assistant.authentication")
 
 
 def _principal_read(principal: AuthenticatedPrincipal) -> PrincipalRead:
@@ -68,6 +71,10 @@ def login(
             user_agent=request.headers.get("user-agent"),
         )
     except AuthenticationError as exc:
+        logger.warning(
+            "authentication login denied",
+            extra={"event_code": "auth.login_denied"},
+        )
         raise HTTPException(
             status_code=401,
             detail={"code": "invalid_credentials", "message": "Invalid credentials"},
@@ -78,7 +85,7 @@ def login(
         max_age=settings.session_ttl_minutes * 60,
         httponly=True,
         secure=settings.session_cookie_secure,
-        samesite="lax",
+        samesite=settings.session_cookie_samesite,
         path="/",
     )
     return LoginResponse(
@@ -105,7 +112,7 @@ def logout(
         path="/",
         secure=settings.session_cookie_secure,
         httponly=True,
-        samesite="lax",
+        samesite=settings.session_cookie_samesite,
     )
     return OperationResponse(status="revoked")
 

@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.*.example
 .venv/
 __pycache__/
 *.py[cod]
@@ -6,6 +8,7 @@ __pycache__/
 .pytest_cache/
 .pytest-tmp-*/
 private_media/
+backups/
 
 logs/
 .codex/

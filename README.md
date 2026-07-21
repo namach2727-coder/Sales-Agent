@@ -1,5 +1,18 @@
 # Sales Assistant MVP
 
+## Deployment environments
+
+The application supports explicit `development`, `test`, `integration`, `uat`, and `production` environments. Integration, UAT, and production use PostgreSQL and fail closed on unsafe configuration. Docker, migration, first-admin, health, smoke-test, backup, restore, rollback, logging, and secret-rotation procedures are documented in the [deployment runbook](docs/operations/deployment-runbook.md).
+
+Quick integration simulation:
+
+```powershell
+Copy-Item .env.integration.example .env.integration
+docker compose --env-file .env.integration -f compose.integration.yaml up --build -d
+```
+
+Never commit the copied environment file or run migration validation against `sales_assistant.db`.
+
 نسخه آزمایشی دستیار فروش با FastAPI و SQLite. صفحه وب، اینستاگرام و تلگرام همگی از یک موتور مکالمه برای قیمت، پرسش‌های متداول، ثبت شماره، سفارش و ارجاع به اپراتور استفاده می‌کنند.
 
 ## Database migrations

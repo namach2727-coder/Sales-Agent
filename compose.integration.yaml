@@ -1,0 +1,55 @@
+name: sales-agent-integration
+
+services:
+  database:
+    image: postgres:17.5-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks: [backend]
+
+  application:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ${APP_ENV_FILE:-.env.integration}
+    environment:
+      APP_ENV: ${APP_ENV:-integration}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      BUILD_SHA: ${BUILD_SHA:-local}
+    depends_on:
+      database:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    volumes:
+      - private_media:/app/private_media
+      - backups:/app/backups
+    networks: [backend]
+
+volumes:
+  postgres_data:
+  private_media:
+  backups:
+
+networks:
+  backend:
+    driver: bridge

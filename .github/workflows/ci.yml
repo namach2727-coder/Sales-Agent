@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: test
+      DATABASE_URL: sqlite:///./ci-test.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --requirement requirements.txt
+      - run: python -m compileall -q app tools tests
+      - run: python -m tools.migration_policy
+      - run: python -m tools.seed_data --list
+      - run: python -m pytest
+
+  postgres-smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.5-bookworm
+        env:
+          POSTGRES_DB: sales_agent_ci
+          POSTGRES_USER: sales_agent
+          POSTGRES_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sales_agent -d sales_agent_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      APP_ENV: integration
+      DATABASE_URL: postgresql+psycopg://sales_agent:ci-${{ github.run_id }}-${{ github.run_attempt }}@127.0.0.1:5432/sales_agent_ci
+      APPLICATION_SECRET: ci-application-${{ github.run_id }}-${{ github.run_attempt }}-012345678901234567890123456789
+      TRUSTED_HOSTS: localhost,127.0.0.1
+      CORS_ALLOWED_ORIGINS: http://localhost
+      LEGACY_ADMIN_ADAPTER_ENABLED: "false"
+      SESSION_COOKIE_SECURE: "false"
+      LOG_FORMAT: json
+      BOOTSTRAP_ADMIN_PASSWORD: ci-admin-${{ github.run_id }}-${{ github.run_attempt }}-password
+      SMOKE_ADMIN_EMAIL: ci-admin@example.invalid
+      SMOKE_ADMIN_PASSWORD: ci-admin-${{ github.run_id }}-${{ github.run_attempt }}-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --requirement requirements.txt
+      - run: python -m tools.validate_environment
+      - run: python -m tools.run_migrations
+      - run: python -m tools.seed_data --profile production --use-configured-database
+      - run: python -m tools.bootstrap_admin --email "$SMOKE_ADMIN_EMAIL" --display-name "CI Administrator" --use-configured-database --password-env BOOTSTRAP_ADMIN_PASSWORD
+      - name: Application and authenticated deployment smoke
+        run: |
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log &
+          server_pid=$!
+          trap 'kill $server_pid' EXIT
+          for attempt in $(seq 1 30); do
+            if python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=2)"; then
+              python -m tools.deployment_smoke --expect-empty-catalog
+              exit $?
+            fi
+            sleep 2
+          done
+          exit 1
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: sales-agent:${{ github.sha }}
