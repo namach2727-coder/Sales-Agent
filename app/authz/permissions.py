@@ -41,6 +41,14 @@ class PermissionCode:
     MODULE_ENTITLEMENT_MANAGE = "module.entitlement_manage"
     PRODUCT_READ = "product.read"
     PRODUCT_MANAGE = "product.manage"
+    CATALOG_READ = "catalog.read"
+    CATALOG_MANAGE = "catalog.manage"
+    PRICING_READ = "pricing.read"
+    PRICING_MANAGE = "pricing.manage"
+    AVAILABILITY_READ = "availability.read"
+    AVAILABILITY_MANAGE = "availability.manage"
+    MEDIA_READ = "media.read"
+    MEDIA_MANAGE = "media.manage"
     CONTENT_READ = "content.read"
     CONTENT_MANAGE = "content.manage"
     CONNECTOR_READ = "connector.read"
@@ -114,6 +122,14 @@ TENANT_PERMISSIONS = (
     _permission(PermissionCode.MODULE_ENTITLEMENT_MANAGE, PermissionScope.TENANT, "Manage tenant module entitlements."),
     _permission(PermissionCode.PRODUCT_READ, PermissionScope.TENANT, "Read tenant products."),
     _permission(PermissionCode.PRODUCT_MANAGE, PermissionScope.TENANT, "Manage tenant products."),
+    _permission(PermissionCode.CATALOG_READ, PermissionScope.TENANT, "Read the tenant business catalog."),
+    _permission(PermissionCode.CATALOG_MANAGE, PermissionScope.TENANT, "Manage the tenant business catalog."),
+    _permission(PermissionCode.PRICING_READ, PermissionScope.TENANT, "Read store-specific SKU prices."),
+    _permission(PermissionCode.PRICING_MANAGE, PermissionScope.TENANT, "Manage store-specific SKU prices."),
+    _permission(PermissionCode.AVAILABILITY_READ, PermissionScope.TENANT, "Read store-specific SKU availability."),
+    _permission(PermissionCode.AVAILABILITY_MANAGE, PermissionScope.TENANT, "Manage store-specific SKU availability."),
+    _permission(PermissionCode.MEDIA_READ, PermissionScope.TENANT, "Read catalog media metadata and associations."),
+    _permission(PermissionCode.MEDIA_MANAGE, PermissionScope.TENANT, "Manage catalog media metadata and associations."),
     _permission(PermissionCode.CONTENT_READ, PermissionScope.TENANT, "Read tenant content."),
     _permission(PermissionCode.CONTENT_MANAGE, PermissionScope.TENANT, "Manage tenant content."),
     _permission(PermissionCode.CONNECTOR_READ, PermissionScope.TENANT, "Read tenant connector status."),
@@ -177,19 +193,29 @@ ROLE_DEFINITIONS = (
     RoleDefinition("tenant_operator", "Tenant Operator", PermissionScope.TENANT, "Sales and operational management.", (
         PermissionCode.TENANT_SETTINGS_READ, PermissionCode.MODULE_ENTITLEMENT_READ,
         PermissionCode.PRODUCT_READ, PermissionCode.PRODUCT_MANAGE,
+        PermissionCode.CATALOG_READ, PermissionCode.CATALOG_MANAGE,
+        PermissionCode.PRICING_READ, PermissionCode.PRICING_MANAGE,
+        PermissionCode.AVAILABILITY_READ, PermissionCode.AVAILABILITY_MANAGE,
+        PermissionCode.MEDIA_READ, PermissionCode.MEDIA_MANAGE,
         PermissionCode.CONNECTOR_READ, PermissionCode.CONVERSATION_READ,
         PermissionCode.CONVERSATION_MANAGE, PermissionCode.ORDER_READ, PermissionCode.ORDER_MANAGE,
     )),
     RoleDefinition("tenant_content_manager", "Tenant Content Manager", PermissionScope.TENANT, "Product and content management.", (
-        PermissionCode.PRODUCT_READ, PermissionCode.CONTENT_READ, PermissionCode.CONTENT_MANAGE,
+        PermissionCode.PRODUCT_READ, PermissionCode.CATALOG_READ, PermissionCode.CATALOG_MANAGE,
+        PermissionCode.MEDIA_READ, PermissionCode.MEDIA_MANAGE,
+        PermissionCode.CONTENT_READ, PermissionCode.CONTENT_MANAGE,
     )),
     RoleDefinition("tenant_analyst", "Tenant Analyst", PermissionScope.TENANT, "Analytics and supporting read access.", (
-        PermissionCode.PRODUCT_READ, PermissionCode.CONTENT_READ, PermissionCode.CONVERSATION_READ,
+        PermissionCode.PRODUCT_READ, PermissionCode.CATALOG_READ, PermissionCode.PRICING_READ,
+        PermissionCode.AVAILABILITY_READ, PermissionCode.MEDIA_READ,
+        PermissionCode.CONTENT_READ, PermissionCode.CONVERSATION_READ,
         PermissionCode.ORDER_READ, PermissionCode.ANALYTICS_READ,
     )),
     RoleDefinition("tenant_viewer", "Tenant Viewer", PermissionScope.TENANT, "Read-only tenant access.", (
         PermissionCode.TENANT_SETTINGS_READ, PermissionCode.TENANT_MEMBERS_READ,
         PermissionCode.MODULE_ENTITLEMENT_READ, PermissionCode.PRODUCT_READ,
+        PermissionCode.CATALOG_READ, PermissionCode.PRICING_READ,
+        PermissionCode.AVAILABILITY_READ, PermissionCode.MEDIA_READ,
         PermissionCode.CONTENT_READ, PermissionCode.CONNECTOR_READ,
         PermissionCode.CONVERSATION_READ, PermissionCode.ORDER_READ,
         PermissionCode.ANALYTICS_READ, PermissionCode.AUDIT_READ,
@@ -198,16 +224,24 @@ ROLE_DEFINITIONS = (
         PermissionCode.STORE_READ, PermissionCode.STORE_UPDATE,
         PermissionCode.STORE_SUSPEND, PermissionCode.STORE_MEMBERS_MANAGE,
         PermissionCode.PRODUCT_READ, PermissionCode.PRODUCT_MANAGE,
+        PermissionCode.CATALOG_READ, PermissionCode.CATALOG_MANAGE,
+        PermissionCode.PRICING_READ, PermissionCode.PRICING_MANAGE,
+        PermissionCode.AVAILABILITY_READ, PermissionCode.AVAILABILITY_MANAGE,
+        PermissionCode.MEDIA_READ, PermissionCode.MEDIA_MANAGE,
         PermissionCode.CONTENT_READ, PermissionCode.CONTENT_MANAGE,
         PermissionCode.ORDER_READ, PermissionCode.ORDER_MANAGE,
     )),
     RoleDefinition("operator", "Operator", PermissionScope.TENANT, "Operate assigned stores without access administration.", (
         PermissionCode.STORE_READ, PermissionCode.PRODUCT_READ,
+        PermissionCode.CATALOG_READ, PermissionCode.PRICING_READ,
+        PermissionCode.AVAILABILITY_READ, PermissionCode.MEDIA_READ,
         PermissionCode.CONVERSATION_READ, PermissionCode.CONVERSATION_MANAGE,
         PermissionCode.ORDER_READ, PermissionCode.ORDER_MANAGE,
     )),
     RoleDefinition("read_only", "Read Only", PermissionScope.TENANT, "Read assigned store data.", (
         PermissionCode.STORE_READ, PermissionCode.PRODUCT_READ,
+        PermissionCode.CATALOG_READ, PermissionCode.PRICING_READ,
+        PermissionCode.AVAILABILITY_READ, PermissionCode.MEDIA_READ,
         PermissionCode.CONTENT_READ, PermissionCode.CONVERSATION_READ,
         PermissionCode.ORDER_READ, PermissionCode.ANALYTICS_READ,
     )),

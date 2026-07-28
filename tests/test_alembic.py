@@ -29,6 +29,26 @@ POST_BASELINE_TABLES = {
     "tenants",
     "store_access_assignments",
     "tenant_audit_logs",
+    "catalog_attributes",
+    "catalog_attribute_options",
+    "catalog_brands",
+    "catalog_categories",
+    "catalog_media_assets",
+    "catalog_tags",
+    "catalog_brand_media",
+    "catalog_category_media",
+    "catalog_offerings",
+    "catalog_product_attributes",
+    "catalog_product_categories",
+    "catalog_product_media",
+    "catalog_product_tags",
+    "catalog_variants",
+    "catalog_skus",
+    "catalog_variant_media",
+    "catalog_variant_option_values",
+    "catalog_sku_media",
+    "catalog_store_availability",
+    "catalog_store_prices",
 }
 BASELINE_TABLES = set(Base.metadata.tables) - POST_BASELINE_TABLES
 ALEMBIC_AVAILABLE = importlib.util.find_spec("alembic.config") is not None
@@ -163,17 +183,19 @@ def test_alembic_loads_with_one_linear_head() -> None:
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0005_tenant_store_management"]
+    assert scripts.get_heads() == ["0006_lean_business_catalog"]
     baseline = scripts.get_revision("0001_baseline_schema")
     seed_history = scripts.get_revision("0002_create_seed_history")
     rbac = scripts.get_revision("0003_authorization_rbac")
     identity = scripts.get_revision("0004_authentication_identity")
-    head = scripts.get_revision("0005_tenant_store_management")
+    tenant_store = scripts.get_revision("0005_tenant_store_management")
+    head = scripts.get_revision("0006_lean_business_catalog")
     assert baseline is not None and baseline.down_revision is None
     assert seed_history is not None and seed_history.down_revision == "0001_baseline_schema"
     assert rbac is not None and rbac.down_revision == "0002_create_seed_history"
     assert identity is not None and identity.down_revision == "0003_authorization_rbac"
-    assert head is not None and head.down_revision == "0004_authentication_identity"
+    assert tenant_store is not None and tenant_store.down_revision == "0004_authentication_identity"
+    assert head is not None and head.down_revision == "0005_tenant_store_management"
 
 
 @requires_alembic
@@ -228,6 +250,7 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
+        "0006_lean_business_catalog",
         "0005_tenant_store_management",
         "0004_authentication_identity",
         "0003_authorization_rbac",

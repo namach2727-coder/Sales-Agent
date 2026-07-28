@@ -216,6 +216,7 @@ class Tenant(Base):
 class Store(Base):
     __tablename__ = "stores"
     __table_args__ = (
+        UniqueConstraint("id", "tenant_id", name="uq_stores_id_tenant"),
         UniqueConstraint("tenant_id", "slug", name="uq_stores_tenant_slug"),
         UniqueConstraint("subdomain", name="uq_stores_subdomain"),
         UniqueConstraint("custom_domain", name="uq_stores_custom_domain"),
@@ -919,3 +920,9 @@ class AuthAuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, index=True
     )
+
+
+# Register FOUNDATION-06 catalog tables with the shared SQLAlchemy metadata.
+# The import is intentionally last so the legacy models above remain available
+# while the new modular catalog references Tenant and Store by table name.
+from app.catalog import models as catalog_models  # noqa: E402,F401

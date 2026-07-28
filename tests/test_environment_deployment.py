@@ -96,7 +96,7 @@ def test_readiness_requires_database_at_single_head(tmp_path: Path) -> None:
     try:
         result = readiness(engine)
         assert result.ready is True
-        assert result.current_revision == "0005_tenant_store_management"
+        assert result.current_revision == "0006_lean_business_catalog"
     finally:
         engine.dispose()
 

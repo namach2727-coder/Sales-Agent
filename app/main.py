@@ -17,6 +17,7 @@ from app.admin import router as admin_router
 from app.admin_content import router as admin_content_router
 from app.admin_modules import router as admin_modules_router
 from app.catalog_runtime import list_products as list_catalog_products
+from app.catalog.router import router as business_catalog_router
 from app.config import get_settings, validate_runtime_settings
 from app.database import Base, check_database_connection, engine, get_db
 from app.instagram import router as instagram_router
@@ -102,6 +103,7 @@ app.include_router(telegram_router)
 app.include_router(telegram_setup_router)
 app.include_router(authentication_router)
 app.include_router(tenant_management_router)
+app.include_router(business_catalog_router)
 
 
 @app.get("/", include_in_schema=False)
