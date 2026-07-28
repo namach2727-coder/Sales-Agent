@@ -26,3 +26,5 @@ tools/*.json
 tools/*known-hosts*
 tools/pinggy-python/
 tools/pinggy-python-dist/
+
+.tmp_pytest_*/
