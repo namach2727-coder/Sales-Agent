@@ -1199,33 +1199,41 @@ Assign each item an owner and evidence link. Use `Not applicable` only with arch
 
 ### Active Foundation cross-reference
 
-**FOUNDATION-06 — Lean Business Catalog: Complete.**
+**FOUNDATION-07 — Business Profile & Knowledge: Complete.**
 
 Completion evidence:
 
-- **Implemented:** one tenant-owned Offering aggregate for physical products,
-  digital products, and services; Product, Variant, SKU, dynamic Attributes and
-  Options, hierarchical Categories, Brands, Tags, explicit Media associations,
-  Store-specific Decimal pricing, Store-specific availability, permission
-  separation, audit coverage, and public-ID APIs.
-- **Automated-test verified:** tenant isolation, cross-tenant relationship
-  rejection, permissions, lifecycle and archive rules, canonical Variant
-  combinations, deterministic default SKU creation, database constraints,
-  migration upgrade/downgrade, pagination, filters, and regression behavior;
-  the complete suite passes **259 tests** on fresh temporary test databases.
-- **Migration verified:** Alembic revision `0006_lean_business_catalog` is the
-  single head; metadata/schema-drift and base-to-head round-trip validation pass.
-- **PostgreSQL DDL verified:** revision `0006` compiles for the PostgreSQL
-  dialect with its expected tables, indexes, foreign keys, and uniqueness
-  constraints.
-- **Pending:** live PostgreSQL runtime migration and catalog integration
+- **Implemented:** separate store-owned Business Profile, typed Business
+  Policies, curated FAQs, and structured Knowledge Entries; public-only API
+  schemas; bounded normalization; explicit draft/published/archived lifecycle;
+  optimistic revision control; minimized audit records; and no hard delete.
+- **Isolation verified:** every resource query is bound to Tenant and Store,
+  composite database foreign keys prevent cross-Tenant Store ownership,
+  authenticated path resolution enforces Store assignment, and unknown or
+  cross-scope public IDs return the same safe response.
+- **Authorization verified:** five finite permission codes are owned by the
+  central catalog, required roles have their specified read/manage/publish
+  grants, provider access continues through `tenant.read`/`tenant.update`, and
+  no wildcard bypass exists.
+- **Automated-test verified:** domain validation, all four aggregates,
+  uniqueness, filtering, pagination, lifecycle, state timestamps, stale and
+  racing writes, Store states, authorization, schema privacy, database
+  constraints, migration behavior, seeding, and all repository regressions;
+  the complete suite passes **273 tests** on fresh temporary test databases.
+- **Migration verified:** Alembic revision
+  `0007_business_profile_knowledge` is the single head; metadata/schema-drift
+  and base-to-head round-trip validation pass.
+- **PostgreSQL DDL verified:** the 0006-to-0007 revision compiles with the
+  PostgreSQL dialect and contains all four tables, public-ID indexes, composite
+  ownership foreign keys, lifecycle checks, and type constraints.
+- **Pending:** live PostgreSQL runtime migration and business-knowledge
+  integration
   validation require an available disposable PostgreSQL service. This pending
-  operational validation does not authorize FOUNDATION-07 work.
+  operational validation does not authorize FOUNDATION-08 work.
 
 The strategic directions documented in the DirectPilot guardrails do not expand
-FOUNDATION-06 or authorize future implementation. Foundation ordering remains:
+FOUNDATION-07 or authorize future implementation. Foundation ordering remains:
 
-- Business Profile and Knowledge — FOUNDATION-07;
 - Instagram Channel — FOUNDATION-08;
 - Conversation Engine — FOUNDATION-09;
 - Subscription and Usage — FOUNDATION-09B;
@@ -1234,7 +1242,7 @@ FOUNDATION-06 or authorize future implementation. Foundation ordering remains:
 - referrals, affiliates, coupons, UTM attribution, SEO pages, and A/B testing —
   post-MVP backlog unless separately approved.
 
-No future foundation capability may be pulled into FOUNDATION-06 merely because
+No future foundation capability may be pulled into FOUNDATION-07 merely because
 its target architecture is recorded here.
 
 The risk-ordered phases below are long-term architecture gates, not a replacement

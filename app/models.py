@@ -926,3 +926,6 @@ class AuthAuditLog(Base):
 # The import is intentionally last so the legacy models above remain available
 # while the new modular catalog references Tenant and Store by table name.
 from app.catalog import models as catalog_models  # noqa: E402,F401
+
+# Register FOUNDATION-07 store-scoped business knowledge tables.
+from app.business_knowledge import models as business_knowledge_models  # noqa: E402,F401

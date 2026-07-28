@@ -7,7 +7,8 @@ generic Instagram bot, full CRM, or multi-channel inbox.
 
 The canonical product, SaaS, scalability, and scope decisions live in the
 [DirectPilot Product and Architecture Blueprint](docs/blueprint/AI-Commerce-Platform-Blueprint.md).
-The active implementation scope is **FOUNDATION-06 — Lean Business Catalog**;
+The active implementation scope is **FOUNDATION-07 — Business Profile &
+Knowledge**;
 future foundations documented in the blueprint are not part of that scope.
 
 Telegram and other experimental adapters described later in this README are
@@ -98,6 +99,23 @@ python -m tools.bootstrap_tenant --database-url $env:DATABASE_URL `
 
 See [Tenant and Store Management](docs/architecture/tenant-store-management.md)
 for the boundary model, API behavior, lifecycle, and deployment procedure.
+
+## Business profile and knowledge
+
+FOUNDATION-07 adds a store-scoped management domain for business identity,
+policies, curated FAQs, and structured knowledge entries. It uses public IDs,
+strict Tenant/Store query filters, composite database constraints, finite
+permissions, explicit Store assignments, optimistic revisions, audited
+draft/published/archived transitions, and no hard delete.
+
+The API is rooted at
+`/api/v1/tenants/{tenant_public_id}/stores/{store_public_id}/business-knowledge`.
+This foundation stores and governs business information only; it does not call
+AI models, execute retrieval, process conversations, or connect knowledge to
+Instagram or catalog records. See
+[Business Profile and Knowledge](docs/architecture/business-profile-knowledge.md)
+for the data model, API, lifecycle, permissions, migration, and deployment
+rules.
 
 ## Authorization and RBAC
 

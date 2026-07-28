@@ -49,6 +49,10 @@ POST_BASELINE_TABLES = {
     "catalog_sku_media",
     "catalog_store_availability",
     "catalog_store_prices",
+    "business_profiles",
+    "business_policies",
+    "business_faqs",
+    "business_knowledge_entries",
 }
 BASELINE_TABLES = set(Base.metadata.tables) - POST_BASELINE_TABLES
 ALEMBIC_AVAILABLE = importlib.util.find_spec("alembic.config") is not None
@@ -183,19 +187,21 @@ def test_alembic_loads_with_one_linear_head() -> None:
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0006_lean_business_catalog"]
+    assert scripts.get_heads() == ["0007_business_profile_knowledge"]
     baseline = scripts.get_revision("0001_baseline_schema")
     seed_history = scripts.get_revision("0002_create_seed_history")
     rbac = scripts.get_revision("0003_authorization_rbac")
     identity = scripts.get_revision("0004_authentication_identity")
     tenant_store = scripts.get_revision("0005_tenant_store_management")
-    head = scripts.get_revision("0006_lean_business_catalog")
+    catalog = scripts.get_revision("0006_lean_business_catalog")
+    head = scripts.get_revision("0007_business_profile_knowledge")
     assert baseline is not None and baseline.down_revision is None
     assert seed_history is not None and seed_history.down_revision == "0001_baseline_schema"
     assert rbac is not None and rbac.down_revision == "0002_create_seed_history"
     assert identity is not None and identity.down_revision == "0003_authorization_rbac"
     assert tenant_store is not None and tenant_store.down_revision == "0004_authentication_identity"
-    assert head is not None and head.down_revision == "0005_tenant_store_management"
+    assert catalog is not None and catalog.down_revision == "0005_tenant_store_management"
+    assert head is not None and head.down_revision == "0006_lean_business_catalog"
 
 
 @requires_alembic
@@ -250,6 +256,7 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
+        "0007_business_profile_knowledge",
         "0006_lean_business_catalog",
         "0005_tenant_store_management",
         "0004_authentication_identity",

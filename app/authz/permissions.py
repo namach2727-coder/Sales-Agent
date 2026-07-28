@@ -8,7 +8,9 @@ import re
 from app.authz.context import PermissionScope
 
 
-PERMISSION_CODE_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9_]*)+$")
+PERMISSION_CODE_PATTERN = re.compile(
+    r"^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$"
+)
 ROLE_CODE_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
 
 
@@ -49,6 +51,11 @@ class PermissionCode:
     AVAILABILITY_MANAGE = "availability.manage"
     MEDIA_READ = "media.read"
     MEDIA_MANAGE = "media.manage"
+    BUSINESS_PROFILE_READ = "business_profile.read"
+    BUSINESS_PROFILE_MANAGE = "business_profile.manage"
+    KNOWLEDGE_READ = "knowledge.read"
+    KNOWLEDGE_MANAGE = "knowledge.manage"
+    KNOWLEDGE_PUBLISH = "knowledge.publish"
     CONTENT_READ = "content.read"
     CONTENT_MANAGE = "content.manage"
     CONNECTOR_READ = "connector.read"
@@ -130,6 +137,11 @@ TENANT_PERMISSIONS = (
     _permission(PermissionCode.AVAILABILITY_MANAGE, PermissionScope.TENANT, "Manage store-specific SKU availability."),
     _permission(PermissionCode.MEDIA_READ, PermissionScope.TENANT, "Read catalog media metadata and associations."),
     _permission(PermissionCode.MEDIA_MANAGE, PermissionScope.TENANT, "Manage catalog media metadata and associations."),
+    _permission(PermissionCode.BUSINESS_PROFILE_READ, PermissionScope.TENANT, "Read assigned-store business profiles."),
+    _permission(PermissionCode.BUSINESS_PROFILE_MANAGE, PermissionScope.TENANT, "Manage assigned-store business profiles."),
+    _permission(PermissionCode.KNOWLEDGE_READ, PermissionScope.TENANT, "Read assigned-store policies, FAQs, and knowledge entries."),
+    _permission(PermissionCode.KNOWLEDGE_MANAGE, PermissionScope.TENANT, "Manage draft assigned-store policies, FAQs, and knowledge entries."),
+    _permission(PermissionCode.KNOWLEDGE_PUBLISH, PermissionScope.TENANT, "Publish or withdraw assigned-store business knowledge."),
     _permission(PermissionCode.CONTENT_READ, PermissionScope.TENANT, "Read tenant content."),
     _permission(PermissionCode.CONTENT_MANAGE, PermissionScope.TENANT, "Manage tenant content."),
     _permission(PermissionCode.CONNECTOR_READ, PermissionScope.TENANT, "Read tenant connector status."),
@@ -197,17 +209,23 @@ ROLE_DEFINITIONS = (
         PermissionCode.PRICING_READ, PermissionCode.PRICING_MANAGE,
         PermissionCode.AVAILABILITY_READ, PermissionCode.AVAILABILITY_MANAGE,
         PermissionCode.MEDIA_READ, PermissionCode.MEDIA_MANAGE,
+        PermissionCode.BUSINESS_PROFILE_READ, PermissionCode.BUSINESS_PROFILE_MANAGE,
+        PermissionCode.KNOWLEDGE_READ, PermissionCode.KNOWLEDGE_MANAGE,
         PermissionCode.CONNECTOR_READ, PermissionCode.CONVERSATION_READ,
         PermissionCode.CONVERSATION_MANAGE, PermissionCode.ORDER_READ, PermissionCode.ORDER_MANAGE,
     )),
     RoleDefinition("tenant_content_manager", "Tenant Content Manager", PermissionScope.TENANT, "Product and content management.", (
         PermissionCode.PRODUCT_READ, PermissionCode.CATALOG_READ, PermissionCode.CATALOG_MANAGE,
         PermissionCode.MEDIA_READ, PermissionCode.MEDIA_MANAGE,
+        PermissionCode.BUSINESS_PROFILE_READ, PermissionCode.BUSINESS_PROFILE_MANAGE,
+        PermissionCode.KNOWLEDGE_READ, PermissionCode.KNOWLEDGE_MANAGE,
+        PermissionCode.KNOWLEDGE_PUBLISH,
         PermissionCode.CONTENT_READ, PermissionCode.CONTENT_MANAGE,
     )),
     RoleDefinition("tenant_analyst", "Tenant Analyst", PermissionScope.TENANT, "Analytics and supporting read access.", (
         PermissionCode.PRODUCT_READ, PermissionCode.CATALOG_READ, PermissionCode.PRICING_READ,
         PermissionCode.AVAILABILITY_READ, PermissionCode.MEDIA_READ,
+        PermissionCode.BUSINESS_PROFILE_READ, PermissionCode.KNOWLEDGE_READ,
         PermissionCode.CONTENT_READ, PermissionCode.CONVERSATION_READ,
         PermissionCode.ORDER_READ, PermissionCode.ANALYTICS_READ,
     )),
@@ -216,6 +234,7 @@ ROLE_DEFINITIONS = (
         PermissionCode.MODULE_ENTITLEMENT_READ, PermissionCode.PRODUCT_READ,
         PermissionCode.CATALOG_READ, PermissionCode.PRICING_READ,
         PermissionCode.AVAILABILITY_READ, PermissionCode.MEDIA_READ,
+        PermissionCode.BUSINESS_PROFILE_READ, PermissionCode.KNOWLEDGE_READ,
         PermissionCode.CONTENT_READ, PermissionCode.CONNECTOR_READ,
         PermissionCode.CONVERSATION_READ, PermissionCode.ORDER_READ,
         PermissionCode.ANALYTICS_READ, PermissionCode.AUDIT_READ,
@@ -228,6 +247,9 @@ ROLE_DEFINITIONS = (
         PermissionCode.PRICING_READ, PermissionCode.PRICING_MANAGE,
         PermissionCode.AVAILABILITY_READ, PermissionCode.AVAILABILITY_MANAGE,
         PermissionCode.MEDIA_READ, PermissionCode.MEDIA_MANAGE,
+        PermissionCode.BUSINESS_PROFILE_READ, PermissionCode.BUSINESS_PROFILE_MANAGE,
+        PermissionCode.KNOWLEDGE_READ, PermissionCode.KNOWLEDGE_MANAGE,
+        PermissionCode.KNOWLEDGE_PUBLISH,
         PermissionCode.CONTENT_READ, PermissionCode.CONTENT_MANAGE,
         PermissionCode.ORDER_READ, PermissionCode.ORDER_MANAGE,
     )),
@@ -235,6 +257,7 @@ ROLE_DEFINITIONS = (
         PermissionCode.STORE_READ, PermissionCode.PRODUCT_READ,
         PermissionCode.CATALOG_READ, PermissionCode.PRICING_READ,
         PermissionCode.AVAILABILITY_READ, PermissionCode.MEDIA_READ,
+        PermissionCode.BUSINESS_PROFILE_READ, PermissionCode.KNOWLEDGE_READ,
         PermissionCode.CONVERSATION_READ, PermissionCode.CONVERSATION_MANAGE,
         PermissionCode.ORDER_READ, PermissionCode.ORDER_MANAGE,
     )),
@@ -242,6 +265,7 @@ ROLE_DEFINITIONS = (
         PermissionCode.STORE_READ, PermissionCode.PRODUCT_READ,
         PermissionCode.CATALOG_READ, PermissionCode.PRICING_READ,
         PermissionCode.AVAILABILITY_READ, PermissionCode.MEDIA_READ,
+        PermissionCode.BUSINESS_PROFILE_READ, PermissionCode.KNOWLEDGE_READ,
         PermissionCode.CONTENT_READ, PermissionCode.CONVERSATION_READ,
         PermissionCode.ORDER_READ, PermissionCode.ANALYTICS_READ,
     )),
