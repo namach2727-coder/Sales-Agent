@@ -1199,7 +1199,29 @@ Assign each item an owner and evidence link. Use `Not applicable` only with arch
 
 ### Active Foundation cross-reference
 
-The active implementation scope is **FOUNDATION-06 — Lean Business Catalog**.
+**FOUNDATION-06 — Lean Business Catalog: Complete.**
+
+Completion evidence:
+
+- **Implemented:** one tenant-owned Offering aggregate for physical products,
+  digital products, and services; Product, Variant, SKU, dynamic Attributes and
+  Options, hierarchical Categories, Brands, Tags, explicit Media associations,
+  Store-specific Decimal pricing, Store-specific availability, permission
+  separation, audit coverage, and public-ID APIs.
+- **Automated-test verified:** tenant isolation, cross-tenant relationship
+  rejection, permissions, lifecycle and archive rules, canonical Variant
+  combinations, deterministic default SKU creation, database constraints,
+  migration upgrade/downgrade, pagination, filters, and regression behavior;
+  the complete suite passes **259 tests** on fresh temporary test databases.
+- **Migration verified:** Alembic revision `0006_lean_business_catalog` is the
+  single head; metadata/schema-drift and base-to-head round-trip validation pass.
+- **PostgreSQL DDL verified:** revision `0006` compiles for the PostgreSQL
+  dialect with its expected tables, indexes, foreign keys, and uniqueness
+  constraints.
+- **Pending:** live PostgreSQL runtime migration and catalog integration
+  validation require an available disposable PostgreSQL service. This pending
+  operational validation does not authorize FOUNDATION-07 work.
+
 The strategic directions documented in the DirectPilot guardrails do not expand
 FOUNDATION-06 or authorize future implementation. Foundation ordering remains:
 
