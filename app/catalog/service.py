@@ -105,6 +105,15 @@ class CatalogService:
             self.session.rollback()
             raise CatalogConflictError("catalog identifier or relationship already exists") from exc
 
+    def _flush(self) -> None:
+        try:
+            self.session.flush()
+        except IntegrityError as exc:
+            self.session.rollback()
+            raise CatalogConflictError(
+                "catalog identifier or relationship already exists"
+            ) from exc
+
     def _resource(
         self,
         model: type[CatalogModel],
@@ -288,15 +297,17 @@ class CatalogService:
     def create_brand(
         self, *, name: str, slug: str, description: str | None = None, status: str = "active"
     ) -> Brand:
+        normalized_status = normalize_lifecycle(status)
         brand = Brand(
             tenant_id=self.tenant_id,
             name=normalize_name(name),
             slug=normalize_slug(slug),
             description=normalize_optional_text(description),
-            status=normalize_lifecycle(status),
+            status=normalized_status,
+            archived_at=_now() if normalized_status == "archived" else None,
         )
         self.session.add(brand)
-        self.session.flush()
+        self._flush()
         self._audit("catalog.brand.created", "catalog_brand", brand.public_id)
         self._commit()
         return brand
@@ -318,14 +329,16 @@ class CatalogService:
         return brand
 
     def create_tag(self, *, name: str, slug: str, status: str = "active") -> Tag:
+        normalized_status = normalize_lifecycle(status)
         tag = Tag(
             tenant_id=self.tenant_id,
             name=normalize_name(name),
             slug=normalize_slug(slug),
-            status=normalize_lifecycle(status),
+            status=normalized_status,
+            archived_at=_now() if normalized_status == "archived" else None,
         )
         self.session.add(tag)
-        self.session.flush()
+        self._flush()
         self._audit("catalog.tag.created", "catalog_tag", tag.public_id)
         self._commit()
         return tag
@@ -353,15 +366,17 @@ class CatalogService:
         status: str = "active",
     ) -> Category:
         parent = self._resource(Category, parent_public_id) if parent_public_id else None
+        normalized_status = normalize_lifecycle(status)
         category = Category(
             tenant_id=self.tenant_id,
             name=normalize_name(name),
             slug=normalize_slug(slug),
             parent_id=parent.id if parent else None,
-            status=normalize_lifecycle(status),
+            status=normalized_status,
+            archived_at=_now() if normalized_status == "archived" else None,
         )
         self.session.add(category)
-        self.session.flush()
+        self._flush()
         self._audit("catalog.category.created", "catalog_category", category.public_id)
         self._commit()
         return category
@@ -414,14 +429,16 @@ class CatalogService:
     def create_attribute(
         self, *, name: str, code: str, status: str = "active"
     ) -> Attribute:
+        normalized_status = normalize_lifecycle(status)
         attribute = Attribute(
             tenant_id=self.tenant_id,
             name=normalize_name(name),
             code=normalize_code(code),
-            status=normalize_lifecycle(status),
+            status=normalized_status,
+            archived_at=_now() if normalized_status == "archived" else None,
         )
         self.session.add(attribute)
-        self.session.flush()
+        self._flush()
         self._audit("catalog.attribute.created", "catalog_attribute", attribute.public_id)
         self._commit()
         return attribute
@@ -461,6 +478,7 @@ class CatalogService:
     ) -> AttributeOption:
         attribute = self._resource(Attribute, attribute_public_id)
         normalized_value, identity = normalize_option_value(value)
+        normalized_status = normalize_lifecycle(status)
         option = AttributeOption(
             tenant_id=self.tenant_id,
             attribute_id=attribute.id,
@@ -468,10 +486,11 @@ class CatalogService:
             normalized_value=identity,
             display_label=normalize_optional_text(display_label, maximum=200),
             sort_order=sort_order,
-            status=normalize_lifecycle(status),
+            status=normalized_status,
+            archived_at=_now() if normalized_status == "archived" else None,
         )
         self.session.add(option)
-        self.session.flush()
+        self._flush()
         self._audit("catalog.attribute_option.created", "catalog_attribute_option", option.public_id)
         self._commit()
         return option
@@ -689,6 +708,7 @@ class CatalogService:
     ) -> Variant:
         product = self.get_product(product_public_id)
         pairs = self._option_pairs(product, option_public_ids or [])
+        normalized_status = normalize_lifecycle(status)
         defining = [
             (option.attribute_id, option.id)
             for option, assignment in pairs
@@ -699,7 +719,8 @@ class CatalogService:
             product_id=product.id,
             name=normalize_optional_text(name, maximum=200),
             combination_key=canonical_combination_key(defining),
-            status=normalize_lifecycle(status),
+            status=normalized_status,
+            archived_at=_now() if normalized_status == "archived" else None,
         )
         self.session.add(variant)
         try:
@@ -803,15 +824,17 @@ class CatalogService:
         status: str = "draft",
     ) -> SKU:
         variant = self.get_variant(variant_public_id)
+        normalized_status = normalize_lifecycle(status)
         sku = SKU(
             tenant_id=self.tenant_id,
             variant_id=variant.id,
             code=normalize_sku(code),
             barcode=normalize_barcode(barcode),
-            status=normalize_lifecycle(status),
+            status=normalized_status,
+            archived_at=_now() if normalized_status == "archived" else None,
         )
         self.session.add(sku)
-        self.session.flush()
+        self._flush()
         self._audit("catalog.sku.created", "catalog_sku", sku.public_id)
         self._commit()
         return sku
@@ -906,7 +929,7 @@ class CatalogService:
             metadata_json=metadata or {},
         )
         self.session.add(media)
-        self.session.flush()
+        self._flush()
         self._audit("catalog.media.created", "catalog_media_asset", media.public_id)
         self._commit()
         return media
@@ -934,7 +957,7 @@ class CatalogService:
             raise CatalogValidationError("unsupported media owner type")
         owner_model, association_model, owner_column = definition
         owner = self._resource(owner_model, owner_public_id)
-        media = self._resource(MediaAsset, media_public_id, include_archived=True)
+        media = self._resource(MediaAsset, media_public_id)
         normalized_role = normalize_code(role)
         if is_primary:
             existing_primary = self.session.scalar(
@@ -1088,7 +1111,7 @@ class CatalogService:
         item.price = normalized_price
         item.compare_at_price = normalized_compare
         item.is_active = is_active
-        self.session.flush()
+        self._flush()
         self._audit(
             "catalog.store_price.changed",
             "catalog_store_price",
@@ -1155,7 +1178,7 @@ class CatalogService:
             self.session.add(item)
         item.availability_status = normalized_status
         item.quantity = normalized_quantity
-        self.session.flush()
+        self._flush()
         self._audit(
             "catalog.store_availability.changed",
             "catalog_store_availability",

@@ -189,6 +189,15 @@ def test_normalization_type_lifecycle_and_uniqueness(catalog_engine) -> None:
             service.create_product(name="Bad", slug="bad", product_type="bundle")
         with pytest.raises(CatalogConflictError):
             service.create_product(name="Duplicate", slug="iphone-15", product_type="physical")
+        service.create_brand(name="Acme", slug="acme")
+        with pytest.raises(CatalogConflictError):
+            service.create_brand(name="Duplicate Acme", slug="acme")
+        archived_brand = service.create_brand(
+            name="Archived Brand",
+            slug="archived-brand",
+            status="archived",
+        )
+        assert archived_brand.archived_at is not None
 
 
 def test_variant_combination_is_canonical_and_duplicate_safe(catalog_engine) -> None:
@@ -274,12 +283,46 @@ def test_brand_tag_media_and_audit(catalog_engine) -> None:
             file_size=1024,
             status="ready",
         )
+        archived_media = service.create_media_asset(
+            storage_provider="external",
+            storage_key="catalog/archived-camera.jpg",
+            original_filename="archived-camera.jpg",
+            mime_type="image/jpeg",
+            file_size=128,
+            status="archived",
+        )
+        with pytest.raises(CatalogNotFoundError):
+            service.attach_media(
+                owner_type="product",
+                owner_public_id=product.public_id,
+                media_public_id=archived_media.public_id,
+            )
         service.attach_media(
             owner_type="product",
             owner_public_id=product.public_id,
             media_public_id=media.public_id,
             is_primary=True,
         )
+        second_media = service.create_media_asset(
+            storage_provider="external",
+            storage_key="catalog/camera-detail.jpg",
+            original_filename="camera-detail.jpg",
+            mime_type="image/jpeg",
+            file_size=512,
+            status="ready",
+        )
+        db.add(
+            ProductMedia(
+                tenant_id=tenant.id,
+                product_id=product.id,
+                media_asset_id=second_media.id,
+                role="gallery",
+                is_primary=True,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            db.commit()
+        db.rollback()
         service.detach_media(
             owner_type="product",
             owner_public_id=product.public_id,
@@ -476,6 +519,81 @@ def test_catalog_api_uses_public_ids_pagination_and_permissions(catalog_engine, 
         f"/api/v1/tenants/{tenant.public_id}/catalog/products/{public_id}"
     )
     assert detail.status_code == 200 and detail.json()["public_id"] == public_id
+
+    root = client.post(
+        f"/api/v1/tenants/{tenant.public_id}/catalog/categories",
+        json={"name": "Root", "slug": "api-root"},
+    )
+    assert root.status_code == 201
+    for index in range(4):
+        created_category = client.post(
+            f"/api/v1/tenants/{tenant.public_id}/catalog/categories",
+            json={
+                "name": f"Child {index}",
+                "slug": f"api-child-{index}",
+                "parent_public_id": root.json()["public_id"],
+            },
+        )
+        assert created_category.status_code == 201
+
+    attribute = client.post(
+        f"/api/v1/tenants/{tenant.public_id}/catalog/attributes",
+        json={"name": "Color", "code": "api-color"},
+    )
+    assert attribute.status_code == 201
+    for index in range(5):
+        created_option = client.post(
+            f"/api/v1/tenants/{tenant.public_id}/catalog/attributes/"
+            f"{attribute.json()['public_id']}/options",
+            json={"value": f"Color {index}"},
+        )
+        assert created_option.status_code == 201
+
+    def select_count(path: str) -> tuple[int, object]:
+        count = 0
+
+        def count_selects(
+            _connection,
+            _cursor,
+            statement,
+            _parameters,
+            _context,
+            _executemany,
+        ) -> None:
+            nonlocal count
+            if statement.lstrip().upper().startswith("SELECT"):
+                count += 1
+
+        event.listen(catalog_engine, "before_cursor_execute", count_selects)
+        try:
+            response = client.get(path)
+        finally:
+            event.remove(catalog_engine, "before_cursor_execute", count_selects)
+        return count, response
+
+    catalog_base = f"/api/v1/tenants/{tenant.public_id}/catalog"
+    one_category_queries, one_category = select_count(
+        f"{catalog_base}/categories?page=1&page_size=1"
+    )
+    all_category_queries, all_categories = select_count(
+        f"{catalog_base}/categories?page=1&page_size=100"
+    )
+    assert one_category.status_code == all_categories.status_code == 200
+    assert len(all_categories.json()["items"]) == 5
+    assert all_category_queries <= one_category_queries + 1
+
+    options_path = (
+        f"{catalog_base}/attributes/{attribute.json()['public_id']}/options"
+    )
+    one_option_queries, one_option = select_count(
+        f"{options_path}?page=1&page_size=1"
+    )
+    all_option_queries, all_options = select_count(
+        f"{options_path}?page=1&page_size=100"
+    )
+    assert one_option.status_code == all_options.status_code == 200
+    assert len(all_options.json()["items"]) == 5
+    assert all_option_queries <= one_option_queries + 1
 
     denied_tenant, _store, denied_principal = tenant_context(catalog_engine, role="")
     app.dependency_overrides[require_authenticated_principal] = lambda: denied_principal
