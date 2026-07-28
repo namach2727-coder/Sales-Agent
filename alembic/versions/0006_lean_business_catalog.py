@@ -184,7 +184,13 @@ def upgrade() -> None:
     with op.batch_alter_table('catalog_brand_media', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_catalog_brand_media_brand_id'), ['brand_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_catalog_brand_media_media_asset_id'), ['media_asset_id'], unique=False)
-        batch_op.create_index('ix_catalog_brand_media_primary', ['brand_id', 'role', 'is_primary'], unique=False)
+        batch_op.create_index(
+            'ix_catalog_brand_media_one_primary',
+            ['brand_id', 'role'],
+            unique=True,
+            postgresql_where=sa.text('is_primary'),
+            sqlite_where=sa.text('is_primary = 1'),
+        )
         batch_op.create_index(batch_op.f('ix_catalog_brand_media_tenant_id'), ['tenant_id'], unique=False)
 
     op.create_table('catalog_category_media',
@@ -204,7 +210,13 @@ def upgrade() -> None:
     with op.batch_alter_table('catalog_category_media', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_catalog_category_media_category_id'), ['category_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_catalog_category_media_media_asset_id'), ['media_asset_id'], unique=False)
-        batch_op.create_index('ix_catalog_category_media_primary', ['category_id', 'role', 'is_primary'], unique=False)
+        batch_op.create_index(
+            'ix_catalog_category_media_one_primary',
+            ['category_id', 'role'],
+            unique=True,
+            postgresql_where=sa.text('is_primary'),
+            sqlite_where=sa.text('is_primary = 1'),
+        )
         batch_op.create_index(batch_op.f('ix_catalog_category_media_tenant_id'), ['tenant_id'], unique=False)
 
     op.create_table('catalog_offerings',
@@ -292,7 +304,13 @@ def upgrade() -> None:
     )
     with op.batch_alter_table('catalog_product_media', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_catalog_product_media_media_asset_id'), ['media_asset_id'], unique=False)
-        batch_op.create_index('ix_catalog_product_media_primary', ['product_id', 'role', 'is_primary'], unique=False)
+        batch_op.create_index(
+            'ix_catalog_product_media_one_primary',
+            ['product_id', 'role'],
+            unique=True,
+            postgresql_where=sa.text('is_primary'),
+            sqlite_where=sa.text('is_primary = 1'),
+        )
         batch_op.create_index(batch_op.f('ix_catalog_product_media_product_id'), ['product_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_catalog_product_media_tenant_id'), ['tenant_id'], unique=False)
 
@@ -382,7 +400,13 @@ def upgrade() -> None:
     )
     with op.batch_alter_table('catalog_variant_media', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_catalog_variant_media_media_asset_id'), ['media_asset_id'], unique=False)
-        batch_op.create_index('ix_catalog_variant_media_primary', ['variant_id', 'role', 'is_primary'], unique=False)
+        batch_op.create_index(
+            'ix_catalog_variant_media_one_primary',
+            ['variant_id', 'role'],
+            unique=True,
+            postgresql_where=sa.text('is_primary'),
+            sqlite_where=sa.text('is_primary = 1'),
+        )
         batch_op.create_index(batch_op.f('ix_catalog_variant_media_tenant_id'), ['tenant_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_catalog_variant_media_variant_id'), ['variant_id'], unique=False)
 
@@ -423,7 +447,13 @@ def upgrade() -> None:
     )
     with op.batch_alter_table('catalog_sku_media', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_catalog_sku_media_media_asset_id'), ['media_asset_id'], unique=False)
-        batch_op.create_index('ix_catalog_sku_media_primary', ['sku_id', 'role', 'is_primary'], unique=False)
+        batch_op.create_index(
+            'ix_catalog_sku_media_one_primary',
+            ['sku_id', 'role'],
+            unique=True,
+            postgresql_where=sa.text('is_primary'),
+            sqlite_where=sa.text('is_primary = 1'),
+        )
         batch_op.create_index(batch_op.f('ix_catalog_sku_media_sku_id'), ['sku_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_catalog_sku_media_tenant_id'), ['tenant_id'], unique=False)
 
@@ -518,7 +548,11 @@ def downgrade() -> None:
     with op.batch_alter_table('catalog_sku_media', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_catalog_sku_media_tenant_id'))
         batch_op.drop_index(batch_op.f('ix_catalog_sku_media_sku_id'))
-        batch_op.drop_index('ix_catalog_sku_media_primary')
+        batch_op.drop_index(
+            'ix_catalog_sku_media_one_primary',
+            postgresql_where=sa.text('is_primary'),
+            sqlite_where=sa.text('is_primary = 1'),
+        )
         batch_op.drop_index(batch_op.f('ix_catalog_sku_media_media_asset_id'))
 
     op.drop_table('catalog_sku_media')
@@ -533,7 +567,11 @@ def downgrade() -> None:
     with op.batch_alter_table('catalog_variant_media', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_catalog_variant_media_variant_id'))
         batch_op.drop_index(batch_op.f('ix_catalog_variant_media_tenant_id'))
-        batch_op.drop_index('ix_catalog_variant_media_primary')
+        batch_op.drop_index(
+            'ix_catalog_variant_media_one_primary',
+            postgresql_where=sa.text('is_primary'),
+            sqlite_where=sa.text('is_primary = 1'),
+        )
         batch_op.drop_index(batch_op.f('ix_catalog_variant_media_media_asset_id'))
 
     op.drop_table('catalog_variant_media')
@@ -565,7 +603,11 @@ def downgrade() -> None:
     with op.batch_alter_table('catalog_product_media', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_catalog_product_media_tenant_id'))
         batch_op.drop_index(batch_op.f('ix_catalog_product_media_product_id'))
-        batch_op.drop_index('ix_catalog_product_media_primary')
+        batch_op.drop_index(
+            'ix_catalog_product_media_one_primary',
+            postgresql_where=sa.text('is_primary'),
+            sqlite_where=sa.text('is_primary = 1'),
+        )
         batch_op.drop_index(batch_op.f('ix_catalog_product_media_media_asset_id'))
 
     op.drop_table('catalog_product_media')
@@ -596,14 +638,22 @@ def downgrade() -> None:
     op.drop_table('catalog_offerings')
     with op.batch_alter_table('catalog_category_media', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_catalog_category_media_tenant_id'))
-        batch_op.drop_index('ix_catalog_category_media_primary')
+        batch_op.drop_index(
+            'ix_catalog_category_media_one_primary',
+            postgresql_where=sa.text('is_primary'),
+            sqlite_where=sa.text('is_primary = 1'),
+        )
         batch_op.drop_index(batch_op.f('ix_catalog_category_media_media_asset_id'))
         batch_op.drop_index(batch_op.f('ix_catalog_category_media_category_id'))
 
     op.drop_table('catalog_category_media')
     with op.batch_alter_table('catalog_brand_media', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_catalog_brand_media_tenant_id'))
-        batch_op.drop_index('ix_catalog_brand_media_primary')
+        batch_op.drop_index(
+            'ix_catalog_brand_media_one_primary',
+            postgresql_where=sa.text('is_primary'),
+            sqlite_where=sa.text('is_primary = 1'),
+        )
         batch_op.drop_index(batch_op.f('ix_catalog_brand_media_media_asset_id'))
         batch_op.drop_index(batch_op.f('ix_catalog_brand_media_brand_id'))
 
