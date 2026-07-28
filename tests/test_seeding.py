@@ -400,7 +400,7 @@ def test_migration_graph_still_has_exactly_one_head() -> None:
     from alembic.script import ScriptDirectory
 
     scripts = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
-    assert scripts.get_heads() == ["0007_business_profile_knowledge"]
+    assert scripts.get_heads() == ["0008_instagram_channel"]
 
 
 def test_application_startup_does_not_seed_data(tmp_path: Path, monkeypatch) -> None:

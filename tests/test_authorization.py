@@ -274,9 +274,9 @@ def test_authorization_seed_is_idempotent_and_production_safe(auth_engine: Engin
     assert all(result.status.value == "unchanged" for result in report.results)
     definitions = {item.name: item for item in default_registry().definitions()}
     assert all(definitions[name].production_safe for name in names)
-    assert definitions["system.auth_permissions"].version == "3"
+    assert definitions["system.auth_permissions"].version == "4"
     assert definitions["system.auth_roles"].version == "2"
-    assert definitions["system.auth_role_permissions"].version == "3"
+    assert definitions["system.auth_role_permissions"].version == "4"
     with Session(auth_engine) as session:
         assert session.scalar(select(func.count()).select_from(AuthPermission)) == len(PERMISSION_DEFINITIONS)
         assert session.scalar(select(func.count()).select_from(AuthRole)) == len(ROLE_DEFINITIONS)

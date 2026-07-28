@@ -929,3 +929,6 @@ from app.catalog import models as catalog_models  # noqa: E402,F401
 
 # Register FOUNDATION-07 store-scoped business knowledge tables.
 from app.business_knowledge import models as business_knowledge_models  # noqa: E402,F401
+
+# Register FOUNDATION-08 store-scoped Instagram channel tables.
+from app.instagram_channel import models as instagram_channel_models  # noqa: E402,F401

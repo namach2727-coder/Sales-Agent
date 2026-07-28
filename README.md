@@ -7,8 +7,8 @@ generic Instagram bot, full CRM, or multi-channel inbox.
 
 The canonical product, SaaS, scalability, and scope decisions live in the
 [DirectPilot Product and Architecture Blueprint](docs/blueprint/AI-Commerce-Platform-Blueprint.md).
-The active implementation scope is **FOUNDATION-07 — Business Profile &
-Knowledge**;
+The active implementation scope is **FOUNDATION-08 — Instagram Channel
+Integration Foundation**;
 future foundations documented in the blueprint are not part of that scope.
 
 Telegram and other experimental adapters described later in this README are
@@ -116,6 +116,26 @@ Instagram or catalog records. See
 [Business Profile and Knowledge](docs/architecture/business-profile-knowledge.md)
 for the data model, API, lifecycle, permissions, migration, and deployment
 rules.
+
+## Instagram channel
+
+FOUNDATION-08 adds the production-oriented Store connection and inbound webhook
+boundary under `app/instagram_channel`. It provides encrypted per-connection
+access tokens, Meta subscription verification, exact-byte HMAC signature
+validation, trusted account-to-Store routing, raw delivery persistence,
+normalized message/comment events, database-backed delivery and event
+idempotency, bounded diagnostics, dedicated permissions, and safe Tenant
+isolation.
+
+The public endpoint is
+`/api/v1/integrations/instagram/webhook`. Authenticated Store management is
+rooted at
+`/api/v1/tenants/{tenant_public_id}/stores/{store_public_id}/instagram-channel`.
+This boundary ingests only: it does not send replies, build conversations, call
+AI models, retrieve knowledge, or create CRM/sales outcomes. See
+[Instagram Channel Integration Foundation](docs/architecture/instagram-channel.md)
+for lifecycle, security, API, routing, idempotency, data-minimization, and
+migration contracts.
 
 ## Authorization and RBAC
 

@@ -22,6 +22,10 @@ from app.business_knowledge.router import router as business_knowledge_router
 from app.config import get_settings, validate_runtime_settings
 from app.database import Base, check_database_connection, engine, get_db
 from app.instagram import router as instagram_router
+from app.instagram_channel.router import (
+    public_router as instagram_channel_public_router,
+    router as instagram_channel_router,
+)
 from app.instagram_setup import router as instagram_setup_router
 from app.legal import router as legal_router
 from app.manychat import router as manychat_router
@@ -96,6 +100,8 @@ app.include_router(admin_router)
 app.include_router(admin_content_router)
 app.include_router(admin_modules_router)
 app.include_router(instagram_router)
+app.include_router(instagram_channel_public_router)
+app.include_router(instagram_channel_router)
 app.include_router(instagram_setup_router)
 app.include_router(legal_router)
 app.include_router(manychat_router)

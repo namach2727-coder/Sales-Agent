@@ -19,6 +19,7 @@ The command redacts connection details and exits non-zero for unsafe settings.
 | `APP_ENV` | Explicit environment | No environment guessing |
 | `DATABASE_URL` / `DATABASE_URL_FILE` | PostgreSQL DSN | PostgreSQL required when deployed |
 | `APPLICATION_SECRET` / `APPLICATION_SECRET_FILE` | Independent application secret | At least 32 random characters |
+| `INSTAGRAM_TOKEN_ENCRYPTION_KEY` / `INSTAGRAM_TOKEN_ENCRYPTION_KEY_FILE` | Fernet key for per-Store Meta access tokens | Required and valid when deployed |
 | `TRUSTED_HOSTS` | Comma-separated Host allowlist | Wildcard forbidden when deployed |
 | `CORS_ALLOWED_ORIGINS` | Browser origin allowlist | Wildcard forbidden |
 | `FORCE_HTTPS` | HTTPS redirect | Required in UAT/production |
@@ -33,6 +34,12 @@ The command redacts connection details and exits non-zero for unsafe settings.
 | `BUILD_SHA` | Immutable build identifier | Set by CI/release tooling |
 
 Connector credentials also accept their documented `*_FILE` variables. Mount secret files read-only and restrict them to the application user.
+
+Generate the Instagram credential-encryption key with
+`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.
+Back it up separately from the database. FOUNDATION-08 has no bulk
+re-encryption operation, so replacing the key without first rotating every
+stored connection credential makes existing ciphertext unreadable.
 
 ## Local development
 

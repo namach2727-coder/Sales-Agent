@@ -1199,42 +1199,41 @@ Assign each item an owner and evidence link. Use `Not applicable` only with arch
 
 ### Active Foundation cross-reference
 
-**FOUNDATION-07 — Business Profile & Knowledge: Complete.**
+**FOUNDATION-08 — Instagram Channel Integration Foundation: Complete.**
 
 Completion evidence:
 
-- **Implemented:** separate store-owned Business Profile, typed Business
-  Policies, curated FAQs, and structured Knowledge Entries; public-only API
-  schemas; bounded normalization; explicit draft/published/archived lifecycle;
-  optimistic revision control; minimized audit records; and no hard delete.
-- **Isolation verified:** every resource query is bound to Tenant and Store,
-  composite database foreign keys prevent cross-Tenant Store ownership,
-  authenticated path resolution enforces Store assignment, and unknown or
-  cross-scope public IDs return the same safe response.
-- **Authorization verified:** five finite permission codes are owned by the
-  central catalog, required roles have their specified read/manage/publish
-  grants, provider access continues through `tenant.read`/`tenant.update`, and
-  no wildcard bypass exists.
-- **Automated-test verified:** domain validation, all four aggregates,
-  uniqueness, filtering, pagination, lifecycle, state timestamps, stale and
-  racing writes, Store states, authorization, schema privacy, database
-  constraints, migration behavior, seeding, and all repository regressions;
-  the complete suite passes **273 tests** on fresh temporary test databases.
-- **Migration verified:** Alembic revision
-  `0007_business_profile_knowledge` is the single head; metadata/schema-drift
-  and base-to-head round-trip validation pass.
-- **PostgreSQL DDL verified:** the 0006-to-0007 revision compiles with the
-  PostgreSQL dialect and contains all four tables, public-ID indexes, composite
-  ownership foreign keys, lifecycle checks, and type constraints.
-- **Pending:** live PostgreSQL runtime migration and business-knowledge
-  integration
-  validation require an available disposable PostgreSQL service. This pending
-  operational validation does not authorize FOUNDATION-08 work.
+- **Implemented:** Store-owned Instagram connection lifecycle, authenticated
+  token encryption, Meta GET verification and exact-byte POST HMAC validation,
+  raw delivery persistence, narrow message/comment normalization, two-level
+  database idempotency, bounded safe diagnostics, and an inbound-event seam
+  without outbound or conversation behavior.
+- **Isolation verified:** ownership comes only from persisted external-account
+  mappings; composite foreign keys bind connection, delivery, event, Tenant,
+  and Store; unresolved and non-routable accounts never fall back to a default
+  Tenant; authenticated cross-scope public IDs remain safely hidden.
+- **Authorization verified:** connection read/manage/credential management and
+  delivery/event diagnostics are separate finite permissions with explicit
+  role grants and no wildcard bypass.
+- **Automated-test verified:** security primitives, lifecycle, encryption,
+  audit redaction, RBAC, Tenant isolation, parser behavior, routing,
+  delivery/event deduplication, migration behavior, seeding, OpenAPI, and all
+  repository regressions; the complete suite passes **298 tests** on fresh
+  temporary databases.
+- **Migration verified:** Alembic revision `0008_instagram_channel` is the
+  single head; metadata/schema-drift and base-to-head round-trip validation
+  pass.
+- **PostgreSQL DDL verified:** the 0007-to-0008 revision compiles with the
+  PostgreSQL dialect and includes the three Foundation tables, public-ID
+  indexes, composite ownership foreign keys, lifecycle checks, routing
+  uniqueness, and idempotency constraints.
+- **Pending:** live PostgreSQL runtime migration and live Meta subscription and
+  delivery validation require disposable external environments. This pending
+  operational validation does not authorize FOUNDATION-09 work.
 
 The strategic directions documented in the DirectPilot guardrails do not expand
-FOUNDATION-07 or authorize future implementation. Foundation ordering remains:
+FOUNDATION-08 or authorize future implementation. Foundation ordering remains:
 
-- Instagram Channel — FOUNDATION-08;
 - Conversation Engine — FOUNDATION-09;
 - Subscription and Usage — FOUNDATION-09B;
 - Business Outcomes and Basic Analytics — FOUNDATION-10;
@@ -1242,7 +1241,7 @@ FOUNDATION-07 or authorize future implementation. Foundation ordering remains:
 - referrals, affiliates, coupons, UTM attribution, SEO pages, and A/B testing —
   post-MVP backlog unless separately approved.
 
-No future foundation capability may be pulled into FOUNDATION-07 merely because
+No future foundation capability may be pulled into FOUNDATION-08 merely because
 its target architecture is recorded here.
 
 The risk-ordered phases below are long-term architecture gates, not a replacement

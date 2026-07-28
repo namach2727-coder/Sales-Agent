@@ -101,7 +101,7 @@ def register_authorization_seeds(registry: SeedRegistry) -> None:
     registry.register(
         SeedDefinition(
             name="system.auth_permissions",
-            version="3",
+            version="4",
             scope=SeedScope.GLOBAL,
             compatible_profiles=ALL_PROFILES,
             production_safe=True,
@@ -127,7 +127,7 @@ def register_authorization_seeds(registry: SeedRegistry) -> None:
     registry.register(
         SeedDefinition(
             name="system.auth_role_permissions",
-            version="3",
+            version="4",
             scope=SeedScope.GLOBAL,
             compatible_profiles=ALL_PROFILES,
             production_safe=True,

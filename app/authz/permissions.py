@@ -56,6 +56,13 @@ class PermissionCode:
     KNOWLEDGE_READ = "knowledge.read"
     KNOWLEDGE_MANAGE = "knowledge.manage"
     KNOWLEDGE_PUBLISH = "knowledge.publish"
+    INSTAGRAM_CONNECTION_READ = "instagram_connection.read"
+    INSTAGRAM_CONNECTION_MANAGE = "instagram_connection.manage"
+    INSTAGRAM_CONNECTION_CREDENTIALS_MANAGE = (
+        "instagram_connection.credentials.manage"
+    )
+    INSTAGRAM_WEBHOOK_READ = "instagram_webhook.read"
+    INSTAGRAM_EVENT_READ = "instagram_event.read"
     CONTENT_READ = "content.read"
     CONTENT_MANAGE = "content.manage"
     CONNECTOR_READ = "connector.read"
@@ -142,6 +149,11 @@ TENANT_PERMISSIONS = (
     _permission(PermissionCode.KNOWLEDGE_READ, PermissionScope.TENANT, "Read assigned-store policies, FAQs, and knowledge entries."),
     _permission(PermissionCode.KNOWLEDGE_MANAGE, PermissionScope.TENANT, "Manage draft assigned-store policies, FAQs, and knowledge entries."),
     _permission(PermissionCode.KNOWLEDGE_PUBLISH, PermissionScope.TENANT, "Publish or withdraw assigned-store business knowledge."),
+    _permission(PermissionCode.INSTAGRAM_CONNECTION_READ, PermissionScope.TENANT, "Read assigned-store Instagram connection metadata."),
+    _permission(PermissionCode.INSTAGRAM_CONNECTION_MANAGE, PermissionScope.TENANT, "Manage assigned-store Instagram connection lifecycle."),
+    _permission(PermissionCode.INSTAGRAM_CONNECTION_CREDENTIALS_MANAGE, PermissionScope.TENANT, "Configure assigned-store Instagram access credentials."),
+    _permission(PermissionCode.INSTAGRAM_WEBHOOK_READ, PermissionScope.TENANT, "Read safe assigned-store Instagram webhook diagnostics."),
+    _permission(PermissionCode.INSTAGRAM_EVENT_READ, PermissionScope.TENANT, "Read normalized assigned-store Instagram inbound events."),
     _permission(PermissionCode.CONTENT_READ, PermissionScope.TENANT, "Read tenant content."),
     _permission(PermissionCode.CONTENT_MANAGE, PermissionScope.TENANT, "Manage tenant content."),
     _permission(PermissionCode.CONNECTOR_READ, PermissionScope.TENANT, "Read tenant connector status."),
@@ -211,6 +223,9 @@ ROLE_DEFINITIONS = (
         PermissionCode.MEDIA_READ, PermissionCode.MEDIA_MANAGE,
         PermissionCode.BUSINESS_PROFILE_READ, PermissionCode.BUSINESS_PROFILE_MANAGE,
         PermissionCode.KNOWLEDGE_READ, PermissionCode.KNOWLEDGE_MANAGE,
+        PermissionCode.INSTAGRAM_CONNECTION_READ,
+        PermissionCode.INSTAGRAM_CONNECTION_MANAGE,
+        PermissionCode.INSTAGRAM_WEBHOOK_READ, PermissionCode.INSTAGRAM_EVENT_READ,
         PermissionCode.CONNECTOR_READ, PermissionCode.CONVERSATION_READ,
         PermissionCode.CONVERSATION_MANAGE, PermissionCode.ORDER_READ, PermissionCode.ORDER_MANAGE,
     )),
@@ -220,12 +235,16 @@ ROLE_DEFINITIONS = (
         PermissionCode.BUSINESS_PROFILE_READ, PermissionCode.BUSINESS_PROFILE_MANAGE,
         PermissionCode.KNOWLEDGE_READ, PermissionCode.KNOWLEDGE_MANAGE,
         PermissionCode.KNOWLEDGE_PUBLISH,
+        PermissionCode.INSTAGRAM_CONNECTION_READ,
+        PermissionCode.INSTAGRAM_WEBHOOK_READ, PermissionCode.INSTAGRAM_EVENT_READ,
         PermissionCode.CONTENT_READ, PermissionCode.CONTENT_MANAGE,
     )),
     RoleDefinition("tenant_analyst", "Tenant Analyst", PermissionScope.TENANT, "Analytics and supporting read access.", (
         PermissionCode.PRODUCT_READ, PermissionCode.CATALOG_READ, PermissionCode.PRICING_READ,
         PermissionCode.AVAILABILITY_READ, PermissionCode.MEDIA_READ,
         PermissionCode.BUSINESS_PROFILE_READ, PermissionCode.KNOWLEDGE_READ,
+        PermissionCode.INSTAGRAM_CONNECTION_READ,
+        PermissionCode.INSTAGRAM_WEBHOOK_READ, PermissionCode.INSTAGRAM_EVENT_READ,
         PermissionCode.CONTENT_READ, PermissionCode.CONVERSATION_READ,
         PermissionCode.ORDER_READ, PermissionCode.ANALYTICS_READ,
     )),
@@ -235,6 +254,8 @@ ROLE_DEFINITIONS = (
         PermissionCode.CATALOG_READ, PermissionCode.PRICING_READ,
         PermissionCode.AVAILABILITY_READ, PermissionCode.MEDIA_READ,
         PermissionCode.BUSINESS_PROFILE_READ, PermissionCode.KNOWLEDGE_READ,
+        PermissionCode.INSTAGRAM_CONNECTION_READ,
+        PermissionCode.INSTAGRAM_WEBHOOK_READ, PermissionCode.INSTAGRAM_EVENT_READ,
         PermissionCode.CONTENT_READ, PermissionCode.CONNECTOR_READ,
         PermissionCode.CONVERSATION_READ, PermissionCode.ORDER_READ,
         PermissionCode.ANALYTICS_READ, PermissionCode.AUDIT_READ,
@@ -250,6 +271,10 @@ ROLE_DEFINITIONS = (
         PermissionCode.BUSINESS_PROFILE_READ, PermissionCode.BUSINESS_PROFILE_MANAGE,
         PermissionCode.KNOWLEDGE_READ, PermissionCode.KNOWLEDGE_MANAGE,
         PermissionCode.KNOWLEDGE_PUBLISH,
+        PermissionCode.INSTAGRAM_CONNECTION_READ,
+        PermissionCode.INSTAGRAM_CONNECTION_MANAGE,
+        PermissionCode.INSTAGRAM_CONNECTION_CREDENTIALS_MANAGE,
+        PermissionCode.INSTAGRAM_WEBHOOK_READ, PermissionCode.INSTAGRAM_EVENT_READ,
         PermissionCode.CONTENT_READ, PermissionCode.CONTENT_MANAGE,
         PermissionCode.ORDER_READ, PermissionCode.ORDER_MANAGE,
     )),
@@ -258,6 +283,8 @@ ROLE_DEFINITIONS = (
         PermissionCode.CATALOG_READ, PermissionCode.PRICING_READ,
         PermissionCode.AVAILABILITY_READ, PermissionCode.MEDIA_READ,
         PermissionCode.BUSINESS_PROFILE_READ, PermissionCode.KNOWLEDGE_READ,
+        PermissionCode.INSTAGRAM_CONNECTION_READ,
+        PermissionCode.INSTAGRAM_WEBHOOK_READ, PermissionCode.INSTAGRAM_EVENT_READ,
         PermissionCode.CONVERSATION_READ, PermissionCode.CONVERSATION_MANAGE,
         PermissionCode.ORDER_READ, PermissionCode.ORDER_MANAGE,
     )),
@@ -266,6 +293,8 @@ ROLE_DEFINITIONS = (
         PermissionCode.CATALOG_READ, PermissionCode.PRICING_READ,
         PermissionCode.AVAILABILITY_READ, PermissionCode.MEDIA_READ,
         PermissionCode.BUSINESS_PROFILE_READ, PermissionCode.KNOWLEDGE_READ,
+        PermissionCode.INSTAGRAM_CONNECTION_READ,
+        PermissionCode.INSTAGRAM_WEBHOOK_READ, PermissionCode.INSTAGRAM_EVENT_READ,
         PermissionCode.CONTENT_READ, PermissionCode.CONVERSATION_READ,
         PermissionCode.ORDER_READ, PermissionCode.ANALYTICS_READ,
     )),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import base64
 
 from alembic import command
 from alembic.config import Config
@@ -19,6 +20,7 @@ from tools.seeding import SeedRunner, default_registry
 
 
 ROOT = Path(__file__).resolve().parents[1]
+VALID_ENCRYPTION_KEY = base64.urlsafe_b64encode(b"k" * 32).decode("ascii")
 
 
 def test_deployed_settings_fail_closed_and_accept_explicit_uat() -> None:
@@ -33,6 +35,7 @@ def test_deployed_settings_fail_closed_and_accept_explicit_uat() -> None:
         force_https=True,
         session_cookie_secure=True,
         legacy_admin_adapter_enabled=False,
+        instagram_token_encryption_key=VALID_ENCRYPTION_KEY,
     )
     validate_runtime_settings(settings)
 
@@ -96,7 +99,7 @@ def test_readiness_requires_database_at_single_head(tmp_path: Path) -> None:
     try:
         result = readiness(engine)
         assert result.ready is True
-        assert result.current_revision == "0007_business_profile_knowledge"
+        assert result.current_revision == "0008_instagram_channel"
     finally:
         engine.dispose()
 

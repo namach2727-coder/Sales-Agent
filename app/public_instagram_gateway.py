@@ -17,6 +17,7 @@ from fastapi.responses import PlainTextResponse
 from app import models  # noqa: F401 - registers all database tables
 from app.database import Base, engine
 from app.instagram import receive_instagram_webhook, verify_instagram_webhook
+from app.instagram_channel.router import public_router as instagram_channel_public_router
 from app.legal import router as legal_router
 from app.public_media import router as public_media_router
 
@@ -93,6 +94,7 @@ async def log_safe_access(request: Request, call_next):
 
 app.include_router(legal_router)
 app.include_router(public_media_router)
+app.include_router(instagram_channel_public_router)
 
 app.add_api_route(
     "/webhooks/instagram",

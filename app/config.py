@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import base64
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -49,6 +50,8 @@ class Settings(BaseSettings):
     meta_access_token_file: str | None = None
     meta_app_secret: str = ""
     meta_app_secret_file: str | None = None
+    instagram_token_encryption_key: SecretStr = SecretStr("")
+    instagram_token_encryption_key_file: str | None = None
     meta_ig_user_id: str = ""
     meta_api_version: str = "v24.0"
     meta_send_enabled: bool = False
@@ -96,6 +99,7 @@ class Settings(BaseSettings):
             "application_secret": "application_secret_file",
             "meta_access_token": "meta_access_token_file",
             "meta_app_secret": "meta_app_secret_file",
+            "instagram_token_encryption_key": "instagram_token_encryption_key_file",
             "media_signing_secret": "media_signing_secret_file",
             "telegram_bot_token": "telegram_bot_token_file",
             "telegram_webhook_secret": "telegram_webhook_secret_file",
@@ -165,6 +169,21 @@ def validate_runtime_settings(settings: Settings) -> None:
             errors.append("FORCE_HTTPS must be enabled")
         if settings.legacy_admin_adapter_enabled:
             errors.append("LEGACY_ADMIN_ADAPTER_ENABLED must be disabled")
+    encryption_key = (
+        settings.instagram_token_encryption_key.get_secret_value().strip()
+    )
+    try:
+        decoded_encryption_key = base64.b64decode(
+            encryption_key.encode("ascii"),
+            altchars=b"-_",
+            validate=True,
+        )
+    except (UnicodeEncodeError, ValueError):
+        decoded_encryption_key = b""
+    if len(encryption_key) != 44 or len(decoded_encryption_key) != 32:
+        errors.append(
+            "INSTAGRAM_TOKEN_ENCRYPTION_KEY must be a valid Fernet key"
+        )
     if errors:
         raise ValueError("invalid deployment configuration: " + "; ".join(errors))
 

@@ -7,6 +7,7 @@ __pycache__/
 *.db
 .pytest_cache/
 .pytest-tmp-*/
+.pytest-f08-*/
 private_media/
 backups/
 
