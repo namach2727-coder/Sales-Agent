@@ -1,4 +1,19 @@
-# Sales Assistant MVP
+# DirectPilot
+
+DirectPilot is a multi-tenant AI Sales Assistant for Instagram businesses. Its
+production MVP connects one Instagram page through official Meta APIs and turns
+comments and direct messages into measurable sales outcomes. It is not a
+generic Instagram bot, full CRM, or multi-channel inbox.
+
+The canonical product, SaaS, scalability, and scope decisions live in the
+[DirectPilot Product and Architecture Blueprint](docs/blueprint/AI-Commerce-Platform-Blueprint.md).
+The active implementation scope is **FOUNDATION-06 — Lean Business Catalog**;
+future foundations documented in the blueprint are not part of that scope.
+
+Telegram and other experimental adapters described later in this README are
+legacy development/test capabilities already present in the repository. They
+are not part of the DirectPilot production MVP and must not be expanded without
+a separately approved foundation.
 
 ## Deployment environments
 

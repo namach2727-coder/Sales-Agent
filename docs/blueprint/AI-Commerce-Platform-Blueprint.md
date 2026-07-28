@@ -1,23 +1,225 @@
-# AI Commerce Platform — Product Blueprint
+# DirectPilot — Product and Architecture Blueprint
 
-> **Repository:** `namach2727-coder/Sales-Agent`  
-> **Document status:** Architecture baseline and target-state blueprint  
-> **Application version observed:** `0.9.0`  
-> **Repository assessment date:** 2026-07-14  
-> **Blueprint revision:** `1.1` — AI architecture evolution, additive to the Version 1.0 baseline  
+> **Repository:** DirectPilot (currently hosted as `namach2727-coder/Sales-Agent`)
+> **Document status:** Canonical product, SaaS, and target-state architecture
+> **Repository assessment date:** 2026-07-28
+> **Blueprint revision:** `2.0` — DirectPilot product and SaaS guardrails
 > **Authority:** This document is the single source of truth for product and architecture decisions until superseded by a reviewed revision.
 
 ## Document conventions
 
 This blueprint distinguishes implemented behavior from intended architecture. A **Target State** is a direction, not a claim that the capability exists. **Gap** describes the difference. **Migration Strategy** defines a safe route from the current repository to the target without prescribing unapproved application code.
 
-The words **MUST**, **SHOULD**, and **MAY** are normative. Repository evidence is referenced with paths relative to the repository root. The inspected working copy could not be tied to a Git commit because a Git executable was unavailable in the assessment environment; the application-reported version is therefore the reproducible baseline identifier for this revision.
+The words **MUST**, **SHOULD**, and **MAY** are normative. Repository evidence is referenced with paths relative to the repository root. The DirectPilot guardrails below take precedence over older target-state discussion whenever a conflict exists. Historical audit documents remain evidence of repository state at the time they were written, not current product policy.
+
+## DirectPilot product and SaaS architecture guardrails
+
+This section is normative. It distinguishes **already implemented**, **current
+scope**, **planned**, and **deferred** capabilities. Documentation of a future
+capability does not authorize or imply its implementation.
+
+### 1. Product identity
+
+DirectPilot helps Instagram businesses automate customer conversations and turn
+comments and direct messages into measurable outcomes using AI. It is an AI
+Sales Assistant, a business-specific AI employee, a conversion-oriented
+assistant, and a multi-tenant SaaS platform. It is not a generic chatbot,
+keyword bot, Instagram script, full MVP CRM, or multi-channel MVP. Positioning:
+
+> **Connect your page; your AI admin is ready.**
+
+DirectPilot MUST behave like an employee trained on the specific business and
+MUST answer from approved business knowledge rather than fabricate.
+
+### 2. Business outcomes
+
+Each major feature SHOULD improve lead, order, booking, or consultation
+requests; conversion or retention; operator workload; or response reliability.
+Message volume alone is not the primary outcome. A proposal that improves none
+of these and is not required for security or reliability normally stays in the
+backlog.
+
+### 3. Fixed MVP boundaries
+
+The production MVP has one channel: **Instagram through official Meta APIs**.
+Scope is account connection, webhooks, comments, direct messages, automatic or
+suggested replies, and human handoff. WhatsApp, Telegram, email, multi-channel
+inbox, CRM integration, and complete marketing automation are excluded. Legacy
+development connectors in the repository are not DirectPilot MVP scope and
+MUST NOT be extended without a later approved foundation. Future adapter
+boundaries may be anticipated but not implemented prematurely.
+
+### 4. Multi-tenancy
+
+DirectPilot is multi-tenant from its first release. Users/memberships, Instagram
+connections, settings, catalog, products/services, automations, knowledge,
+conversations, usage, subscriptions, analytics, and audit data are tenant owned
+or isolated. Every tenant-bound query and mutation MUST be scoped. Cross-tenant
+references are forbidden. Tenant identity comes from trusted authentication and
+membership context, never unrestricted request input.
+
+### 5. Scalability objective
+
+The core domain architecture should support growth from 10 to 100, 1,000, and
+eventually 10,000 tenants without replacement. This is a design objective, not
+a load-test claim. Readiness comes from stateless APIs, explicit modules,
+tenant-scoped indexes, pagination, idempotent webhooks, replaceable providers,
+containers, external configuration, migration discipline, horizontal-scaling
+compatibility, controlled background work, and observability boundaries. MVP
+does not require enterprise-scale infrastructure.
+
+### 6. Architecture style
+
+The current architecture is a **Modular Monolith**: it favors delivery speed,
+simple operations, transactional clarity, local development, lower cost, and
+adequate early scalability. Modules communicate through explicit application
+interfaces and existing in-process event patterns where applicable.
+Microservices are deferred until demonstrated load, reliability, deployment, or
+team boundaries justify extraction. Channel ingestion, AI processing,
+analytics, billing, and notifications are possible future candidates only.
+
+### 7. Cloud readiness
+
+The MVP may begin on local Windows but remains deployable to Azure, AWS,
+DigitalOcean, or another container platform. Requirements are existing
+settings/environment configuration, no machine-specific paths, Docker
+readiness, PostgreSQL support, replaceable storage, stateless API processes
+where practical, encrypted external tokens, health checks, structured logs,
+and migration-based deployment. No cloud service is mandated now.
+
+### 8. Configuration over hardcoding
+
+Business variation SHOULD use profiles, capabilities, templates, knowledge,
+policies, entitlements, and configuration instead of duplicated applications or
+industry condition trees. Configuration cannot replace explicit validation for
+security, money, isolation, quotas, or sensitive-topic controls.
+
+### 9. Current technical stack
+
+- **Backend:** Python, FastAPI, SQLAlchemy, and Alembic.
+- **Database:** PostgreSQL for deployment; temporary SQLite only where already
+  used for tests or migration validation.
+- **Architecture:** Modular Monolith, REST, versioned APIs, established FastAPI
+  dependency injection, and current repository/service conventions.
+- **Security boundary:** existing authentication, permission checks, tenant
+  membership, public UUID-style API identifiers, and internal numeric IDs.
+
+React, Next.js, Redis, RabbitMQ, S3, and any cloud vendor are not implemented
+unless repository evidence says otherwise. DirectPilot MUST NOT be rewritten to
+ASP.NET Core, Entity Framework Core, or microservices because of generic advice.
+
+### 10. Infrastructure readiness
+
+- Add cache abstraction only for a validated use case; Redis is a possible
+  future provider, not a current dependency.
+- Introduce background/queue interfaces only when webhook, AI, or notification
+  workloads require them; RabbitMQ is a possible future provider only.
+- Keep storage replaceable; S3-compatible storage, Azure Blob, and MinIO are
+  future options, not domain dependencies.
+- Introduce workers only for demonstrated requirements.
+
+### 11. Security
+
+Permanent requirements are official Meta OAuth/API integration, never storing
+Instagram passwords, encryption of external tokens, webhook signature
+verification, duplicate-event prevention, permission-based authorization,
+strict isolation, audit trails, rate-limit readiness, safe uploads, log
+redaction, and no cross-tenant resource-existence leakage.
+
+### 12. Free and paid business model
+
+DirectPilot is subscription SaaS with future monthly/yearly billing and
+usage-based compatibility. The **Forever Free** plan has one tenant, one
+connected Instagram page, and one user unless later changed explicitly. It
+allows **20 successful automatic replies per tenant calendar day**, resetting
+in the tenant timezone, with no expiry or card requirement. Manual replies,
+failed sends, unapproved Shadow Mode suggestions, and idempotent retries do not
+consume quota.
+
+Future paid direction may include higher limits, more automations/users/pages,
+branding removal, richer catalog/media, analytics, advanced knowledge, API
+access, and CRM integration. Documentation here does not put them in MVP scope.
+
+### 13. Feature entitlement architecture
+
+FOUNDATION-09B may introduce data-driven `Plan`, `PlanFeature`,
+`TenantSubscription`, `UsageCounter`, and `UsageEvent` concepts. They MUST NOT
+be implemented during FOUNDATION-06.
+
+### 14. Marketing platform readiness
+
+Future architecture should not block referrals, affiliates, promo/coupon codes,
+campaign pages, UTM attribution, conversion events, SEO pages, A/B tests, or
+campaign tracking. Attribution should use explicit events, not unrelated domain
+aggregates. `Campaign`, `AttributionTouch`, `ReferralCode`, `Affiliate`,
+`PromotionCode`, `Experiment`, `ExperimentVariant`, and `ConversionEvent` are
+conceptual post-MVP items only; no models, tables, APIs, migrations, or services
+are authorized now.
+
+### 15. Analytics direction
+
+Analytics should ultimately measure leads, order/booking/consultation requests,
+handoffs, unanswered questions, automatic versus manual replies, conversion,
+and quota usage. MVP MUST NOT create an event warehouse or separate analytics
+platform. Operational events should remain usable by a future pipeline.
+
+### 16. Observability and operations
+
+Long-term requirements are structured logs, correlation IDs, audit logs, health
+and readiness checks, error monitoring, metrics readiness, delivery tracking,
+webhook diagnostics, and sensitive-data redaction. Implement only what an
+approved foundation requires or what repository evidence shows already exists.
+
+### 17. Architecture evolution rules
+
+Before adding architecture or infrastructure, verify that it solves a validated
+requirement, is needed for the next pilot/security/integrity, has evidence that
+the current approach is insufficient, and cannot be handled more simply inside
+the Modular Monolith. Future usefulness alone is not authorization.
+
+### 18. Explicit non-goals for the current MVP
+
+- no microservices, Kubernetes, Redis dependency, or RabbitMQ dependency;
+- no complete CRM, billing, affiliate, coupon, A/B testing, website-builder, or
+  advanced warehouse engine;
+- no multi-channel inbox;
+- no complete billing engine during FOUNDATION-06;
+- no premature abstraction without a current use case.
+
+### Accepted architecture decision — DirectPilot SaaS evolution strategy
+
+**Status:** Accepted
+
+**Context.** DirectPilot begins as an Instagram-first MVP and may evolve into an
+AI Sales Automation Platform. A strategic proposal suggested ASP.NET Core,
+Entity Framework Core, Redis, RabbitMQ, S3, microservices, marketing engines,
+and a conflicting free quota. The application already uses FastAPI,
+SQLAlchemy, Alembic, PostgreSQL, and a Modular Monolith.
+
+**Decision.** Preserve the Python architecture and Modular Monolith; remain
+cloud-ready and horizontally scalable; introduce provider boundaries only when
+justified; remain queue-, cache-, and storage-provider-ready without adding
+those providers now; keep Instagram as the sole MVP channel; retain 20
+successful automatic replies per tenant day; document marketing direction
+without implementation; extract modules only when real scale or team boundaries
+justify it.
+
+**Positive consequences.** No disruptive rewrite, faster delivery, lower cost,
+controlled complexity, long-term extensibility, and consistent direction.
+
+**Trade-offs.** Future providers still require implementation, module boundaries
+require discipline, scale requires later load-test evidence, and future
+requirements are intentionally not pre-built.
+
+**Rejected alternatives.** Immediate ASP.NET Core rewrite, immediate
+microservices, mandatory Redis/RabbitMQ/S3, complete MVP marketing engines, and
+the conflicting 30-replies-per-month quota.
 
 ## Executive architecture baseline
 
-The repository is a local-first FastAPI MVP for Persian and Finglish commerce conversations. It has a deterministic shared sales engine, SQLite persistence, Instagram/Telegram/ManyChat adapters, a versioned catalog-training workflow, a local manager console, a content studio, and a database-backed module catalog. It also contains early multi-tenant foundations (`Store`, store module entitlements, tenant slug parsing, and store-to-Instagram connection mapping).
+The repository is a local-first FastAPI application with a deterministic shared sales engine, PostgreSQL deployment foundations, Alembic migrations, opaque-session authentication, permission-based RBAC, explicit Tenant/Store boundaries, legacy Instagram/Telegram/ManyChat adapters, catalog-training workflows, a local manager console, a content studio, and a database-backed module catalog. Repository presence does not automatically put a legacy or experimental adapter inside the DirectPilot MVP product scope.
 
-It is **not yet a production multi-tenant SaaS**. Public business APIs are unauthenticated, most legacy commerce records are not tenant-scoped, the manager/provider console is intentionally loopback-only, credentials remain globally configured, and there is no production deployment, migration, billing, identity, RBAC, MFA, job queue, or observability platform.
+Production SaaS readiness remains incomplete. Tenant/Store management, authentication, RBAC, migrations, integration/UAT configuration, health checks, and deployment runbooks exist; legacy commerce data paths, connector credential isolation, billing, MFA, durable background processing, and full production observability require later approved foundations.
 
 ```mermaid
 flowchart LR
@@ -44,11 +246,11 @@ flowchart LR
 
 ### Current State
 
-The repository delivers an MVP sales assistant that answers product and FAQ questions, recognizes Persian and common Finglish expressions, captures phone numbers, records pending orders, flags operator handoff, responds to Instagram direct messages and price comments, and supports Telegram, ManyChat, and a web demo through a shared deterministic conversation engine (`app/chat.py`). A local manager can prepare and publish catalog knowledge and create reviewed social content (`app/admin.py`, `app/admin_content.py`).
+The repository delivers sales-assistant behavior that answers product and FAQ questions, recognizes Persian and common Finglish expressions, captures phone numbers, records pending orders, flags operator handoff, and responds to Instagram direct messages and price comments. Telegram, ManyChat, and the web demo also call the shared deterministic engine as legacy development surfaces; they are not DirectPilot MVP channels. A local manager can prepare catalog knowledge and reviewed social content (`app/admin.py`, `app/admin_content.py`).
 
 ### Target State
 
-Provide a secure, modular, multi-tenant AI-commerce platform in which each store manages its catalog, sales knowledge, content workflow, channel connections, and purchased capabilities through an isolated store console, while the platform provider manages stores, plans, pricing, and operations through a separate provider console.
+Provide DirectPilot as a secure, modular, multi-tenant Instagram AI Sales Assistant in which each store manages approved business knowledge, catalog, Instagram connection, conversation policy, and entitled capabilities through an isolated store console while the provider manages platform operations separately.
 
 ### Gap
 
@@ -160,7 +362,7 @@ flowchart TB
 
 ### Gap
 
-There is no edge policy, durable queue, worker tier, PostgreSQL, object storage, secrets manager, centralized observability, or authenticated platform application. Business logic sometimes resides directly in route modules.
+There is no managed edge policy, durable queue/worker tier, external object storage, secrets manager, or centralized observability platform. PostgreSQL deployment, authenticated principals, RBAC, and Tenant/Store APIs exist, but business logic and legacy global data paths are not yet uniformly migrated to those boundaries.
 
 ### Migration Strategy
 
@@ -209,7 +411,7 @@ Separate source, documentation, migrations, deployment assets, and runtime state
 
 ### Gap
 
-Runtime artifacts coexist with source. There is no migrations directory, deployment directory, CI workflow, packaging metadata, or architecture decision log. The README renders with encoding problems in the inspected console and carries operational guidance beyond a concise onboarding role.
+Runtime artifacts still coexist with source. Alembic migrations, Docker/integration deployment assets, a CI workflow, and operations documentation now exist; infrastructure-as-code, a formal ADR directory, and production artifact packaging remain absent. The README still carries operational guidance beyond a concise onboarding role.
 
 ### Migration Strategy
 
@@ -232,7 +434,7 @@ Add directories incrementally: `docs/architecture/decisions`, `migrations`, `dep
 
 ### Current State
 
-FastAPI routes use Pydantic schemas, synchronous SQLAlchemy sessions, and service-style functions. Tables are created at startup with `Base.metadata.create_all`. Catalog publishing creates immutable `KnowledgeVersion` records and atomically switches `Store.active_version_id`. Conversation behavior is deterministic keyword/alias matching, recent-product context, FAQ matching, phone extraction, pending order creation, and operator flagging.
+FastAPI routes use Pydantic schemas, synchronous SQLAlchemy sessions, and service-style functions. Alembic is the production schema history while `Base.metadata.create_all` remains limited to development/test compatibility paths. Catalog publishing creates immutable `KnowledgeVersion` records and atomically switches `Store.active_version_id`. Conversation behavior remains deterministic keyword/alias matching, recent-product context, FAQ matching, phone extraction, pending order creation, and operator flagging.
 
 ### Target State
 
@@ -240,7 +442,7 @@ A layered backend with HTTP interfaces, application use cases, domain policies, 
 
 ### Gap
 
-Routes and business services are partially coupled to ORM models and global settings. There is no migration framework, application transaction abstraction, outbox, worker, API versioning, or formal error contract. Floating-point product/order prices remain in legacy models.
+Routes and business services are partially coupled to ORM models and global settings. Migration tooling and selected versioned APIs now exist; a general transaction abstraction, outbox, worker, and uniform error contract do not. Floating-point product/order prices remain in legacy models.
 
 ### Migration Strategy
 
@@ -264,7 +466,7 @@ Extract use-case services around existing tested behavior, then introduce reposi
 
 ### Current State
 
-The frontend consists of server-served HTML, CSS, and vanilla JavaScript. `/demo` provides chat, lead, and order views. `/admin` is a Persian RTL manager workflow for catalog entry, review, publish, agent testing, content, and module/provider dialogs. There is no build pipeline, component framework, client router, identity session, or tenant-aware navigation.
+The frontend consists of server-served HTML, CSS, and vanilla JavaScript. `/demo` provides chat, lead, and order views. `/admin` is a Persian RTL manager workflow for catalog entry, review, publish, agent testing, content, and module/provider dialogs. Server-side identity/session foundations now exist, but the local frontend has no build pipeline, component framework, client router, or complete tenant-aware authenticated navigation.
 
 ### Target State
 
@@ -307,11 +509,11 @@ Subdomain generation and parsing are foundations only. The default store is used
 
 ### Migration Strategy
 
-1. Inventory ownership for every table and endpoint.  
-2. Add nullable `store_id` through migrations and backfill existing rows to the legacy default store.  
-3. Add composite uniqueness and foreign keys.  
-4. Make tenant context mandatory in repositories and use cases.  
-5. Make columns non-null and add isolation tests.  
+1. Inventory ownership for every table and endpoint.
+2. Add nullable `store_id` through migrations and backfill existing rows to the legacy default store.
+3. Add composite uniqueness and foreign keys.
+4. Make tenant context mandatory in repositories and use cases.
+5. Make columns non-null and add isolation tests.
 6. Consider PostgreSQL row-level security only as defense in depth.
 
 ### Recommendations
@@ -406,7 +608,7 @@ Additional acceptance criteria for the Target State:
 
 ### Current State
 
-The same local `/admin` interface lets a manager enter products, aliases, FAQs/knowledge, review categorization, publish an immutable catalog version, test the agent, upload product JPEG images, generate/edit/approve content, and conditionally publish to Instagram. It always operates on the default store and has no user identity.
+The same local `/admin` interface lets a manager enter products, aliases, FAQs/knowledge, review categorization, publish an immutable catalog version, test the agent, upload product JPEG images, generate/edit/approve content, and conditionally publish to Instagram. Tenant identities and memberships exist in the backend, but this legacy local workflow still primarily operates on the default store and is not the production Store Console.
 
 ### Target State
 
@@ -562,7 +764,7 @@ The Target State connector platform generalizes the proven Instagram-first patte
 
 Normalized events carry connector type, external account, external event/message ID, store ID, event type, occurred/received timestamps, correlation and causation IDs, reply context, normalized content, attachment references, and a pointer to restricted raw evidence when retention permits. Channel-specific payloads remain inside the adapter boundary. The conversation and AI layers consume normalized events and emit permission-checked commands; they do not call provider SDKs directly.
 
-Instagram remains the reference implementation and first production connector. Telegram and ManyChat remain current secondary adapters; generalization MUST not claim feature parity. New platforms are admitted only through capability declarations—for example text receive/send, comments, media, buttons, publishing, or handoff—so unsupported operations degrade explicitly.
+Instagram is the reference implementation and sole MVP production connector. Telegram and ManyChat are legacy development adapters evidenced by the repository, not current DirectPilot product scope. A future approved channel foundation may admit a new platform through explicit capabilities—for example text receive/send, comments, media, buttons, publishing, or handoff—so unsupported operations degrade explicitly rather than claiming parity.
 
 Additional acceptance criteria for the Target State:
 
@@ -620,7 +822,7 @@ Additional acceptance criteria for the Target State:
 
 ### Current State
 
-There is no user authentication. Admin and setup protection is based on development environment, loopback client/host, origin checks, and ephemeral setup nonce. Connector authentication is machine-to-machine signature or shared-secret validation, not human identity.
+Persistent human identities, Argon2id passwords, revocable opaque sessions, secure cookies, login audit, and principal resolution are implemented. Legacy admin/setup pages also retain development-only loopback, origin, and nonce controls. Connector authentication remains a separate machine-to-machine boundary.
 
 ### Target State
 
@@ -628,7 +830,7 @@ Standards-based human authentication through a managed identity provider or well
 
 ### Gap
 
-There are no user, identity, session, credential, invitation, recovery, or login audit models. Local network location is not suitable as production identity.
+Identity, session, membership, and authentication audit models exist. Invitation, account recovery, federation, and a complete production console login experience remain gaps; local network location is never accepted as production identity.
 
 ### Migration Strategy
 
@@ -682,7 +884,7 @@ Classify every route as public connector, public legal, authenticated provider, 
 
 ### Current State
 
-No RBAC model exists. The UI conceptually combines provider administrator, store manager, catalog editor, content reviewer/publisher, and sales operator powers in one local console.
+A deny-by-default permission catalog, platform/tenant roles, persistent assignments, tenant memberships, and store access assignments are implemented. The legacy local UI still combines responsibilities and is not evidence of production console separation.
 
 ### Target State
 
@@ -690,7 +892,7 @@ Initial roles: Platform Administrator, Platform Support, Billing Operator, Store
 
 ### Gap
 
-No role, permission, membership, assignment, segregation-of-duties, or actor-linked audit schema exists.
+Core role, permission, membership, assignment, and actor-linked audit schemas exist. Complete segregation-of-duties policy, custom roles, production UI coverage, and session/capability invalidation guarantees remain gaps.
 
 ### Migration Strategy
 
@@ -713,7 +915,7 @@ Derive permissions from current use cases, implement fixed system roles first, t
 
 ### Current State
 
-MFA is not implemented. No identity/session infrastructure exists to support it.
+MFA is not implemented. Identity and opaque-session infrastructure now provide a foundation for future assurance and step-up policy, but no factor or recovery implementation exists.
 
 ### Target State
 
@@ -744,7 +946,7 @@ Choose an identity provider with MFA/WebAuthn support. Store only external facto
 
 ### Current State
 
-SQLAlchemy 2.x uses a synchronous SQLite database. Startup calls `create_all` and optionally seeds demo data, modules, the default store, and default Instagram connection. The schema has 22 ORM entities across legacy commerce/events, tenant catalog/content, module entitlements, and Instagram connection foundations. Catalog versions are immutable in practice; several external event identifiers and publish idempotency keys are unique.
+SQLAlchemy 2.x uses PostgreSQL in integration/UAT/deployment configurations and temporary SQLite for development and automated validation. Alembic owns production schema history; development/test compatibility can still create and seed local demo data explicitly. Tenant, Store, membership, RBAC, identity/session, audit, catalog/content, entitlement, and legacy commerce/event entities coexist. Catalog versions are immutable in practice; several external event identifiers and publish idempotency keys are unique.
 
 | Ownership today | Entities |
 |---|---|
@@ -752,6 +954,7 @@ SQLAlchemy 2.x uses a synchronous SQLite database. Startup calls `create_all` an
 | Store-scoped | `TrainingDraft`, `KnowledgeVersion`, `AdminAuditLog`, `ProductMediaAsset`, `SocialContentDraft`, `InstagramPublishJob`, `StoreModule`, `StoreInstagramConnection` |
 | Version-scoped through store | `ProductCategory`, `CatalogProduct`, `ProductAlias`, `KnowledgeItem` |
 | Global platform catalog | `ModuleDefinition` |
+| Tenant and access foundation | `Tenant`, `Store`, `TenantMembership`, `StoreAccessAssignment`, identity/RBAC/audit entities |
 
 ### Target State
 
@@ -759,11 +962,11 @@ PostgreSQL with migration-controlled schemas, explicit ownership, non-null tenan
 
 ### Gap
 
-No Alembic migrations, PostgreSQL driver, backup automation, retention/partitioning policy, data dictionary, or restore evidence exists. `Store.active_version_id` is not declared as a foreign key. Legacy prices use `Float`. Global unique customer/channel identifiers and event IDs may conflict with multi-tenant ownership.
+Alembic and PostgreSQL deployment support exist. Backup/restore automation evidence, retention/partitioning policy, and a complete data dictionary remain incomplete. Legacy commerce/event entities are not uniformly tenant scoped, legacy prices use `Float`, and global customer/channel/event uniqueness may conflict with tenant ownership.
 
 ### Migration Strategy
 
-Baseline the current schema in migrations; add tenant columns/backfill; fix constraints and money types; dual-run tests on PostgreSQL; migrate media out of local disk; perform rehearsed data migration and rollback before cutover.
+Continue migrating legacy aggregates behind tenant-scoped repositories; fix remaining constraints and money types; extend PostgreSQL integration validation; move durable media behind a replaceable provider when required; rehearse data migration, backup/restore, and rollback before production cutover.
 
 ### Recommendations
 
@@ -783,7 +986,7 @@ Baseline the current schema in migrations; add tenant columns/backfill; fix cons
 
 ### Current State
 
-The documented runtime is local Windows PowerShell with Uvicorn, SQLite, local media, Telegram polling, and temporary tunnels for webhook tests. There is no Dockerfile, production process definition, reverse proxy, infrastructure-as-code, CI/CD workflow, managed database, object store, health depth, or production environment topology.
+Local Windows/Uvicorn/SQLite workflows remain available for development and tests. The repository now has a Dockerfile, PostgreSQL integration/UAT configuration, CI, environment validation, health/readiness foundations, Alembic deployment, and an operations runbook. Reverse proxy/edge configuration, infrastructure-as-code, managed object storage, and a verified production topology remain future work.
 
 ### Target State
 
@@ -847,15 +1050,15 @@ Additional acceptance criteria for the Target State:
 | Debt | Evidence | Impact |
 |---|---|---|
 | Partial tenant model | Legacy commerce/event tables lack `store_id`; default store is used | Blocks safe SaaS exposure |
-| No human identity/RBAC/MFA | Local-only guards only | Blocks production consoles |
-| Schema creation without migrations | `Base.metadata.create_all` | Unsafe schema evolution |
+| MFA and console integration incomplete | Identity/RBAC exist; factor and complete console adoption do not | Blocks high-assurance production consoles |
+| Legacy schema/bootstrap paths remain | Alembic exists; some development compatibility still uses `create_all` | Requires disciplined production deployment |
 | SQLite/local media | Default settings and filesystem storage | Limited concurrency, durability, scale |
 | Global connector credentials | `Settings` drives Meta/Telegram | Blocks secure multi-store connectors |
 | Synchronous webhook side effects | Connector handlers call business/outbound paths | Timeout and retry risk |
 | Float money fields | Product/order price models | Precision risk |
 | Catalog-only module promises | Receipt review and analytics lack operational implementation | Commercial/reputation risk |
 | Mixed route/domain responsibilities | Service and route modules share ORM/settings concerns | Testability and change risk |
-| No CI/CD or observability | No workflow/deployment/telemetry stack | Release and incident risk |
+| CI/deployment and observability incomplete | CI/runbooks exist; full telemetry and automated promotion do not | Release and incident risk |
 | Runtime artifacts in worktree | Databases, logs, local media/tooling at root | Packaging and secret-handling risk |
 | README encoding/architecture drift | Console-rendered mojibake and extensive duplicated guidance | Onboarding and documentation risk |
 
@@ -869,7 +1072,7 @@ The repository has tests but no formal debt register, owners, due dates, or rele
 
 ### Migration Strategy
 
-Convert this table into tracked work items. Address production blockers first: identity, tenant isolation, migrations/PostgreSQL, secrets, gateway/queue, and observability. Defer aesthetic refactoring that does not reduce launch risk.
+Convert this table into tracked work items. Address remaining blockers first: legacy tenant scoping, connector secrets, MFA/console adoption, production edge/storage, and observability. Add queue/workers only when measured workload requires them. Defer aesthetic refactoring that does not reduce launch risk.
 
 ### Recommendations
 
@@ -993,6 +1196,27 @@ Assign each item an owner and evidence link. Use `Not applicable` only with arch
 - The checklist is rerun for material architecture, connector, or data changes.
 
 ## 25. Roadmap
+
+### Active Foundation cross-reference
+
+The active implementation scope is **FOUNDATION-06 — Lean Business Catalog**.
+The strategic directions documented in the DirectPilot guardrails do not expand
+FOUNDATION-06 or authorize future implementation. Foundation ordering remains:
+
+- Business Profile and Knowledge — FOUNDATION-07;
+- Instagram Channel — FOUNDATION-08;
+- Conversation Engine — FOUNDATION-09;
+- Subscription and Usage — FOUNDATION-09B;
+- Business Outcomes and Basic Analytics — FOUNDATION-10;
+- AutoSetup — FOUNDATION-11;
+- referrals, affiliates, coupons, UTM attribution, SEO pages, and A/B testing —
+  post-MVP backlog unless separately approved.
+
+No future foundation capability may be pulled into FOUNDATION-06 merely because
+its target architecture is recorded here.
+
+The risk-ordered phases below are long-term architecture gates, not a replacement
+or renumbering of the approved Foundation sequence above.
 
 ### Current State
 
