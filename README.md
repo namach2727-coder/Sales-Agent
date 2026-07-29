@@ -29,6 +29,10 @@ docker compose --env-file .env.integration -f compose.integration.yaml up --buil
 
 Never commit the copied environment file or run migration validation against `sales_assistant.db`.
 
+For an isolated PostgreSQL 16 migration and pytest compatibility run, use the
+dedicated test-only Compose service and explicit opt-in described in
+[PostgreSQL compatibility testing](docs/operations/postgresql-testing.md).
+
 نسخه آزمایشی دستیار فروش با FastAPI و SQLite. صفحه وب، اینستاگرام و تلگرام همگی از یک موتور مکالمه برای قیمت، پرسش‌های متداول، ثبت شماره، سفارش و ارجاع به اپراتور استفاده می‌کنند.
 
 ## Database migrations

@@ -1,0 +1,20 @@
+name: directpilot-postgres-test
+
+services:
+  postgres-test:
+    image: postgres:16-bookworm
+    restart: "no"
+    environment:
+      POSTGRES_DB: directpilot_test
+      POSTGRES_USER: directpilot_test
+      POSTGRES_PASSWORD: directpilot_test
+    ports:
+      - "${DIRECTPILOT_POSTGRES_TEST_PORT:-55432}:5432"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U directpilot_test -d directpilot_test
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s

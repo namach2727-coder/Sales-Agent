@@ -28,9 +28,36 @@ NAMING = {
 FK_NAMING = {"fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s"}
 
 
+def _batch_options() -> dict[str, object]:
+    """Recreate tables only where SQLite requires batch DDL."""
+
+    if op.get_bind().dialect.name == "sqlite":
+        return {"recreate": "always", "naming_convention": FK_NAMING}
+    return {}
+
+
+def _existing_tenant_fk_name(table: str, referred_table: str) -> str:
+    """Resolve legacy unnamed PostgreSQL FKs without assuming dialect names."""
+
+    if op.get_bind().dialect.name == "sqlite":
+        return f"fk_{table}_tenant_id_{referred_table}"
+
+    for foreign_key in sa.inspect(op.get_bind()).get_foreign_keys(table):
+        if (
+            foreign_key["constrained_columns"] == ["tenant_id"]
+            and foreign_key["referred_table"] == referred_table
+            and foreign_key["name"]
+        ):
+            return str(foreign_key["name"])
+    raise RuntimeError(
+        f"tenant_id foreign key from {table!r} to {referred_table!r} was not found"
+    )
+
+
 def _replace_tenant_fk(table: str, nullable: bool) -> None:
-    with op.batch_alter_table(table, recreate="always", naming_convention=FK_NAMING) as batch:
-        batch.drop_constraint(f"fk_{table}_tenant_id_stores", type_="foreignkey")
+    existing_fk_name = _existing_tenant_fk_name(table, "stores")
+    with op.batch_alter_table(table, **_batch_options()) as batch:
+        batch.drop_constraint(existing_fk_name, type_="foreignkey")
         batch.create_foreign_key(
             f"fk_{table}_tenant_id_tenants",
             "tenants",
@@ -40,7 +67,7 @@ def _replace_tenant_fk(table: str, nullable: bool) -> None:
 
 
 def _restore_store_fk(table: str) -> None:
-    with op.batch_alter_table(table, recreate="always", naming_convention=FK_NAMING) as batch:
+    with op.batch_alter_table(table, **_batch_options()) as batch:
         batch.drop_constraint(f"fk_{table}_tenant_id_tenants", type_="foreignkey")
         batch.create_foreign_key(
             f"fk_{table}_tenant_id_stores",
@@ -116,7 +143,7 @@ def upgrade() -> None:
             )
         )
 
-    with op.batch_alter_table("stores", recreate="always", naming_convention=FK_NAMING) as batch:
+    with op.batch_alter_table("stores", **_batch_options()) as batch:
         batch.drop_index("ix_stores_slug")
         batch.add_column(sa.Column("public_id", sa.String(36), nullable=True))
         batch.add_column(sa.Column("tenant_id", sa.Integer(), nullable=True))
@@ -144,7 +171,7 @@ def upgrade() -> None:
             },
         )
 
-    with op.batch_alter_table("stores", recreate="always", naming_convention=FK_NAMING) as batch:
+    with op.batch_alter_table("stores", **_batch_options()) as batch:
         batch.alter_column("public_id", existing_type=sa.String(36), nullable=False)
         batch.alter_column("tenant_id", existing_type=sa.Integer(), nullable=False)
         batch.alter_column("timezone", existing_type=sa.String(64), nullable=False)
@@ -177,7 +204,10 @@ def upgrade() -> None:
             {"public_id": str(uuid.uuid4()), "membership_id": membership_id},
         )
 
-    with op.batch_alter_table("tenant_memberships", recreate="always", naming_convention=FK_NAMING) as batch:
+    existing_membership_tenant_fk = _existing_tenant_fk_name(
+        "tenant_memberships", "stores"
+    )
+    with op.batch_alter_table("tenant_memberships", **_batch_options()) as batch:
         batch.drop_constraint("ck_tenant_memberships_status", type_="check")
         batch.add_column(sa.Column("all_store_access", sa.Boolean(), nullable=False, server_default=sa.false()))
         batch.add_column(sa.Column("invited_at", sa.DateTime(timezone=True), nullable=True))
@@ -188,7 +218,7 @@ def upgrade() -> None:
             "ck_tenant_memberships_status",
             "status IN ('invited', 'active', 'suspended', 'revoked', 'disabled')",
         )
-        batch.drop_constraint("fk_tenant_memberships_tenant_id_stores", type_="foreignkey")
+        batch.drop_constraint(existing_membership_tenant_fk, type_="foreignkey")
         batch.create_foreign_key(
             "fk_tenant_memberships_tenant_id_tenants", "tenants", ["tenant_id"], ["id"]
         )
@@ -258,7 +288,7 @@ def downgrade() -> None:
     for table in ("auth_audit_logs", "identity_audit_logs", "seed_history"):
         _restore_store_fk(table)
     op.execute("UPDATE tenant_memberships SET status='disabled' WHERE status != 'active'")
-    with op.batch_alter_table("tenant_memberships", recreate="always", naming_convention=FK_NAMING) as batch:
+    with op.batch_alter_table("tenant_memberships", **_batch_options()) as batch:
         batch.drop_index("ix_tenant_memberships_public_id")
         batch.drop_constraint("ck_tenant_memberships_status", type_="check")
         batch.drop_constraint("fk_tenant_memberships_tenant_id_tenants", type_="foreignkey")
@@ -273,7 +303,7 @@ def downgrade() -> None:
             "all_store_access", "public_id",
         ):
             batch.drop_column(column)
-    with op.batch_alter_table("stores", recreate="always", naming_convention=FK_NAMING) as batch:
+    with op.batch_alter_table("stores", **_batch_options()) as batch:
         batch.drop_index("ix_stores_public_id")
         batch.drop_index("ix_stores_tenant_id")
         batch.drop_index("ix_stores_slug")
