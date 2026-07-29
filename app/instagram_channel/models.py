@@ -237,6 +237,12 @@ class InstagramInboundEvent(Base):
     __tablename__ = "instagram_inbound_events"
     __table_args__ = (
         UniqueConstraint(
+            "id",
+            "tenant_id",
+            "store_id",
+            name="uq_instagram_events_id_tenant_store",
+        ),
+        UniqueConstraint(
             "provider",
             "idempotency_key",
             name="uq_instagram_events_idempotency",

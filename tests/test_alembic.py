@@ -56,8 +56,16 @@ POST_BASELINE_TABLES = {
     "instagram_connections",
     "instagram_webhook_deliveries",
     "instagram_inbound_events",
+    "conversations",
+    "conversation_participants",
+    "conversation_messages",
+    "conversation_assignments",
+    "conversation_read_states",
+    "conversation_processing_records",
 }
-BASELINE_TABLES = set(Base.metadata.tables) - POST_BASELINE_TABLES
+BASELINE_TABLES = (
+    set(Base.metadata.tables) - POST_BASELINE_TABLES - {"legacy_conversations"}
+) | {"conversations"}
 ALEMBIC_AVAILABLE = importlib.util.find_spec("alembic.config") is not None
 requires_alembic = pytest.mark.skipif(
     not ALEMBIC_AVAILABLE,
@@ -90,11 +98,19 @@ def test_baseline_source_remains_an_immutable_pre_seed_history_snapshot() -> Non
     assert len(table_order) == 25
     expected_indexes = {
         index.name
-        for table_name, table in Base.metadata.tables.items()
-        if table_name in BASELINE_TABLES
+        for table_name in BASELINE_TABLES
+        for table in (
+            Base.metadata.tables[
+                "legacy_conversations"
+                if table_name == "conversations"
+                else table_name
+            ],
+        )
         for index in table.indexes
     }
     expected_indexes -= {"ix_stores_public_id", "ix_stores_tenant_id"}
+    expected_indexes.discard("ix_legacy_conversations_customer_id")
+    expected_indexes.add("ix_conversations_customer_id")
     declared_indexes = {
         index_name
         for definitions in indexes.values()
@@ -175,7 +191,7 @@ def test_baseline_operations_match_metadata_without_database(monkeypatch) -> Non
     # The stores table is intentionally evolved by 0005; the immutable 0001
     # snapshot is still verified above and all unchanged baseline tables must
     # continue to match current metadata.
-    unchanged = BASELINE_TABLES - {"stores"}
+    unchanged = BASELINE_TABLES - {"stores", "conversations"}
     assert metadata_signature(operations.metadata, unchanged) == metadata_signature(
         Base.metadata, unchanged
     )
@@ -190,7 +206,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0008_instagram_channel"]
+    assert scripts.get_heads() == ["0009_conversation_core_models"]
     baseline = scripts.get_revision("0001_baseline_schema")
     seed_history = scripts.get_revision("0002_create_seed_history")
     rbac = scripts.get_revision("0003_authorization_rbac")
@@ -198,7 +214,8 @@ def test_alembic_loads_with_one_linear_head() -> None:
     tenant_store = scripts.get_revision("0005_tenant_store_management")
     catalog = scripts.get_revision("0006_lean_business_catalog")
     knowledge = scripts.get_revision("0007_business_profile_knowledge")
-    head = scripts.get_revision("0008_instagram_channel")
+    instagram = scripts.get_revision("0008_instagram_channel")
+    head = scripts.get_revision("0009_conversation_core_models")
     assert baseline is not None and baseline.down_revision is None
     assert seed_history is not None and seed_history.down_revision == "0001_baseline_schema"
     assert rbac is not None and rbac.down_revision == "0002_create_seed_history"
@@ -206,7 +223,8 @@ def test_alembic_loads_with_one_linear_head() -> None:
     assert tenant_store is not None and tenant_store.down_revision == "0004_authentication_identity"
     assert catalog is not None and catalog.down_revision == "0005_tenant_store_management"
     assert knowledge is not None and knowledge.down_revision == "0006_lean_business_catalog"
-    assert head is not None and head.down_revision == "0007_business_profile_knowledge"
+    assert instagram is not None and instagram.down_revision == "0007_business_profile_knowledge"
+    assert head is not None and head.down_revision == "0008_instagram_channel"
 
 
 @requires_alembic
@@ -261,6 +279,7 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
+        "0009_conversation_core_models",
         "0008_instagram_channel",
         "0007_business_profile_knowledge",
         "0006_lean_business_catalog",

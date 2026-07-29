@@ -56,21 +56,35 @@ class Customer(Base):
     name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    conversations: Mapped[list["Conversation"]] = relationship(back_populates="customer")
+    conversations: Mapped[list["LegacyConversation"]] = relationship(
+        back_populates="customer"
+    )
     orders: Mapped[list["Order"]] = relationship(back_populates="customer")
 
 
-class Conversation(Base):
-    __tablename__ = "conversations"
+class LegacyConversation(Base):
+    """Pre-FOUNDATION conversation record retained for compatibility."""
+
+    __tablename__ = "legacy_conversations"
+    __table_args__ = (
+        Index(
+            "ix_legacy_conversations_customer_id",
+            "customer_id",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
     channel: Mapped[str] = mapped_column(String(30), default="instagram")
     user_message: Mapped[str] = mapped_column(Text)
     assistant_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     needs_human: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     customer: Mapped[Customer] = relationship(back_populates="conversations")
+
+
+# Existing demo/chat imports continue to address the isolated legacy aggregate.
+Conversation = LegacyConversation
 
 
 class Order(Base):
@@ -932,3 +946,6 @@ from app.business_knowledge import models as business_knowledge_models  # noqa: 
 
 # Register FOUNDATION-08 store-scoped Instagram channel tables.
 from app.instagram_channel import models as instagram_channel_models  # noqa: E402,F401
+
+# Register FOUNDATION-09A tenant/store-scoped conversation persistence tables.
+from app.conversation_core import models as conversation_core_models  # noqa: E402,F401
