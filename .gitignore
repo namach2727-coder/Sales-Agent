@@ -29,3 +29,5 @@ tools/pinggy-python/
 tools/pinggy-python-dist/
 
 .tmp_pytest_*/
+
+*.db.bak
