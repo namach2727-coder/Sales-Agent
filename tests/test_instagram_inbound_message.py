@@ -254,6 +254,41 @@ def test_existing_conversation_is_reused_and_duplicate_is_idempotent(
         ) == 2
 
 
+def test_external_message_id_detects_preexisting_legacy_key(
+    inbound_engine,
+) -> None:
+    scope = create_scope(inbound_engine)
+    inbound = create_inbound_event(inbound_engine, scope)
+    with Session(inbound_engine, expire_on_commit=False) as db:
+        first = service_for(db).process(inbound.public_id)
+        db.commit()
+
+    with Session(inbound_engine) as db:
+        message = db.scalar(
+            select(ConversationMessage).where(
+                ConversationMessage.public_id == first.message_public_id
+            )
+        )
+        assert message is not None
+        message.idempotency_key = hashlib.sha256(
+            f"legacy:{uuid.uuid4().hex}".encode()
+        ).hexdigest()
+        db.commit()
+
+    with Session(inbound_engine) as db:
+        duplicate = service_for(db).process(inbound.public_id)
+        conversation = db.scalar(
+            select(Conversation).where(
+                Conversation.public_id == first.conversation_public_id
+            )
+        )
+
+    assert duplicate.status == "duplicate"
+    assert duplicate.message_public_id == first.message_public_id
+    assert conversation is not None
+    assert conversation.message_count == 1
+
+
 def test_tenant_and_store_scopes_do_not_share_conversations(
     inbound_engine,
 ) -> None:
@@ -351,6 +386,40 @@ def test_unsupported_or_incomplete_event_is_ignored(
     assert missing_sender_result.reason == "missing_sender"
 
 
+def test_empty_text_message_is_ignored_without_creating_conversation(
+    inbound_engine,
+) -> None:
+    scope = create_scope(inbound_engine)
+    inbound = create_inbound_event(
+        inbound_engine,
+        scope,
+        text=" \r\n ",
+    )
+
+    with Session(inbound_engine) as db:
+        result = service_for(db).process(inbound.public_id)
+        db.commit()
+
+    assert result.status == "ignored"
+    assert result.reason == "unsupported_message"
+    with Session(inbound_engine) as db:
+        assert db.scalar(
+            select(func.count())
+            .select_from(Conversation)
+            .where(
+                Conversation.instagram_connection_id == scope[2].id
+            )
+        ) == 0
+        assert db.scalar(
+            select(func.count())
+            .select_from(ConversationMessage)
+            .where(
+                ConversationMessage.instagram_inbound_event_id
+                == inbound.id
+            )
+        ) == 0
+
+
 def test_processing_result_exposes_only_public_references(
     inbound_engine,
 ) -> None:
@@ -399,6 +468,44 @@ def test_pipeline_never_commits_or_rolls_back_its_session(
         original_rollback()
 
     with Session(inbound_engine) as db:
+        assert db.scalar(
+            select(func.count())
+            .select_from(ConversationMessage)
+            .where(
+                ConversationMessage.instagram_inbound_event_id
+                == inbound.id
+            )
+        ) == 0
+
+
+def test_outer_rollback_removes_partially_created_conversation(
+    inbound_engine,
+) -> None:
+    scope = create_scope(inbound_engine)
+    inbound = create_inbound_event(inbound_engine, scope)
+
+    with Session(inbound_engine) as db:
+        service = service_for(db)
+        with patch.object(
+            service.conversations.messages,
+            "create",
+            side_effect=RuntimeError("injected message persistence failure"),
+        ):
+            with pytest.raises(
+                RuntimeError,
+                match="injected message persistence failure",
+            ):
+                service.process(inbound.public_id)
+        db.rollback()
+
+    with Session(inbound_engine) as db:
+        assert db.scalar(
+            select(func.count())
+            .select_from(Conversation)
+            .where(
+                Conversation.instagram_connection_id == scope[2].id
+            )
+        ) == 0
         assert db.scalar(
             select(func.count())
             .select_from(ConversationMessage)

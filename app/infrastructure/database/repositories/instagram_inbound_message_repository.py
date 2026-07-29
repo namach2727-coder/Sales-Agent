@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.conversation_core.models import Conversation, ConversationMessage
@@ -119,7 +119,21 @@ class InstagramInboundMessageRepository:
         *,
         tenant_id: int,
         store_id: int,
+        connection_id: int,
+        provider_message_id: str | None,
     ) -> PersistedMessageReference | None:
+        message_identity = [
+            ConversationMessage.idempotency_key == idempotency_key
+        ]
+        if provider_message_id is not None:
+            message_identity.append(
+                and_(
+                    ConversationMessage.instagram_connection_id
+                    == connection_id,
+                    ConversationMessage.provider_message_id
+                    == provider_message_id,
+                )
+            )
         row = self.session.execute(
             select(
                 Conversation.public_id,
@@ -134,9 +148,9 @@ class InstagramInboundMessageRepository:
                 ),
             )
             .where(
-                ConversationMessage.idempotency_key == idempotency_key,
                 ConversationMessage.tenant_id == tenant_id,
                 ConversationMessage.store_id == store_id,
+                or_(*message_identity),
             )
         ).one_or_none()
         if row is None:

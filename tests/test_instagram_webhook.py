@@ -215,6 +215,95 @@ def test_event_idempotency_across_distinct_deliveries(webhook_engine) -> None:
     assert count == 1
 
 
+def test_message_idempotency_survives_changed_redelivery_payload(
+    webhook_engine,
+) -> None:
+    connection = create_connection(webhook_engine)
+    message_id = f"stable-mid-{uuid.uuid4().hex}"
+    first_payload = messaging_payload(
+        connection.instagram_account_id,
+        message_id,
+    )
+    second_payload = messaging_payload(
+        connection.instagram_account_id,
+        message_id,
+    )
+    second_fragment = second_payload["entry"][0]["messaging"][0]
+    second_fragment["timestamp"] += 1
+    second_fragment["message"]["text"] = "updated transport copy"
+
+    with Session(webhook_engine) as db:
+        first = InstagramWebhookIngestionService(db).ingest(
+            raw_body=body_for(first_payload),
+            payload=first_payload,
+            external_delivery_key=f"delivery-{uuid.uuid4().hex}",
+            correlation_id=None,
+        )
+    with Session(webhook_engine) as db:
+        second = InstagramWebhookIngestionService(db).ingest(
+            raw_body=body_for(second_payload),
+            payload=second_payload,
+            external_delivery_key=f"delivery-{uuid.uuid4().hex}",
+            correlation_id=None,
+        )
+        conversation = db.scalar(
+            select(Conversation).where(
+                Conversation.instagram_connection_id == connection.id
+            )
+        )
+        message_count = db.scalar(
+            select(func.count())
+            .select_from(ConversationMessage)
+            .where(
+                ConversationMessage.instagram_connection_id
+                == connection.id,
+                ConversationMessage.provider_message_id == message_id,
+            )
+        )
+
+    assert first == ("accepted", False, 1)
+    assert second == ("accepted", False, 1)
+    assert conversation is not None
+    assert conversation.message_count == 1
+    assert conversation.inbound_message_count == 1
+    assert message_count == 1
+
+
+def test_payload_scope_fields_cannot_override_registered_connection(
+    webhook_engine,
+) -> None:
+    registered = create_connection(webhook_engine)
+    foreign = create_connection(webhook_engine)
+    payload = messaging_payload(
+        registered.instagram_account_id,
+        f"mid-{uuid.uuid4().hex}",
+    )
+    payload["tenant_id"] = foreign.tenant_id
+    payload["store_id"] = foreign.store_id
+    payload["entry"][0]["tenant_id"] = foreign.tenant_id
+    payload["entry"][0]["store_id"] = foreign.store_id
+
+    with Session(webhook_engine) as db:
+        result = InstagramWebhookIngestionService(db).ingest(
+            raw_body=body_for(payload),
+            payload=payload,
+            external_delivery_key=f"delivery-{uuid.uuid4().hex}",
+            correlation_id=None,
+        )
+        conversation = db.scalar(
+            select(Conversation).where(
+                Conversation.instagram_connection_id == registered.id
+            )
+        )
+
+    assert result == ("accepted", False, 1)
+    assert conversation is not None
+    assert conversation.tenant_id == registered.tenant_id
+    assert conversation.store_id == registered.store_id
+    assert conversation.tenant_id != foreign.tenant_id
+    assert conversation.store_id != foreign.store_id
+
+
 def test_ambiguous_cross_identifier_routing_is_ignored(
     webhook_engine,
 ) -> None:

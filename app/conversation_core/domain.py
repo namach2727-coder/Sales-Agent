@@ -554,13 +554,17 @@ def deterministic_message_key(
     )
     assert participant_key is not None
     assert event_key is not None
+    provider_identity = (
+        {"provider_message_id": message_id}
+        if message_id is not None
+        else {"inbound_event_idempotency_key": event_key}
+    )
     encoded = json.dumps(
         {
-            "inbound_event_idempotency_key": event_key,
             "instagram_connection_public_id": connection_id,
             "namespace": "conversation-message-v1",
-            "provider_message_id": message_id,
             "provider_participant_key": participant_key,
+            **provider_identity,
         },
         ensure_ascii=False,
         separators=(",", ":"),

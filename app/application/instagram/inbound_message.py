@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import logging
 from typing import Literal
 
 from app.application.services.conversation_service import ConversationService
@@ -27,6 +28,7 @@ from app.instagram_channel.exceptions import InstagramChannelNotFoundError
 
 
 ProcessingStatus = Literal["processed", "duplicate", "ignored"]
+logger = logging.getLogger("sales_assistant.instagram_inbound")
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,25 +62,48 @@ class InstagramInboundMessageService:
             maximum=36,
         )
         assert normalized_event_public_id is not None
+        logger.info(
+            "Instagram inbound event received",
+            extra={
+                "event_code": "instagram.inbound.received",
+                "event_public_id": normalized_event_public_id,
+            },
+        )
         context = self.repository.get_event_context(
             normalized_event_public_id
         )
         if context is None:
+            logger.warning(
+                "Instagram inbound event resolution failed",
+                extra={
+                    "event_code": "instagram.inbound.resolution_failed",
+                    "event_public_id": normalized_event_public_id,
+                },
+            )
             raise InstagramChannelNotFoundError(
                 "Instagram inbound event was not found"
             )
+        logger.info(
+            "Instagram inbound account scope resolved",
+            extra={
+                "event_code": "instagram.inbound.account_resolved",
+                "event_public_id": context.event_public_id,
+                "connection_public_id": context.connection_public_id,
+                "store_public_id": context.store_public_id,
+            },
+        )
 
         scope_reason = self._scope_rejection_reason(context)
         if scope_reason is not None:
-            return self._ignored(scope_reason)
+            return self._ignored(context, scope_reason)
         if context.event_processing_status == "ignored":
-            return self._ignored("unsupported_event")
+            return self._ignored(context, "unsupported_event")
         if context.event_processing_status != "ready":
-            return self._ignored("event_not_ready")
+            return self._ignored(context, "event_not_ready")
         if context.event_type != "messaging":
-            return self._ignored("unsupported_event")
+            return self._ignored(context, "unsupported_event")
         if context.external_sender_id is None:
-            return self._ignored("missing_sender")
+            return self._ignored(context, "missing_sender")
 
         content_type, text, classification_metadata = (
             classify_incoming_message(
@@ -86,6 +111,8 @@ class InstagramInboundMessageService:
                 normalized_payload=context.normalized_payload,
             )
         )
+        if content_type == "unsupported":
+            return self._ignored(context, "unsupported_message")
         metadata = {
             **classification_metadata,
             "provider": "instagram",
@@ -124,9 +151,11 @@ class InstagramInboundMessageService:
             message_key,
             tenant_id=context.tenant_id,
             store_id=context.store_id,
+            connection_id=context.connection_id,
+            provider_message_id=incoming.provider_message_id,
         )
         if duplicate is not None:
-            return self._duplicate(duplicate)
+            return self._duplicate(context, duplicate)
 
         existing_conversation_public_id = (
             self.repository.find_conversation_public_id(
@@ -143,6 +172,23 @@ class InstagramInboundMessageService:
             store_id=context.store_id,
             instagram_connection_id=context.connection_id,
             provider_participant_key=incoming.provider_participant_key,
+        )
+        logger.info(
+            (
+                "Instagram inbound conversation created"
+                if existing_conversation_public_id is None
+                else "Instagram inbound conversation reused"
+            ),
+            extra={
+                "event_code": (
+                    "instagram.inbound.conversation_created"
+                    if existing_conversation_public_id is None
+                    else "instagram.inbound.conversation_reused"
+                ),
+                "event_public_id": context.event_public_id,
+                "conversation_public_id": conversation.public_id,
+                "store_public_id": context.store_public_id,
+            },
         )
         try:
             message = self.conversations.append_message(
@@ -164,10 +210,23 @@ class InstagramInboundMessageService:
                 message_key,
                 tenant_id=context.tenant_id,
                 store_id=context.store_id,
+                connection_id=context.connection_id,
+                provider_message_id=incoming.provider_message_id,
             )
             if duplicate is None:
                 raise
-            return self._duplicate(duplicate)
+            return self._duplicate(context, duplicate)
+
+        logger.info(
+            "Instagram inbound message persisted",
+            extra={
+                "event_code": "instagram.inbound.message_persisted",
+                "event_public_id": context.event_public_id,
+                "conversation_public_id": conversation.public_id,
+                "message_public_id": message.public_id,
+                "store_public_id": context.store_public_id,
+            },
+        )
 
         return InstagramInboundProcessingResult(
             status="processed",
@@ -191,7 +250,19 @@ class InstagramInboundMessageService:
         return None
 
     @staticmethod
-    def _ignored(reason: str) -> InstagramInboundProcessingResult:
+    def _ignored(
+        context: InstagramInboundEventContext,
+        reason: str,
+    ) -> InstagramInboundProcessingResult:
+        logger.info(
+            "Instagram inbound event ignored",
+            extra={
+                "event_code": "instagram.inbound.ignored",
+                "event_public_id": context.event_public_id,
+                "store_public_id": context.store_public_id,
+                "reason": reason,
+            },
+        )
         return InstagramInboundProcessingResult(
             status="ignored",
             reason=reason,
@@ -199,8 +270,21 @@ class InstagramInboundMessageService:
 
     @staticmethod
     def _duplicate(
+        context: InstagramInboundEventContext,
         reference: PersistedMessageReference,
     ) -> InstagramInboundProcessingResult:
+        logger.info(
+            "Duplicate Instagram inbound message detected",
+            extra={
+                "event_code": "instagram.inbound.duplicate",
+                "event_public_id": context.event_public_id,
+                "conversation_public_id": (
+                    reference.conversation_public_id
+                ),
+                "message_public_id": reference.message_public_id,
+                "store_public_id": context.store_public_id,
+            },
+        )
         return InstagramInboundProcessingResult(
             status="duplicate",
             conversation_public_id=reference.conversation_public_id,

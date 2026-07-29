@@ -534,7 +534,6 @@ def test_deterministic_message_key_is_stable_lowercase_sha256() -> None:
         {"provider_participant_key": "customer-456"},
         {"instagram_connection_public_id": "other-connection"},
         {"provider_message_id": "mid.456"},
-        {"inbound_event_idempotency_key": "other-event-key"},
     ],
 )
 def test_deterministic_message_key_changes_with_logical_identity(
@@ -543,8 +542,22 @@ def test_deterministic_message_key_changes_with_logical_identity(
     assert message_key(**override) != message_key()
 
 
-def test_deterministic_message_key_supports_missing_provider_message_id() -> None:
-    assert re.fullmatch(
-        r"[0-9a-f]{64}",
-        message_key(provider_message_id=None),
+def test_provider_message_id_is_stable_across_delivery_variations() -> None:
+    assert message_key(
+        inbound_event_idempotency_key="first-delivery"
+    ) == message_key(
+        inbound_event_idempotency_key="second-delivery"
     )
+
+
+def test_deterministic_message_key_supports_missing_provider_message_id() -> None:
+    first = message_key(
+        provider_message_id=None,
+        inbound_event_idempotency_key="first-delivery",
+    )
+    second = message_key(
+        provider_message_id=None,
+        inbound_event_idempotency_key="second-delivery",
+    )
+    assert re.fullmatch(r"[0-9a-f]{64}", first)
+    assert first != second
