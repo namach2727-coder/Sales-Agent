@@ -15,6 +15,7 @@ from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
+from app.conversation_core.models import Conversation, ConversationMessage
 from app.database import get_db
 from app.instagram_channel.domain import parse_instagram_webhook
 from app.instagram_channel.models import (
@@ -167,10 +168,18 @@ def test_webhook_ingestion_routes_and_deduplicates_delivery(webhook_engine) -> N
         )
         assert db.scalar(select(func.count()).select_from(InstagramWebhookDelivery)) == 1
         assert db.scalar(select(func.count()).select_from(InstagramInboundEvent)) == 1
+        assert db.scalar(select(func.count()).select_from(Conversation)) == 1
+        assert db.scalar(
+            select(func.count()).select_from(ConversationMessage)
+        ) == 1
         event_row = db.scalar(select(InstagramInboundEvent))
         assert event_row is not None
         assert event_row.tenant_id == connection.tenant_id
         assert event_row.store_id == connection.store_id
+        message = db.scalar(select(ConversationMessage))
+        assert message is not None
+        assert message.instagram_inbound_event_id == event_row.id
+        assert message.direction == "inbound"
     assert first == ("accepted", False, 1)
     assert second == ("duplicate", True, 0)
 
@@ -204,6 +213,49 @@ def test_event_idempotency_across_distinct_deliveries(webhook_engine) -> None:
     assert first == ("accepted", False, 1)
     assert second == ("accepted", False, 0)
     assert count == 1
+
+
+def test_ambiguous_cross_identifier_routing_is_ignored(
+    webhook_engine,
+) -> None:
+    first = create_connection(webhook_engine)
+    second = create_connection(webhook_engine)
+    shared_identifier = f"shared-{uuid.uuid4().hex}"
+    with Session(webhook_engine) as db:
+        first_row = db.get(InstagramConnection, first.id)
+        second_row = db.get(InstagramConnection, second.id)
+        assert first_row is not None and second_row is not None
+        first_row.facebook_page_id = shared_identifier
+        second_row.instagram_account_id = shared_identifier
+        db.commit()
+
+    payload = messaging_payload(shared_identifier)
+    with Session(webhook_engine) as db:
+        result = InstagramWebhookIngestionService(db).ingest(
+            raw_body=body_for(payload),
+            payload=payload,
+            external_delivery_key=f"delivery-{uuid.uuid4().hex}",
+            correlation_id=None,
+        )
+        delivery = db.scalar(
+            select(InstagramWebhookDelivery).where(
+                InstagramWebhookDelivery.payload_hash
+                == hashlib.sha256(body_for(payload)).hexdigest()
+            )
+        )
+        assert delivery is not None
+        assert delivery.processing_status == "ignored"
+        assert delivery.failure_category == "ambiguous_account_scope"
+        assert delivery.tenant_id is None
+        assert db.scalar(
+            select(func.count())
+            .select_from(InstagramInboundEvent)
+            .where(
+                InstagramInboundEvent.webhook_delivery_id == delivery.id
+            )
+        ) == 0
+
+    assert result == ("ignored", False, 0)
 
 
 @pytest.mark.parametrize("status", ["disconnected", "revoked", "archived"])

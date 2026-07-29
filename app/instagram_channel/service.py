@@ -12,6 +12,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
+from app.application.instagram import InstagramInboundMessageService
+from app.application.services import ConversationService
+from app.infrastructure.database.repositories import (
+    ConversationRepository,
+    InstagramInboundMessageRepository,
+    MessageRepository,
+)
 from app.instagram_channel.domain import (
     READABLE_STORE_STATUSES,
     ROUTABLE_CONNECTION_STATUSES,
@@ -678,15 +685,22 @@ class InstagramWebhookIngestionService:
                 )
             ).all()
         ) if routing_ids else []
-        by_identifier: dict[str, InstagramConnection] = {}
+        connection_ids_by_identifier: dict[str, set[int]] = {}
         for connection in connections:
-            by_identifier[connection.instagram_account_id] = connection
+            connection_ids_by_identifier.setdefault(
+                connection.instagram_account_id, set()
+            ).add(connection.id)
             if connection.facebook_page_id:
-                by_identifier[connection.facebook_page_id] = connection
+                connection_ids_by_identifier.setdefault(
+                    connection.facebook_page_id, set()
+                ).add(connection.id)
         resolved_connections = {
-            by_identifier[item.routing_account_id].id
+            connection_id
             for item in parsed_events
-            if item.routing_account_id in by_identifier
+            if item.routing_account_id in connection_ids_by_identifier
+            for connection_id in connection_ids_by_identifier[
+                item.routing_account_id
+            ]
         }
         if len(resolved_connections) != 1:
             delivery.processing_status = "ignored"
@@ -717,10 +731,24 @@ class InstagramWebhookIngestionService:
         received_at = delivery.received_at
         created = 0
         duplicate_events = 0
+        message_results = {
+            "processed": 0,
+            "duplicate": 0,
+            "ignored": 0,
+        }
+        inbound_messages = InstagramInboundMessageService(
+            InstagramInboundMessageRepository(self.session),
+            ConversationService(
+                ConversationRepository(self.session),
+                MessageRepository(self.session),
+            ),
+        )
         for parsed in parsed_events:
             if (
-                parsed.routing_account_id not in by_identifier
-                or by_identifier[parsed.routing_account_id].id != connection.id
+                parsed.routing_account_id
+                not in connection_ids_by_identifier
+                or connection_ids_by_identifier[parsed.routing_account_id]
+                != {connection.id}
             ):
                 continue
             event = InstagramInboundEvent(
@@ -748,7 +776,6 @@ class InstagramWebhookIngestionService:
                 with self.session.begin_nested():
                     self.session.add(event)
                     self.session.flush()
-                created += 1
             except IntegrityError:
                 existing = self.session.scalar(
                     select(InstagramInboundEvent.id).where(
@@ -761,6 +788,10 @@ class InstagramWebhookIngestionService:
                     self.session.rollback()
                     raise
                 duplicate_events += 1
+                continue
+            created += 1
+            result = inbound_messages.process(event.public_id)
+            message_results[result.status] += 1
         now = utc_now()
         # Operational receipt time intentionally does not participate in the
         # management revision. A Core update avoids turning a concurrent
@@ -779,6 +810,7 @@ class InstagramWebhookIngestionService:
                 "delivery_public_id": delivery.public_id,
                 "event_count": created,
                 "duplicate_event_count": duplicate_events,
+                "message_results": message_results,
                 "correlation_id": correlation_id,
             },
         )
