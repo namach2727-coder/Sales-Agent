@@ -1,6 +1,10 @@
 .env
 .env.*
 !.env.*.example
+# Local profile files are secrets; only their example templates are tracked.
+.env.dev
+.env.uat
+.env.production
 .venv/
 __pycache__/
 *.py[cod]

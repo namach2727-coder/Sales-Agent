@@ -1,0 +1,95 @@
+name: directpilot-uat
+
+services:
+  directpilot:
+    image: directpilot:uat
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ${UAT_ENV_FILE:-.env.uat}
+    environment:
+      DIRECTPILOT_ENV_PROFILE: uat
+      APP_ENV: uat
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgresql:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      LLM_PROVIDER: ollama
+      OLLAMA_BASE_URL: http://ollama:11434/v1
+      OLLAMA_MODEL: ${OLLAMA_MODEL:?OLLAMA_MODEL is required}
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - type: bind
+        source: ${UAT_ENV_FILE:-.env.uat}
+        target: /app/.env.uat
+        read_only: true
+      - type: volume
+        source: directpilot_media
+        target: /app/private_media
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import urllib.request;
+          request = urllib.request.Request('http://127.0.0.1:8000/ready', headers={'X-Forwarded-Proto': 'https'});
+          urllib.request.urlopen(request, timeout=3)
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - uat
+
+  postgresql:
+    image: postgres:17.5-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - type: volume
+        source: postgresql_data
+        target: /var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - uat
+
+  ollama:
+    image: ollama/ollama:0.32.3
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: ollama_data
+        target: /root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    networks:
+      - uat
+
+volumes:
+  directpilot_media:
+  postgresql_data:
+  ollama_data:
+
+networks:
+  uat:
+    driver: bridge

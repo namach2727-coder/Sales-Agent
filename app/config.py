@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 import base64
+import os
 from pathlib import Path
 from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
@@ -12,6 +13,12 @@ from sqlalchemy.engine import make_url
 
 
 ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+ENV_PROFILE_VARIABLE = "DIRECTPILOT_ENV_PROFILE"
+ENV_PROFILE_FILES = {
+    "dev": ENV_FILE.with_name(".env.dev"),
+    "uat": ENV_FILE.with_name(".env.uat"),
+    "production": ENV_FILE.with_name(".env.production"),
+}
 DEPLOYED_ENVIRONMENTS = frozenset({"integration", "uat", "production"})
 PLACEHOLDER_VALUES = frozenset({"", "replace-me", "changeme", "change-me", "secret"})
 
@@ -257,6 +264,32 @@ def validate_runtime_settings(settings: Settings) -> None:
         raise ValueError("invalid deployment configuration: " + "; ".join(errors))
 
 
+def resolve_startup_env_file(profile: str | None = None) -> Path:
+    """Resolve a fixed environment file once at the configuration boundary."""
+
+    selected = (
+        os.environ.get(ENV_PROFILE_VARIABLE, "")
+        if profile is None
+        else profile
+    )
+    normalized = selected.strip().casefold()
+    if not normalized:
+        return ENV_FILE
+    try:
+        return ENV_PROFILE_FILES[normalized]
+    except KeyError as exc:
+        allowed = ", ".join(sorted(ENV_PROFILE_FILES))
+        raise ValueError(
+            f"{ENV_PROFILE_VARIABLE} must be one of: {allowed}"
+        ) from exc
+
+
+def load_startup_settings(profile: str | None = None) -> Settings:
+    """Construct settings for the selected startup profile."""
+
+    return Settings(_env_file=resolve_startup_env_file(profile))
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    return load_startup_settings()
