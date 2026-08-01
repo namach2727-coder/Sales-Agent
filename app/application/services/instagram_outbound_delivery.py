@@ -57,6 +57,7 @@ class InstagramOutboundDeliveryService:
         context: TenantStoreContext,
         correlation_id: str | None = None,
         delivered_at: datetime | None = None,
+        before_provider_call: Callable[[], None] | None = None,
     ) -> OutboundDeliveryResult:
         tenant_id, store_id, tenant_public_id, store_public_id = _active_scope(
             context
@@ -178,6 +179,8 @@ class InstagramOutboundDeliveryService:
                 outcome="started",
             ),
         )
+        if before_provider_call is not None:
+            before_provider_call()
 
         try:
             # Plaintext exists only for the smallest possible interval: after

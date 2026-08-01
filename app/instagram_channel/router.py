@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import asdict
 import json
 import logging
 
@@ -50,6 +52,9 @@ from app.instagram_channel.service import (
     InstagramWebhookIngestionService,
     connection_to_public,
 )
+from app.infrastructure.integrations import (
+    build_instagram_ai_flow_coordinator,
+)
 from app.observability import correlation_id
 from app.tenant_management.context import (
     TenantStoreContext,
@@ -68,6 +73,12 @@ router = APIRouter(
     tags=["instagram-channel"],
 )
 public_router = APIRouter(tags=["instagram-channel-public"])
+
+
+def get_instagram_ai_flow_builder() -> Callable[..., object]:
+    """Injectable construction seam; performs no network activity."""
+
+    return build_instagram_ai_flow_coordinator
 
 
 def _raise(error: Exception) -> None:
@@ -189,6 +200,9 @@ async def receive_instagram_webhook(
     request: Request,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
+    ai_flow_builder: Callable[..., object] = Depends(
+        get_instagram_ai_flow_builder
+    ),
 ) -> dict[str, object]:
     raw_body = await request.body()
     signature = request.headers.get("x-hub-signature-256")
@@ -234,14 +248,22 @@ async def receive_instagram_webhook(
         or request.headers.get("x-meta-delivery-id")
     )
     try:
-        receipt, duplicate, event_count = InstagramWebhookIngestionService(
-            db
-        ).ingest(
+        ingestion = InstagramWebhookIngestionService(db).ingest_for_ai(
             raw_body=raw_body,
             payload=payload,
             external_delivery_key=external_delivery_key,
             correlation_id=correlation_id.get(),
         )
+        flow_results: list[dict[str, object]] = []
+        if ingestion.flow_items:
+            coordinator = ai_flow_builder(db, settings)
+            for item in ingestion.flow_items:
+                result = coordinator.process(
+                    item.inbound,
+                    context=item.context,
+                    correlation_id=correlation_id.get(),
+                )
+                flow_results.append(asdict(result))
     except InstagramWebhookPayloadError as exc:
         raise HTTPException(
             status_code=400,
@@ -277,9 +299,10 @@ async def receive_instagram_webhook(
             },
         ) from exc
     return {
-        "status": receipt,
-        "duplicate": duplicate,
-        "event_count": event_count,
+        "status": ingestion.status,
+        "duplicate": ingestion.duplicate,
+        "event_count": ingestion.event_count,
+        "flows": flow_results,
     }
 
 

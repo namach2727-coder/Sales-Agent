@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import hashlib
+from collections.abc import Callable
 from uuid import uuid4
 
 from app.application.knowledge import KnowledgeEngine
@@ -66,6 +67,7 @@ class AIResponseOrchestrator:
         context: TenantStoreContext,
         preferred_language: str | None = None,
         occurred_at: datetime | None = None,
+        before_provider_call: Callable[[], None] | None = None,
     ) -> str:
         tenant_id, store_id, tenant_public_id, store_public_id = (
             _active_scope(context)
@@ -99,6 +101,8 @@ class AIResponseOrchestrator:
             latest_customer_message=latest_customer_message.text,
             preferred_language=preferred_language,
         )
+        if before_provider_call is not None:
+            before_provider_call()
         response = self.llm.generate(prompt_package)
         _validate_provider_result(response)
 

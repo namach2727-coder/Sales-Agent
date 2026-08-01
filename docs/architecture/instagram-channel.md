@@ -320,3 +320,37 @@ are set: `INSTAGRAM_OUTBOUND_TEST_ACCESS_TOKEN`,
 `INSTAGRAM_OUTBOUND_TEST_ACCOUNT_ID`, and
 `INSTAGRAM_OUTBOUND_TEST_RECIPIENT_ID`. Never run it against a customer or
 production account.
+
+## Synchronous Instagram AI MVP flow
+
+The public `/api/v1/integrations/instagram/webhook` remains the single Meta
+webhook. After exact-body signature verification, the existing ingestion
+boundary returns trusted, tenant/store-scoped results for newly persisted text
+messages. `InstagramAIFlowCoordinator` then composes the existing
+`AIResponseOrchestrator` and `InstagramOutboundDeliveryService`; the route does
+not query SQL, construct prompts, invoke an LLM, or call Meta directly.
+
+Processing uses three explicit local transaction phases:
+
+1. the established webhook ingestion boundary stores and commits the verified
+   delivery, normalized event, conversation, and inbound message;
+2. prompt inputs are read, the read transaction is closed before the LLM call,
+   and the valid assistant message is committed after generation;
+3. outbound state is validated and marked pending, that transaction is closed
+   before the Meta call, and sent/failed metadata is committed afterward.
+
+These phases are intentionally not globally atomic. A crash after phase 1 can
+leave a committed inbound message without an assistant response. A crash after
+phase 2 can leave a committed assistant message requiring explicit delivery.
+Meta success followed by a crash before phase 3 persistence remains an
+ambiguous external-delivery window. No outbox, queue, worker, scheduled retry,
+or exactly-once claim is introduced.
+
+Exact delivery duplicates and repeated provider message IDs reuse existing
+inbound idempotency, skip AI generation, and skip outbound delivery. Unsupported
+or empty events are acknowledged as ignored. An LLM failure leaves only the
+committed inbound message. An outbound failure leaves both messages and commits
+the existing safe failed-delivery metadata so the outbound service can be
+invoked manually. HTTP acknowledgements expose only safe statuses, correlation
+IDs, and public resource IDs; raw provider failures, prompts, message content,
+recipient identifiers, credentials, and internal IDs are excluded.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 import logging
 from time import monotonic
@@ -12,7 +13,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
-from app.application.instagram import InstagramInboundMessageService
+from app.application.instagram import (
+    InstagramInboundMessageService,
+    InstagramInboundProcessingResult,
+)
 from app.application.services import ConversationService
 from app.infrastructure.database.repositories import (
     ConversationRepository,
@@ -44,10 +48,28 @@ from app.instagram_channel.models import (
     InstagramWebhookDelivery,
 )
 from app.instagram_channel.security import TokenCipher
-from app.models import TenantAuditLog, utc_now
+from app.models import Store, Tenant, TenantAuditLog, utc_now
+from app.tenant_management.context import TenantStoreContext
 
 
 logger = logging.getLogger("sales_assistant.instagram_channel")
+
+
+@dataclass(frozen=True, slots=True)
+class InstagramInboundFlowItem:
+    inbound: InstagramInboundProcessingResult
+    context: TenantStoreContext
+
+
+@dataclass(frozen=True, slots=True)
+class InstagramWebhookIngestionResult:
+    status: str
+    duplicate: bool
+    event_count: int
+    flow_items: tuple[InstagramInboundFlowItem, ...] = ()
+
+    def legacy_tuple(self) -> tuple[str, bool, int]:
+        return self.status, self.duplicate, self.event_count
 
 
 def connection_to_public(item: InstagramConnection) -> dict[str, object]:
@@ -607,6 +629,23 @@ class InstagramWebhookIngestionService:
         external_delivery_key: str | None,
         correlation_id: str | None,
     ) -> tuple[str, bool, int]:
+        """Compatibility API retained for existing ingestion consumers."""
+
+        return self.ingest_for_ai(
+            raw_body=raw_body,
+            payload=payload,
+            external_delivery_key=external_delivery_key,
+            correlation_id=correlation_id,
+        ).legacy_tuple()
+
+    def ingest_for_ai(
+        self,
+        *,
+        raw_body: bytes,
+        payload: dict[str, object],
+        external_delivery_key: str | None,
+        correlation_id: str | None,
+    ) -> InstagramWebhookIngestionResult:
         started = monotonic()
         payload_hash = canonical_payload_hash(raw_body)
         external_key = normalize_identifier(
@@ -653,7 +692,11 @@ class InstagramWebhookIngestionService:
                 "duplicate Instagram webhook",
                 extra={"event_code": "instagram.webhook.duplicate"},
             )
-            return "duplicate", True, 0
+            return InstagramWebhookIngestionResult(
+                status="duplicate",
+                duplicate=True,
+                event_count=0,
+            )
 
         try:
             parsed_events = parse_instagram_webhook(payload)
@@ -720,7 +763,11 @@ class InstagramWebhookIngestionService:
                 "Instagram webhook ignored",
                 extra={"event_code": "instagram.webhook.unresolved"},
             )
-            return "ignored", False, 0
+            return InstagramWebhookIngestionResult(
+                status="ignored",
+                duplicate=False,
+                event_count=0,
+            )
 
         connection_id = next(iter(resolved_connections))
         connection = next(item for item in connections if item.id == connection_id)
@@ -736,6 +783,23 @@ class InstagramWebhookIngestionService:
             "duplicate": 0,
             "ignored": 0,
         }
+        tenant = self.session.get(Tenant, connection.tenant_id)
+        store = self.session.get(Store, connection.store_id)
+        if tenant is None or store is None:
+            raise InstagramChannelScopeError(
+                "resolved Instagram ownership is unavailable"
+            )
+        trusted_context = TenantStoreContext(
+            tenant_id=tenant.id,
+            tenant_public_id=tenant.public_id,
+            tenant_status=tenant.status,
+            membership_id=None,
+            store_id=store.id,
+            store_public_id=store.public_id,
+            store_status=store.status,
+            platform_access=False,
+        )
+        flow_items: list[InstagramInboundFlowItem] = []
         inbound_messages = InstagramInboundMessageService(
             InstagramInboundMessageRepository(self.session),
             ConversationService(
@@ -792,6 +856,12 @@ class InstagramWebhookIngestionService:
             created += 1
             result = inbound_messages.process(event.public_id)
             message_results[result.status] += 1
+            flow_items.append(
+                InstagramInboundFlowItem(
+                    inbound=result,
+                    context=trusted_context,
+                )
+            )
         now = utc_now()
         # Operational receipt time intentionally does not participate in the
         # management revision. A Core update avoids turning a concurrent
@@ -820,4 +890,9 @@ class InstagramWebhookIngestionService:
             extra={"event_code": "instagram.webhook.processed"},
         )
         _ = monotonic() - started
-        return "accepted", False, created
+        return InstagramWebhookIngestionResult(
+            status="accepted",
+            duplicate=False,
+            event_count=created,
+            flow_items=tuple(flow_items),
+        )

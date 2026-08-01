@@ -130,7 +130,22 @@ class InstagramInboundEventPage(Page):
     items: list[InstagramInboundEventRead]
 
 
+class InstagramAIFlowReceipt(BaseModel):
+    acknowledged: bool
+    inbound_status: str
+    ai_status: Literal["not_started", "skipped", "completed", "failed"]
+    delivery_status: Literal["not_started", "skipped", "sent", "failed"]
+    duplicate: bool
+    ignored: bool
+    correlation_id: str
+    conversation_public_id: str | None = None
+    inbound_message_public_id: str | None = None
+    assistant_message_public_id: str | None = None
+    safe_reason: str | None = None
+
+
 class InstagramWebhookReceipt(BaseModel):
     status: Literal["accepted", "duplicate", "ignored"]
     duplicate: bool
     event_count: int = Field(ge=0)
+    flows: list[InstagramAIFlowReceipt] = Field(default_factory=list)
