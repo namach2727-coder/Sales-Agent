@@ -10,6 +10,9 @@ from app.infrastructure.database.repositories.message_repository import (
 from app.infrastructure.database.repositories.instagram_inbound_message_repository import (
     InstagramInboundMessageRepository,
 )
+from app.infrastructure.database.repositories.instagram_outbound_repository import (
+    InstagramOutboundRepository,
+)
 from app.infrastructure.database.repositories.knowledge_repository import (
     KnowledgeRepository,
 )
@@ -18,6 +21,7 @@ __all__ = [
     "BaseRepository",
     "ConversationRepository",
     "InstagramInboundMessageRepository",
+    "InstagramOutboundRepository",
     "KnowledgeRepository",
     "MessageRepository",
 ]

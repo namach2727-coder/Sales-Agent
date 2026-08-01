@@ -9,10 +9,11 @@ token, activate or disconnect the mapping, and inspect bounded delivery and
 normalized-event diagnostics. Meta can verify the public subscription endpoint
 and submit signed webhook payloads.
 
-This Foundation only receives, authenticates, routes, stores, and normalizes
-transport events. It does not call Meta outbound APIs, send replies, create
-conversations, call AI models, retrieve knowledge, create leads or orders,
-perform billing or analytics, or introduce queues or other channels.
+FOUNDATION-08 itself only receives, authenticates, routes, stores, and
+normalizes transport events. The later MVP outbound slice described below
+delivers already-persisted assistant text; it does not generate answers,
+create messages, create leads or orders, perform billing or analytics, or
+introduce queues or other channels.
 
 The legacy `/webhooks/instagram` development flow remains for regression
 compatibility. The new boundary is isolated under `app/instagram_channel` and
@@ -270,10 +271,52 @@ Foundation. Consumers must not infer that an event was answered.
 Known limitations:
 
 - activation checks local readiness only;
-- no outbound send, conversation, inbox, handoff, AI, or retrieval;
+- the FOUNDATION-08 ingestion boundary itself has no conversation, inbox,
+  handoff, AI, retrieval, or outbound behavior; the later outbound slice is
+  isolated behind its own application service;
 - one persistent connection per Store and globally unique account/Page
   mappings; archived mappings are not reusable;
 - multi-connection HTTP deliveries are ignored;
 - no automated payload retention or credential-key re-encryption;
 - synchronous in-process processing only;
 - no live PostgreSQL or Meta validation is claimed by offline tests.
+
+## MVP outbound delivery slice
+
+The outbound application service accepts the public IDs of an existing
+conversation and assistant message plus a trusted `TenantStoreContext`. It
+loads both under the internal tenant/store scope, resolves the recipient only
+from `Conversation.provider_participant_key`, requires the conversation's one
+active Store connection, decrypts that connection's token immediately before
+the provider call, and sends through a provider adapter bound to that token.
+Callers cannot supply a recipient, account, token, Tenant ID, or Store ID.
+
+Only persisted `outbound` / `text` messages created by
+`ai_response_orchestrator` are eligible. Existing LLM metadata is merged with
+`delivery_status`, `delivery_provider`, `delivery_attempt_count`, provider
+message ID, delivery time, and a safe failure category. Recorded success is
+idempotent: a later call performs no provider request and does not increment
+the attempt count. A failed or previously pending message can be retried
+manually; no scheduler or background worker is present.
+
+The repository and service call `flush()` but never `commit()` or `rollback()`.
+The caller owns the database transaction. Meta and the relational database do
+not share a transaction, so a process/database failure after Meta accepts the
+message but before the success state is durably committed can leave an
+ambiguous delivery. This MVP prevents resend after a recorded success but does
+not claim exactly-once delivery across that crash window.
+
+The adapter uses `META_GRAPH_BASE_URL`, `META_API_VERSION`, and
+`INSTAGRAM_OUTBOUND_TIMEOUT_SECONDS`. Authentication, rejection, recipient,
+rate-limit, timeout, availability, request, and invalid-response failures are
+mapped to application-safe categories. Logs contain public resource IDs and
+safe categories only; they exclude token material, ciphertext, recipient IDs,
+message text, request payloads, response bodies, and internal numeric IDs.
+
+Normal tests use fake HTTP clients and make no network request. The optional
+`tests/test_instagram_outbound_live.py` smoke test is skipped unless
+`RUN_INSTAGRAM_OUTBOUND_INTEGRATION_TEST=1` and three disposable test-account values
+are set: `INSTAGRAM_OUTBOUND_TEST_ACCESS_TOKEN`,
+`INSTAGRAM_OUTBOUND_TEST_ACCOUNT_ID`, and
+`INSTAGRAM_OUTBOUND_TEST_RECIPIENT_ID`. Never run it against a customer or
+production account.

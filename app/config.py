@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     instagram_token_encryption_key_file: str | None = None
     meta_ig_user_id: str = ""
     meta_api_version: str = "v24.0"
+    meta_graph_base_url: str = "https://graph.instagram.com"
+    instagram_outbound_timeout_seconds: float = Field(
+        default=15.0, ge=1.0, le=120.0
+    )
     meta_send_enabled: bool = False
     meta_signature_required: bool = True
     meta_content_publish_enabled: bool = False
@@ -165,6 +169,22 @@ class Settings(BaseSettings):
             or parsed.fragment
         ):
             raise ValueError("OLLAMA_BASE_URL must be a plain HTTP(S) URL")
+        return normalized
+
+    @field_validator("meta_graph_base_url")
+    @classmethod
+    def validate_meta_graph_base_url(cls, value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        parsed = urlsplit(normalized)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("META_GRAPH_BASE_URL must be a plain HTTP(S) URL")
         return normalized
 
     @model_validator(mode="after")
