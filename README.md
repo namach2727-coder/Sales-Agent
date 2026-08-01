@@ -33,6 +33,34 @@ For an isolated PostgreSQL 16 migration and pytest compatibility run, use the
 dedicated test-only Compose service and explicit opt-in described in
 [PostgreSQL compatibility testing](docs/operations/postgresql-testing.md).
 
+## Local Ollama LLM provider (MVP)
+
+Install and run Ollama separately from DirectPilot, then manually pull a model
+that is appropriate for the local hardware. DirectPilot never downloads models.
+
+```powershell
+ollama pull <model-name>
+Invoke-RestMethod http://localhost:11434/api/tags
+```
+
+Configure the provider without setting an OpenAI credential:
+
+```dotenv
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434/v1
+OLLAMA_MODEL=<installed-model-name>
+OLLAMA_TIMEOUT_SECONDS=60
+```
+
+The optional live test is skipped by default and makes one small request only
+when explicitly enabled:
+
+```powershell
+$env:RUN_OLLAMA_INTEGRATION_TEST="1"
+$env:OLLAMA_MODEL="<installed-model-name>"
+python -m pytest tests/test_ollama_integration.py -v
+```
+
 نسخه آزمایشی دستیار فروش با FastAPI و SQLite. صفحه وب، اینستاگرام و تلگرام همگی از یک موتور مکالمه برای قیمت، پرسش‌های متداول، ثبت شماره، سفارش و ارجاع به اپراتور استفاده می‌کنند.
 
 ## Database migrations

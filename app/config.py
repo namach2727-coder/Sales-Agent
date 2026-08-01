@@ -4,6 +4,7 @@ from functools import lru_cache
 import base64
 from pathlib import Path
 from typing import Annotated, Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -72,8 +73,17 @@ class Settings(BaseSettings):
     telegram_poll_timeout: int = 25
     manychat_dynamic_block_secret: str = ""
     manychat_dynamic_block_secret_file: str | None = None
-    openai_api_key: str = ""
+    llm_provider: Literal["openai", "ollama"] = "openai"
+    openai_api_key: SecretStr = SecretStr("")
     openai_api_key_file: str | None = None
+    openai_model: str = Field(
+        default="gpt-5.6-sol", min_length=1, max_length=100
+    )
+    openai_timeout_seconds: float = Field(default=30.0, ge=1.0, le=300.0)
+    openai_max_retries: int = Field(default=1, ge=0, le=3)
+    ollama_base_url: str = "http://localhost:11434/v1"
+    ollama_model: str = Field(default="", max_length=100)
+    ollama_timeout_seconds: float = Field(default=60.0, ge=1.0, le=300.0)
 
     authentication_enabled: bool = True
     legacy_admin_adapter_enabled: bool = True
@@ -125,6 +135,45 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
+    @field_validator("llm_provider", mode="before")
+    @classmethod
+    def normalize_llm_provider(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return value.strip().casefold()
+        return value
+
+    @field_validator("ollama_model")
+    @classmethod
+    def normalize_ollama_model(cls, value: str) -> str:
+        normalized = value.strip()
+        if "\n" in normalized or "\r" in normalized:
+            raise ValueError("OLLAMA_MODEL must be one line")
+        return normalized
+
+    @field_validator("ollama_base_url")
+    @classmethod
+    def validate_ollama_base_url(cls, value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        parsed = urlsplit(normalized)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("OLLAMA_BASE_URL must be a plain HTTP(S) URL")
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_selected_llm_provider(self) -> "Settings":
+        if self.llm_provider == "ollama" and not self.ollama_model:
+            raise ValueError(
+                "OLLAMA_MODEL is required when LLM_PROVIDER=ollama"
+            )
+        return self
 
     @property
     def deployed(self) -> bool:
