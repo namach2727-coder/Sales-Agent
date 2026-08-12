@@ -69,6 +69,7 @@ def onboarding_api(tmp_path: Path):
         meta_app_secret="test-app-secret",
         meta_oauth_redirect_uri="https://api.example/callback",
         instagram_token_encryption_key=Fernet.generate_key().decode("ascii"),
+        cors_allowed_origins=["https://web.example"],
     )
     fake = FakeOAuthProvider()
     app = FastAPI()
@@ -227,3 +228,53 @@ def test_accounts_are_strictly_tenant_isolated(onboarding_api) -> None:
         "/api/v1/integrations/instagram/status", headers=first_headers
     ).json()
     assert first_status["connected_accounts"] == 1
+
+
+def test_browser_callback_redirects_to_trusted_frontend_without_token(onboarding_api) -> None:
+    client, _engine, _fake = onboarding_api
+    _register(client, "browser-success")
+    headers = _login(client, "browser-success")
+    _trial_entitlement(client, headers)
+    state = _start(client, headers)
+    result = client.get(
+        "/api/v1/integrations/instagram/callback",
+        params={"state": state, "code": "browser-success"},
+        headers={"Accept": "text/html"},
+        follow_redirects=False,
+    )
+    assert result.status_code == 303
+    assert result.headers["location"] == (
+        "https://web.example/settings/integrations/instagram?instagram=connected"
+    )
+    assert "token" not in result.headers["location"].casefold()
+
+
+def test_browser_callback_failure_redirects_with_stable_safe_code(onboarding_api) -> None:
+    client, _engine, _fake = onboarding_api
+    result = client.get(
+        "/api/v1/integrations/instagram/callback",
+        params={"state": "unknown-state", "code": "unused"},
+        headers={"Accept": "text/html"},
+        follow_redirects=False,
+    )
+    assert result.status_code == 303
+    assert result.headers["location"] == (
+        "https://web.example/settings/integrations/instagram"
+        "?instagram=error&code=invalid_oauth_state"
+    )
+
+
+def test_callback_rejects_caller_controlled_redirect_target(onboarding_api) -> None:
+    client, _engine, _fake = onboarding_api
+    result = client.get(
+        "/api/v1/integrations/instagram/callback",
+        params={
+            "state": "unknown-state",
+            "code": "unused",
+            "redirect_uri": "https://attacker.example/steal",
+        },
+        headers={"Accept": "text/html"},
+        follow_redirects=False,
+    )
+    assert result.status_code == 400
+    assert result.json()["detail"]["code"] == "unsupported_redirect_target"

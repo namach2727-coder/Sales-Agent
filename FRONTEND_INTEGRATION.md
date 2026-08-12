@@ -46,9 +46,14 @@ async function api(path: string, init: RequestInit = {}) {
 | GET | `/api/v1/payments/me` | Cookie | 200 |
 | GET | `/api/v1/subscription/me` | Cookie | 200 |
 | POST | `/api/v1/integrations/instagram/connect` | Cookie + entitlement | 200 |
-| GET | `/api/v1/integrations/instagram/callback` | OAuth state | 200 |
+| GET | `/api/v1/integrations/instagram/callback` | OAuth state | 200 JSON / 303 browser |
 | GET | `/api/v1/integrations/instagram/status` | Cookie | 200 |
 | GET | `/api/v1/integrations/instagram/accounts` | Cookie | 200 |
+| GET/POST/PATCH | `/api/v1/tenants/{tenant}/stores/{store}/business-knowledge/*` | Cookie + RBAC | 200/201 |
+| GET | `/api/v1/tenants/{tenant}/stores/{store}/inbox/conversations` | Cookie + RBAC | 200 |
+| GET | `/api/v1/tenants/{tenant}/stores/{store}/inbox/conversations/{id}` | Cookie + RBAC | 200 |
+| GET | `/api/v1/tenants/{tenant}/stores/{store}/inbox/conversations/{id}/messages` | Cookie + RBAC | 200 |
+| GET/PATCH | `/api/v1/tenants/{tenant}/stores/{store}/automation` | Cookie + RBAC | 200 |
 
 ## Authentication flow
 
@@ -168,13 +173,17 @@ The receipt remains private; the customer API returns status and
 2. Call `POST /api/v1/integrations/instagram/connect` with no body.
 3. Navigate the user to the returned `authorization_url` before `expires_at`.
 4. Meta returns to the API callback. The backend validates one-time state,
-   exchanges the code, stores the encrypted token, and returns JSON.
-5. Refetch `/status` or `/accounts` to obtain safe connection state.
+   exchanges the code, stores the encrypted token, and redirects the browser to
+   `/settings/integrations/instagram?instagram=connected` on the configured web
+   origin.
+5. Failure redirects to that route with
+   `instagram=error&code={stable_code}`. Refetch `/status` or `/accounts` after
+   either redirect.
 
-Current callback behavior is a 200 JSON response at the API origin; it does not
-redirect to a `directpilot.ir` page. If opening OAuth in a separate browsing
-context, use status polling to observe completion. Never parse OAuth state or
-handle Meta access tokens in the frontend.
+The destination is backend-controlled from `CORS_ALLOWED_ORIGINS`; never send a
+`redirect_uri`. Tokens and OAuth state never appear in the frontend redirect.
+Non-browser API clients can still request the JSON result. Never parse OAuth
+state or handle Meta access tokens in the frontend.
 
 Connect response:
 
@@ -199,6 +208,37 @@ Status response:
 }
 ```
 
+## Knowledge, inbox, and automation
+
+Use the `tenant_public_id` and `store_public_id` returned by registration (or
+the selected tenant membership/store setup response) as URL path values. Never
+substitute numeric database IDs.
+
+Knowledge base path:
+`/api/v1/tenants/{tenant}/stores/{store}/business-knowledge`. The profile uses
+`GET/POST/PATCH /profile`; policies, FAQs, and entries use collection and
+`/{public_id}` routes plus `/transitions`. Create with `expected_revision: 0`;
+send the response revision on every update. A 409 `stale_revision` means refetch
+before presenting a merge/retry choice.
+
+Inbox base path: `/api/v1/tenants/{tenant}/stores/{store}/inbox`. Fetch
+`/conversations?page=1&page_size=25`, then
+`/conversations/{public_id}/messages?page=1&page_size=50`. Conversation order is
+newest activity first; message order is chronological. Render the documented
+safe participant and delivery fields only. An empty inbox is a normal 200 page
+with `total: 0`.
+
+Automation uses `GET/PATCH
+/api/v1/tenants/{tenant}/stores/{store}/automation`. PATCH body:
+
+```json
+{"enabled":false,"expected_revision":1}
+```
+
+Keep the returned revision with the screen state. The switch is
+server-authoritative; disabling it does not discard inbound messages and
+re-enabling does not replay skipped events.
+
 ## Required frontend state
 
 The API requires only these frontend-owned states:
@@ -207,6 +247,8 @@ The API requires only these frontend-owned states:
 - selected backend `plan_public_id`;
 - current order/payment/subscription records returned by the API;
 - Instagram entitlement/capacity/account status returned by the API;
+- selected tenant/store public IDs, knowledge revisions, inbox pagination, and
+  current automation state/revision;
 - upload progress and normalized API error.
 
 Do not store tenant/store internal IDs, plan prices, payment decisions, Meta

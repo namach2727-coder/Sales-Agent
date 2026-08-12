@@ -360,6 +360,65 @@ def test_supported_webhook_completes_full_flow_with_configured_fake_provider(
         assert prohibited not in rendered_logs
 
 
+def test_disabled_automation_persists_inbound_without_ai_send_or_replay(
+    flow_engine,
+) -> None:
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    with Session(flow_engine) as db, db.begin():
+        store = db.get(Store, scope.store.id)
+        assert store is not None
+        store.automation_enabled = False
+        store.automation_revision += 1
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    client = _client(flow_engine, settings, FakeLLMClient(responses), meta)
+    first_payload = _payload(scope.connection.instagram_account_id)
+
+    disabled = _post(client, first_payload)
+    assert disabled.status_code == 200
+    assert disabled.json()["flows"][0]["ai_status"] == "skipped"
+    assert responses.calls == []
+    assert meta.calls == []
+    with Session(flow_engine) as db:
+        conversation = db.scalar(
+            select(Conversation).where(
+                Conversation.public_id
+                == disabled.json()["flows"][0]["conversation_public_id"]
+            )
+        )
+        assert conversation is not None
+        assert conversation.inbound_message_count == 1
+        assert conversation.outbound_message_count == 0
+
+    duplicate = _post(client, first_payload)
+    assert duplicate.status_code == 200
+    assert duplicate.json()["duplicate"] is True
+    with Session(flow_engine) as db, db.begin():
+        store = db.get(Store, scope.store.id)
+        assert store is not None
+        store.automation_enabled = True
+        store.automation_revision += 1
+
+    enabled = _post(
+        client,
+        _payload(scope.connection.instagram_account_id),
+    )
+    assert enabled.status_code == 200
+    assert enabled.json()["flows"][0]["ai_status"] == "completed"
+    assert len(responses.calls) == 1
+    assert len(meta.calls) == 1
+    with Session(flow_engine) as db:
+        messages = tuple(
+            db.scalars(
+                select(ConversationMessage).where(
+                    ConversationMessage.conversation_id == conversation.id
+                )
+            ).all()
+        )
+    assert len(messages) == 3
+
+
 def test_disabled_meta_send_persists_ai_result_without_calling_sender(
     flow_engine,
     caplog: pytest.LogCaptureFixture,

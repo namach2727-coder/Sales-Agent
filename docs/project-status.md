@@ -16,7 +16,7 @@ backend lineage. It must not be treated as the backend RC source.
 
 ## Current phase
 
-DirectPilot MVP production deployment preparation. Production is not
+DirectPilot MVP customer Final-UAT API completion. Production is not
 provisioned or deployed.
 
 ## Architecture and implemented MVP
@@ -30,6 +30,9 @@ provisioned or deployed.
 - Customer registration/login, plan/order/manual card-transfer payment,
   private receipt, provider approval, subscription, and entitlement APIs.
 - Official Instagram OAuth onboarding into encrypted `InstagramConnection`.
+- Customer-owned business knowledge/profile editing, paginated read-only
+  inbox, persisted audited automation pause/resume, and safe browser OAuth
+  completion redirects are implemented for Final-UAT.
 
 ## Migration source of truth
 
@@ -39,11 +42,12 @@ The validated linear chain is:
 -> `0010_saas_commerce`
 -> `0011_instagram_oauth_onboarding`
 -> `0012_plan_billing_duration`
+-> `0013_store_automation_control`
 
-Current Alembic head and current UAT revision are both
-`0012_plan_billing_duration`. Revision 0012 legitimately follows 0011 and adds
-the backend-authoritative optional positive billing duration required by the
-approved plan periods.
+Current source Alembic head is `0013_store_automation_control`; current UAT
+remains safely unchanged at `0012_plan_billing_duration` until the normal
+forward migration is deployed. Revision 0013 adds only the store-owned,
+revisioned automation switch with a safe default of enabled for existing rows.
 
 The 0010-0012 files are byte-identical between the reviewed RC source and the
 running UAT image. They are tracked by the canonical RC commit and must remain
@@ -64,7 +68,8 @@ so they are unavailable for new orders.
 
 ## Current UAT evidence
 
-- Revision: `0012_plan_billing_duration`.
+- Revision: `0012_plan_billing_duration` (not reset or migrated by the
+  Final-UAT API implementation task).
 - UAT persistent database and volumes were not reset or downgraded.
 - Tenant, store, user, platform/tenant RBAC, tenant membership, encrypted active
   Instagram connection, conversation, messages, inbound events, and webhook
@@ -96,11 +101,13 @@ touching UAT:
 
 ## Validation evidence
 
-- Migration policy: one head (`0012_plan_billing_duration`), schema drift check
+- Migration policy: one head (`0013_store_automation_control`), schema drift check
   and base -> head -> base -> head checks pass.
-- Full SQLite: `613 passed, 4 skipped`.
-- Full PostgreSQL: `615 passed, 2 skipped` against a fresh explicitly opted-in
-  PostgreSQL test database at head.
+- Full SQLite: `620 passed, 4 skipped`.
+- PostgreSQL: fresh database -> `0013` passed; full suite produced `620 passed,
+  2 skipped` plus two receipt tests blocked only by Windows path length, and
+  both blocked tests passed when rerun with a shorter workspace temp path.
+- Final-UAT focused customer API/Instagram/OAuth suite: `22 passed`.
 - Focused contract/Instagram regression: `99 passed`.
 - Expanded Instagram/OAuth/gateway/outbound/UAT runtime regression:
   `98 passed`.
@@ -115,18 +122,20 @@ successful test completion and does not change the passing exit status.
 
 ## Remaining P0 blockers
 
-1. Provision the always-on Linux Docker host, DNS/TLS reverse proxy, off-host
+1. Apply the normal forward-only `0012` -> `0013` migration to disposable UAT,
+   deploy the updated backend, and complete the 15-step customer Final-UAT.
+2. Provision the always-on Linux Docker host, DNS/TLS reverse proxy, off-host
    backup destination, monitoring/operator ownership, and production-only
    secrets.
-2. Perform and evidence production PostgreSQL backup/restore rehearsal before
+3. Perform and evidence production PostgreSQL backup/restore rehearsal before
    migrating real data.
-3. Complete production Meta application review/configuration and controlled
+4. Complete production Meta application review/configuration and controlled
    webhook/outbound acceptance without reusing UAT assets.
-4. Select and configure the existing external AI-provider adapter (or a
+5. Select and configure the existing external AI-provider adapter (or a
    deliberately operated non-laptop Ollama endpoint).
 
 ## Exact next action
 
-Provision one generic always-on Linux Docker host that meets
-`docs/operations/production-deployment.md`; do not change DNS or deploy until
-its firewall, TLS proxy, persistent storage, and off-host backup target exist.
+Integrate the documented knowledge, inbox, automation, and OAuth redirect
+contracts in `directpilot-web`, then run its customer Final-UAT against an
+updated disposable UAT deployment.

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from urllib.parse import urlencode, urlsplit
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.authentication.context import AuthenticatedPrincipal
@@ -50,7 +53,11 @@ def _raise(error: Exception) -> None:
     else:
         status_code = 422
     code = getattr(error, "code", "instagram_provider_error")
-    message = "Instagram authorization failed" if isinstance(error, InstagramOAuthError) else str(error)
+    message = (
+        "Instagram authorization failed"
+        if isinstance(error, InstagramOAuthError)
+        else str(error)
+    )
     raise HTTPException(status_code=status_code, detail={"code": code, "message": message})
 
 
@@ -64,6 +71,35 @@ def _account(item) -> InstagramAccountRead:
     )
 
 
+def _frontend_callback_url(settings: Settings) -> str | None:
+    if not settings.cors_allowed_origins:
+        return None
+    origin = settings.cors_allowed_origins[0].rstrip("/")
+    parsed = urlsplit(origin)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.path:
+        return None
+    return f"{origin}/settings/integrations/instagram"
+
+
+def _browser_request(request: Request) -> bool:
+    return "text/html" in request.headers.get("accept", "").casefold()
+
+
+def _oauth_redirect(
+    settings: Settings,
+    *,
+    success: bool,
+    code: str | None = None,
+) -> RedirectResponse | None:
+    target = _frontend_callback_url(settings)
+    if target is None:
+        return None
+    query = {"instagram": "connected" if success else "error"}
+    if code is not None:
+        query["code"] = code
+    return RedirectResponse(f"{target}?{urlencode(query)}", status_code=303)
+
+
 @router.post("/connect", response_model=InstagramConnectResponse)
 def connect(
     principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
@@ -72,7 +108,9 @@ def connect(
     provider: InstagramOAuthProvider = Depends(get_instagram_oauth_provider),
 ) -> InstagramConnectResponse:
     try:
-        authorization_url, expires_at = InstagramOnboardingService(db, settings).begin(principal, provider)
+        authorization_url, expires_at = InstagramOnboardingService(
+            db, settings
+        ).begin(principal, provider)
         return InstagramConnectResponse(authorization_url=authorization_url, expires_at=expires_at)
     except (InstagramOnboardingError, InstagramOAuthError) as exc:
         _raise(exc)
@@ -80,24 +118,47 @@ def connect(
 
 @router.get("/callback", response_model=InstagramCallbackResponse)
 def callback(
+    request: Request,
     code: str = Query(min_length=1, max_length=4096),
     state: str = Query(min_length=1, max_length=512),
+    redirect_uri: str | None = Query(default=None, max_length=2048),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     provider: InstagramOAuthProvider = Depends(get_instagram_oauth_provider),
-) -> InstagramCallbackResponse:
+) -> InstagramCallbackResponse | RedirectResponse:
+    if redirect_uri is not None:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "unsupported_redirect_target",
+                "message": "OAuth redirect target is server-controlled",
+            },
+        )
     try:
         connection, tenant, store = InstagramOnboardingService(db, settings).complete(
             state=state, code=code, provider=provider
         )
-        return InstagramCallbackResponse(
+        response = InstagramCallbackResponse(
             connection_public_id=connection.public_id,
             tenant_public_id=tenant.public_id,
             store_public_id=store.public_id,
             instagram_username=connection.instagram_username,
             status=connection.status,
         )
+        if _browser_request(request):
+            redirect = _oauth_redirect(settings, success=True)
+            if redirect is not None:
+                return redirect
+        return response
     except (InstagramOnboardingError, InstagramOAuthError) as exc:
+        if _browser_request(request):
+            redirect = _oauth_redirect(
+                settings,
+                success=False,
+                code=getattr(exc, "code", "instagram_provider_error"),
+            )
+            if redirect is not None:
+                return redirect
         _raise(exc)
 
 
@@ -108,7 +169,9 @@ def status(
     settings: Settings = Depends(get_settings),
 ) -> InstagramStatusResponse:
     try:
-        _tenant, _store, limit, accounts = InstagramOnboardingService(db, settings).status(principal)
+        _tenant, _store, limit, accounts = InstagramOnboardingService(
+            db, settings
+        ).status(principal)
         return InstagramStatusResponse(
             entitled=limit > 0,
             account_limit=limit,

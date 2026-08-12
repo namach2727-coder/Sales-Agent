@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.conversation_core.models import ConversationMessage
@@ -57,3 +57,32 @@ class MessageRepository(BaseRepository[ConversationMessage]):
             .limit(1)
         )
         return message_id is not None
+
+    def page_by_conversation(
+        self,
+        conversation_id: int,
+        *,
+        tenant_id: int,
+        store_id: int,
+        page: int,
+        page_size: int,
+    ) -> tuple[tuple[ConversationMessage, ...], int]:
+        scoped = select(ConversationMessage).where(
+            ConversationMessage.conversation_id == conversation_id,
+            ConversationMessage.tenant_id == tenant_id,
+            ConversationMessage.store_id == store_id,
+        )
+        total = self.session.scalar(
+            select(func.count()).select_from(scoped.subquery())
+        ) or 0
+        items = tuple(
+            self.session.scalars(
+                scoped.order_by(
+                    ConversationMessage.occurred_at,
+                    ConversationMessage.id,
+                )
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            ).all()
+        )
+        return items, total

@@ -57,10 +57,12 @@ Common codes and statuses:
 | 404 | `not_found` | Caller-owned resource was not found |
 | 409 | `conflict` | State conflict, duplicate, or invalid transition |
 | 409 | `instagram_connection_conflict` | Instagram account conflicts with an existing connection |
+| 409 | `stale_revision` | Optimistic concurrency revision is no longer current |
 | 413 | `receipt_too_large` | Receipt exceeds configured byte limit |
 | 422 | `validation_error` | Commerce business validation failed |
 | 422 | `invalid_receipt` | Receipt type/signature is invalid |
 | 422 | `instagram_onboarding_error` | Instagram onboarding validation failed |
+| 400 | `unsupported_redirect_target` | OAuth redirect destination was caller-controlled |
 | 502 | `instagram_provider_error` | Sanitized Meta provider failure |
 | 503 | `authentication_unavailable` | Authentication is disabled/unavailable |
 | 503 | `payment_provider_unavailable` | Card-transfer instructions are not configured |
@@ -86,9 +88,14 @@ Clients must handle both 422 shapes.
 | Payments | GET | `/api/v1/payments/me` | Session | 200 |
 | Subscription | GET | `/api/v1/subscription/me` | Session | 200 |
 | Instagram | POST | `/api/v1/integrations/instagram/connect` | Session + entitlement | 200 |
-| Instagram | GET | `/api/v1/integrations/instagram/callback` | One-time OAuth state | 200 |
+| Instagram | GET | `/api/v1/integrations/instagram/callback` | One-time OAuth state | 200 JSON / 303 browser |
 | Instagram | GET | `/api/v1/integrations/instagram/status` | Session | 200 |
 | Instagram | GET | `/api/v1/integrations/instagram/accounts` | Session | 200 |
+| Knowledge | GET/POST/PATCH | `/api/v1/tenants/{tenant}/stores/{store}/business-knowledge/*` | Session + RBAC | 200/201 |
+| Inbox | GET | `/api/v1/tenants/{tenant}/stores/{store}/inbox/conversations` | Session + RBAC | 200 |
+| Inbox | GET | `/api/v1/tenants/{tenant}/stores/{store}/inbox/conversations/{conversation}` | Session + RBAC | 200 |
+| Inbox | GET | `/api/v1/tenants/{tenant}/stores/{store}/inbox/conversations/{conversation}/messages` | Session + RBAC | 200 |
+| Automation | GET/PATCH | `/api/v1/tenants/{tenant}/stores/{store}/automation` | Session + RBAC | 200 |
 
 ## Authentication
 
@@ -323,8 +330,7 @@ frontend.
 Meta redirects to the API callback configured as
 `https://api.directpilot.ir/api/v1/integrations/instagram/callback`. The callback
 uses the one-time state, exchanges the code, and creates/updates the encrypted
-connection. It currently returns 200 JSON rather than redirecting to a frontend
-route:
+connection. Non-browser clients (no `Accept: text/html`) receive 200 JSON:
 
 ```json
 {
@@ -337,8 +343,12 @@ route:
 ```
 
 The callback does not require the browser session; the signed, expiring,
-single-use state identifies the pending flow. Provider failures return a
-sanitized 502 and never expose Meta response credentials.
+single-use state identifies the pending flow. A browser request with
+`Accept: text/html` receives HTTP 303 to the first configured trusted CORS
+origin at `/settings/integrations/instagram?instagram=connected`. Failure uses
+`?instagram=error&code={stable_code}`. Supplying `redirect_uri` is rejected
+with HTTP 400: the destination is entirely server-controlled. Tokens, account
+identifiers, state, and provider response details never appear in the redirect.
 
 ### GET `/api/v1/integrations/instagram/status`
 
@@ -362,6 +372,63 @@ Returns entitlement, capacity, connected count, and safe account records:
 ### GET `/api/v1/integrations/instagram/accounts`
 
 Returns 200 with only the tenant/store-scoped `accounts` array shape above.
+
+## Store knowledge
+
+All routes require authentication and existing tenant/store RBAC. Cross-tenant
+or cross-store access returns safe HTTP 404. Mutations are audited and use
+`expected_revision`; stale writes return HTTP 409. Existing lifecycle rules
+remain authoritative.
+
+Base path:
+`/api/v1/tenants/{tenant_public_id}/stores/{store_public_id}/business-knowledge`
+
+| Resource | Create | Read/list | Update | Lifecycle |
+|---|---|---|---|---|
+| Profile | `POST /profile` | `GET /profile` | `PATCH /profile` | `POST /profile/transitions` |
+| Policies | `POST /policies` | `GET /policies`, `GET /policies/{public_id}` | `PATCH /policies/{public_id}` | `POST /policies/{public_id}/transitions` |
+| FAQs | `POST /faqs` | `GET /faqs`, `GET /faqs/{public_id}` | `PATCH /faqs/{public_id}` | `POST /faqs/{public_id}/transitions` |
+| Entries | `POST /entries` | `GET /entries`, `GET /entries/{public_id}` | `PATCH /entries/{public_id}` | `POST /entries/{public_id}/transitions` |
+
+Create bodies include `"expected_revision": 0`. Update and transition bodies
+include the current positive `expected_revision`. List routes accept `page`
+(default 1) and `page_size` (default 25, maximum 100), plus their existing
+status/type/search filters. Responses contain public identifiers, editable
+business fields, lifecycle status, revision, and timestamps only.
+
+## Customer inbox
+
+Base path:
+`/api/v1/tenants/{tenant_public_id}/stores/{store_public_id}/inbox`
+
+`GET /conversations?page=1&page_size=25` returns a page envelope with `items`,
+`page`, `page_size`, and `total`. Conversation items expose only `public_id`,
+`status`, `subject`, safe participant display/username, latest message
+timestamps, `message_count`, and creation/update timestamps. Ordering is latest
+activity first with deterministic creation/persistence tie-breakers.
+
+`GET /conversations/{conversation_public_id}` returns one item.
+`GET /conversations/{conversation_public_id}/messages?page=1&page_size=50`
+returns the same page envelope in chronological order. Messages expose only
+`public_id`, `direction`, mapped `role`, `content_type`, `content`, safe
+`delivery_status`, `occurred_at`, and `created_at`. Page sizes are 1-100. Empty
+lists return 200 with `items: []` and `total: 0`.
+
+## Automation control
+
+`GET /api/v1/tenants/{tenant_public_id}/stores/{store_public_id}/automation`
+returns `{"enabled":true,"revision":1,"updated_at":"..."}`.
+
+`PATCH` on the same URL accepts:
+
+```json
+{"enabled": false, "expected_revision": 1}
+```
+
+The backend-persisted value is authoritative and every mutation is audited.
+When false, webhook ingestion and duplicate protection continue, while new AI
+orchestration and Instagram outbound delivery are skipped. Re-enabling affects
+only future inbound events; skipped events are not replayed.
 
 ## Production browser and CORS contract
 

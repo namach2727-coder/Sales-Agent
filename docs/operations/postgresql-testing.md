@@ -38,7 +38,7 @@ python -m alembic current
 The expected current revision is:
 
 ```text
-0012_plan_billing_duration (head)
+0013_store_automation_control (head)
 ```
 
 Pytest refuses to continue if the PostgreSQL database is not already at that

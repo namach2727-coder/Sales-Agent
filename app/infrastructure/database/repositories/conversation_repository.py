@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.conversation_core.models import Conversation
@@ -52,6 +52,37 @@ class ConversationRepository(BaseRepository[Conversation]):
                 .order_by(Conversation.created_at.desc(), Conversation.id.desc())
             ).all()
         )
+
+    def page_by_store(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        page: int,
+        page_size: int,
+    ) -> tuple[tuple[Conversation, ...], int]:
+        scoped = (
+            select(Conversation)
+            .where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.store_id == store_id,
+            )
+        )
+        total = self.session.scalar(
+            select(func.count()).select_from(scoped.subquery())
+        ) or 0
+        items = tuple(
+            self.session.scalars(
+                scoped.order_by(
+                    Conversation.last_message_at.desc().nullslast(),
+                    Conversation.created_at.desc(),
+                    Conversation.id.desc(),
+                )
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            ).all()
+        )
+        return items, total
 
     def update_status(
         self,

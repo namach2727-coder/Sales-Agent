@@ -15,6 +15,7 @@ from app.authentication.context import AuthenticatedPrincipal
 from app.authentication.dependencies import require_authenticated_principal
 from app.authz.permissions import PermissionCode
 from app.config import Settings, get_settings
+from app.automation.service import automation_is_enabled
 from app.database import get_db
 from app.instagram_channel.exceptions import (
     InstagramChannelConflictError,
@@ -256,8 +257,29 @@ async def receive_instagram_webhook(
         )
         flow_results: list[dict[str, object]] = []
         if ingestion.flow_items:
-            coordinator = ai_flow_builder(db, settings)
             for item in ingestion.flow_items:
+                if not automation_is_enabled(
+                    db,
+                    tenant_id=item.context.tenant_id,
+                    store_id=item.context.store_id,
+                ):
+                    flow_results.append(
+                        {
+                            "acknowledged": True,
+                            "inbound_status": item.inbound.status,
+                            "ai_status": "skipped",
+                            "delivery_status": "skipped",
+                            "duplicate": False,
+                            "ignored": False,
+                            "correlation_id": correlation_id.get(),
+                            "conversation_public_id": item.inbound.conversation_public_id,
+                            "inbound_message_public_id": item.inbound.message_public_id,
+                            "assistant_message_public_id": None,
+                            "safe_reason": "automation_disabled",
+                        }
+                    )
+                    continue
+                coordinator = ai_flow_builder(db, settings)
                 result = coordinator.process(
                     item.inbound,
                     context=item.context,
