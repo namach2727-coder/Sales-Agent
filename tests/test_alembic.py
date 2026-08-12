@@ -62,6 +62,12 @@ POST_BASELINE_TABLES = {
     "conversation_assignments",
     "conversation_read_states",
     "conversation_processing_records",
+    "saas_plans",
+    "subscription_orders",
+    "manual_payments",
+    "tenant_subscriptions",
+    "commerce_audit_logs",
+    "instagram_oauth_states",
 }
 BASELINE_TABLES = (
     set(Base.metadata.tables) - POST_BASELINE_TABLES - {"legacy_conversations"}
@@ -206,7 +212,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0009_conversation_core_models"]
+    assert scripts.get_heads() == ["0012_plan_billing_duration"]
     baseline = scripts.get_revision("0001_baseline_schema")
     seed_history = scripts.get_revision("0002_create_seed_history")
     rbac = scripts.get_revision("0003_authorization_rbac")
@@ -215,7 +221,10 @@ def test_alembic_loads_with_one_linear_head() -> None:
     catalog = scripts.get_revision("0006_lean_business_catalog")
     knowledge = scripts.get_revision("0007_business_profile_knowledge")
     instagram = scripts.get_revision("0008_instagram_channel")
-    head = scripts.get_revision("0009_conversation_core_models")
+    conversations = scripts.get_revision("0009_conversation_core_models")
+    commerce = scripts.get_revision("0010_saas_commerce")
+    instagram_onboarding = scripts.get_revision("0011_instagram_oauth_onboarding")
+    head = scripts.get_revision("0012_plan_billing_duration")
     assert baseline is not None and baseline.down_revision is None
     assert seed_history is not None and seed_history.down_revision == "0001_baseline_schema"
     assert rbac is not None and rbac.down_revision == "0002_create_seed_history"
@@ -224,7 +233,10 @@ def test_alembic_loads_with_one_linear_head() -> None:
     assert catalog is not None and catalog.down_revision == "0005_tenant_store_management"
     assert knowledge is not None and knowledge.down_revision == "0006_lean_business_catalog"
     assert instagram is not None and instagram.down_revision == "0007_business_profile_knowledge"
-    assert head is not None and head.down_revision == "0008_instagram_channel"
+    assert conversations is not None and conversations.down_revision == "0008_instagram_channel"
+    assert commerce is not None and commerce.down_revision == "0009_conversation_core_models"
+    assert instagram_onboarding is not None and instagram_onboarding.down_revision == "0010_saas_commerce"
+    assert head is not None and head.down_revision == "0011_instagram_oauth_onboarding"
 
 
 @requires_alembic
@@ -279,6 +291,9 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
+        "0012_plan_billing_duration",
+        "0011_instagram_oauth_onboarding",
+        "0010_saas_commerce",
         "0009_conversation_core_models",
         "0008_instagram_channel",
         "0007_business_profile_knowledge",

@@ -8,6 +8,7 @@ import httpx
 
 from app.application.outbound import (
     OutboundAuthenticationError,
+    OutboundConnectionUnavailableError,
     OutboundDeliveryResult,
     OutboundInvalidResponseError,
     OutboundMessage,
@@ -32,6 +33,7 @@ class InstagramGraphSender:
         timeout_seconds: float,
         access_token: str,
         sender_account_id: str,
+        send_enabled: bool = False,
         client: Any | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
@@ -41,6 +43,7 @@ class InstagramGraphSender:
         self._sender_account_id = _identifier(
             sender_account_id, "sender account"
         )
+        self._send_enabled = send_enabled is True
         self._client = client
 
     @property
@@ -51,6 +54,10 @@ class InstagramGraphSender:
         )
 
     def send(self, message: OutboundMessage) -> OutboundDeliveryResult:
+        if not self._send_enabled:
+            raise OutboundConnectionUnavailableError(
+                "Instagram outbound delivery is disabled"
+            )
         request = {
             "headers": {
                 "Authorization": f"Bearer {self._access_token}",
@@ -114,6 +121,7 @@ def build_instagram_graph_sender(
         timeout_seconds=settings.instagram_outbound_timeout_seconds,
         access_token=access_token,
         sender_account_id=sender_account_id,
+        send_enabled=settings.meta_send_enabled,
         client=client,
     )
 

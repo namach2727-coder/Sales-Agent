@@ -936,6 +936,140 @@ class AuthAuditLog(Base):
     )
 
 
+class SaasPlan(Base):
+    """Backend-authoritative commercial plan; prices are integer IRR amounts."""
+
+    __tablename__ = "saas_plans"
+    __table_args__ = (
+        CheckConstraint("price_amount >= 0", name="ck_saas_plans_price_nonnegative"),
+        CheckConstraint("reply_limit >= 0", name="ck_saas_plans_reply_limit"),
+        CheckConstraint("automation_limit >= 0", name="ck_saas_plans_automation_limit"),
+        CheckConstraint("instagram_account_limit >= 0", name="ck_saas_plans_instagram_limit"),
+        CheckConstraint("duration_days IS NULL OR duration_days > 0", name="ck_saas_plans_duration_days"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(String(36), default=new_public_id, unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    price_amount: Mapped[int] = mapped_column(Integer, default=0)
+    currency: Mapped[str] = mapped_column(String(3), default="IRR")
+    reply_limit: Mapped[int] = mapped_column(Integer, default=0)
+    automation_limit: Mapped[int] = mapped_column(Integer, default=0)
+    instagram_account_limit: Mapped[int] = mapped_column(Integer, default=0)
+    duration_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    module_codes: Mapped[list[str]] = mapped_column(JSON, default=list)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+class SubscriptionOrder(Base):
+    """Tenant-owned purchase intent with immutable plan price snapshot."""
+
+    __tablename__ = "subscription_orders"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'payment_submitted', 'paid', 'cancelled')",
+            name="ck_subscription_orders_status",
+        ),
+        CheckConstraint("price_amount >= 0", name="ck_subscription_orders_price"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(String(36), default=new_public_id, unique=True, index=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user_identities.id"), index=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("saas_plans.id"), index=True)
+    status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
+    price_amount: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(3), default="IRR")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+class ManualPayment(Base):
+    """Manual card-transfer payment; receipt bytes live in private storage."""
+
+    __tablename__ = "manual_payments"
+    __table_args__ = (
+        UniqueConstraint("order_id", name="uq_manual_payments_order"),
+        CheckConstraint(
+            "status IN ('pending', 'submitted', 'approved', 'rejected')",
+            name="ck_manual_payments_status",
+        ),
+        CheckConstraint("amount >= 0", name="ck_manual_payments_amount"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(String(36), default=new_public_id, unique=True, index=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id"), index=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("subscription_orders.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user_identities.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(40), default="manual_card_transfer")
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    amount: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(3), default="IRR")
+    receipt_storage_key: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    receipt_content_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    receipt_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    receipt_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approved_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("user_identities.id"), nullable=True)
+    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rejection_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+class TenantSubscription(Base):
+    """Auditable tenant/store entitlement source created from an approved order."""
+
+    __tablename__ = "tenant_subscriptions"
+    __table_args__ = (
+        UniqueConstraint("order_id", name="uq_tenant_subscriptions_order"),
+        UniqueConstraint("payment_id", name="uq_tenant_subscriptions_payment"),
+        CheckConstraint(
+            "status IN ('active', 'expired', 'cancelled')",
+            name="ck_tenant_subscriptions_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(String(36), default=new_public_id, unique=True, index=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id"), index=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("saas_plans.id"), index=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("subscription_orders.id"), index=True)
+    payment_id: Mapped[int | None] = mapped_column(ForeignKey("manual_payments.id"), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    limits_json: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+class CommerceAuditLog(Base):
+    """Credential-free audit for order, payment, and subscription transitions."""
+
+    __tablename__ = "commerce_audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    store_id: Mapped[int | None] = mapped_column(ForeignKey("stores.id"), nullable=True, index=True)
+    actor_user_id: Mapped[int | None] = mapped_column(ForeignKey("user_identities.id"), nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(100), index=True)
+    target_type: Mapped[str] = mapped_column(String(50))
+    target_public_id: Mapped[str] = mapped_column(String(36), index=True)
+    details_json: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True)
+
+
 # Register FOUNDATION-06 catalog tables with the shared SQLAlchemy metadata.
 # The import is intentionally last so the legacy models above remain available
 # while the new modular catalog references Tenant and Store by table name.

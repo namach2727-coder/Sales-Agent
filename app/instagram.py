@@ -186,6 +186,7 @@ class InstagramClient:
         )
 
     async def send_text(self, recipient_id: str, text: str) -> dict:
+        self._ensure_send_enabled()
         if not is_configured(self.settings.meta_access_token):
             raise RuntimeError("Meta access token is not configured")
         if not is_configured(self.settings.meta_ig_user_id):
@@ -205,6 +206,7 @@ class InstagramClient:
             return response.json()
 
     async def send_private_reply(self, comment_id: str, text: str) -> dict:
+        self._ensure_send_enabled()
         if not is_configured(self.settings.meta_access_token):
             raise RuntimeError("Meta access token is not configured")
         if not is_configured(self.settings.meta_ig_user_id):
@@ -224,6 +226,7 @@ class InstagramClient:
             return response.json()
 
     async def send_public_comment_reply(self, comment_id: str, text: str) -> dict:
+        self._ensure_send_enabled()
         if not is_configured(self.settings.meta_access_token):
             raise RuntimeError("Meta access token is not configured")
 
@@ -239,6 +242,10 @@ class InstagramClient:
             response = await client.post(url, headers=headers, json={"message": text})
             response.raise_for_status()
             return response.json()
+
+    def _ensure_send_enabled(self) -> None:
+        if not self.settings.meta_send_enabled:
+            raise RuntimeError("Instagram outbound delivery is disabled")
 
 
 async def deliver_response(

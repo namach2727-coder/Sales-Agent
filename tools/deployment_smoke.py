@@ -12,6 +12,12 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--email", default=os.getenv("SMOKE_ADMIN_EMAIL"))
     result.add_argument("--password-env", default="SMOKE_ADMIN_PASSWORD")
     result.add_argument("--expect-empty-catalog", action="store_true")
+    result.add_argument(
+        "--forwarded-proto",
+        default=os.getenv("SMOKE_FORWARDED_PROTO"),
+        choices=("http", "https"),
+        help="Optional X-Forwarded-Proto header for local smoke testing.",
+    )
     return result
 
 
@@ -27,7 +33,17 @@ def main(argv: list[str] | None = None) -> int:
         print("ERROR smoke identity email/password environment is required")
         return 2
     try:
-        with httpx.Client(base_url=args.base_url, timeout=15.0, follow_redirects=False) as client:
+        headers = (
+            {"X-Forwarded-Proto": args.forwarded_proto}
+            if args.forwarded_proto
+            else None
+        )
+        with httpx.Client(
+            base_url=args.base_url,
+            timeout=15.0,
+            follow_redirects=False,
+            headers=headers,
+        ) as client:
             _require(client.get("/live"), 200, "liveness")
             _require(client.get("/ready"), 200, "readiness")
             _require(client.get("/version"), 200, "version")

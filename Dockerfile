@@ -17,8 +17,8 @@ RUN python -m pip install --requirement requirements.txt
 
 COPY --chown=app:app . .
 RUN chmod 0555 scripts/deployment/docker-entrypoint.sh \
-    && mkdir -p /app/private_media /app/backups \
-    && chown -R app:app /app/private_media /app/backups
+    && mkdir -p /app/private_media /app/private_receipts /app/backups \
+    && chown -R app:app /app/private_media /app/private_receipts /app/backups
 
 USER app
 EXPOSE 8000

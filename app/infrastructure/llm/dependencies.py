@@ -26,6 +26,9 @@ def build_llm_provider(
             base_url=settings.ollama_base_url,
             model=settings.ollama_model,
             timeout_seconds=settings.ollama_timeout_seconds,
+            context_length=settings.ollama_context_length,
+            max_output_tokens=settings.ollama_max_output_tokens,
+            thinking_enabled=settings.ollama_thinking_enabled,
             client=client,
         )
     raise LLMProviderConfigurationError(

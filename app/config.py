@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     # Deprecated compatibility setting. Seed execution is now CLI-only.
     seed_demo_data: bool = False
     meta_verify_token: str = ""
+    meta_app_id: str = ""
     meta_access_token: str = ""
     meta_access_token_file: str | None = None
     meta_app_secret: str = ""
@@ -63,6 +64,11 @@ class Settings(BaseSettings):
     meta_ig_user_id: str = ""
     meta_api_version: str = "v24.0"
     meta_graph_base_url: str = "https://graph.instagram.com"
+    meta_oauth_authorize_url: str = "https://www.instagram.com/oauth/authorize"
+    meta_oauth_token_url: str = "https://api.instagram.com/oauth/access_token"
+    meta_oauth_redirect_uri: str = ""
+    meta_oauth_state_ttl_minutes: int = Field(default=10, ge=2, le=30)
+    meta_oauth_timeout_seconds: float = Field(default=20.0, ge=1.0, le=60.0)
     instagram_outbound_timeout_seconds: float = Field(
         default=15.0, ge=1.0, le=120.0
     )
@@ -95,6 +101,9 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434/v1"
     ollama_model: str = Field(default="", max_length=100)
     ollama_timeout_seconds: float = Field(default=60.0, ge=1.0, le=300.0)
+    ollama_context_length: int = Field(default=4096, ge=512, le=262144)
+    ollama_max_output_tokens: int = Field(default=128, ge=1, le=4096)
+    ollama_thinking_enabled: bool = False
 
     authentication_enabled: bool = True
     legacy_admin_adapter_enabled: bool = True
@@ -106,6 +115,16 @@ class Settings(BaseSettings):
     password_max_length: int = Field(default=1024, ge=128, le=4096)
     login_max_failures: int = Field(default=5, ge=2, le=100)
     login_lockout_minutes: int = Field(default=15, ge=1, le=1440)
+
+    # Manual card-transfer MVP. Values are deployment configuration, never
+    # source-code constants; endpoints fail closed while they are incomplete.
+    card_transfer_card_number: SecretStr = SecretStr("")
+    card_transfer_account_number: SecretStr = SecretStr("")
+    card_transfer_account_name: str = ""
+    card_transfer_bank_name: str = ""
+    card_transfer_instructions: str = ""
+    receipt_storage_root: str = "./private_receipts"
+    receipt_max_bytes: int = Field(default=5 * 1024 * 1024, ge=1024, le=20 * 1024 * 1024)
 
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 

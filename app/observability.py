@@ -24,7 +24,7 @@ class JsonFormatter(logging.Formatter):
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
-            "correlation_id": correlation_id.get(),
+            "correlation_id": getattr(record, "correlation_id", None) or correlation_id.get(),
         }
         if hasattr(record, "event_code"):
             payload["event_code"] = record.event_code
@@ -49,7 +49,8 @@ def configure_logging(settings: Settings) -> None:
     if not settings.json_logs:
         class CorrelationFilter(logging.Filter):
             def filter(self, record: logging.LogRecord) -> bool:
-                record.correlation_id = correlation_id.get()
+                if not getattr(record, "correlation_id", None):
+                    record.correlation_id = correlation_id.get()
                 return True
         handler.addFilter(CorrelationFilter())
     handler.setFormatter(formatter)

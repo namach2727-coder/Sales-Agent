@@ -189,6 +189,7 @@ def test_dry_run_shows_dependency_operations_but_persists_nothing(seed_engine: E
     )
     assert [result.seed_name for result in report.results] == [
         "system.module_definitions",
+        "system.saas_plans",
         "tenant.module_entitlements",
         "system.auth_permissions",
         "system.auth_roles",
@@ -400,7 +401,7 @@ def test_migration_graph_still_has_exactly_one_head() -> None:
     from alembic.script import ScriptDirectory
 
     scripts = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
-    assert scripts.get_heads() == ["0009_conversation_core_models"]
+    assert scripts.get_heads() == ["0012_plan_billing_duration"]
 
 
 def test_application_startup_does_not_seed_data(tmp_path: Path, monkeypatch) -> None:

@@ -2,25 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import logging
 from time import monotonic
 from typing import Any, Protocol
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
 
-from openai import (
-    APIConnectionError,
-    APIResponseValidationError,
-    APITimeoutError,
-    AuthenticationError,
-    BadRequestError,
-    InternalServerError,
-    NotFoundError,
-    OpenAI,
-    PermissionDeniedError,
-    RateLimitError,
-    UnprocessableEntityError,
-)
+import httpx
 
 from app.application.llm import (
     LLMProviderConfigurationError,
@@ -36,19 +25,29 @@ from app.application.prompts import PromptPackage
 
 logger = logging.getLogger("sales_assistant.llm.ollama")
 PROVIDER_NAME = "ollama"
-LOCAL_API_KEY = "ollama"
+DEFAULT_MAX_OUTPUT_TOKENS = 128
 
 
-class ResponsesResource(Protocol):
-    def create(self, **kwargs: Any) -> Any: ...
+class OllamaHttpResponse(Protocol):
+    status_code: int
+    headers: Mapping[str, str]
+
+    def json(self) -> Any: ...
+
+    def raise_for_status(self) -> None: ...
 
 
 class OllamaClient(Protocol):
-    responses: ResponsesResource
+    def post(
+        self,
+        url: str,
+        *,
+        json: Mapping[str, Any],
+    ) -> OllamaHttpResponse: ...
 
 
 class OllamaProvider:
-    """Map immutable prompt packages to one local Ollama Responses call."""
+    """Map immutable prompt packages to one bounded native Ollama call."""
 
     def __init__(
         self,
@@ -56,9 +55,13 @@ class OllamaProvider:
         base_url: str,
         model: str,
         timeout_seconds: float = 60.0,
+        context_length: int = 4096,
+        max_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
+        thinking_enabled: bool = False,
         client: OllamaClient | None = None,
     ) -> None:
         self.base_url = _configured_base_url(base_url)
+        self.native_base_url = _native_base_url(self.base_url)
         self.model = _configured_model(model)
         if isinstance(timeout_seconds, bool) or not isinstance(
             timeout_seconds, (int, float)
@@ -70,15 +73,37 @@ class OllamaProvider:
             raise LLMProviderConfigurationError(
                 "Ollama timeout configuration is invalid"
             )
+        if (
+            isinstance(context_length, bool)
+            or not isinstance(context_length, int)
+            or not 512 <= context_length <= 262144
+        ):
+            raise LLMProviderConfigurationError(
+                "Ollama context configuration is invalid"
+            )
+        if (
+            isinstance(max_output_tokens, bool)
+            or not isinstance(max_output_tokens, int)
+            or not 1 <= max_output_tokens <= 4096
+        ):
+            raise LLMProviderConfigurationError(
+                "Ollama output token configuration is invalid"
+            )
+        if not isinstance(thinking_enabled, bool):
+            raise LLMProviderConfigurationError(
+                "Ollama thinking configuration is invalid"
+            )
         self.timeout_seconds = float(timeout_seconds)
+        self.context_length = context_length
+        self.max_output_tokens = max_output_tokens
+        self.thinking_enabled = thinking_enabled
         self._client: OllamaClient = (
             client
             if client is not None
-            else OpenAI(
-                base_url=self.base_url,
-                api_key=LOCAL_API_KEY,
-                timeout=self.timeout_seconds,
-                max_retries=0,
+            else httpx.Client(
+                base_url=self.native_base_url,
+                timeout=httpx.Timeout(self.timeout_seconds),
+                follow_redirects=False,
             )
         )
 
@@ -96,39 +121,42 @@ class OllamaProvider:
             extra={"event_code": "llm.request.started"},
         )
         try:
-            response = self._client.responses.create(
-                model=self.model,
-                instructions=prompt_package.system_prompt,
-                input=prompt_package.user_prompt,
-                store=False,
+            response = self._client.post(
+                "/api/chat",
+                json={
+                    "model": self.model,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": prompt_package.system_prompt,
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt_package.user_prompt,
+                        },
+                    ],
+                    "stream": False,
+                    "think": self.thinking_enabled,
+                    "options": {
+                        "num_ctx": self.context_length,
+                        "num_predict": self.max_output_tokens,
+                    },
+                },
             )
-        except APITimeoutError as exc:
+            response.raise_for_status()
+        except httpx.TimeoutException as exc:
             self._log_failure("timeout", request_public_id, started_at)
             raise LLMProviderTimeoutError("Ollama request timed out") from exc
-        except NotFoundError as exc:
-            self._log_failure("model_not_found", request_public_id, started_at)
-            raise LLMProviderConfigurationError(
-                "The configured Ollama model is not available"
+        except httpx.HTTPStatusError as exc:
+            raise self._mapped_status_error(
+                exc,
+                request_public_id=request_public_id,
+                started_at=started_at,
             ) from exc
-        except (APIConnectionError, InternalServerError, RateLimitError) as exc:
+        except httpx.RequestError as exc:
             self._log_failure("unavailable", request_public_id, started_at)
             raise LLMProviderUnavailableError(
                 "Ollama is temporarily unavailable"
-            ) from exc
-        except (AuthenticationError, PermissionDeniedError) as exc:
-            self._log_failure("configuration", request_public_id, started_at)
-            raise LLMProviderConfigurationError(
-                "Ollama endpoint configuration was rejected"
-            ) from exc
-        except APIResponseValidationError as exc:
-            self._log_failure("invalid_response", request_public_id, started_at)
-            raise LLMProviderInvalidResponseError(
-                "Ollama returned an invalid response"
-            ) from exc
-        except (BadRequestError, UnprocessableEntityError) as exc:
-            self._log_failure("invalid_request", request_public_id, started_at)
-            raise LLMProviderRequestError(
-                "Ollama rejected the request"
             ) from exc
         except Exception as exc:
             self._log_failure("provider_error", request_public_id, started_at)
@@ -136,7 +164,8 @@ class OllamaProvider:
 
         try:
             result = _normalized_response(
-                response,
+                response.json(),
+                headers=response.headers,
                 configured_model=self.model,
                 request_public_id=request_public_id,
             )
@@ -163,6 +192,32 @@ class OllamaProvider:
         )
         return result
 
+    def _mapped_status_error(
+        self,
+        exc: httpx.HTTPStatusError,
+        *,
+        request_public_id: str,
+        started_at: float,
+    ) -> LLMProviderError:
+        status = exc.response.status_code
+        if status == 404:
+            self._log_failure("model_not_found", request_public_id, started_at)
+            return LLMProviderConfigurationError(
+                "The configured Ollama model is not available"
+            )
+        if status in {401, 403}:
+            self._log_failure("configuration", request_public_id, started_at)
+            return LLMProviderConfigurationError(
+                "Ollama endpoint configuration was rejected"
+            )
+        if status == 429 or status >= 500:
+            self._log_failure("unavailable", request_public_id, started_at)
+            return LLMProviderUnavailableError(
+                "Ollama is temporarily unavailable"
+            )
+        self._log_failure("invalid_request", request_public_id, started_at)
+        return LLMProviderRequestError("Ollama rejected the request")
+
     def _log_failure(
         self,
         outcome: str,
@@ -184,46 +239,47 @@ class OllamaProvider:
 
 
 def _normalized_response(
-    response: Any,
+    payload: Any,
     *,
+    headers: Mapping[str, str],
     configured_model: str,
     request_public_id: str,
 ) -> LLMResponse:
-    usage = getattr(response, "usage", None)
-    status = _optional_scalar_text(getattr(response, "status", None))
-    metadata = {"status": status} if status is not None else {}
+    if not isinstance(payload, Mapping):
+        raise ValueError("provider response must be an object")
+    message = payload.get("message")
+    if not isinstance(message, Mapping):
+        raise ValueError("provider response message is invalid")
+
+    input_tokens = _optional_token(payload, "prompt_eval_count")
+    output_tokens = _optional_token(payload, "eval_count")
+    total_tokens = (
+        input_tokens + output_tokens
+        if input_tokens is not None and output_tokens is not None
+        else None
+    )
+    done = payload.get("done")
+    if done is not None and not isinstance(done, bool):
+        raise ValueError("provider done field is invalid")
+    done_reason = _optional_scalar_text(payload.get("done_reason"))
+    request_id = _optional_scalar_text(headers.get("x-request-id"))
+    metadata = {"status": "completed"} if done is True else {}
     return LLMResponse(
-        text=getattr(response, "output_text"),
+        text=message.get("content"),
         provider=PROVIDER_NAME,
         model=configured_model,
-        finish_reason=_finish_reason(response),
-        input_tokens=_optional_token(usage, "input_tokens"),
-        output_tokens=_optional_token(usage, "output_tokens"),
-        total_tokens=_optional_token(usage, "total_tokens"),
+        finish_reason=done_reason or ("completed" if done is True else None),
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=total_tokens,
         request_public_id=request_public_id,
-        provider_request_id=_optional_scalar_text(
-            getattr(response, "_request_id", None)
-        ),
+        provider_request_id=request_id,
         metadata=metadata,
     )
 
 
-def _finish_reason(response: Any) -> str | None:
-    direct = _optional_scalar_text(getattr(response, "finish_reason", None))
-    if direct is not None:
-        return direct
-    incomplete = getattr(response, "incomplete_details", None)
-    if incomplete is not None:
-        reason = _optional_scalar_text(getattr(incomplete, "reason", None))
-        if reason is not None:
-            return reason
-    return _optional_scalar_text(getattr(response, "status", None))
-
-
-def _optional_token(usage: Any, name: str) -> int | None:
-    if usage is None:
-        return None
-    value = getattr(usage, name, None)
+def _optional_token(payload: Mapping[str, Any], name: str) -> int | None:
+    value = payload.get(name)
     if value is None:
         return None
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
@@ -277,6 +333,14 @@ def _configured_base_url(value: object) -> str:
             "Ollama base URL configuration is invalid"
         )
     return normalized
+
+
+def _native_base_url(base_url: str) -> str:
+    parsed = urlsplit(base_url)
+    path = parsed.path.rstrip("/")
+    if path.endswith("/v1"):
+        path = path[:-3]
+    return urlunsplit((parsed.scheme, parsed.netloc, path, "", "")).rstrip("/")
 
 
 def _elapsed_ms(started_at: float) -> int:

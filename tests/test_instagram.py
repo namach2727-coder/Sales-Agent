@@ -1,9 +1,11 @@
+import asyncio
 import hashlib
 import hmac
 import json
 
 import httpx
 from fastapi.testclient import TestClient
+import pytest
 from sqlalchemy import select
 
 from app.database import SessionLocal
@@ -23,6 +25,20 @@ from app.models import (
 def sign_payload(body: bytes, secret: str) -> str:
     digest = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
     return f"sha256={digest}"
+
+
+def test_legacy_instagram_client_fails_closed_before_network(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "meta_send_enabled", False)
+    monkeypatch.setattr(settings, "meta_access_token", "credential")
+    monkeypatch.setattr(settings, "meta_ig_user_id", "account")
+
+    class ForbiddenClient:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("network client must not be constructed")
+
+    monkeypatch.setattr(httpx, "AsyncClient", ForbiddenClient)
+    with pytest.raises(RuntimeError, match="outbound delivery is disabled"):
+        asyncio.run(InstagramClient(settings).send_text("recipient", "message"))
 
 
 def test_instagram_status_and_webhook_verification(monkeypatch) -> None:

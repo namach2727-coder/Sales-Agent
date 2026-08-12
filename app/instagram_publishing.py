@@ -45,6 +45,8 @@ class InstagramContentPublisher:
         caption: str,
         alt_text: str,
     ) -> dict[str, str | None]:
+        if not self.settings.meta_send_enabled:
+            raise RuntimeError("Meta outbound mutations are disabled")
         async with httpx.AsyncClient(timeout=30.0) as client:
             container_response = await client.post(
                 f"{self.account_url}/media",
@@ -92,6 +94,8 @@ class InstagramContentPublisher:
 
 
 def _publish_readiness(settings: Settings) -> tuple[bool, str]:
+    if not settings.meta_send_enabled:
+        return False, "Meta outbound mutations are disabled."
     if not settings.meta_content_publish_enabled:
         return False, "انتشار واقعی هنوز فعال نشده است؛ ابتدا مجوز انتشار Meta را اضافه کنید."
     if not settings.meta_access_token.strip() or not settings.meta_ig_user_id.strip():

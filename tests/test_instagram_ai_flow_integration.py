@@ -96,6 +96,31 @@ class FakeLLMClient:
     def __init__(self, responses: FakeResponses) -> None:
         self.responses = responses
 
+    def post(self, url: str, *, json: dict[str, Any]):
+        raw = self.responses.create(**json)
+        return FakeOllamaResponse(
+            {
+                "message": {"content": raw.output_text},
+                "done": True,
+                "done_reason": "stop",
+                "prompt_eval_count": raw.usage.input_tokens,
+                "eval_count": raw.usage.output_tokens,
+            }
+        )
+
+
+class FakeOllamaResponse:
+    def __init__(self, payload: dict[str, Any]) -> None:
+        self.payload = payload
+        self.status_code = 200
+        self.headers = {"x-request-id": "fake-provider-request"}
+
+    def json(self) -> dict[str, Any]:
+        return self.payload
+
+    def raise_for_status(self) -> None:
+        return None
+
 
 class FakeMetaResponse:
     def __init__(self, status_code: int = 200) -> None:
@@ -122,13 +147,14 @@ class FakeMetaClient:
         return FakeMetaResponse(self.status_code)
 
 
-def _settings(*, provider: str = "openai") -> Settings:
+def _settings(*, provider: str = "openai", send_enabled: bool = True) -> Settings:
     key = Fernet.generate_key().decode("ascii")
     return Settings(
         _env_file=None,
         app_env="test",
         meta_app_secret=APP_SECRET,
         instagram_token_encryption_key=key,
+        meta_send_enabled=send_enabled,
         llm_provider=provider,
         openai_api_key="fake-openai-key",
         openai_model="fake-openai-model",
@@ -332,6 +358,57 @@ def test_supported_webhook_completes_full_flow_with_configured_fake_provider(
         "fake-openai-key",
     ):
         assert prohibited not in rendered_logs
+
+
+def test_disabled_meta_send_persists_ai_result_without_calling_sender(
+    flow_engine,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    settings = _settings(send_enabled=False)
+    scope = _connection(flow_engine, settings)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+
+    with caplog.at_level(logging.INFO):
+        response = _post(
+            _client(flow_engine, settings, FakeLLMClient(responses), meta),
+            _payload(scope.connection.instagram_account_id),
+        )
+
+    assert response.status_code == 200
+    flow = response.json()["flows"][0]
+    assert flow["ai_status"] == "completed"
+    assert flow["delivery_status"] == "failed"
+    assert flow["safe_reason"] == "connection_unavailable"
+    assert len(responses.calls) == 1
+    assert meta.calls == []
+    rendered_logs = " ".join(
+        f"{record.getMessage()} {record.__dict__}" for record in caplog.records
+    )
+    for prohibited in (
+        CUSTOMER_TEXT,
+        ASSISTANT_TEXT,
+        PLAIN_TOKEN,
+        RECIPIENT,
+        "fake-openai-key",
+    ):
+        assert prohibited not in rendered_logs
+
+    with Session(flow_engine) as db:
+        messages = tuple(
+            db.scalars(
+                select(ConversationMessage)
+                .where(ConversationMessage.tenant_id == scope.tenant.id)
+                .order_by(ConversationMessage.id)
+            ).all()
+        )
+        assert len(messages) == 2
+        assert messages[0].direction == "inbound"
+        assert messages[1].direction == "outbound"
+        assert messages[1].metadata_json["delivery_status"] == "failed"
+        assert messages[1].metadata_json["last_failure_category"] == (
+            "connection_unavailable"
+        )
 
 
 def test_duplicate_webhook_skips_second_message_ai_and_meta_call(flow_engine) -> None:

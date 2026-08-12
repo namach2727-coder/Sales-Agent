@@ -16,6 +16,9 @@ services:
       LLM_PROVIDER: ollama
       OLLAMA_BASE_URL: http://ollama:11434/v1
       OLLAMA_MODEL: ${OLLAMA_MODEL:?OLLAMA_MODEL is required}
+      OLLAMA_CONTEXT_LENGTH: "2048"
+      OLLAMA_MAX_OUTPUT_TOKENS: "16"
+      OLLAMA_THINKING_ENABLED: "false"
     depends_on:
       postgresql:
         condition: service_healthy
@@ -31,6 +34,9 @@ services:
       - type: volume
         source: directpilot_media
         target: /app/private_media
+      - type: volume
+        source: directpilot_receipts
+        target: /app/private_receipts
     healthcheck:
       test:
         - CMD
@@ -44,6 +50,70 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
+    networks:
+      - uat
+
+  instagram-gateway:
+    image: directpilot:uat
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ${UAT_ENV_FILE:-.env.uat}
+    environment:
+      DIRECTPILOT_ENV_PROFILE: uat
+      APP_ENV: uat
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgresql:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      LLM_PROVIDER: ollama
+      OLLAMA_BASE_URL: http://ollama:11434/v1
+      OLLAMA_MODEL: ${OLLAMA_MODEL:?OLLAMA_MODEL is required}
+      OLLAMA_CONTEXT_LENGTH: "2048"
+      OLLAMA_MAX_OUTPUT_TOKENS: "16"
+      OLLAMA_THINKING_ENABLED: "false"
+      WEB_CONCURRENCY: "1"
+    entrypoint:
+      - uvicorn
+      - app.public_instagram_gateway:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8001"
+      - --no-access-log
+      - --proxy-headers
+      - --forwarded-allow-ips
+      - 127.0.0.1
+    depends_on:
+      directpilot:
+        condition: service_healthy
+      postgresql:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    ports:
+      - "8001:8001"
+    volumes:
+      - type: bind
+        source: ${UAT_ENV_FILE:-.env.uat}
+        target: /app/.env.uat
+        read_only: true
+      - type: volume
+        source: directpilot_media
+        target: /app/private_media
+    tmpfs:
+      - /app/logs:uid=10001,gid=10001,mode=0750
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import urllib.request;
+          urllib.request.urlopen('http://127.0.0.1:8001/privacy', timeout=3)
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
     networks:
       - uat
 
@@ -72,21 +142,30 @@ services:
   ollama:
     image: ollama/ollama:0.32.3
     restart: unless-stopped
+    environment:
+      OLLAMA_CONTEXT_LENGTH: "2048"
+      OLLAMA_KEEP_ALIVE: "-1"
+      OLLAMA_MODEL: ${OLLAMA_MODEL:?OLLAMA_MODEL is required}
     volumes:
       - type: volume
         source: ollama_data
         target: /root/.ollama
     healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
+      test:
+        - CMD-SHELL
+        - >-
+          ollama ps | grep -F -- "$${OLLAMA_MODEL}" >/dev/null ||
+          ollama run "$${OLLAMA_MODEL}" "" >/dev/null
+      interval: 30s
+      timeout: 300s
+      retries: 3
       start_period: 15s
     networks:
       - uat
 
 volumes:
   directpilot_media:
+  directpilot_receipts:
   postgresql_data:
   ollama_data:
 

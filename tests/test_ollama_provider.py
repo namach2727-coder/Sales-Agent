@@ -2,17 +2,9 @@ from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import httpx
-from openai import (
-    APIConnectionError,
-    APIResponseValidationError,
-    APITimeoutError,
-    BadRequestError,
-    NotFoundError,
-)
 from pydantic import ValidationError
 import pytest
 
@@ -61,63 +53,78 @@ def _package() -> PromptPackage:
     )
 
 
-def _response(
+def _payload(
     *,
     text: str = "safe local answer",
-    model: str | None = "provider-reported-model",
-    usage: Any = None,
-    request_id: str | None = "req_ollama_test",
-    status: str | None = "completed",
-) -> SimpleNamespace:
-    return SimpleNamespace(
-        output_text=text,
-        model=model,
-        usage=usage,
-        _request_id=request_id,
-        status=status,
-        finish_reason=None,
-        incomplete_details=None,
-    )
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+    done: bool | None = True,
+    done_reason: str | None = "stop",
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {"message": {"content": text}}
+    if input_tokens is not None:
+        payload["prompt_eval_count"] = input_tokens
+    if output_tokens is not None:
+        payload["eval_count"] = output_tokens
+    if done is not None:
+        payload["done"] = done
+    if done_reason is not None:
+        payload["done_reason"] = done_reason
+    return payload
 
 
-class FakeResponses:
+class FakeResponse:
     def __init__(
         self,
-        response: Any = None,
+        payload: Any = None,
+        *,
+        status_code: int = 200,
+        request_id: str | None = "req_ollama_test",
+    ) -> None:
+        self.payload = payload if payload is not None else _payload()
+        self.status_code = status_code
+        self.headers = (
+            {"x-request-id": request_id} if request_id is not None else {}
+        )
+
+    def json(self) -> Any:
+        return self.payload
+
+    def raise_for_status(self) -> None:
+        if self.status_code < 400:
+            return
+        request = httpx.Request("POST", f"{BASE_URL}/api/chat")
+        response = httpx.Response(self.status_code, request=request)
+        raise httpx.HTTPStatusError(
+            "local server detail must remain hidden",
+            request=request,
+            response=response,
+        )
+
+
+class FakeClient:
+    def __init__(
+        self,
+        response: FakeResponse | None = None,
         error: Exception | None = None,
     ) -> None:
-        self.response = response if response is not None else _response()
+        self.response = response or FakeResponse()
         self.error = error
-        self.calls: list[dict[str, Any]] = []
+        self.calls: list[tuple[str, dict[str, Any]]] = []
 
-    def create(self, **kwargs: Any) -> Any:
-        self.calls.append(kwargs)
+    def post(self, url: str, *, json: dict[str, Any]) -> FakeResponse:
+        self.calls.append((url, json))
         if self.error is not None:
             raise self.error
         return self.response
 
 
-class FakeClient:
-    def __init__(self, responses: FakeResponses | None = None) -> None:
-        self.responses = responses or FakeResponses()
-
-
-def _provider(responses: FakeResponses | None = None) -> OllamaProvider:
+def _provider(client: FakeClient | None = None) -> OllamaProvider:
     return OllamaProvider(
         base_url=BASE_URL,
         model=MODEL,
         timeout_seconds=12,
-        client=FakeClient(responses),
-    )
-
-
-def _status_error(error_type: type[Exception], status: int) -> Exception:
-    request = httpx.Request("POST", f"{BASE_URL}/responses")
-    response = httpx.Response(status, request=request)
-    return error_type(
-        "local server detail must remain hidden",
-        response=response,
-        body=None,
+        client=client or FakeClient(),
     )
 
 
@@ -125,40 +132,40 @@ def test_ollama_provider_satisfies_existing_protocol() -> None:
     assert isinstance(_provider(), LLMProvider)
 
 
-def test_prompts_map_separately_to_responses_api_without_mutation() -> None:
-    responses = FakeResponses()
+def test_prompts_map_separately_to_native_chat_without_mutation() -> None:
+    client = FakeClient()
     package = _package()
     before = (package.system_prompt, package.user_prompt, package.metadata)
 
-    _provider(responses).generate(package)
+    _provider(client).generate(package)
 
-    assert responses.calls == [
-        {
-            "model": MODEL,
-            "instructions": SYSTEM_PROMPT,
-            "input": USER_PROMPT,
-            "store": False,
-        }
+    assert client.calls == [
+        (
+            "/api/chat",
+            {
+                "model": MODEL,
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": USER_PROMPT},
+                ],
+                "stream": False,
+                "think": False,
+                "options": {"num_ctx": 4096, "num_predict": 128},
+            },
+        )
     ]
-    assert responses.calls[0]["instructions"] != responses.calls[0]["input"]
     assert (package.system_prompt, package.user_prompt, package.metadata) == before
 
 
 def test_success_maps_to_immutable_response_with_usage() -> None:
-    raw = _response(
-        usage=SimpleNamespace(
-            input_tokens=13,
-            output_tokens=5,
-            total_tokens=18,
-        )
-    )
+    raw = _payload(input_tokens=13, output_tokens=5)
 
-    result = _provider(FakeResponses(raw)).generate(_package())
+    result = _provider(FakeClient(FakeResponse(raw))).generate(_package())
 
     assert result.text == "safe local answer"
     assert result.provider == "ollama"
     assert result.model == MODEL
-    assert result.finish_reason == "completed"
+    assert result.finish_reason == "stop"
     assert result.input_tokens == 13
     assert result.output_tokens == 5
     assert result.total_tokens == 18
@@ -171,12 +178,10 @@ def test_success_maps_to_immutable_response_with_usage() -> None:
 
 def test_missing_usage_and_optional_response_fields_are_supported() -> None:
     result = _provider(
-        FakeResponses(
-            _response(
-                model=None,
-                usage=None,
+        FakeClient(
+            FakeResponse(
+                _payload(done=None, done_reason=None),
                 request_id=None,
-                status=None,
             )
         )
     ).generate(_package())
@@ -192,70 +197,84 @@ def test_missing_usage_and_optional_response_fields_are_supported() -> None:
 
 def test_blank_and_malformed_responses_are_rejected_safely() -> None:
     with pytest.raises(LLMProviderInvalidResponseError) as blank:
-        _provider(FakeResponses(_response(text="  \n"))).generate(_package())
+        _provider(FakeClient(FakeResponse(_payload(text="  \n")))).generate(
+            _package()
+        )
     assert isinstance(blank.value.__cause__, ValueError)
 
-    malformed = SimpleNamespace(output_text=object(), usage=None)
+    malformed = {"message": {"content": object()}}
     with pytest.raises(LLMProviderInvalidResponseError) as invalid:
-        _provider(FakeResponses(malformed)).generate(_package())
+        _provider(FakeClient(FakeResponse(malformed))).generate(_package())
     assert isinstance(invalid.value.__cause__, ValueError)
 
 
 @pytest.mark.parametrize(
-    ("provider_error", "application_error"),
+    ("client", "application_error", "cause_type"),
     [
         (
-            APIConnectionError(
-                request=httpx.Request("POST", f"{BASE_URL}/responses")
+            FakeClient(
+                error=httpx.ConnectError(
+                    "local server detail must remain hidden",
+                    request=httpx.Request(
+                        "POST", f"{BASE_URL}/api/chat"
+                    ),
+                )
             ),
             LLMProviderUnavailableError,
+            httpx.ConnectError,
         ),
         (
-            APITimeoutError(
-                request=httpx.Request("POST", f"{BASE_URL}/responses")
+            FakeClient(
+                error=httpx.ReadTimeout(
+                    "local server detail must remain hidden",
+                    request=httpx.Request(
+                        "POST", f"{BASE_URL}/api/chat"
+                    ),
+                )
             ),
             LLMProviderTimeoutError,
+            httpx.ReadTimeout,
         ),
         (
-            _status_error(NotFoundError, 404),
+            FakeClient(FakeResponse(status_code=404)),
             LLMProviderConfigurationError,
+            httpx.HTTPStatusError,
         ),
         (
-            _status_error(BadRequestError, 400),
+            FakeClient(FakeResponse(status_code=400)),
             LLMProviderRequestError,
+            httpx.HTTPStatusError,
         ),
     ],
 )
 def test_known_ollama_errors_map_to_safe_application_errors(
-    provider_error: Exception,
+    client: FakeClient,
     application_error: type[LLMProviderError],
+    cause_type: type[Exception],
 ) -> None:
     with pytest.raises(application_error) as raised:
-        _provider(FakeResponses(error=provider_error)).generate(_package())
+        _provider(client).generate(_package())
 
-    assert raised.value.__cause__ is provider_error
+    assert isinstance(raised.value.__cause__, cause_type)
     assert "local server detail" not in str(raised.value)
 
 
-def test_sdk_invalid_response_and_unknown_error_map_safely() -> None:
-    request = httpx.Request("POST", f"{BASE_URL}/responses")
-    invalid = APIResponseValidationError(
-        httpx.Response(200, request=request),
-        {"private": "provider payload"},
-    )
+def test_invalid_response_and_unknown_error_map_safely() -> None:
     with pytest.raises(LLMProviderInvalidResponseError) as invalid_raised:
-        _provider(FakeResponses(error=invalid)).generate(_package())
-    assert invalid_raised.value.__cause__ is invalid
+        _provider(FakeClient(FakeResponse({"private": "payload"}))).generate(
+            _package()
+        )
+    assert isinstance(invalid_raised.value.__cause__, ValueError)
 
     unknown = RuntimeError("raw local provider detail")
     with pytest.raises(LLMProviderError) as unknown_raised:
-        _provider(FakeResponses(error=unknown)).generate(_package())
+        _provider(FakeClient(error=unknown)).generate(_package())
     assert type(unknown_raised.value) is LLMProviderError
     assert str(unknown_raised.value) == "Ollama request failed"
     assert unknown_raised.value.__cause__ is unknown
 
 
-def test_client_uses_configured_base_url_and_non_secret_placeholder(
+def test_client_uses_native_base_url_and_configured_timeout(
     monkeypatch,
 ) -> None:
     captured: dict[str, Any] = {}
@@ -265,7 +284,7 @@ def test_client_uses_configured_base_url_and_non_secret_placeholder(
         captured.update(kwargs)
         return fake_client
 
-    monkeypatch.setattr(adapter_module, "OpenAI", client_factory)
+    monkeypatch.setattr(adapter_module.httpx, "Client", client_factory)
 
     provider = OllamaProvider(
         base_url=f"{BASE_URL}/",
@@ -274,13 +293,14 @@ def test_client_uses_configured_base_url_and_non_secret_placeholder(
     )
 
     assert provider.base_url == BASE_URL
+    assert provider.native_base_url == "http://localhost:11434"
     assert provider.timeout_seconds == 19.0
-    assert captured == {
-        "base_url": BASE_URL,
-        "api_key": "ollama",
-        "timeout": 19.0,
-        "max_retries": 0,
-    }
+    assert captured["base_url"] == "http://localhost:11434"
+    assert captured["follow_redirects"] is False
+    timeout = captured["timeout"]
+    assert isinstance(timeout, httpx.Timeout)
+    assert timeout.connect == 19.0
+    assert timeout.read == 19.0
     assert not hasattr(provider, "api_key")
 
 
@@ -290,9 +310,15 @@ def test_provider_selection_is_normalized_and_explicit() -> None:
         llm_provider=" OLLAMA ",
         openai_api_key="",
         ollama_model=MODEL,
+        ollama_context_length=2048,
+        ollama_max_output_tokens=24,
+        ollama_thinking_enabled=True,
     )
     ollama = build_llm_provider(ollama_settings, client=FakeClient())
     assert isinstance(ollama, OllamaProvider)
+    assert ollama.context_length == 2048
+    assert ollama.max_output_tokens == 24
+    assert ollama.thinking_enabled is True
 
     openai_settings = Settings(
         _env_file=None,
@@ -312,6 +338,28 @@ def test_unsupported_provider_and_missing_ollama_model_fail_clearly() -> None:
             _env_file=None,
             llm_provider="ollama",
             ollama_model="   ",
+        )
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"context_length": 0}, "context configuration"),
+        ({"context_length": True}, "context configuration"),
+        ({"max_output_tokens": 0}, "output token"),
+        ({"max_output_tokens": True}, "output token"),
+        ({"thinking_enabled": "false"}, "thinking configuration"),
+    ],
+)
+def test_invalid_generation_controls_fail_closed(
+    kwargs: dict[str, Any], message: str
+) -> None:
+    with pytest.raises(LLMProviderConfigurationError, match=message):
+        OllamaProvider(
+            base_url=BASE_URL,
+            model=MODEL,
+            client=FakeClient(),
+            **kwargs,
         )
 
 
@@ -346,7 +394,9 @@ def test_safe_logs_exclude_prompts_and_provider_payload(caplog) -> None:
     caplog.set_level("INFO", logger="sales_assistant.llm.ollama")
     raw_text = "OLLAMA-RAW-RESPONSE-DO-NOT-LOG"
 
-    _provider(FakeResponses(_response(text=raw_text))).generate(_package())
+    _provider(FakeClient(FakeResponse(_payload(text=raw_text)))).generate(
+        _package()
+    )
 
     log_text = "\n".join(record.getMessage() for record in caplog.records)
     assert "llm request started" in log_text

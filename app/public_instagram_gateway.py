@@ -15,16 +15,19 @@ from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
 
 from app import models  # noqa: F401 - registers all database tables
-from app.database import Base, engine
+from app.config import get_settings, validate_runtime_settings
+from app.database import Base, check_database_connection, engine
 from app.instagram import receive_instagram_webhook, verify_instagram_webhook
 from app.instagram_channel.router import public_router as instagram_channel_public_router
 from app.legal import router as legal_router
 from app.public_media import router as public_media_router
+from app.operations import require_database_at_head
 
 
 LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
 SAFE_ACCESS_LOG_PATH = LOG_DIR / "instagram_gateway_access.log"
 _SAFE_ACCESS_LOG_LOCK = RLock()
+SETTINGS = get_settings()
 
 
 def configure_safe_access_logger() -> tuple[logging.Logger, logging.FileHandler]:
@@ -65,10 +68,15 @@ SAFE_ACCESS_LOG, _ = configure_safe_access_logger()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Create shared database tables when this entry point starts alone."""
+    """Validate deployed schema; create tables only for local/test use."""
 
     configure_safe_access_logger()
-    Base.metadata.create_all(bind=engine)
+    if SETTINGS.deployed:
+        validate_runtime_settings(SETTINGS)
+        check_database_connection(engine)
+        require_database_at_head(engine)
+    else:
+        Base.metadata.create_all(bind=engine)
     yield
 
 

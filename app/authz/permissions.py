@@ -27,6 +27,8 @@ class PermissionCode:
     PLATFORM_ACCESS_MANAGE = "platform.access_manage"
     MODULE_CATALOG_MANAGE = "module.catalog_manage"
     PLATFORM_SETTINGS_MANAGE = "platform.settings_manage"
+    PAYMENT_READ = "payment.read"
+    PAYMENT_MANAGE = "payment.manage"
 
     TENANT_SETTINGS_READ = "tenant.settings_read"
     TENANT_SETTINGS_UPDATE = "tenant.settings_update"
@@ -118,6 +120,8 @@ PLATFORM_PERMISSIONS = (
     _permission(PermissionCode.PLATFORM_ACCESS_MANAGE, PermissionScope.PLATFORM, "Manage platform role assignments."),
     _permission(PermissionCode.MODULE_CATALOG_MANAGE, PermissionScope.PLATFORM, "Manage provider module catalog."),
     _permission(PermissionCode.PLATFORM_SETTINGS_MANAGE, PermissionScope.PLATFORM, "Manage platform settings."),
+    _permission(PermissionCode.PAYMENT_READ, PermissionScope.PLATFORM, "Read manual payment review queue."),
+    _permission(PermissionCode.PAYMENT_MANAGE, PermissionScope.PLATFORM, "Approve or reject manual payments."),
 )
 
 TENANT_PERMISSIONS = (
@@ -208,9 +212,10 @@ ROLE_DEFINITIONS = (
         PermissionCode.TENANT_CREATE, PermissionCode.TENANT_READ, PermissionCode.TENANT_UPDATE,
         PermissionCode.TENANT_DISABLE, PermissionCode.TENANT_PROVISION,
         PermissionCode.TENANT_ACCESS_MANAGE, PermissionCode.MODULE_CATALOG_MANAGE,
+        PermissionCode.PAYMENT_READ, PermissionCode.PAYMENT_MANAGE,
     )),
     RoleDefinition("platform_auditor", "Platform Auditor", PermissionScope.PLATFORM, "Read-only platform inventory and audit.", (
-        PermissionCode.TENANT_READ, PermissionCode.PLATFORM_AUDIT_READ,
+        PermissionCode.TENANT_READ, PermissionCode.PLATFORM_AUDIT_READ, PermissionCode.PAYMENT_READ,
     )),
     RoleDefinition("tenant_owner", "Tenant Owner", PermissionScope.TENANT, "Full explicit tenant administration.", ALL_TENANT_CODES),
     RoleDefinition("tenant_admin", "Tenant Admin", PermissionScope.TENANT, "Tenant administration except audit ownership.", tuple(code for code in ALL_TENANT_CODES if code != PermissionCode.AUDIT_READ)),

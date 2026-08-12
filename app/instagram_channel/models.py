@@ -124,6 +124,48 @@ class InstagramConnection(Base):
     )
 
 
+class InstagramOAuthState(Base):
+    """Single-use, tenant-bound OAuth correlation state.
+
+    Only a SHA-256 digest is persisted. The browser-visible nonce is never
+    recoverable from the database and no Meta credential is stored here.
+    """
+
+    __tablename__ = "instagram_oauth_states"
+    __table_args__ = (
+        UniqueConstraint("state_digest", name="uq_instagram_oauth_states_digest"),
+        ForeignKeyConstraint(
+            ("store_id", "tenant_id"),
+            ("stores.id", "stores.tenant_id"),
+            name="fk_instagram_oauth_states_store_tenant",
+        ),
+        Index(
+            "ix_instagram_oauth_states_scope",
+            "tenant_id",
+            "store_id",
+            "expires_at",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), default=new_public_id, unique=True, index=True
+    )
+    state_digest: Mapped[str] = mapped_column(String(64), unique=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    store_id: Mapped[int] = mapped_column(Integer, index=True)
+    initiated_by_user_id: Mapped[int] = mapped_column(
+        ForeignKey("user_identities.id"), index=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    consumed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+
+
 class InstagramWebhookDelivery(Base):
     __tablename__ = "instagram_webhook_deliveries"
     __table_args__ = (

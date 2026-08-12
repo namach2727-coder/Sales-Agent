@@ -481,6 +481,7 @@ def _graph_sender(client: FakeHttpClient) -> InstagramGraphSender:
         timeout_seconds=9,
         access_token="test-secret-token",
         sender_account_id="business-1",
+        send_enabled=True,
         client=client,
     )
 
@@ -495,6 +496,25 @@ def _outbound_message() -> OutboundMessage:
         recipient_external_id="customer-1",
         text="answer",
     )
+
+
+def test_graph_adapter_fails_closed_before_network_when_send_is_disabled() -> None:
+    client = FakeHttpClient(FakeHttpResponse(200, {"message_id": "must-not-send"}))
+    sender = InstagramGraphSender(
+        base_url="https://graph.instagram.com",
+        api_version="v24.0",
+        timeout_seconds=9,
+        access_token="test-secret-token",
+        sender_account_id="business-1",
+        send_enabled=False,
+        client=client,
+    )
+
+    with pytest.raises(OutboundConnectionUnavailableError) as raised:
+        sender.send(_outbound_message())
+
+    assert raised.value.category == "connection_unavailable"
+    assert client.calls == []
 
 
 def test_graph_adapter_builds_documented_text_request_and_normalizes_success() -> None:

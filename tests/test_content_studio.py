@@ -1,5 +1,7 @@
+import asyncio
 from urllib.parse import urlsplit
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, func, select
@@ -89,6 +91,25 @@ def upload_image(client: TestClient, product_id: int) -> dict:
     )
     assert response.status_code == 200, response.text
     return response.json()["asset"]
+
+
+def test_content_publisher_fails_closed_before_network(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "meta_send_enabled", False)
+    monkeypatch.setattr(settings, "meta_content_publish_enabled", True)
+
+    class ForbiddenClient:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("network client must not be constructed")
+
+    monkeypatch.setattr(httpx, "AsyncClient", ForbiddenClient)
+    with pytest.raises(RuntimeError, match="outbound mutations are disabled"):
+        asyncio.run(
+            InstagramContentPublisher(settings).publish_image(
+                image_url="https://media.example.test/image.jpg",
+                caption="caption",
+                alt_text="alt text",
+            )
+        )
 
 
 def activate_single_product(client: TestClient, product: dict) -> None:
@@ -249,6 +270,7 @@ def test_live_publish_is_idempotent_and_maps_comments(
         db.commit()
 
     monkeypatch.setattr(settings, "meta_content_publish_enabled", True)
+    monkeypatch.setattr(settings, "meta_send_enabled", False)
     monkeypatch.setattr(settings, "meta_access_token", "test-access-token")
     monkeypatch.setattr(settings, "meta_ig_user_id", "123456789")
     monkeypatch.setattr(settings, "public_media_base_url", "https://media.example.test")
@@ -267,6 +289,15 @@ def test_live_publish_is_idempotent_and_maps_comments(
 
     monkeypatch.setattr(InstagramContentPublisher, "publish_image", fake_publish)
     payload = {"expected_revision": draft["revision"], "confirmation": "publish"}
+    disabled = client.post(
+        f"/admin/api/content-drafts/{draft['id']}/publish",
+        json=payload,
+        headers=MUTATION_HEADERS,
+    )
+    assert disabled.status_code == 409
+    assert calls["count"] == 0
+
+    monkeypatch.setattr(settings, "meta_send_enabled", True)
     first = client.post(
         f"/admin/api/content-drafts/{draft['id']}/publish",
         json=payload,
