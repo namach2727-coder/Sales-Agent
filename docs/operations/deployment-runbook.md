@@ -66,6 +66,11 @@ PostgreSQL uses a persistent volume. The application runs as UID/GID `10001`, wa
 
 ## UAT and production deployment
 
+The canonical single-host production topology, ingress split, persistence
+contract, and exact Compose procedure are documented in
+[`production-deployment.md`](production-deployment.md). Production uses
+`compose.production.yaml`; it does not reuse or mutate the UAT Compose project.
+
 1. Create an isolated PostgreSQL database and least-privilege application role.
 2. Supply secrets through the platform secret manager or mounted files.
 3. Configure a TLS-terminating proxy and exact `FORWARDED_ALLOW_IPS`.

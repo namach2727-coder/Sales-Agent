@@ -4,10 +4,10 @@
 
 - Repository: `C:/Users/q/Documents/Codex/2026-07-11/referenced-chatgpt-conversation-this-is-untrusted`
 - Remote: `https://github.com/namach2727-coder/Sales-Agent.git`
-- Branch: `integration-01-complete-ai-flow`
-- Previous tracked base: `8055286f5b0859cd708c33ee6c8dd9f4bc513307`
-- Canonical RC: the commit containing this document, with subject
+- Canonical backend branch: `backend-main` (also the GitHub default branch).
+- Canonical RC: `6186155e2fa4ed13dd9215942527101ae47db8c6`, subject
   `feat: prepare DirectPilot SaaS backend RC1`.
+- Legacy `main`: separate GitHub Pages/legal-content lineage, retained unchanged.
 
 The previously reported `31aef92` is not present in the local object database,
 any local branch/worktree/reflog, or any branch/tag advertised by the configured
@@ -16,8 +16,8 @@ backend lineage. It must not be treated as the backend RC source.
 
 ## Current phase
 
-DirectPilot MVP release-candidate reconciliation. Production is not provisioned
-or deployed.
+DirectPilot MVP production deployment preparation. Production is not
+provisioned or deployed.
 
 ## Architecture and implemented MVP
 
@@ -115,11 +115,18 @@ successful test completion and does not change the passing exit status.
 
 ## Remaining P0 blockers
 
-1. Production infrastructure, managed PostgreSQL/backup restore, private receipt
-   storage, DNS/TLS, production Meta approval, and privacy/legal operations are
-   external launch gates; production provisioning has not started.
+1. Provision the always-on Linux Docker host, DNS/TLS reverse proxy, off-host
+   backup destination, monitoring/operator ownership, and production-only
+   secrets.
+2. Perform and evidence production PostgreSQL backup/restore rehearsal before
+   migrating real data.
+3. Complete production Meta application review/configuration and controlled
+   webhook/outbound acceptance without reusing UAT assets.
+4. Select and configure the existing external AI-provider adapter (or a
+   deliberately operated non-laptop Ollama endpoint).
 
 ## Exact next action
 
-Review the canonical RC commit and explicitly authorize its push; do not deploy
-production from this local-only state.
+Provision one generic always-on Linux Docker host that meets
+`docs/operations/production-deployment.md`; do not change DNS or deploy until
+its firewall, TLS proxy, persistent storage, and off-host backup target exist.
