@@ -105,7 +105,10 @@ class MetaInstagramOAuthClient:
 
                 profile_response = client.get(
                     f"{self.settings.meta_graph_base_url}/me",
-                    params={"fields": "user_id,username", "access_token": access_token},
+                    params={
+                        "fields": "id,user_id,username,account_type",
+                        "access_token": access_token,
+                    },
                 )
                 profile_response.raise_for_status()
                 profile = profile_response.json()

@@ -18,7 +18,7 @@ from app.commerce.router import router as commerce_router
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.instagram_channel.models import InstagramConnection, InstagramOAuthState
-from app.instagram_onboarding.provider import InstagramOAuthAccount
+from app.instagram_onboarding.provider import InstagramOAuthAccount, MetaInstagramOAuthClient
 from app.instagram_onboarding.router import get_instagram_oauth_provider, router
 from tools.seeding import SeedRunner, default_registry
 
@@ -51,6 +51,67 @@ class FakeOAuthProvider:
                 "instagram_business_manage_comments",
             ),
         )
+
+
+class _ProviderResponse:
+    def __init__(self, payload: dict[str, object]) -> None:
+        self.payload = payload
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict[str, object]:
+        return self.payload
+
+
+class _ProviderHttpClient:
+    def __init__(self) -> None:
+        self.profile_fields: str | None = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        return None
+
+    def post(self, _url: str, **_kwargs: object) -> _ProviderResponse:
+        return _ProviderResponse({"access_token": "short-lived-token"})
+
+    def get(self, url: str, **kwargs: object) -> _ProviderResponse:
+        if url.endswith("/access_token"):
+            return _ProviderResponse(
+                {"access_token": "long-lived-token", "token_type": "bearer"}
+            )
+        params = kwargs["params"]
+        assert isinstance(params, dict)
+        self.profile_fields = str(params["fields"])
+        return _ProviderResponse(
+            {
+                "id": "37910874415222854",
+                "user_id": "17841434793560671",
+                "username": "test_business",
+                "account_type": "BUSINESS",
+            }
+        )
+
+
+def test_meta_oauth_prefers_user_id_for_webhook_routing(monkeypatch) -> None:
+    settings = Settings(
+        _env_file=None,
+        meta_app_id="test-app-id",
+        meta_app_secret="test-app-secret",
+        meta_oauth_redirect_uri="https://api.example/callback",
+    )
+    http_client = _ProviderHttpClient()
+    monkeypatch.setattr(
+        "app.instagram_onboarding.provider.httpx.Client",
+        lambda **_kwargs: http_client,
+    )
+
+    account = MetaInstagramOAuthClient(settings).exchange("authorization-code")
+
+    assert account.account_id == "17841434793560671"
+    assert http_client.profile_fields == "id,user_id,username,account_type"
 
 
 @pytest.fixture
