@@ -17,6 +17,7 @@ class OutboundMessage:
     channel: str
     recipient_external_id: str
     text: str
+    recipient_type: str = "account"
     correlation_id: str | None = None
 
     def __post_init__(self) -> None:
@@ -30,6 +31,12 @@ class OutboundMessage:
         ):
             object.__setattr__(self, name, _single_line(getattr(self, name), name))
         object.__setattr__(self, "text", _text(self.text, "text"))
+        recipient_type = _single_line(
+            self.recipient_type, "recipient_type", maximum=20
+        )
+        if recipient_type not in {"account", "comment"}:
+            raise ValueError("invalid recipient_type")
+        object.__setattr__(self, "recipient_type", recipient_type)
         if self.correlation_id is not None:
             object.__setattr__(
                 self,

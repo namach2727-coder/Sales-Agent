@@ -197,6 +197,7 @@ class TenantStoreService:
         if store.tenant_id != tenant.id:
             raise ResourceNotFoundError("resource not found")
         allowed = {
+            "onboarding": {"active", "archived"},
             "active": {"suspended", "archived"},
             "suspended": {"active", "archived"},
             "archived": set(),

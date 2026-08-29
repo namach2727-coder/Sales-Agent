@@ -73,6 +73,9 @@ class Settings(BaseSettings):
         default=15.0, ge=1.0, le=120.0
     )
     meta_send_enabled: bool = False
+    meta_send_allowed_account_ids: Annotated[list[str], NoDecode] = Field(
+        default_factory=list
+    )
     meta_signature_required: bool = True
     meta_content_publish_enabled: bool = False
     public_media_base_url: str = ""
@@ -159,7 +162,12 @@ class Settings(BaseSettings):
                 raise ValueError(f"could not read {file_field}") from exc
         return data
 
-    @field_validator("trusted_hosts", "cors_allowed_origins", mode="before")
+    @field_validator(
+        "trusted_hosts",
+        "cors_allowed_origins",
+        "meta_send_allowed_account_ids",
+        mode="before",
+    )
     @classmethod
     def parse_csv_list(cls, value: Any) -> Any:
         if isinstance(value, str):

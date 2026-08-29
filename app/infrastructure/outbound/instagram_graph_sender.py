@@ -64,7 +64,13 @@ class InstagramGraphSender:
                 "Content-Type": "application/json",
             },
             "json": {
-                "recipient": {"id": message.recipient_external_id},
+                "recipient": {
+                    (
+                        "comment_id"
+                        if message.recipient_type == "comment"
+                        else "id"
+                    ): message.recipient_external_id
+                },
                 "message": {"text": message.text},
             },
             "timeout": self.timeout_seconds,
@@ -115,13 +121,17 @@ def build_instagram_graph_sender(
     sender_account_id: str,
     client: Any | None = None,
 ) -> InstagramGraphSender:
+    allowed_accounts = settings.meta_send_allowed_account_ids
+    account_is_allowed = (
+        not allowed_accounts or sender_account_id in allowed_accounts
+    )
     return InstagramGraphSender(
         base_url=settings.meta_graph_base_url,
         api_version=settings.meta_api_version,
         timeout_seconds=settings.instagram_outbound_timeout_seconds,
         access_token=access_token,
         sender_account_id=sender_account_id,
-        send_enabled=settings.meta_send_enabled,
+        send_enabled=settings.meta_send_enabled and account_is_allowed,
         client=client,
     )
 

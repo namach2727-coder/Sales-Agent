@@ -31,7 +31,10 @@ from app.infrastructure.database.repositories.instagram_outbound_repository impo
     InstagramOutboundConnectionContext,
     InstagramOutboundMessageContext,
 )
-from app.infrastructure.outbound import InstagramGraphSender
+from app.infrastructure.outbound import (
+    InstagramGraphSender,
+    build_instagram_graph_sender,
+)
 from app.instagram_channel.exceptions import (
     InstagramCredentialConfigurationError,
 )
@@ -139,6 +142,7 @@ def _message(**changes: Any) -> InstagramOutboundMessageContext:
             "llm_provider": "fake",
             "llm_total_tokens": 12,
         },
+        "reply_to_metadata": {},
     }
     values.update(changes)
     return InstagramOutboundMessageContext(**values)
@@ -517,6 +521,44 @@ def test_graph_adapter_fails_closed_before_network_when_send_is_disabled() -> No
     assert client.calls == []
 
 
+def test_graph_adapter_fails_closed_for_account_outside_send_allowlist() -> None:
+    client = FakeHttpClient(FakeHttpResponse(200, {"message_id": "must-not-send"}))
+    settings = Settings(
+        meta_send_enabled=True,
+        meta_send_allowed_account_ids=["uat-target-account"],
+    )
+    sender = build_instagram_graph_sender(
+        settings,
+        access_token="test-secret-token",
+        sender_account_id="other-account",
+        client=client,
+    )
+
+    with pytest.raises(OutboundConnectionUnavailableError):
+        sender.send(_outbound_message())
+
+    assert client.calls == []
+
+
+def test_graph_adapter_allows_account_inside_send_allowlist() -> None:
+    client = FakeHttpClient(FakeHttpResponse(200, {"message_id": "mid-allowed"}))
+    settings = Settings(
+        meta_send_enabled=True,
+        meta_send_allowed_account_ids=["business-1"],
+    )
+    sender = build_instagram_graph_sender(
+        settings,
+        access_token="test-secret-token",
+        sender_account_id="business-1",
+        client=client,
+    )
+
+    result = sender.send(_outbound_message())
+
+    assert result.provider_message_id == "mid-allowed"
+    assert len(client.calls) == 1
+
+
 def test_graph_adapter_builds_documented_text_request_and_normalizes_success() -> None:
     client = FakeHttpClient(FakeHttpResponse(200, {"message_id": "mid-1"}))
     result = _graph_sender(client).send(_outbound_message())
@@ -529,6 +571,28 @@ def test_graph_adapter_builds_documented_text_request_and_normalizes_success() -
     assert request["timeout"] == 9
     assert request["headers"]["Authorization"] == "Bearer test-secret-token"
     assert result.provider_message_id == "mid-1"
+
+
+def test_graph_adapter_builds_documented_comment_private_reply() -> None:
+    client = FakeHttpClient(FakeHttpResponse(200, {"message_id": "mid-comment"}))
+    sender = _graph_sender(client)
+    message = OutboundMessage(
+        message_public_id=MESSAGE_PUBLIC_ID,
+        conversation_public_id=CONVERSATION_PUBLIC_ID,
+        tenant_public_id=TENANT_PUBLIC_ID,
+        store_public_id=STORE_PUBLIC_ID,
+        channel="instagram",
+        recipient_external_id="comment-1",
+        recipient_type="comment",
+        text="answer",
+    )
+
+    result = sender.send(message)
+
+    assert client.calls[0][1]["json"]["recipient"] == {
+        "comment_id": "comment-1"
+    }
+    assert result.provider_message_id == "mid-comment"
 
 
 @pytest.mark.parametrize(

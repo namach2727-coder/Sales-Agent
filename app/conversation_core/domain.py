@@ -43,7 +43,7 @@ PARTICIPANT_TYPES = frozenset(
 )
 ASSIGNMENT_STATUSES = frozenset({"assigned", "released"})
 PROCESSING_STATUSES = frozenset({"pending", "processed", "ignored", "failed"})
-SUPPORTED_INBOUND_EVENT_TYPES = frozenset({"messaging"})
+SUPPORTED_INBOUND_EVENT_TYPES = frozenset({"messaging", "comments"})
 
 
 _CONVERSATION_TRANSITIONS = {
@@ -508,6 +508,26 @@ def classify_incoming_message(
     metadata: dict[str, object] = {}
     if provider_message_id is not None:
         metadata["provider_message_id"] = provider_message_id
+    event_kind = normalized_payload.get("event_kind")
+    if event_kind == "story_reply":
+        metadata["instagram_event_kind"] = "story_reply"
+    elif normalized_event_type == "comments":
+        comment_id = normalize_identifier(
+            normalized_payload.get("comment_id")
+            if isinstance(normalized_payload.get("comment_id"), str)
+            else None,
+            field="comment_id",
+            required=True,
+            maximum=200,
+        )
+        assert comment_id is not None
+        metadata.update(
+            {
+                "instagram_event_kind": "comment",
+                "instagram_recipient_type": "comment",
+                "instagram_comment_id": comment_id,
+            }
+        )
 
     raw_text = message.get("text")
     text = (

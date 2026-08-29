@@ -69,7 +69,7 @@ def test_domain_constant_sets_are_exact_and_immutable() -> None:
     }
     assert ASSIGNMENT_STATUSES == {"assigned", "released"}
     assert PROCESSING_STATUSES == {"pending", "processed", "ignored", "failed"}
-    assert SUPPORTED_INBOUND_EVENT_TYPES == {"messaging"}
+    assert SUPPORTED_INBOUND_EVENT_TYPES == {"messaging", "comments"}
     for values in (
         CONVERSATION_STATUSES,
         MESSAGE_DIRECTIONS,
@@ -347,7 +347,7 @@ def test_incoming_event_is_frozen() -> None:
 @pytest.mark.parametrize(
     ("override", "value"),
     [
-        ("event_type", "comments"),
+        ("event_type", "unsupported"),
         ("direction", "outbound"),
         ("content_type", "unknown"),
     ],

@@ -77,7 +77,7 @@ def test_current_migration_history_satisfies_policy() -> None:
 
 def test_current_history_has_exactly_one_head_and_valid_baseline_name() -> None:
     scripts = load_script_directory(ROOT)
-    assert scripts.get_heads() == ["0013_store_automation_control"]
+    assert scripts.get_heads() == ["0014_transport_neutral_inbound"]
     baseline = ROOT / "alembic" / "versions" / "0001_baseline_schema.py"
     assert parse_revision_source(baseline).revision == baseline.stem
 

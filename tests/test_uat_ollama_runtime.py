@@ -19,6 +19,6 @@ def test_uat_application_services_bound_ollama_generation() -> None:
 
     # DirectPilot and the public Instagram gateway both execute the AI flow;
     # Ollama itself also preloads the same bounded context.
-    assert compose.count('OLLAMA_CONTEXT_LENGTH: "2048"') == 3
+    assert compose.count('OLLAMA_CONTEXT_LENGTH: "1024"') == 3
     assert compose.count('OLLAMA_MAX_OUTPUT_TOKENS: "16"') == 2
     assert compose.count('OLLAMA_THINKING_ENABLED: "false"') == 2

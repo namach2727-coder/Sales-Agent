@@ -144,6 +144,32 @@ def test_store_lifecycle_is_blocked_by_suspended_tenant(tenant_engine) -> None:
             service.create_store(tenant, name="Blocked Store", slug="blocked")
 
 
+def test_onboarding_store_can_be_activated_through_audited_lifecycle(
+    tenant_engine,
+) -> None:
+    with Session(tenant_engine, expire_on_commit=False) as session:
+        owner = identity(session, "onboarding-life@example.invalid")
+        tenant, store, _ = bootstrap(session, owner)
+        store.status = "onboarding"
+        session.commit()
+
+        activated = TenantStoreService(
+            session,
+            actor_identity_id=owner.id,
+        ).transition_store(tenant, store, "active")
+
+        assert activated.status == "active"
+        audit = session.scalar(
+            select(TenantAuditLog).where(
+                TenantAuditLog.tenant_id == tenant.id,
+                TenantAuditLog.store_id == store.id,
+                TenantAuditLog.action == "store.active",
+            )
+        )
+        assert audit is not None
+        assert audit.details_json == {"from": "onboarding", "to": "active"}
+
+
 def test_store_slug_is_scoped_but_domains_are_globally_unique(tenant_engine) -> None:
     with Session(tenant_engine, expire_on_commit=False) as session:
         first = identity(session, "first@example.invalid")

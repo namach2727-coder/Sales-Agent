@@ -226,6 +226,41 @@ def _payload(account_id: str, *, message_id: str | None = None) -> dict[str, Any
     }
 
 
+def _story_reply_payload(account_id: str) -> dict[str, Any]:
+    payload = _payload(account_id)
+    payload["entry"][0]["messaging"][0]["message"]["reply_to"] = {
+        "story": {"id": "story-id", "url": "https://example.test/story"}
+    }
+    return payload
+
+
+def _comment_payload(
+    account_id: str,
+    *,
+    comment_id: str | None = None,
+    sender_id: str = RECIPIENT,
+) -> dict[str, Any]:
+    return {
+        "object": "instagram",
+        "entry": [
+            {
+                "id": account_id,
+                "changes": [
+                    {
+                        "field": "comments",
+                        "value": {
+                            "id": comment_id or f"comment-{uuid.uuid4().hex}",
+                            "from": {"id": sender_id},
+                            "text": CUSTOMER_TEXT,
+                            "media_id": "media-for-comment",
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+
 def _body(payload: dict[str, Any]) -> bytes:
     return json.dumps(payload, separators=(",", ":")).encode("utf-8")
 
@@ -358,6 +393,91 @@ def test_supported_webhook_completes_full_flow_with_configured_fake_provider(
         "fake-openai-key",
     ):
         assert prohibited not in rendered_logs
+
+
+def test_story_reply_reuses_messaging_ai_and_outbound_pipeline(flow_engine) -> None:
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+
+    response = _post(
+        _client(flow_engine, settings, FakeLLMClient(responses), meta),
+        _story_reply_payload(scope.connection.instagram_account_id),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["flows"][0]["delivery_status"] == "sent"
+    assert len(responses.calls) == len(meta.calls) == 1
+    assert meta.calls[0][1]["json"]["recipient"] == {"id": RECIPIENT}
+    with Session(flow_engine) as db:
+        inbound = db.scalar(
+            select(ConversationMessage).where(
+                ConversationMessage.tenant_id == scope.tenant.id,
+                ConversationMessage.direction == "inbound",
+            )
+        )
+        assert inbound is not None
+        assert inbound.metadata_json["instagram_event_kind"] == "story_reply"
+
+
+def test_comment_reuses_ai_and_sends_one_private_reply(flow_engine) -> None:
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    client = _client(flow_engine, settings, FakeLLMClient(responses), meta)
+    comment_id = f"comment-{uuid.uuid4().hex}"
+    payload = _comment_payload(
+        scope.connection.instagram_account_id,
+        comment_id=comment_id,
+    )
+
+    first = _post(client, payload)
+    duplicate = _post(client, payload)
+
+    assert first.status_code == duplicate.status_code == 200
+    assert first.json()["flows"][0]["ai_status"] == "completed"
+    assert first.json()["flows"][0]["delivery_status"] == "sent"
+    assert duplicate.json()["duplicate"] is True
+    assert len(responses.calls) == len(meta.calls) == 1
+    assert meta.calls[0][1]["json"]["recipient"] == {
+        "comment_id": comment_id
+    }
+    with Session(flow_engine) as db:
+        messages = tuple(
+            db.scalars(
+                select(ConversationMessage)
+                .where(ConversationMessage.tenant_id == scope.tenant.id)
+                .order_by(ConversationMessage.id)
+            )
+        )
+        assert [message.direction for message in messages] == [
+            "inbound",
+            "outbound",
+        ]
+        assert messages[0].metadata_json["instagram_comment_id"] == comment_id
+        assert "instagram_comment_id" not in messages[1].metadata_json
+
+
+def test_own_comment_is_ignored_without_ai_or_private_reply(flow_engine) -> None:
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+
+    response = _post(
+        _client(flow_engine, settings, FakeLLMClient(responses), meta),
+        _comment_payload(
+            scope.connection.instagram_account_id,
+            sender_id=scope.connection.instagram_account_id,
+        ),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["flows"][0]["ignored"] is True
+    assert responses.calls == []
+    assert meta.calls == []
 
 
 def test_disabled_automation_persists_inbound_without_ai_send_or_replay(

@@ -831,7 +831,13 @@ class InstagramWebhookIngestionService:
                 provider_event_at=parsed.provider_event_at,
                 normalized_payload=parsed.normalized_payload,
                 processing_status=(
-                    "ignored" if parsed.event_type == "unsupported" else "ready"
+                    "ignored"
+                    if (
+                        parsed.event_type == "unsupported"
+                        or parsed.external_sender_id
+                        == connection.instagram_account_id
+                    )
+                    else "ready"
                 ),
                 occurred_at=parsed.provider_event_at or received_at,
                 received_at=received_at,

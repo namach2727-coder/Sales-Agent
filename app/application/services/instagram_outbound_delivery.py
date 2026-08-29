@@ -105,7 +105,17 @@ class InstagramOutboundDeliveryService:
                 provider_message_id=provider_message_id,
             )
 
-        recipient = persisted.provider_participant_key.strip()
+        recipient_type = _metadata_text(
+            persisted.reply_to_metadata.get("instagram_recipient_type")
+        ) or "account"
+        recipient = (
+            _metadata_text(
+                persisted.reply_to_metadata.get("instagram_comment_id")
+            )
+            or ""
+            if recipient_type == "comment"
+            else persisted.provider_participant_key.strip()
+        )
         if not recipient:
             logger.warning(
                 "instagram_outbound_recipient_unavailable",
@@ -154,6 +164,7 @@ class InstagramOutboundDeliveryService:
             channel="instagram",
             recipient_external_id=recipient,
             text=persisted.text or "",
+            recipient_type=recipient_type,
             correlation_id=safe_correlation_id,
         )
         attempt_count = _attempt_count(metadata) + 1

@@ -341,7 +341,13 @@ class InstagramInboundEvent(Base):
     tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
     store_id: Mapped[int] = mapped_column(Integer, index=True)
     instagram_connection_id: Mapped[int] = mapped_column(Integer, index=True)
-    webhook_delivery_id: Mapped[int] = mapped_column(Integer, index=True)
+    # The transport-neutral migration permits inbound events that originate
+    # outside an HTTP webhook; normal webhook events still set this linkage.
+    webhook_delivery_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        index=True,
+    )
     provider: Mapped[str] = mapped_column(String(30), default="meta")
     provider_event_id: Mapped[str | None] = mapped_column(
         String(200), nullable=True, index=True

@@ -99,6 +99,14 @@ def messaging_payload(account_id: str, message_id: str = "mid-1") -> dict:
     }
 
 
+def story_reply_payload(account_id: str) -> dict:
+    payload = messaging_payload(account_id, "story-mid-1")
+    payload["entry"][0]["messaging"][0]["message"]["reply_to"] = {
+        "story": {"id": "story-1", "url": "https://example.test/story"}
+    }
+    return payload
+
+
 def body_for(payload: dict) -> bytes:
     return json.dumps(payload, separators=(",", ":")).encode()
 
@@ -146,6 +154,14 @@ def test_parser_handles_messaging_comments_multiple_entries_and_unsupported() ->
     assert [item.position for item in events] == [0, 1, 2, 3]
     assert events[0].provider_event_id == "mid-1"
     assert events[1].provider_event_id == "comment-1"
+
+
+def test_parser_marks_story_reply_without_retaining_story_url() -> None:
+    event = parse_instagram_webhook(story_reply_payload("ig-story"))[0]
+
+    assert event.event_type == "messaging"
+    assert event.normalized_payload["event_kind"] == "story_reply"
+    assert "url" not in json.dumps(event.normalized_payload)
 
 
 def test_webhook_ingestion_routes_and_deduplicates_delivery(webhook_engine) -> None:

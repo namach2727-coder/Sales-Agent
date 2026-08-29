@@ -24,6 +24,7 @@ class InstagramOutboundMessageContext:
     text: str | None
     provider_message_id: str | None
     metadata: dict[str, object]
+    reply_to_metadata: dict[str, object]
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +69,21 @@ class InstagramOutboundRepository:
         if row is None:
             return None
         message, conversation = row
+        reply_to = (
+            self.session.get(ConversationMessage, message.reply_to_message_id)
+            if message.reply_to_message_id is not None
+            else None
+        )
+        reply_to_metadata = (
+            dict(reply_to.metadata_json or {})
+            if (
+                reply_to is not None
+                and reply_to.tenant_id == tenant_id
+                and reply_to.store_id == store_id
+                and reply_to.conversation_id == conversation.id
+            )
+            else {}
+        )
         return InstagramOutboundMessageContext(
             message_public_id=message.public_id,
             conversation_public_id=conversation.public_id,
@@ -79,6 +95,7 @@ class InstagramOutboundRepository:
             text=message.text,
             provider_message_id=message.provider_message_id,
             metadata=dict(message.metadata_json or {}),
+            reply_to_metadata=reply_to_metadata,
         )
 
     def list_active_connections(

@@ -161,6 +161,9 @@ def _messaging_event(
     if isinstance(text, str):
         normalized_message["text"] = text
     normalized: dict[str, object] = {"message": normalized_message}
+    reply_to = message.get("reply_to") if isinstance(message, dict) else None
+    if isinstance(reply_to, dict) and isinstance(reply_to.get("story"), dict):
+        normalized["event_kind"] = "story_reply"
     key = deterministic_key(
         "messaging",
         message_id,
@@ -204,8 +207,16 @@ def _change_event(
         comment_id = None
     if not isinstance(sender_id, str):
         sender_id = None
-    normalized: dict[str, object] = {}
-    for key in ("id", "text", "media_id", "parent_id"):
+    normalized: dict[str, object] = {"event_kind": "comment"}
+    normalized_message: dict[str, object] = {}
+    if comment_id:
+        normalized["comment_id"] = comment_id
+        normalized_message["id"] = comment_id
+    text = value.get("text")
+    if isinstance(text, str):
+        normalized_message["text"] = text
+    normalized["message"] = normalized_message
+    for key in ("media_id", "parent_id"):
         item = value.get(key)
         if isinstance(item, str):
             normalized[key] = item

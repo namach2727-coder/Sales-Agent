@@ -100,7 +100,7 @@ class InstagramInboundMessageService:
             return self._ignored(context, "unsupported_event")
         if context.event_processing_status != "ready":
             return self._ignored(context, "event_not_ready")
-        if context.event_type != "messaging":
+        if context.event_type not in {"messaging", "comments"}:
             return self._ignored(context, "unsupported_event")
         if context.external_sender_id is None:
             return self._ignored(context, "missing_sender")
