@@ -16,6 +16,11 @@ done
 
 python -m tools.run_migrations
 
+if [ "${DIRECTPILOT_SEED_ON_START:-false}" = "true" ]; then
+  echo "Running controlled production seed..."
+  python -m tools.seed_data --profile production --use-configured-database
+fi
+
 echo "Starting application..."
 exec uvicorn app.main:app \
   --host "${HOST:-0.0.0.0}" \
