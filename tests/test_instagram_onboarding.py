@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 import hashlib
+import logging
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
@@ -10,6 +11,7 @@ from alembic.config import Config
 from cryptography.fernet import Fernet
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import httpx
 import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
@@ -18,7 +20,11 @@ from app.commerce.router import router as commerce_router
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.instagram_channel.models import InstagramConnection, InstagramOAuthState
-from app.instagram_onboarding.provider import InstagramOAuthAccount, MetaInstagramOAuthClient
+from app.instagram_onboarding.provider import (
+    InstagramOAuthAccount,
+    InstagramOAuthError,
+    MetaInstagramOAuthClient,
+)
 from app.instagram_onboarding.router import get_instagram_oauth_provider, router
 from tools.seeding import SeedRunner, default_registry
 
@@ -54,8 +60,9 @@ class FakeOAuthProvider:
 
 
 class _ProviderResponse:
-    def __init__(self, payload: dict[str, object]) -> None:
+    def __init__(self, payload: object, status_code: int = 200) -> None:
         self.payload = payload
+        self.status_code = status_code
 
     def raise_for_status(self) -> None:
         return None
@@ -112,6 +119,185 @@ def test_meta_oauth_prefers_user_id_for_webhook_routing(monkeypatch) -> None:
 
     assert account.account_id == "17841434793560671"
     assert http_client.profile_fields == "id,user_id,username,account_type"
+
+
+class _ScenarioHttpClient:
+    def __init__(
+        self,
+        *,
+        short: _ProviderResponse | Exception | None = None,
+        long: _ProviderResponse | Exception | None = None,
+        profile: _ProviderResponse | Exception | None = None,
+    ) -> None:
+        self.short = short or _ProviderResponse({"access_token": "short-lived-token"})
+        self.long = long or _ProviderResponse(
+            {"access_token": "long-lived-token", "token_type": "bearer"}
+        )
+        self.profile = profile or _ProviderResponse(
+            {
+                "id": "profile-id",
+                "user_id": "messaging-user-id",
+                "username": "test_business",
+                "account_type": "BUSINESS",
+            }
+        )
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        return None
+
+    @staticmethod
+    def _result(value: _ProviderResponse | Exception) -> _ProviderResponse:
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    def post(self, _url: str, **_kwargs: object) -> _ProviderResponse:
+        return self._result(self.short)
+
+    def get(self, url: str, **_kwargs: object) -> _ProviderResponse:
+        if url.endswith("/access_token"):
+            return self._result(self.long)
+        return self._result(self.profile)
+
+
+def _oauth_settings(**overrides: object) -> Settings:
+    values: dict[str, object] = {
+        "_env_file": None,
+        "meta_app_id": "test-app-id",
+        "meta_app_secret": "test-app-secret",
+        "meta_oauth_redirect_uri": "https://api.example/callback",
+    }
+    values.update(overrides)
+    return Settings(**values)
+
+
+def test_meta_oauth_configuration_error_has_stable_code(caplog) -> None:
+    client = MetaInstagramOAuthClient(_oauth_settings(meta_app_secret=""))
+    with caplog.at_level(logging.INFO, logger="sales_assistant.instagram_oauth"):
+        with pytest.raises(InstagramOAuthError) as raised:
+            client.authorization_url("state")
+
+    assert raised.value.code == "oauth_configuration_error"
+    assert "meta_app_secret_configured=False" in caplog.text
+    assert "test-app-secret" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("stage", "response", "expected_code"),
+    [
+        (
+            "short",
+            _ProviderResponse({}),
+            "oauth_token_exchange_failed",
+        ),
+        (
+            "short",
+            _ProviderResponse(
+                {
+                    "error": {
+                        "type": "OAuthException",
+                        "code": 190,
+                        "message": "Invalid client secret",
+                    }
+                },
+                status_code=400,
+            ),
+            "oauth_invalid_client",
+        ),
+        (
+            "short",
+            _ProviderResponse(
+                {
+                    "error": {
+                        "type": "OAuthException",
+                        "code": 100,
+                        "message": "redirect_uri mismatch",
+                    }
+                },
+                status_code=400,
+            ),
+            "oauth_redirect_uri_mismatch",
+        ),
+        (
+            "short",
+            _ProviderResponse(
+                {
+                    "error": {
+                        "type": "OAuthException",
+                        "code": 999,
+                        "message": "permission denied",
+                    }
+                },
+                status_code=403,
+            ),
+            "oauth_provider_rejected",
+        ),
+        (
+            "profile",
+            _ProviderResponse(
+                {
+                    "error": {
+                        "type": "OAuthException",
+                        "code": 10,
+                        "message": "profile unavailable",
+                    }
+                },
+                status_code=403,
+            ),
+            "instagram_profile_lookup_failed",
+        ),
+    ],
+)
+def test_meta_oauth_provider_errors_are_classified_and_redacted(
+    monkeypatch,
+    caplog,
+    stage: str,
+    response: _ProviderResponse,
+    expected_code: str,
+) -> None:
+    kwargs = {stage: response}
+    http_client = _ScenarioHttpClient(**kwargs)
+    monkeypatch.setattr(
+        "app.instagram_onboarding.provider.httpx.Client",
+        lambda **_kwargs: http_client,
+    )
+
+    with caplog.at_level(logging.INFO, logger="sales_assistant.instagram_oauth"):
+        with pytest.raises(InstagramOAuthError) as raised:
+            MetaInstagramOAuthClient(_oauth_settings()).exchange(
+                "authorization-code"
+            )
+
+    assert raised.value.code == expected_code
+    expected_stage = (
+        "oauth_token_exchange" if stage == "short" else "instagram_profile_lookup"
+    )
+    assert f"stage={expected_stage}" in caplog.text
+    assert "test-app-secret" not in caplog.text
+    assert "authorization-code" not in caplog.text
+
+
+def test_meta_oauth_network_errors_are_classified_and_logged(monkeypatch, caplog) -> None:
+    request = httpx.Request("POST", "https://api.instagram.com/oauth/access_token")
+    http_client = _ScenarioHttpClient(
+        short=httpx.ConnectError("network", request=request)
+    )
+    monkeypatch.setattr(
+        "app.instagram_onboarding.provider.httpx.Client",
+        lambda **_kwargs: http_client,
+    )
+
+    with caplog.at_level(logging.INFO, logger="sales_assistant.instagram_oauth"):
+        with pytest.raises(InstagramOAuthError) as raised:
+            MetaInstagramOAuthClient(_oauth_settings()).exchange("authorization-code")
+
+    assert raised.value.code == "instagram_provider_network_error"
+    assert "destination_host=api.instagram.com" in caplog.text
+    assert "exception_class=ConnectError" in caplog.text
+    assert "authorization-code" not in caplog.text
 
 
 @pytest.fixture
@@ -175,6 +361,9 @@ def _login(client: TestClient, name: str) -> dict[str, str]:
 
 
 def _trial_entitlement(client: TestClient, headers: dict[str, str]) -> None:
+    existing = client.get("/api/v1/subscription/me", headers=headers)
+    if existing.status_code == 200 and existing.json() and existing.json()["plan_code"] == "TRIAL":
+        return
     plan = next(item for item in client.get("/api/v1/plans").json() if item["code"] == "TRIAL")
     result = client.post(
         "/api/v1/orders", headers=headers, json={"plan_public_id": plan["public_id"]}
@@ -189,15 +378,14 @@ def _start(client: TestClient, headers: dict[str, str]) -> str:
     return parse_qs(urlsplit(result.json()["authorization_url"]).query)["state"][0]
 
 
-def test_connect_requires_active_entitlement(onboarding_api) -> None:
+def test_registration_provides_active_trial_entitlement(onboarding_api) -> None:
     client, _engine, fake = onboarding_api
     _register(client, "blocked")
     result = client.post(
         "/api/v1/integrations/instagram/connect", headers=_login(client, "blocked")
     )
-    assert result.status_code == 403
-    assert result.json()["detail"]["code"] == "instagram_entitlement_required"
-    assert fake.states == []
+    assert result.status_code == 200
+    assert fake.states
 
 
 def test_official_flow_uses_existing_connection_and_never_exposes_token(onboarding_api) -> None:

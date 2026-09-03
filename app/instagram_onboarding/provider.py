@@ -3,12 +3,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
-from urllib.parse import urlencode
+import logging
+import re
+from time import perf_counter
+from typing import Callable, Protocol
+from urllib.parse import urlencode, urlsplit
 
 import httpx
 
 from app.config import Settings
+
+
+logger = logging.getLogger("sales_assistant.instagram_oauth")
+_SENSITIVE_TEXT = re.compile(
+    r"(?i)\b(?:access[_ -]?token|client[_ -]?secret|authorization(?:[_ -]?code)?|code)\b"
+)
+_SENSITIVE_VALUE = re.compile(
+    r"(?i)\b(?:access[_ -]?token|client[_ -]?secret|authorization(?:[_ -]?code)?|code)\b"
+    r"(?:\s*[:=]\s*|\s+)(?:bearer\s+)?\S+"
+)
 
 
 INSTAGRAM_LOGIN_SCOPES = (
@@ -19,7 +32,11 @@ INSTAGRAM_LOGIN_SCOPES = (
 
 
 class InstagramOAuthError(Exception):
-    """Sanitized provider failure; response bodies are deliberately discarded."""
+    """Sanitized provider failure with a stable, non-sensitive error code."""
+
+    def __init__(self, message: str, *, code: str = "instagram_provider_error") -> None:
+        super().__init__(message)
+        self.code = code
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,8 +66,89 @@ class MetaInstagramOAuthClient:
         app_secret = self.settings.meta_app_secret.strip()
         redirect_uri = self.settings.meta_oauth_redirect_uri.strip()
         if not app_id or not app_secret or not redirect_uri:
-            raise InstagramOAuthError("Instagram onboarding is not configured")
+            logger.warning(
+                "instagram_oauth stage=configuration meta_app_id_configured=%s "
+                "meta_app_secret_configured=%s redirect_uri_configured=%s "
+                "redirect_uri=%s exception_class=%s",
+                bool(app_id),
+                bool(app_secret),
+                bool(redirect_uri),
+                _safe_message(redirect_uri) if redirect_uri else "<missing>",
+                "InstagramOAuthError",
+                extra={"event_code": "instagram.oauth.configuration_failed"},
+            )
+            raise InstagramOAuthError(
+                "Instagram onboarding is not configured",
+                code="oauth_configuration_error",
+            )
+        logger.info(
+            "instagram_oauth stage=configuration meta_app_id_configured=true "
+            "meta_app_secret_configured=true redirect_uri_configured=true "
+            "redirect_uri=%s exception_class=-",
+            _safe_message(redirect_uri),
+            extra={"event_code": "instagram.oauth.configuration"},
+        )
         return app_id, app_secret, redirect_uri
+
+    def _request_stage(
+        self,
+        *,
+        stage: str,
+        method: str,
+        url: str,
+        request: Callable[[], httpx.Response],
+    ) -> httpx.Response:
+        started = perf_counter()
+        hostname = urlsplit(url).hostname or "unknown"
+        try:
+            response = request()
+        except httpx.HTTPError as exc:
+            _log_stage(
+                stage=stage,
+                hostname=hostname,
+                method=method,
+                status=None,
+                error_type=None,
+                error_code=None,
+                message=None,
+                exception_class=type(exc).__name__,
+                elapsed_ms=_elapsed_ms(started),
+            )
+            raise InstagramOAuthError(
+                "Instagram provider network failure",
+                code="instagram_provider_network_error",
+            ) from exc
+
+        if not 200 <= response.status_code < 300:
+            error_type, error_code, message = _meta_error_details(response)
+            _log_stage(
+                stage=stage,
+                hostname=hostname,
+                method=method,
+                status=response.status_code,
+                error_type=error_type,
+                error_code=error_code,
+                message=message,
+                exception_class="HTTPStatusError",
+                elapsed_ms=_elapsed_ms(started),
+            )
+            raise InstagramOAuthError(
+                "Instagram provider rejected the request",
+                code=_classify_provider_error(stage, error_type, error_code, message),
+            )
+
+        _log_stage(
+            stage=stage,
+            hostname=hostname,
+            method=method,
+            status=response.status_code,
+            error_type=None,
+            error_code=None,
+            message=None,
+            exception_class=None,
+            elapsed_ms=_elapsed_ms(started),
+        )
+        return response
 
     def authorization_url(self, state: str) -> str:
         app_id, _secret, redirect_uri = self._configuration()
@@ -69,57 +167,222 @@ class MetaInstagramOAuthClient:
         app_id, app_secret, redirect_uri = self._configuration()
         normalized_code = code.strip()
         if not normalized_code or len(normalized_code) > 4096:
-            raise InstagramOAuthError("Invalid authorization response")
+            raise InstagramOAuthError(
+                "Invalid authorization response",
+                code="oauth_provider_rejected",
+            )
         timeout = httpx.Timeout(self.settings.meta_oauth_timeout_seconds)
         try:
             with httpx.Client(timeout=timeout) as client:
-                short_response = client.post(
-                    self.settings.meta_oauth_token_url,
-                    data={
-                        "client_id": app_id,
-                        "client_secret": app_secret,
-                        "grant_type": "authorization_code",
-                        "redirect_uri": redirect_uri,
-                        "code": normalized_code,
-                    },
+                short_response = self._request_stage(
+                    stage="oauth_token_exchange",
+                    method="POST",
+                    url=self.settings.meta_oauth_token_url,
+                    request=lambda: client.post(
+                        self.settings.meta_oauth_token_url,
+                        data={
+                            "client_id": app_id,
+                            "client_secret": app_secret,
+                            "grant_type": "authorization_code",
+                            "redirect_uri": redirect_uri,
+                            "code": normalized_code,
+                        },
+                    ),
                 )
-                short_response.raise_for_status()
-                short_payload = short_response.json()
+                try:
+                    short_payload = short_response.json()
+                except (ValueError, TypeError) as exc:
+                    _log_stage(
+                        stage="oauth_token_exchange",
+                        hostname=urlsplit(self.settings.meta_oauth_token_url).hostname
+                        or "unknown",
+                        method="POST",
+                        status=short_response.status_code,
+                        error_type=None,
+                        error_code=None,
+                        message=None,
+                        exception_class=type(exc).__name__,
+                        elapsed_ms=0.0,
+                    )
+                    raise InstagramOAuthError(
+                        "Meta returned an invalid token response",
+                        code="oauth_token_exchange_failed",
+                    ) from exc
+                if not isinstance(short_payload, dict):
+                    _log_stage(
+                        stage="oauth_token_exchange",
+                        hostname=urlsplit(self.settings.meta_oauth_token_url).hostname
+                        or "unknown",
+                        method="POST",
+                        status=short_response.status_code,
+                        error_type=None,
+                        error_code=None,
+                        message="Meta returned a non-object token response",
+                        exception_class="TypeError",
+                        elapsed_ms=0.0,
+                    )
+                    raise InstagramOAuthError(
+                        "Meta returned an invalid token response",
+                        code="oauth_token_exchange_failed",
+                    )
                 short_token = str(short_payload.get("access_token") or "").strip()
                 if not short_token:
-                    raise InstagramOAuthError("Meta returned no access token")
+                    _log_stage(
+                        stage="oauth_token_exchange",
+                        hostname=urlsplit(self.settings.meta_oauth_token_url).hostname
+                        or "unknown",
+                        method="POST",
+                        status=short_response.status_code,
+                        error_type=None,
+                        error_code=None,
+                        message="Meta returned no access token",
+                        exception_class="InstagramOAuthError",
+                        elapsed_ms=0.0,
+                    )
+                    raise InstagramOAuthError(
+                        "Meta returned no access token",
+                        code="oauth_token_exchange_failed",
+                    )
 
-                long_response = client.get(
-                    f"{self.settings.meta_graph_base_url}/access_token",
-                    params={
-                        "grant_type": "ig_exchange_token",
-                        "client_secret": app_secret,
-                        "access_token": short_token,
-                    },
+                long_url = f"{self.settings.meta_graph_base_url}/access_token"
+                long_response = self._request_stage(
+                    stage="long_lived_token_exchange",
+                    method="GET",
+                    url=long_url,
+                    request=lambda: client.get(
+                        long_url,
+                        params={
+                            "grant_type": "ig_exchange_token",
+                            "client_secret": app_secret,
+                            "access_token": short_token,
+                        },
+                    ),
                 )
-                long_response.raise_for_status()
-                long_payload = long_response.json()
+                try:
+                    long_payload = long_response.json()
+                except (ValueError, TypeError) as exc:
+                    _log_stage(
+                        stage="long_lived_token_exchange",
+                        hostname=urlsplit(long_url).hostname or "unknown",
+                        method="GET",
+                        status=long_response.status_code,
+                        error_type=None,
+                        error_code=None,
+                        message=None,
+                        exception_class=type(exc).__name__,
+                        elapsed_ms=0.0,
+                    )
+                    raise InstagramOAuthError(
+                        "Meta returned an invalid long-lived token response",
+                        code="oauth_token_exchange_failed",
+                    ) from exc
+                if not isinstance(long_payload, dict):
+                    _log_stage(
+                        stage="long_lived_token_exchange",
+                        hostname=urlsplit(long_url).hostname or "unknown",
+                        method="GET",
+                        status=long_response.status_code,
+                        error_type=None,
+                        error_code=None,
+                        message="Meta returned a non-object long-lived token response",
+                        exception_class="TypeError",
+                        elapsed_ms=0.0,
+                    )
+                    raise InstagramOAuthError(
+                        "Meta returned an invalid long-lived token response",
+                        code="oauth_token_exchange_failed",
+                    )
                 access_token = str(long_payload.get("access_token") or "").strip()
                 if not access_token:
-                    raise InstagramOAuthError("Meta returned no long-lived token")
+                    _log_stage(
+                        stage="long_lived_token_exchange",
+                        hostname=urlsplit(long_url).hostname or "unknown",
+                        method="GET",
+                        status=long_response.status_code,
+                        error_type=None,
+                        error_code=None,
+                        message="Meta returned no long-lived token",
+                        exception_class="InstagramOAuthError",
+                        elapsed_ms=0.0,
+                    )
+                    raise InstagramOAuthError(
+                        "Meta returned no long-lived token",
+                        code="oauth_token_exchange_failed",
+                    )
 
-                profile_response = client.get(
-                    f"{self.settings.meta_graph_base_url}/me",
-                    params={
-                        "fields": "id,user_id,username,account_type",
-                        "access_token": access_token,
-                    },
+                profile_url = f"{self.settings.meta_graph_base_url}/me"
+                profile_response = self._request_stage(
+                    stage="instagram_profile_lookup",
+                    method="GET",
+                    url=profile_url,
+                    request=lambda: client.get(
+                        profile_url,
+                        params={
+                            "fields": "id,user_id,username,account_type",
+                            "access_token": access_token,
+                        },
+                    ),
                 )
-                profile_response.raise_for_status()
-                profile = profile_response.json()
+                try:
+                    profile = profile_response.json()
+                except (ValueError, TypeError) as exc:
+                    _log_stage(
+                        stage="instagram_profile_lookup",
+                        hostname=urlsplit(profile_url).hostname or "unknown",
+                        method="GET",
+                        status=profile_response.status_code,
+                        error_type=None,
+                        error_code=None,
+                        message=None,
+                        exception_class=type(exc).__name__,
+                        elapsed_ms=0.0,
+                    )
+                    raise InstagramOAuthError(
+                        "Meta returned an invalid Instagram profile response",
+                        code="instagram_profile_lookup_failed",
+                    ) from exc
+                if not isinstance(profile, dict):
+                    _log_stage(
+                        stage="instagram_profile_lookup",
+                        hostname=urlsplit(profile_url).hostname or "unknown",
+                        method="GET",
+                        status=profile_response.status_code,
+                        error_type=None,
+                        error_code=None,
+                        message="Meta returned a non-object Instagram profile response",
+                        exception_class="TypeError",
+                        elapsed_ms=0.0,
+                    )
+                    raise InstagramOAuthError(
+                        "Meta returned an invalid Instagram profile response",
+                        code="instagram_profile_lookup_failed",
+                    )
         except InstagramOAuthError:
             raise
-        except (httpx.HTTPError, ValueError, TypeError) as exc:
-            raise InstagramOAuthError("Instagram authorization failed") from exc
+        except (ValueError, TypeError) as exc:
+            raise InstagramOAuthError(
+                "Instagram authorization failed",
+                code="oauth_provider_rejected",
+            ) from exc
 
         account_id = str(profile.get("user_id") or profile.get("id") or "").strip()
         if not account_id:
-            raise InstagramOAuthError("Meta returned no Instagram account")
+            _log_stage(
+                stage="instagram_profile_lookup",
+                hostname=urlsplit(self.settings.meta_graph_base_url).hostname
+                or "unknown",
+                method="GET",
+                status=profile_response.status_code,
+                error_type=None,
+                error_code=None,
+                message="missing Instagram account identifier",
+                exception_class="InstagramOAuthError",
+                elapsed_ms=0.0,
+            )
+            raise InstagramOAuthError(
+                "Meta returned no Instagram account",
+                code="instagram_profile_lookup_failed",
+            )
         expires_value = long_payload.get("expires_in")
         expires_in = int(expires_value) if isinstance(expires_value, int) else None
         username_value = profile.get("username")
@@ -132,3 +395,96 @@ class MetaInstagramOAuthClient:
             expires_in=expires_in,
             scopes=INSTAGRAM_LOGIN_SCOPES,
         )
+
+
+def _elapsed_ms(started: float) -> float:
+    return round((perf_counter() - started) * 1000, 1)
+
+
+def _safe_message(value: object | None) -> str:
+    if value is None:
+        return "-"
+    text = " ".join(str(value).split())
+    text = _SENSITIVE_VALUE.sub("[redacted]", text)
+    text = _SENSITIVE_TEXT.sub("[redacted]", text)
+    return text[:200] or "-"
+
+
+def _meta_error_details(
+    response: httpx.Response,
+) -> tuple[str | None, str | None, str | None]:
+    try:
+        payload = response.json()
+    except (ValueError, TypeError):
+        return None, None, None
+    if not isinstance(payload, dict):
+        return None, None, None
+    error = payload.get("error")
+    if isinstance(error, dict):
+        error_type = error.get("type") or error.get("error_type")
+        error_code = error.get("code") or error.get("error_code")
+        message = error.get("message") or error.get("error_message")
+    else:
+        error_type = payload.get("error_type")
+        error_code = payload.get("error_code") or payload.get("code")
+        message = payload.get("error_message") or payload.get("message")
+    return (
+        _scalar_text(error_type),
+        _scalar_text(error_code),
+        _scalar_text(message),
+    )
+
+
+def _scalar_text(value: object | None) -> str | None:
+    if value is None:
+        return None
+    text = " ".join(str(value).split())
+    return text[:200] or None
+
+
+def _classify_provider_error(
+    stage: str,
+    error_type: str | None,
+    error_code: str | None,
+    message: str | None,
+) -> str:
+    haystack = " ".join(
+        value.casefold() for value in (error_type, error_code, message) if value
+    )
+    if "redirect_uri" in haystack or "redirect uri" in haystack:
+        return "oauth_redirect_uri_mismatch"
+    if "invalid client" in haystack or "client_id" in haystack or "client secret" in haystack:
+        return "oauth_invalid_client"
+    if stage == "instagram_profile_lookup":
+        return "instagram_profile_lookup_failed"
+    return "oauth_provider_rejected"
+
+
+def _log_stage(
+    *,
+    stage: str,
+    hostname: str,
+    method: str,
+    status: int | None,
+    error_type: str | None,
+    error_code: str | None,
+    message: str | None,
+    exception_class: str | None,
+    elapsed_ms: float,
+) -> None:
+    log = logger.warning if exception_class else logger.info
+    log(
+        "instagram_oauth stage=%s destination_host=%s method=%s http_status=%s "
+        "meta_error_type=%s meta_error_code=%s meta_message=%s exception_class=%s "
+        "elapsed_ms=%s",
+        stage,
+        hostname,
+        method,
+        status if status is not None else "none",
+        _safe_message(error_type),
+        _safe_message(error_code),
+        _safe_message(message),
+        exception_class or "-",
+        elapsed_ms,
+        extra={"event_code": f"instagram.oauth.{stage}"},
+    )
