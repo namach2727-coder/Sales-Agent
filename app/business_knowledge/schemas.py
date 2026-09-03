@@ -191,3 +191,45 @@ class BusinessKnowledgeEntryRead(BaseModel):
 
 class BusinessKnowledgeEntryPage(Page):
     items: list[BusinessKnowledgeEntryRead]
+
+
+class IndustryProfileUpdate(BaseModel):
+    """Schema-driven industry answers stored in the knowledge lifecycle."""
+
+    expected_revision: int = Field(ge=0)
+    industry_code: str = Field(min_length=1, max_length=64)
+    subcategory: str | None = Field(default=None, max_length=100)
+    business_type: str | None = Field(default=None, max_length=32)
+    attributes: dict[str, object] = Field(default_factory=dict, max_length=100)
+
+
+class IndustryAttributeRead(BaseModel):
+    key: str
+    value: str | list[str]
+    provenance: Literal["CUSTOMER_PROVIDED", "SYSTEM_DERIVED"]
+    label: str | None = None
+    section: str | None = None
+    value_type: str = "text"
+
+
+class IndustryReadinessRead(BaseModel):
+    required_minimum: list[str]
+    recommended: list[str]
+    optional: list[str]
+    missing_required: list[str]
+    completion_percent: int = Field(ge=0, le=100)
+    minimum_met: bool
+
+
+class IndustryProfileRead(BaseModel):
+    public_id: str
+    industry_code: str
+    subcategory: str | None
+    business_type: str
+    attributes: list[IndustryAttributeRead]
+    provenance: Literal["CUSTOMER_PROVIDED", "SYSTEM_DERIVED"]
+    readiness: IndustryReadinessRead
+    status: KnowledgeStatus
+    revision: int
+    created_at: datetime
+    updated_at: datetime

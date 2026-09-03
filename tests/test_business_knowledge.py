@@ -715,5 +715,70 @@ def test_migration_contains_exact_tables_and_endpoint_inventory(knowledge_engine
         for route in router.routes
         for method in (route.methods or set())
     }
-    assert len(paths) == 19
+    assert len(paths) == 21
+    assert (
+        ("/api/v1/tenants/{tenant_public_id}/stores/{store_public_id}/business-knowledge/industry-profile", "GET")
+        in paths
+    )
+    assert (
+        ("/api/v1/tenants/{tenant_public_id}/stores/{store_public_id}/business-knowledge/industry-profile", "PUT")
+        in paths
+    )
     assert all(method != "DELETE" for _path, method in paths)
+
+
+def test_industry_profile_api_is_revision_checked_and_scope_bound(knowledge_engine) -> None:
+    tenant, store, _membership, principal = tenant_context(knowledge_engine)
+    client = api_client(knowledge_engine, principal)
+    path = base_path(tenant, store) + "/industry-profile"
+
+    assert client.get(path).status_code == 404
+    created = client.put(
+        path,
+        json={
+            "expected_revision": 0,
+            "industry_code": "fashion",
+            "subcategory": "apparel",
+            "business_type": "physical",
+            "attributes": {"sizes": "S, M", "fabric": "لینن"},
+        },
+    )
+    assert created.status_code == 200
+    payload = created.json()
+    assert payload["industry_code"] == "fashion"
+    assert payload["revision"] == 1
+    assert payload["provenance"] == "CUSTOMER_PROVIDED"
+    assert payload["business_type"] == "physical"
+    assert payload["readiness"]["completion_percent"] == 20
+    assert payload["readiness"]["minimum_met"] is False
+    assert {item["key"] for item in payload["attributes"]} == {"sizes", "fabric"}
+
+    stale = client.put(
+        path,
+        json={
+            "expected_revision": 0,
+            "industry_code": "fashion",
+            "subcategory": "apparel",
+            "attributes": {"fabric": "کتان"},
+        },
+    )
+    assert stale.status_code == 409
+    assert stale.json()["detail"]["code"] == "stale_write"
+
+    other_tenant, other_store, _membership, other_principal = tenant_context(
+        knowledge_engine
+    )
+    del other_tenant, other_store
+    other_client = api_client(knowledge_engine, other_principal)
+    assert other_client.get(path).status_code == 404
+
+    with Session(knowledge_engine) as db:
+        manager = service(db, tenant, store, principal.user_id)
+        with pytest.raises(BusinessKnowledgeValidationError, match="reserved"):
+            manager.create_entry(
+                expected_revision=0,
+                slug="industry-profile",
+                entry_type="fact",
+                title="Collision",
+                content="not an industry profile",
+            )

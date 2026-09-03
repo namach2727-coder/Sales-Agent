@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from datetime import UTC, datetime
 from decimal import Decimal
+import json
 from types import SimpleNamespace
 import uuid
 
@@ -19,6 +20,7 @@ from app.business_knowledge.models import (
     BusinessPolicy,
     BusinessProfile,
 )
+from app.business_knowledge.industry import serialize_industry_profile
 from app.catalog.models import (
     Attribute,
     AttributeOption,
@@ -475,3 +477,37 @@ def test_relevant_business_rules_and_knowledge_are_returned(
     ]
     assert context.business_rules[0].content.startswith("کالا")
     assert context.knowledge_snippets[0].entry_type == "instruction"
+
+
+def test_published_industry_profile_context_keeps_labels_sections_and_unknowns(
+    knowledge_scope,
+) -> None:
+    payload = serialize_industry_profile(
+        industry_code="fashion",
+        subcategory="shoes",
+        attributes={"sizes": ["40", "41"], "care_instructions": "شست‌وشوی دستی"},
+    )
+    entry = BusinessKnowledgeEntry(
+        tenant_id=knowledge_scope.tenant.id,
+        store_id=knowledge_scope.store.id,
+        slug="industry-profile",
+        entry_type="fact",
+        title="Industry profile",
+        content=json.dumps(payload, ensure_ascii=False),
+        keywords=["fashion"],
+        **_published_fields(),
+    )
+    knowledge_scope.db.add(entry)
+    knowledge_scope.db.flush()
+
+    context = _retrieve(knowledge_scope, "راهنمای سایز")
+
+    assert context.industry_profile is not None
+    profile = context.industry_profile
+    assert profile.subcategory == "shoes"
+    assert profile.provenance == "CUSTOMER_PROVIDED"
+    attributes = {item.key: item for item in profile.attributes}
+    assert attributes["sizes"].label == "سایزها"
+    assert attributes["sizes"].section == "محصول یا خدمت"
+    assert "clothing_type" not in profile.required_minimum
+    assert "clothing_type" not in profile.missing_required

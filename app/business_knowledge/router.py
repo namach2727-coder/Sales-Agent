@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -41,6 +43,10 @@ from app.business_knowledge.schemas import (
     BusinessProfileCreate,
     BusinessProfileRead,
     BusinessProfileUpdate,
+    IndustryAttributeRead,
+    IndustryReadinessRead,
+    IndustryProfileRead,
+    IndustryProfileUpdate,
     EntryType,
     KnowledgeStatus,
     LifecycleTransition,
@@ -49,6 +55,12 @@ from app.business_knowledge.schemas import (
 from app.business_knowledge.service import (
     BusinessKnowledgePermissionError,
     BusinessKnowledgeService,
+)
+from app.business_knowledge.industry import (
+    INDUSTRY_SECTION_LABELS,
+    allowed_business_types,
+    get_industry_schema,
+    industry_readiness,
 )
 from app.database import get_db
 from app.tenant_management.context import (
@@ -156,6 +168,73 @@ def _publish_allowed(
     ).allowed
 
 
+def _industry_read(item: BusinessKnowledgeEntry) -> IndustryProfileRead:
+    try:
+        payload = json.loads(item.content)
+        attributes = payload["attributes"]
+        industry_code = str(payload["industry_code"])
+        subcategory = payload.get("subcategory")
+        provenance = str(payload.get("provenance", "CUSTOMER_PROVIDED"))
+        schema = get_industry_schema(industry_code)
+        if schema is None:
+            raise ValueError
+        if not isinstance(attributes, dict) or provenance not in {
+            "CUSTOMER_PROVIDED",
+            "SYSTEM_DERIVED",
+        } or (
+            subcategory is not None
+            and str(subcategory) not in schema.subcategories
+        ):
+            raise ValueError
+        business_type = str(payload.get("business_type") or schema.business_type)
+        if business_type not in allowed_business_types(schema):
+            raise ValueError
+    except (TypeError, ValueError, KeyError, json.JSONDecodeError) as exc:
+        raise BusinessKnowledgeValidationError(
+            "stored industry profile is invalid"
+        ) from exc
+    schema_fields = {field.key: field for field in schema.fields}
+    readiness = industry_readiness(industry_code, attributes, str(subcategory) if subcategory is not None else None)
+    return IndustryProfileRead(
+        public_id=item.public_id,
+        industry_code=industry_code,
+        subcategory=str(subcategory) if subcategory is not None else None,
+        business_type=business_type,
+        attributes=[
+            IndustryAttributeRead(
+                key=str(key),
+                value=value,
+                provenance=provenance,
+                label=schema_fields.get(str(key)).label if schema_fields.get(str(key)) else None,
+                section=(
+                    INDUSTRY_SECTION_LABELS.get(
+                        schema_fields.get(str(key)).section,
+                        schema_fields.get(str(key)).section,
+                    )
+                    if schema_fields.get(str(key))
+                    else None
+                ),
+                value_type=schema_fields.get(str(key)).value_type if schema_fields.get(str(key)) else "text",
+            )
+            for key, value in sorted(attributes.items())
+            if isinstance(value, (str, list))
+        ],
+        provenance=provenance,
+        readiness=IndustryReadinessRead(
+            required_minimum=list(readiness.required_minimum),
+            recommended=list(readiness.recommended),
+            optional=list(readiness.optional),
+            missing_required=list(readiness.missing_required),
+            completion_percent=readiness.completion_percent,
+            minimum_met=readiness.minimum_met,
+        ),
+        status=item.status,
+        revision=item.revision,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
 @router.post(
     "/profile",
     response_model=BusinessProfileRead,
@@ -253,6 +332,51 @@ def transition_profile(
             expected_revision=payload.expected_revision,
             target_status=payload.target_status,
             publish_authorized=_publish_allowed(db, principal, context),
+        )
+    except BusinessKnowledgeError as exc:
+        _raise(exc)
+
+
+@router.get("/industry-profile", response_model=IndustryProfileRead)
+def read_industry_profile(
+    tenant_public_id: str,
+    store_public_id: str,
+    principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
+    db: Session = Depends(get_db),
+) -> IndustryProfileRead:
+    try:
+        service, _ = _service(
+            tenant_public_id,
+            store_public_id,
+            PermissionCode.KNOWLEDGE_READ,
+            principal,
+            db,
+            mutation=False,
+        )
+        return _industry_read(service.get_industry_profile())
+    except BusinessKnowledgeError as exc:
+        _raise(exc)
+
+
+@router.put("/industry-profile", response_model=IndustryProfileRead)
+def save_industry_profile(
+    tenant_public_id: str,
+    store_public_id: str,
+    payload: IndustryProfileUpdate,
+    principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
+    db: Session = Depends(get_db),
+) -> IndustryProfileRead:
+    try:
+        service, _ = _service(
+            tenant_public_id,
+            store_public_id,
+            PermissionCode.KNOWLEDGE_MANAGE,
+            principal,
+            db,
+            mutation=True,
+        )
+        return _industry_read(
+            service.save_industry_profile(**payload.model_dump())
         )
     except BusinessKnowledgeError as exc:
         _raise(exc)

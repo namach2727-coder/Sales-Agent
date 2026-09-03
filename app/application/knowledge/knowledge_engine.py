@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
+import json
 
 from app.application.knowledge.search import (
     Match,
@@ -15,6 +16,15 @@ from app.business_knowledge.models import (
     BusinessFAQ,
     BusinessKnowledgeEntry,
     BusinessPolicy,
+)
+from app.business_knowledge.industry import (
+    CUSTOMER_PROVENANCE,
+    INDUSTRY_SECTION_LABELS,
+    INDUSTRY_PROFILE_SLUG,
+    SYSTEM_PROVENANCE,
+    allowed_business_types,
+    get_industry_schema,
+    industry_readiness,
 )
 from app.infrastructure.database.repositories.knowledge_repository import (
     CatalogProductSnapshot,
@@ -108,6 +118,34 @@ class BusinessProfileContext:
 
 
 @dataclass(frozen=True, slots=True)
+class IndustryAttributeContext:
+    key: str
+    value: str | tuple[str, ...]
+    provenance: str
+    label: str | None = None
+    section: str | None = None
+    value_type: str = "text"
+
+
+@dataclass(frozen=True, slots=True)
+class IndustryProfileContext:
+    public_id: str
+    industry_code: str
+    subcategory: str | None
+    attributes: tuple[IndustryAttributeContext, ...]
+    provenance: str
+    industry_label: str | None = None
+    business_type: str = "mixed"
+    required_minimum: tuple[str, ...] = ()
+    recommended: tuple[str, ...] = ()
+    optional: tuple[str, ...] = ()
+    missing_required: tuple[str, ...] = ()
+    completion_percent: int = 0
+    minimum_met: bool = False
+    safety_rules: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class BusinessRuleContext:
     public_id: str
     code: str
@@ -136,6 +174,7 @@ class KnowledgeContext:
     knowledge_snippets: tuple[KnowledgeSnippetContext, ...]
     confidence: float
     conversation_public_id: str | None = None
+    industry_profile: IndustryProfileContext | None = None
 
 
 class KnowledgeEngine:
@@ -197,6 +236,7 @@ class KnowledgeEngine:
         faq = self._faq(question, snapshot.faqs)
         rules = self._rules(question, snapshot.policies)
         snippets = self._snippets(question, snapshot.entries)
+        industry_profile = self._industry_profile(snapshot.entries)
         profile = (
             BusinessProfileContext(
                 public_id=snapshot.profile.public_id,
@@ -226,6 +266,85 @@ class KnowledgeEngine:
             knowledge_snippets=snippets,
             confidence=max(confidences, default=0.0),
             conversation_public_id=conversation_key,
+            industry_profile=industry_profile,
+        )
+
+    @staticmethod
+    def _industry_profile(
+        items: tuple[BusinessKnowledgeEntry, ...],
+    ) -> IndustryProfileContext | None:
+        item = next(
+            (entry for entry in items if entry.slug == INDUSTRY_PROFILE_SLUG),
+            None,
+        )
+        if item is None:
+            return None
+        try:
+            payload = json.loads(item.content)
+            code = str(payload["industry_code"])
+            schema = get_industry_schema(code)
+            if schema is None:
+                return None
+            attributes = payload["attributes"]
+            provenance = str(payload.get("provenance", CUSTOMER_PROVENANCE))
+            subcategory = payload.get("subcategory")
+            business_type = str(payload.get("business_type") or schema.business_type)
+            if (
+                not isinstance(attributes, dict)
+                or provenance not in {CUSTOMER_PROVENANCE, SYSTEM_PROVENANCE}
+                or (
+                    subcategory is not None
+                    and str(subcategory) not in schema.subcategories
+                )
+                or business_type not in allowed_business_types(schema)
+            ):
+                return None
+        except (TypeError, ValueError, KeyError, json.JSONDecodeError):
+            return None
+        fields = {field.key: field for field in schema.fields}
+        readiness = industry_readiness(
+            schema.code,
+            attributes,
+            str(subcategory) if subcategory is not None else None,
+        )
+        values: list[IndustryAttributeContext] = []
+        for key in sorted(attributes):
+            field = fields.get(key)
+            if field is None:
+                continue
+            value = attributes[key]
+            if isinstance(value, list):
+                value = tuple(str(part) for part in value if str(part).strip())
+            elif not isinstance(value, str):
+                continue
+            if value:
+                values.append(
+                    IndustryAttributeContext(
+                        key=key,
+                        value=value,
+                        provenance=provenance,
+                        label=field.label,
+                        section=INDUSTRY_SECTION_LABELS.get(
+                            field.section, field.section
+                        ),
+                        value_type=field.value_type,
+                    )
+                )
+        return IndustryProfileContext(
+            public_id=item.public_id,
+            industry_code=schema.code,
+            subcategory=str(subcategory) if subcategory is not None else None,
+            attributes=tuple(values),
+            provenance=provenance,
+            industry_label=schema.label,
+            business_type=business_type,
+            required_minimum=readiness.required_minimum,
+            recommended=readiness.recommended,
+            optional=readiness.optional,
+            missing_required=readiness.missing_required,
+            completion_percent=readiness.completion_percent,
+            minimum_met=readiness.minimum_met,
+            safety_rules=schema.safety_rules,
         )
 
     def _products(

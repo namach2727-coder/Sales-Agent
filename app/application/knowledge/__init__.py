@@ -3,6 +3,8 @@
 from app.application.knowledge.knowledge_engine import (
     AvailabilityContext,
     BusinessProfileContext,
+    IndustryAttributeContext,
+    IndustryProfileContext,
     BusinessRuleContext,
     FAQContext,
     KnowledgeContext,
@@ -21,6 +23,8 @@ from app.application.knowledge.knowledge_engine import (
 __all__ = [
     "AvailabilityContext",
     "BusinessProfileContext",
+    "IndustryAttributeContext",
+    "IndustryProfileContext",
     "BusinessRuleContext",
     "FAQContext",
     "KnowledgeContext",

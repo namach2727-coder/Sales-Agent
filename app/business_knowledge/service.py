@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Any, TypeVar
 
@@ -35,6 +36,11 @@ from app.business_knowledge.domain import (
     normalize_slug,
     normalize_url,
     validate_transition,
+)
+from app.business_knowledge.industry import (
+    CUSTOMER_PROVENANCE,
+    INDUSTRY_PROFILE_SLUG,
+    serialize_industry_profile,
 )
 from app.business_knowledge.models import (
     BusinessFAQ,
@@ -553,10 +559,13 @@ class BusinessKnowledgeService:
     ) -> BusinessKnowledgeEntry:
         self._ensure_writable()
         self._check_create_revision(expected_revision)
+        normalized_slug = normalize_slug(slug)
+        if normalized_slug == INDUSTRY_PROFILE_SLUG:
+            raise BusinessKnowledgeValidationError("slug is reserved")
         item = BusinessKnowledgeEntry(
             tenant_id=self.tenant_id,
             store_id=self.store_id,
-            slug=normalize_slug(slug),
+            slug=normalized_slug,
             entry_type=normalize_entry_type(entry_type),
             title=normalize_display_text(title, field="title", maximum=200),
             content=normalize_content(content, field="content"),
@@ -580,6 +589,91 @@ class BusinessKnowledgeService:
     def get_entry(self, public_id: str) -> BusinessKnowledgeEntry:
         return self._resource(BusinessKnowledgeEntry, public_id)
 
+    def get_industry_profile(self) -> BusinessKnowledgeEntry:
+        """Return the reserved industry profile entry for this store."""
+        self._ensure_readable()
+        item = self.session.scalar(
+            select(BusinessKnowledgeEntry).where(
+                BusinessKnowledgeEntry.tenant_id == self.tenant_id,
+                BusinessKnowledgeEntry.store_id == self.store_id,
+                BusinessKnowledgeEntry.slug == INDUSTRY_PROFILE_SLUG,
+                BusinessKnowledgeEntry.status != "archived",
+            )
+        )
+        if item is None:
+            raise BusinessKnowledgeNotFoundError("industry profile not found")
+        return item
+
+    def save_industry_profile(
+        self,
+        *,
+        expected_revision: int,
+        industry_code: str,
+        subcategory: str | None,
+        attributes: dict[str, object],
+        business_type: str | None = None,
+    ) -> BusinessKnowledgeEntry:
+        """Persist schema-validated industry answers without a new table."""
+        self._ensure_writable()
+        try:
+            payload = serialize_industry_profile(
+                industry_code=industry_code,
+                subcategory=subcategory,
+                attributes=attributes,
+                business_type=business_type,
+            )
+        except ValueError as exc:
+            raise BusinessKnowledgeValidationError(str(exc)) from exc
+        content = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        item = self.session.scalar(
+            select(BusinessKnowledgeEntry).where(
+                BusinessKnowledgeEntry.tenant_id == self.tenant_id,
+                BusinessKnowledgeEntry.store_id == self.store_id,
+                BusinessKnowledgeEntry.slug == INDUSTRY_PROFILE_SLUG,
+            )
+        )
+        if item is None:
+            if expected_revision != 0:
+                raise BusinessKnowledgeStaleWriteError(
+                    "new industry profiles require expected_revision 0"
+                )
+            item = BusinessKnowledgeEntry(
+                tenant_id=self.tenant_id,
+                store_id=self.store_id,
+                slug=INDUSTRY_PROFILE_SLUG,
+                entry_type="fact",
+                title="Industry profile",
+                content=content,
+                keywords=[payload["industry_code"]],
+                priority=0,
+            )
+            return self._create(
+                item,
+                action="business_industry_profile.created",
+                target_type="business_industry_profile",
+                changed_fields=["industry_code", "subcategory", "attributes"],
+            )
+        self._check_revision(item, expected_revision)
+        self._require_draft(item)
+        item.title = "Industry profile"
+        item.content = content
+        item.keywords = [str(payload["industry_code"])]
+        item.revision += 1
+        item.updated_at = utc_now()
+        self._audit(
+            action="business_industry_profile.updated",
+            target_type="business_industry_profile",
+            target_public_id=item.public_id,
+            details={
+                "changed_fields": ["industry_code", "subcategory", "attributes"],
+                "provenance": CUSTOMER_PROVENANCE,
+                "revision": item.revision,
+            },
+        )
+        self._commit()
+        self.session.refresh(item)
+        return item
+
     def update_entry(
         self,
         public_id: str,
@@ -594,9 +688,12 @@ class BusinessKnowledgeService:
         normalized: dict[str, object] = {}
         for field, value in changes.items():
             if field == "slug":
-                normalized[field] = normalize_slug(
+                normalized_slug = normalize_slug(
                     self._required_string(value, field="slug")
                 )
+                if normalized_slug == INDUSTRY_PROFILE_SLUG:
+                    raise BusinessKnowledgeValidationError("slug is reserved")
+                normalized[field] = normalized_slug
             elif field == "entry_type":
                 normalized[field] = normalize_entry_type(
                     self._required_string(value, field="entry type")

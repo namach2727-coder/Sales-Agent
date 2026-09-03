@@ -2,10 +2,11 @@
 
 ## Status and scope
 
-FOUNDATION-07 implements the store-owned information that future DirectPilot
-capabilities may consume. It is a management domain only. It does not perform
-AI inference, retrieval, embeddings, chat, Instagram processing, analytics, or
-catalog association.
+FOUNDATION-07 implements the store-owned information that DirectPilot
+capabilities may consume. It is a management domain and does not perform AI
+inference or provider calls. The application Knowledge Engine may consume its
+published snapshot for deterministic retrieval and prompt context; Instagram,
+conversation, and analytics orchestration remain outside this module.
 
 The module lives in `app/business_knowledge` and owns four aggregates:
 
@@ -15,6 +16,12 @@ The module lives in `app/business_knowledge` and owns four aggregates:
 | `BusinessPolicy` | Typed operational policy content | `(store_id, code)` |
 | `BusinessFAQ` | Curated question, answer, and bounded keywords | `(store_id, normalized_question)` |
 | `BusinessKnowledgeEntry` | Structured fact, instruction, reference, or custom content | `(store_id, slug)` |
+
+The industry questionnaire is a schema-driven extension of
+`BusinessKnowledgeEntry`, stored under the reserved `industry-profile` slug.
+It carries a schema version, canonical industry code, optional subcategory,
+customer-provided attributes, and provenance. This logical resource does not
+introduce another table or migration.
 
 Legacy `FAQ`, `TrainingDraft`, `KnowledgeVersion`, and `KnowledgeItem` records
 remain unchanged. There is intentionally no automatic migration or runtime
@@ -82,6 +89,10 @@ index, embedding, or vector representation.
 
 There is no hard-delete operation or DELETE API. Archival is an audited
 lifecycle transition.
+
+Industry profiles use the same revision and draft/published lifecycle as
+knowledge entries. The reserved slug cannot be created or changed through the
+generic entry API, preventing collisions with the questionnaire resource.
 
 ## Validation
 
@@ -192,6 +203,42 @@ transition endpoints. List endpoints support `page`, `page_size` (maximum
 support `entry_type`. Ordering is deterministic by priority then internal row
 order, while internal IDs never leave the service.
 
+Industry profile:
+
+- `GET /industry-profile`
+- `PUT /industry-profile` (revision-checked draft save)
+
+The profile response exposes only the public entry ID, canonical taxonomy
+values, customer/system provenance, lifecycle status, and revision metadata.
+
+### Industry Knowledge V2
+
+The questionnaire keeps the same sixteen canonical industries and adds
+schema-owned metadata for subcategory visibility, business type
+(`physical`, `digital`, `service`, or `mixed`), and transparent readiness.
+Each schema separates `required_minimum`, `recommended`, and `optional` facts;
+only the minimum set contributes to readiness and optional answers never block
+onboarding.  Commercial answers use bounded shared fields for price, currency,
+price type, and availability, while industry fields cover variants, item-level
+menu and listing facts, delivery, booking, eligibility, and escalation needs
+without adding columns or a migration.  The `other` schema also provides
+bounded text, number, list, price, availability, and yes/no slots for
+businesses that do not fit a predefined category.
+
+Industry attributes are stored as customer-provided JSON on the reserved
+`industry-profile` entry (schema version 2).  The Knowledge Engine retains the
+canonical key, Persian label, section, value type, and provenance when building
+provider-neutral context.  Missing or explicitly unknown values remain
+unknown; the Prompt Builder instructs every provider not to infer them.
+Regulated schemas carry explicit safety boundaries (health, insurance and
+financial services, legal, and accounting) that require human escalation for
+case-specific or uncertain answers.
+
+The frontend renders only fields selected by the active subcategory where a
+schema provides a visibility map, uses Persian labels, and shows readiness as
+knowledge quality separate from setup completion.  Profile edits retain the
+existing dirty-state and revision safeguards.
+
 Validation errors return `422`, stale writes and invalid lifecycle operations
 return `409`, denied state/publish operations return `403`, and unresolvable
 scope or resource lookups return safe `404`.
@@ -238,8 +285,10 @@ upgrade remains an environment-dependent deployment validation.
 
 ## Explicit non-goals and future integration
 
-FOUNDATION-07 does not decide how published content will be retrieved or used.
-Future foundations must consume this domain through a separately approved
-contract and must not mutate its rows directly. In particular, this module
-contains no AI provider, prompt, embedding, vector, Instagram, queue,
-conversation, analytics, Product, or SKU dependency.
+The industry extension contains no AI provider, LLM call, prompt generation,
+embedding, vector database, queue, or automatic inference. Customer answers
+are stored as supplied; missing fields are not invented. The existing
+Knowledge Engine consumes only published industry profiles and preserves
+tenant/store scope and public-ID metadata when building context for the
+provider-neutral Prompt Builder. Product and SKU retrieval remains owned by
+the catalog/knowledge snapshot layer.

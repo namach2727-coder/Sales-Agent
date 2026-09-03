@@ -11,6 +11,8 @@ from app.application.knowledge import (
     BusinessProfileContext,
     BusinessRuleContext,
     FAQContext,
+    IndustryAttributeContext,
+    IndustryProfileContext,
     KnowledgeContext,
     KnowledgeSnippetContext,
     MatchedProductContext,
@@ -39,6 +41,7 @@ def _knowledge(
     rules: tuple[BusinessRuleContext, ...] = (),
     snippets: tuple[KnowledgeSnippetContext, ...] = (),
     confidence: float = 0.0,
+    industry_profile: IndustryProfileContext | None = None,
 ) -> KnowledgeContext:
     return KnowledgeContext(
         matched_products=products,
@@ -48,6 +51,7 @@ def _knowledge(
         knowledge_snippets=snippets,
         confidence=confidence,
         conversation_public_id=conversation_public_id,
+        industry_profile=industry_profile,
     )
 
 
@@ -452,3 +456,30 @@ def test_metadata_is_immutable_public_only_and_provider_agnostic() -> None:
     }
     with pytest.raises(FrozenInstanceError):
         package.metadata.conversation_public_id = "changed"
+
+
+def test_industry_profile_is_rendered_with_public_provenance_metadata() -> None:
+    profile = IndustryProfileContext(
+        public_id="00000000-0000-4000-8000-000000000095",
+        industry_code="fashion",
+        subcategory="apparel",
+        provenance="CUSTOMER_PROVIDED",
+        attributes=(
+            IndustryAttributeContext(
+                key="sizes",
+                value=("S", "M"),
+                provenance="CUSTOMER_PROVIDED",
+                label="سایزها",
+                section="محصول",
+                value_type="list",
+            ),
+        ),
+    )
+    package = _build(_knowledge(industry_profile=profile), latest="قیمت؟")
+    assert "INDUSTRY_ATTRIBUTES" in package.system_prompt
+    assert "fashion" in package.system_prompt
+    assert "[محصول] سایزها / sizes: S, M" in package.system_prompt
+    assert "value_type" not in package.system_prompt
+    assert "provenance=CUSTOMER_PROVIDED" in package.system_prompt
+    assert "Knowledge readiness: 0% (minimum_met=false)" in package.system_prompt
+    assert package.metadata.industry_profile_public_id == profile.public_id

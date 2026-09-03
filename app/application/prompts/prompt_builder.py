@@ -11,6 +11,7 @@ from app.application.knowledge import (
     BusinessProfileContext,
     BusinessRuleContext,
     FAQContext,
+    IndustryProfileContext,
     KnowledgeContext,
     KnowledgeSnippetContext,
     MatchedProductContext,
@@ -55,6 +56,7 @@ class PromptMetadata:
     business_rule_public_ids: tuple[str, ...]
     knowledge_snippet_public_ids: tuple[str, ...]
     recent_message_public_ids: tuple[str, ...]
+    industry_profile_public_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +111,7 @@ class PromptBuilder:
             system_prompt=_system_prompt(
                 profile=knowledge_context.business_profile,
                 rules=rules,
+                industry_profile=knowledge_context.industry_profile,
                 preferred_language=language,
             ),
             user_prompt=_user_prompt(
@@ -140,6 +143,11 @@ class PromptBuilder:
                 recent_message_public_ids=tuple(
                     message.public_id for message in messages
                 ),
+                industry_profile_public_id=(
+                    knowledge_context.industry_profile.public_id
+                    if knowledge_context.industry_profile is not None
+                    else None
+                ),
             ),
         )
 
@@ -148,11 +156,13 @@ def _system_prompt(
     *,
     profile: BusinessProfileContext | None,
     rules: tuple[BusinessRuleContext, ...],
+    industry_profile: IndustryProfileContext | None,
     preferred_language: str | None,
 ) -> str:
     lines = [
         "SALES_ASSISTANT_CONTEXT",
         "Use only the supplied business context for business-specific facts.",
+        "Missing, unknown, or not supplied facts must never be invented.",
         (
             f"Preferred language: {preferred_language}"
             if preferred_language is not None
@@ -169,6 +179,8 @@ def _system_prompt(
         "BUSINESS_PROFILE",
     ]
     lines.extend(_profile_lines(profile))
+    lines.extend(["", "INDUSTRY_ATTRIBUTES"])
+    lines.extend(_industry_lines(industry_profile))
     lines.extend(["", "BUSINESS_RULES"])
     if not rules:
         lines.append("(none supplied)")
@@ -185,6 +197,52 @@ def _system_prompt(
                 ]
             )
     return "\n".join(lines)
+
+
+def _industry_lines(profile: IndustryProfileContext | None) -> list[str]:
+    if profile is None:
+        return ["(not supplied)"]
+    lines = [
+        f"Industry: {_single_line(profile.industry_label or profile.industry_code)} "
+        f"({_single_line(profile.industry_code)})",
+        f"Business type: {_single_line(profile.business_type)}",
+        f"Provenance: {_single_line(profile.provenance)}",
+    ]
+    if profile.subcategory:
+        lines.append(f"Subcategory: {_single_line(profile.subcategory)}")
+    lines.append(
+        f"Knowledge readiness: {profile.completion_percent}% "
+        f"(minimum_met={str(profile.minimum_met).lower()})"
+    )
+    if profile.missing_required:
+        lines.append(
+            "Missing minimum facts: "
+            + ", ".join(_single_line(key) for key in profile.missing_required)
+        )
+    if not profile.attributes:
+        lines.append("Attributes: (none supplied)")
+    else:
+        for attribute in profile.attributes:
+            value = (
+                ", ".join(attribute.value)
+                if isinstance(attribute.value, tuple)
+                else attribute.value
+            )
+            label = attribute.label or attribute.key
+            section = f"[{_single_line(attribute.section)}] " if attribute.section else ""
+            display = (
+                f"{_single_line(label)} / {_single_line(attribute.key)}"
+                if attribute.label
+                else _single_line(attribute.key)
+            )
+            lines.append(
+                f"{section}{display}: "
+                f"{_single_line(value)} (provenance={_single_line(attribute.provenance)})"
+            )
+    if profile.safety_rules:
+        lines.extend(["Safety boundaries:"])
+        lines.extend(f"- {_single_line(rule)}" for rule in profile.safety_rules)
+    return lines
 
 
 def _profile_lines(
@@ -521,6 +579,11 @@ def _validate_knowledge_public_ids(context: KnowledgeContext) -> None:
         _public_identifier(
             item.public_id,
             field="knowledge_snippet_public_id",
+        )
+    if context.industry_profile is not None:
+        _public_identifier(
+            context.industry_profile.public_id,
+            field="industry_profile_public_id",
         )
 
 

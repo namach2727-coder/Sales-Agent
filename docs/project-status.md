@@ -33,6 +33,14 @@ provisioned or deployed.
 - Customer-owned business knowledge/profile editing, paginated read-only
   inbox, persisted audited automation pause/resume, and safe browser OAuth
   completion redirects are implemented for Final-UAT.
+- Industry Knowledge V2 keeps the sixteen canonical industries while adding
+  schema-driven subcategory visibility, physical/digital/service type
+  differentiation, transparent minimum/recommended/optional readiness,
+  reusable price/currency/availability fields, variant and listing details,
+  bounded custom field types, regulated-domain safety boundaries, and
+  label/section/provenance metadata in the Knowledge Engine.  It uses the
+  existing `industry-profile` JSON entry (schema version 2) and requires no
+  migration.
 
 ## Migration source of truth
 
@@ -116,6 +124,11 @@ touching UAT:
 - UAT DirectPilot, Instagram gateway, PostgreSQL, and Ollama are healthy;
   `/live`, `/ready`, and `/version` return HTTP 200.
 - Compile/import, dependency, and whitespace validation pass.
+- Industry Knowledge V2 validation: targeted industry/API/prompt/onboarding
+  tests **57 passed** on the final focused run; the final full SQLite run
+  completed with **654 passed, 4 skipped**. Frontend checks after the V2
+  questionnaire changes: **86 passed**, TypeScript, ESLint, build, and
+  diff-check pass.
 
 The recurring Windows pytest temporary-directory cleanup warning happens after
 successful test completion and does not change the passing exit status.
