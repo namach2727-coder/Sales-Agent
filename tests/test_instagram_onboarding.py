@@ -79,6 +79,7 @@ class _ProviderHttpClient:
         self.short_method: str | None = None
         self.long_method: str | None = None
         self.long_data: dict[str, object] | None = None
+        self.long_params: dict[str, object] | None = None
 
     def __enter__(self):
         return self
@@ -101,6 +102,12 @@ class _ProviderHttpClient:
     def get(self, url: str, **kwargs: object) -> _ProviderResponse:
         params = kwargs["params"]
         assert isinstance(params, dict)
+        if url.endswith("/access_token"):
+            self.long_method = "GET"
+            self.long_params = params
+            return _ProviderResponse(
+                {"access_token": "long-lived-token", "token_type": "bearer"}
+            )
         self.profile_calls += 1
         self.profile_fields = str(params["fields"])
         return _ProviderResponse(
@@ -131,8 +138,9 @@ def test_meta_oauth_prefers_user_id_for_webhook_routing(monkeypatch) -> None:
     assert account.account_id == "17841434793560671"
     assert http_client.profile_fields == "id,user_id,username,account_type"
     assert http_client.short_method == "POST"
-    assert http_client.long_method == "POST"
-    assert http_client.long_data == {
+    assert http_client.long_method == "GET"
+    assert http_client.long_data is None
+    assert http_client.long_params == {
         "grant_type": "ig_exchange_token",
         "client_secret": "test-app-secret",
         "access_token": "short-lived-token",
@@ -368,6 +376,7 @@ class _ScenarioHttpClient:
         self.short_method: str | None = None
         self.long_method: str | None = None
         self.long_data: dict[str, object] | None = None
+        self.long_params: dict[str, object] | None = None
 
     def __enter__(self):
         return self
@@ -383,15 +392,18 @@ class _ScenarioHttpClient:
 
     def post(self, url: str, **kwargs: object) -> _ProviderResponse:
         if not url.endswith("/oauth/access_token"):
-            self.long_method = "POST"
-            data = kwargs.get("data")
-            if isinstance(data, dict):
-                self.long_data = data
-            return self._result(self.long)
+            raise AssertionError("long-lived token exchange must use GET")
         self.short_method = "POST"
         return self._result(self.short)
 
     def get(self, url: str, **_kwargs: object) -> _ProviderResponse:
+        params = _kwargs.get("params")
+        if url.endswith("/access_token"):
+            self.long_method = "GET"
+            assert isinstance(params, dict)
+            self.long_params = params
+            return self._result(self.long)
+
         self.profile_calls += 1
         self.profile_urls.append(url)
         if self.profile_calls == 1 and self.profile_probe is not None:
@@ -557,8 +569,9 @@ def test_meta_oauth_provider_errors_are_classified_and_redacted(
     assert "authorization-code" not in caplog.text
 
     if stage == "long":
-        assert http_client.long_method == "POST"
-        assert http_client.long_data == {
+        assert http_client.long_method == "GET"
+        assert http_client.long_data is None
+        assert http_client.long_params == {
             "grant_type": "ig_exchange_token",
             "client_secret": "test-app-secret",
             "access_token": "short-lived-token",
