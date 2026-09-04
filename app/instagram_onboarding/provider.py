@@ -98,6 +98,7 @@ class MetaInstagramOAuthClient:
         url: str,
         request: Callable[[], httpx.Response],
         log_success: bool = True,
+        api_version: str | None = None,
     ) -> httpx.Response:
         started = perf_counter()
         hostname = urlsplit(url).hostname or "unknown"
@@ -114,6 +115,7 @@ class MetaInstagramOAuthClient:
                 message=None,
                 exception_class=type(exc).__name__,
                 elapsed_ms=_elapsed_ms(started),
+                api_version=api_version,
             )
             raise InstagramOAuthError(
                 "Instagram provider network failure",
@@ -132,6 +134,7 @@ class MetaInstagramOAuthClient:
                 message=message,
                 exception_class="HTTPStatusError",
                 elapsed_ms=_elapsed_ms(started),
+                api_version=api_version,
             )
             raise InstagramOAuthError(
                 "Instagram provider rejected the request",
@@ -149,6 +152,7 @@ class MetaInstagramOAuthClient:
                 message=None,
                 exception_class=None,
                 elapsed_ms=_elapsed_ms(started),
+                api_version=api_version,
             )
         return response
 
@@ -247,56 +251,29 @@ class MetaInstagramOAuthClient:
                         code="oauth_token_exchange_failed",
                     )
 
+                _log_short_token_permissions(short_payload)
                 short_profile_url = f"{self.settings.meta_graph_base_url}/me"
-                probe_started = perf_counter()
-                try:
-                    short_profile_response = self._request_stage(
-                        stage="short_token_profile_probe",
-                        method="GET",
-                        url=short_profile_url,
-                        request=lambda: client.get(
-                            short_profile_url,
-                            params={
-                                "fields": "id,user_id,username,account_type",
-                                "access_token": short_token,
-                            },
-                        ),
-                        log_success=False,
+                _probe_short_token_profile(
+                    self,
+                    client,
+                    short_token=short_token,
+                    url=short_profile_url,
+                    api_version=None,
+                    stage="short_token_profile_probe_unversioned",
+                )
+                graph_api_version = self.settings.meta_api_version.strip().strip("/")
+                if graph_api_version:
+                    versioned_profile_url = (
+                        f"{self.settings.meta_graph_base_url}/{graph_api_version}/me"
                     )
-                except InstagramOAuthError:
-                    # This is diagnostic-only: preserve the established OAuth flow.
-                    pass
-                else:
-                    try:
-                        short_profile_payload = short_profile_response.json()
-                    except (ValueError, TypeError) as exc:
-                        _log_stage(
-                            stage="short_token_profile_probe",
-                            hostname=urlsplit(short_profile_url).hostname or "unknown",
-                            method="GET",
-                            status=short_profile_response.status_code,
-                            error_type=None,
-                            error_code=None,
-                            message=None,
-                            exception_class=type(exc).__name__,
-                            elapsed_ms=_elapsed_ms(probe_started),
-                        )
-                    else:
-                        if not isinstance(short_profile_payload, dict):
-                            _log_stage(
-                                stage="short_token_profile_probe",
-                                hostname=urlsplit(short_profile_url).hostname
-                                or "unknown",
-                                method="GET",
-                                status=short_profile_response.status_code,
-                                error_type=None,
-                                error_code=None,
-                                message="Meta returned a non-object Instagram profile response",
-                                exception_class="TypeError",
-                                elapsed_ms=_elapsed_ms(probe_started),
-                            )
-                        else:
-                            _log_short_token_profile_probe(short_profile_payload)
+                    _probe_short_token_profile(
+                        self,
+                        client,
+                        short_token=short_token,
+                        url=versioned_profile_url,
+                        api_version=graph_api_version,
+                        stage="short_token_profile_probe_versioned",
+                    )
 
                 long_url = f"{self.settings.meta_graph_base_url}/access_token"
                 long_response = self._request_stage(
@@ -525,12 +502,13 @@ def _log_stage(
     message: str | None,
     exception_class: str | None,
     elapsed_ms: float,
+    api_version: str | None = None,
 ) -> None:
     log = logger.warning if exception_class else logger.info
     log(
         "instagram_oauth stage=%s destination_host=%s method=%s http_status=%s "
         "meta_error_type=%s meta_error_code=%s meta_message=%s exception_class=%s "
-        "elapsed_ms=%s",
+        "elapsed_ms=%s api_version=%s",
         stage,
         hostname,
         method,
@@ -540,6 +518,7 @@ def _log_stage(
         _safe_message(message),
         exception_class or "-",
         elapsed_ms,
+        api_version or "NONE",
         extra={"event_code": f"instagram.oauth.{stage}"},
     )
 
@@ -562,7 +541,104 @@ def _log_short_token_metadata(payload: dict[str, object], status: int) -> None:
     )
 
 
-def _log_short_token_profile_probe(payload: dict[str, object]) -> None:
+def _log_short_token_permissions(payload: dict[str, object]) -> None:
+    raw_permissions = payload.get("permissions")
+    permissions_present = raw_permissions is not None
+    permission_names: set[str] = set()
+    if isinstance(raw_permissions, (list, tuple, set)):
+        permission_names = {
+            value.strip()
+            for value in raw_permissions
+            if isinstance(value, str) and value.strip()
+        }
+        permission_count = len(raw_permissions)
+    elif isinstance(raw_permissions, str):
+        permission_names = {
+            value.strip()
+            for value in raw_permissions.split(",")
+            if value.strip()
+        }
+        permission_count = len(permission_names)
+    else:
+        permission_count = 0
+    requested_permissions_all_present = set(INSTAGRAM_LOGIN_SCOPES).issubset(
+        permission_names
+    )
+    logger.info(
+        "instagram_oauth stage=short_token_permissions permissions_present=%s "
+        "permission_count=%s requested_permissions_all_present=%s",
+        _bool_text(permissions_present),
+        permission_count,
+        _bool_text(requested_permissions_all_present),
+        extra={"event_code": "instagram.oauth.short_token_permissions"},
+    )
+
+
+def _probe_short_token_profile(
+    oauth_client: MetaInstagramOAuthClient,
+    client: httpx.Client,
+    *,
+    short_token: str,
+    url: str,
+    api_version: str | None,
+    stage: str,
+) -> None:
+    probe_started = perf_counter()
+    try:
+        response = oauth_client._request_stage(
+            stage=stage,
+            method="GET",
+            url=url,
+            request=lambda: client.get(
+                url,
+                params={
+                    "fields": "id,user_id,username,account_type",
+                    "access_token": short_token,
+                },
+            ),
+            log_success=False,
+            api_version=api_version,
+        )
+    except InstagramOAuthError:
+        # These probes are diagnostics only and must never block OAuth.
+        return
+
+    try:
+        payload = response.json()
+    except (ValueError, TypeError) as exc:
+        _log_stage(
+            stage=stage,
+            hostname=urlsplit(url).hostname or "unknown",
+            method="GET",
+            status=response.status_code,
+            error_type=None,
+            error_code=None,
+            message=None,
+            exception_class=type(exc).__name__,
+            elapsed_ms=_elapsed_ms(probe_started),
+            api_version=api_version,
+        )
+        return
+    if not isinstance(payload, dict):
+        _log_stage(
+            stage=stage,
+            hostname=urlsplit(url).hostname or "unknown",
+            method="GET",
+            status=response.status_code,
+            error_type=None,
+            error_code=None,
+            message="Meta returned a non-object Instagram profile response",
+            exception_class="TypeError",
+            elapsed_ms=_elapsed_ms(probe_started),
+            api_version=api_version,
+        )
+        return
+    _log_short_token_profile_probe(payload, stage=stage, api_version=api_version)
+
+
+def _log_short_token_profile_probe(
+    payload: dict[str, object], *, stage: str, api_version: str | None
+) -> None:
     account_type = payload.get("account_type")
     if isinstance(account_type, str):
         normalized_type = account_type.strip().upper()
@@ -571,13 +647,16 @@ def _log_short_token_profile_probe(payload: dict[str, object]) -> None:
     if normalized_type not in {"BUSINESS", "CREATOR"}:
         normalized_type = "OTHER" if normalized_type else "MISSING"
     logger.info(
-        "instagram_oauth stage=short_token_profile_probe profile_returned=true "
-        "id_present=%s user_id_present=%s username_present=%s account_type=%s",
+        "instagram_oauth stage=%s profile_returned=true "
+        "id_present=%s user_id_present=%s username_present=%s account_type=%s "
+        "api_version=%s",
+        stage,
         _bool_text(_field_present(payload, "id")),
         _bool_text(_field_present(payload, "user_id")),
         _bool_text(_field_present(payload, "username")),
         normalized_type,
-        extra={"event_code": "instagram.oauth.short_token_profile_probe"},
+        api_version or "NONE",
+        extra={"event_code": f"instagram.oauth.{stage}"},
     )
 
 

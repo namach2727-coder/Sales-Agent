@@ -146,7 +146,11 @@ def test_short_token_metadata_and_profile_probe_are_redacted(monkeypatch, caplog
                 "user_id": "17841434793560671",
                 "token_type": "bearer",
                 "expires_in": 3600,
-                "permissions": ["instagram_business_basic"],
+                "permissions": [
+                    "instagram_business_basic",
+                    "instagram_business_manage_messages",
+                    "instagram_business_manage_comments",
+                ],
             }
         )
     )
@@ -165,7 +169,12 @@ def test_short_token_metadata_and_profile_probe_are_redacted(monkeypatch, caplog
     assert "token_type_present=true" in caplog.text
     assert "expires_in_present=true" in caplog.text
     assert "response_keys=access_token,expires_in,permissions,token_type,user_id" in caplog.text
-    assert "stage=short_token_profile_probe profile_returned=true" in caplog.text
+    assert "stage=short_token_permissions" in caplog.text
+    assert "permissions_present=true" in caplog.text
+    assert "permission_count=3" in caplog.text
+    assert "requested_permissions_all_present=true" in caplog.text
+    assert "stage=short_token_profile_probe_unversioned profile_returned=true" in caplog.text
+    assert "stage=short_token_profile_probe_versioned profile_returned=true" in caplog.text
     assert "id_present=true" in caplog.text
     assert "user_id_present=true" in caplog.text
     assert "username_present=true" in caplog.text
@@ -201,12 +210,73 @@ def test_short_token_profile_probe_failure_does_not_abort_oauth(monkeypatch, cap
         )
 
     assert account.account_id == "messaging-user-id"
-    assert http_client.profile_calls == 2
+    assert http_client.profile_calls == 3
     assert "stage=short_token_profile_probe" in caplog.text
     assert "http_status=400" in caplog.text
     assert "meta_error_type=IGApiException" in caplog.text
     assert "meta_error_code=100" in caplog.text
     assert "short token profile unavailable" in caplog.text
+    assert "authorization-code" not in caplog.text
+    assert "test-app-secret" not in caplog.text
+
+
+def test_short_token_profile_probe_matrix_uses_configured_version(monkeypatch, caplog) -> None:
+    http_client = _ScenarioHttpClient()
+    monkeypatch.setattr(
+        "app.instagram_onboarding.provider.httpx.Client",
+        lambda **_kwargs: http_client,
+    )
+
+    with caplog.at_level(logging.INFO, logger="sales_assistant.instagram_oauth"):
+        MetaInstagramOAuthClient(_oauth_settings(meta_api_version="v24.0")).exchange(
+            "authorization-code"
+        )
+
+    assert http_client.profile_urls == [
+        "https://graph.instagram.com/me",
+        "https://graph.instagram.com/v24.0/me",
+        "https://graph.instagram.com/me",
+    ]
+    assert "stage=short_token_profile_probe_unversioned" in caplog.text
+    assert "stage=short_token_profile_probe_versioned" in caplog.text
+    assert "api_version=NONE" in caplog.text
+    assert "api_version=v24.0" in caplog.text
+
+
+def test_short_token_profile_probe_versioned_failure_is_non_blocking(
+    monkeypatch, caplog
+) -> None:
+    http_client = _ScenarioHttpClient(
+        profile_versioned=_ProviderResponse(
+            {
+                "error": {
+                    "type": "IGApiException",
+                    "code": 100,
+                    "message": "versioned profile unavailable",
+                }
+            },
+            status_code=400,
+        )
+    )
+    monkeypatch.setattr(
+        "app.instagram_onboarding.provider.httpx.Client",
+        lambda **_kwargs: http_client,
+    )
+
+    with caplog.at_level(logging.INFO, logger="sales_assistant.instagram_oauth"):
+        account = MetaInstagramOAuthClient(_oauth_settings()).exchange(
+            "authorization-code"
+        )
+
+    assert account.account_id == "messaging-user-id"
+    assert http_client.profile_calls == 3
+    assert "stage=short_token_profile_probe_versioned" in caplog.text
+    assert "api_version=v24.0" in caplog.text
+    assert "http_status=400" in caplog.text
+    assert "meta_error_type=IGApiException" in caplog.text
+    assert "meta_error_code=100" in caplog.text
+    assert "versioned profile unavailable" in caplog.text
+    assert "short-lived-token" not in caplog.text
     assert "authorization-code" not in caplog.text
     assert "test-app-secret" not in caplog.text
 
@@ -219,6 +289,7 @@ class _ScenarioHttpClient:
         long: _ProviderResponse | Exception | None = None,
         profile: _ProviderResponse | Exception | None = None,
         profile_probe: _ProviderResponse | Exception | None = None,
+        profile_versioned: _ProviderResponse | Exception | None = None,
     ) -> None:
         self.short = short or _ProviderResponse({"access_token": "short-lived-token"})
         self.long = long or _ProviderResponse(
@@ -233,7 +304,9 @@ class _ScenarioHttpClient:
             }
         )
         self.profile_probe = profile_probe
+        self.profile_versioned = profile_versioned
         self.profile_calls = 0
+        self.profile_urls: list[str] = []
         self.short_method: str | None = None
         self.long_method: str | None = None
         self.long_data: dict[str, object] | None = None
@@ -262,8 +335,11 @@ class _ScenarioHttpClient:
 
     def get(self, url: str, **_kwargs: object) -> _ProviderResponse:
         self.profile_calls += 1
+        self.profile_urls.append(url)
         if self.profile_calls == 1 and self.profile_probe is not None:
             return self._result(self.profile_probe)
+        if self.profile_calls == 2 and self.profile_versioned is not None:
+            return self._result(self.profile_versioned)
         return self._result(self.profile)
 
 
