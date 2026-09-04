@@ -175,6 +175,15 @@ def test_short_token_metadata_and_profile_probe_are_redacted(monkeypatch, caplog
     assert "requested_permissions_all_present=true" in caplog.text
     assert "stage=short_token_profile_probe_unversioned profile_returned=true" in caplog.text
     assert "stage=short_token_profile_probe_versioned profile_returned=true" in caplog.text
+    assert "stage=short_token_explicit_user_probe_unversioned" in caplog.text
+    assert "stage=short_token_explicit_user_probe_versioned" in caplog.text
+    assert http_client.profile_urls == [
+        "https://graph.instagram.com/me",
+        "https://graph.instagram.com/v24.0/me",
+        "https://graph.instagram.com/17841434793560671",
+        "https://graph.instagram.com/v24.0/17841434793560671",
+        "https://graph.instagram.com/me",
+    ]
     assert "id_present=true" in caplog.text
     assert "user_id_present=true" in caplog.text
     assert "username_present=true" in caplog.text
@@ -241,6 +250,8 @@ def test_short_token_profile_probe_matrix_uses_configured_version(monkeypatch, c
     assert "stage=short_token_profile_probe_versioned" in caplog.text
     assert "api_version=NONE" in caplog.text
     assert "api_version=v24.0" in caplog.text
+    assert "short_token_user_id_present=false" in caplog.text
+    assert "short_token_explicit_user_probe" not in caplog.text
 
 
 def test_short_token_profile_probe_versioned_failure_is_non_blocking(
@@ -281,6 +292,48 @@ def test_short_token_profile_probe_versioned_failure_is_non_blocking(
     assert "test-app-secret" not in caplog.text
 
 
+def test_short_token_explicit_user_probe_failure_is_non_blocking(
+    monkeypatch, caplog
+) -> None:
+    http_client = _ScenarioHttpClient(
+        short=_ProviderResponse(
+            {
+                "access_token": "short-lived-token",
+                "user_id": "17841401850458391",
+            }
+        ),
+        profile_explicit=_ProviderResponse(
+            {
+                "error": {
+                    "type": "IGApiException",
+                    "code": 100,
+                    "message": "explicit profile unavailable",
+                }
+            },
+            status_code=400,
+        ),
+    )
+    monkeypatch.setattr(
+        "app.instagram_onboarding.provider.httpx.Client",
+        lambda **_kwargs: http_client,
+    )
+
+    with caplog.at_level(logging.INFO, logger="sales_assistant.instagram_oauth"):
+        account = MetaInstagramOAuthClient(_oauth_settings()).exchange(
+            "authorization-code"
+        )
+
+    assert account.account_id == "messaging-user-id"
+    assert http_client.profile_calls == 5
+    assert "stage=short_token_explicit_user_probe_unversioned" in caplog.text
+    assert "http_status=400" in caplog.text
+    assert "explicit profile unavailable" in caplog.text
+    assert "17841401850458391" not in caplog.text
+    assert "short-lived-token" not in caplog.text
+    assert "authorization-code" not in caplog.text
+    assert "test-app-secret" not in caplog.text
+
+
 class _ScenarioHttpClient:
     def __init__(
         self,
@@ -290,6 +343,8 @@ class _ScenarioHttpClient:
         profile: _ProviderResponse | Exception | None = None,
         profile_probe: _ProviderResponse | Exception | None = None,
         profile_versioned: _ProviderResponse | Exception | None = None,
+        profile_explicit: _ProviderResponse | Exception | None = None,
+        profile_explicit_versioned: _ProviderResponse | Exception | None = None,
     ) -> None:
         self.short = short or _ProviderResponse({"access_token": "short-lived-token"})
         self.long = long or _ProviderResponse(
@@ -305,6 +360,8 @@ class _ScenarioHttpClient:
         )
         self.profile_probe = profile_probe
         self.profile_versioned = profile_versioned
+        self.profile_explicit = profile_explicit
+        self.profile_explicit_versioned = profile_explicit_versioned
         self.profile_calls = 0
         self.profile_urls: list[str] = []
         self.short_method: str | None = None
@@ -340,6 +397,10 @@ class _ScenarioHttpClient:
             return self._result(self.profile_probe)
         if self.profile_calls == 2 and self.profile_versioned is not None:
             return self._result(self.profile_versioned)
+        if self.profile_calls == 3 and self.profile_explicit is not None:
+            return self._result(self.profile_explicit)
+        if self.profile_calls == 4 and self.profile_explicit_versioned is not None:
+            return self._result(self.profile_explicit_versioned)
         return self._result(self.profile)
 
 

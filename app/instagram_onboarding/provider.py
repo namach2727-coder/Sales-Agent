@@ -232,6 +232,8 @@ class MetaInstagramOAuthClient:
                         code="oauth_token_exchange_failed",
                     )
                 _log_short_token_metadata(short_payload, short_response.status_code)
+                short_user_id = str(short_payload.get("user_id") or "").strip()
+                _log_short_token_user_id_presence(bool(short_user_id))
                 short_token = str(short_payload.get("access_token") or "").strip()
                 if not short_token:
                     _log_stage(
@@ -274,6 +276,31 @@ class MetaInstagramOAuthClient:
                         api_version=graph_api_version,
                         stage="short_token_profile_probe_versioned",
                     )
+                if short_user_id:
+                    explicit_profile_url = (
+                        f"{self.settings.meta_graph_base_url}/{short_user_id}"
+                    )
+                    _probe_short_token_profile(
+                        self,
+                        client,
+                        short_token=short_token,
+                        url=explicit_profile_url,
+                        api_version=None,
+                        stage="short_token_explicit_user_probe_unversioned",
+                    )
+                    if graph_api_version:
+                        versioned_explicit_profile_url = (
+                            f"{self.settings.meta_graph_base_url}/{graph_api_version}/"
+                            f"{short_user_id}"
+                        )
+                        _probe_short_token_profile(
+                            self,
+                            client,
+                            short_token=short_token,
+                            url=versioned_explicit_profile_url,
+                            api_version=graph_api_version,
+                            stage="short_token_explicit_user_probe_versioned",
+                        )
 
                 long_url = f"{self.settings.meta_graph_base_url}/access_token"
                 long_response = self._request_stage(
@@ -538,6 +565,14 @@ def _log_short_token_metadata(payload: dict[str, object], status: int) -> None:
         _bool_text(_field_present(payload, "expires_in")),
         _safe_response_keys(payload),
         extra={"event_code": "instagram.oauth.short_token_metadata"},
+    )
+
+
+def _log_short_token_user_id_presence(present: bool) -> None:
+    logger.info(
+        "instagram_oauth stage=short_token_user_id short_token_user_id_present=%s",
+        _bool_text(present),
+        extra={"event_code": "instagram.oauth.short_token_user_id"},
     )
 
 
