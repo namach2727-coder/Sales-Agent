@@ -165,6 +165,7 @@ class MetaInstagramOAuthClient:
                 "response_type": "code",
                 "scope": ",".join(INSTAGRAM_LOGIN_SCOPES),
                 "state": state,
+                "force_reauth": "true",
             }
         )
         return f"{self.settings.meta_oauth_authorize_url.rstrip('/')}?{query}"

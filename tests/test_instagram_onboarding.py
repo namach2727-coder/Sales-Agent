@@ -21,6 +21,7 @@ from app.config import Settings, get_settings
 from app.database import get_db
 from app.instagram_channel.models import InstagramConnection, InstagramOAuthState
 from app.instagram_onboarding.provider import (
+    INSTAGRAM_LOGIN_SCOPES,
     InstagramOAuthAccount,
     InstagramOAuthError,
     MetaInstagramOAuthClient,
@@ -424,6 +425,25 @@ def test_meta_oauth_configuration_error_has_stable_code(caplog) -> None:
     assert raised.value.code == "oauth_configuration_error"
     assert "meta_app_secret_configured=False" in caplog.text
     assert "test-app-secret" not in caplog.text
+
+
+def test_meta_oauth_authorization_url_includes_force_reauth_without_other_changes() -> None:
+    settings = _oauth_settings()
+
+    authorization_url = MetaInstagramOAuthClient(settings).authorization_url("opaque-state")
+    query = parse_qs(urlsplit(authorization_url).query)
+
+    assert urlsplit(authorization_url).scheme == "https"
+    assert urlsplit(authorization_url).netloc == "www.instagram.com"
+    assert urlsplit(authorization_url).path == "/oauth/authorize"
+    assert query["client_id"] == ["test-app-id"]
+    assert query["redirect_uri"] == ["https://api.example/callback"]
+    assert query["response_type"] == ["code"]
+    assert query["scope"] == [",".join(INSTAGRAM_LOGIN_SCOPES)]
+    assert query["state"] == ["opaque-state"]
+    assert query["force_reauth"] == ["true"]
+    assert "enable_fb_login" not in query
+    assert "test-app-secret" not in authorization_url
 
 
 @pytest.mark.parametrize(
