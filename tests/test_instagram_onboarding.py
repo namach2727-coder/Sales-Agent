@@ -74,6 +74,7 @@ class _ProviderResponse:
 class _ProviderHttpClient:
     def __init__(self) -> None:
         self.profile_fields: str | None = None
+        self.profile_calls = 0
         self.short_method: str | None = None
         self.long_method: str | None = None
         self.long_data: dict[str, object] | None = None
@@ -99,6 +100,7 @@ class _ProviderHttpClient:
     def get(self, url: str, **kwargs: object) -> _ProviderResponse:
         params = kwargs["params"]
         assert isinstance(params, dict)
+        self.profile_calls += 1
         self.profile_fields = str(params["fields"])
         return _ProviderResponse(
             {
@@ -136,6 +138,79 @@ def test_meta_oauth_prefers_user_id_for_webhook_routing(monkeypatch) -> None:
     }
 
 
+def test_short_token_metadata_and_profile_probe_are_redacted(monkeypatch, caplog) -> None:
+    http_client = _ScenarioHttpClient(
+        short=_ProviderResponse(
+            {
+                "access_token": "IG-short-token-value",
+                "user_id": "17841434793560671",
+                "token_type": "bearer",
+                "expires_in": 3600,
+                "permissions": ["instagram_business_basic"],
+            }
+        )
+    )
+    monkeypatch.setattr(
+        "app.instagram_onboarding.provider.httpx.Client",
+        lambda **_kwargs: http_client,
+    )
+
+    with caplog.at_level(logging.INFO, logger="sales_assistant.instagram_oauth"):
+        MetaInstagramOAuthClient(_oauth_settings()).exchange("authorization-code")
+
+    assert "stage=short_token_metadata" in caplog.text
+    assert "http_status=200" in caplog.text
+    assert "access_token_present=true" in caplog.text
+    assert "user_id_present=true" in caplog.text
+    assert "token_type_present=true" in caplog.text
+    assert "expires_in_present=true" in caplog.text
+    assert "response_keys=access_token,expires_in,permissions,token_type,user_id" in caplog.text
+    assert "stage=short_token_profile_probe profile_returned=true" in caplog.text
+    assert "id_present=true" in caplog.text
+    assert "user_id_present=true" in caplog.text
+    assert "username_present=true" in caplog.text
+    assert "account_type=BUSINESS" in caplog.text
+    assert "IG-short-token-value" not in caplog.text
+    assert "17841434793560671" not in caplog.text
+    assert "authorization-code" not in caplog.text
+    assert "test-app-secret" not in caplog.text
+    assert "profile-id" not in caplog.text
+
+
+def test_short_token_profile_probe_failure_does_not_abort_oauth(monkeypatch, caplog) -> None:
+    http_client = _ScenarioHttpClient(
+        profile_probe=_ProviderResponse(
+            {
+                "error": {
+                    "type": "IGApiException",
+                    "code": 100,
+                    "message": "short token profile unavailable",
+                }
+            },
+            status_code=400,
+        )
+    )
+    monkeypatch.setattr(
+        "app.instagram_onboarding.provider.httpx.Client",
+        lambda **_kwargs: http_client,
+    )
+
+    with caplog.at_level(logging.INFO, logger="sales_assistant.instagram_oauth"):
+        account = MetaInstagramOAuthClient(_oauth_settings()).exchange(
+            "authorization-code"
+        )
+
+    assert account.account_id == "messaging-user-id"
+    assert http_client.profile_calls == 2
+    assert "stage=short_token_profile_probe" in caplog.text
+    assert "http_status=400" in caplog.text
+    assert "meta_error_type=IGApiException" in caplog.text
+    assert "meta_error_code=100" in caplog.text
+    assert "short token profile unavailable" in caplog.text
+    assert "authorization-code" not in caplog.text
+    assert "test-app-secret" not in caplog.text
+
+
 class _ScenarioHttpClient:
     def __init__(
         self,
@@ -143,6 +218,7 @@ class _ScenarioHttpClient:
         short: _ProviderResponse | Exception | None = None,
         long: _ProviderResponse | Exception | None = None,
         profile: _ProviderResponse | Exception | None = None,
+        profile_probe: _ProviderResponse | Exception | None = None,
     ) -> None:
         self.short = short or _ProviderResponse({"access_token": "short-lived-token"})
         self.long = long or _ProviderResponse(
@@ -156,6 +232,8 @@ class _ScenarioHttpClient:
                 "account_type": "BUSINESS",
             }
         )
+        self.profile_probe = profile_probe
+        self.profile_calls = 0
         self.short_method: str | None = None
         self.long_method: str | None = None
         self.long_data: dict[str, object] | None = None
@@ -183,6 +261,9 @@ class _ScenarioHttpClient:
         return self._result(self.short)
 
     def get(self, url: str, **_kwargs: object) -> _ProviderResponse:
+        self.profile_calls += 1
+        if self.profile_calls == 1 and self.profile_probe is not None:
+            return self._result(self.profile_probe)
         return self._result(self.profile)
 
 

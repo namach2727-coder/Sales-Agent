@@ -97,6 +97,7 @@ class MetaInstagramOAuthClient:
         method: str,
         url: str,
         request: Callable[[], httpx.Response],
+        log_success: bool = True,
     ) -> httpx.Response:
         started = perf_counter()
         hostname = urlsplit(url).hostname or "unknown"
@@ -137,17 +138,18 @@ class MetaInstagramOAuthClient:
                 code=_classify_provider_error(stage, error_type, error_code, message),
             )
 
-        _log_stage(
-            stage=stage,
-            hostname=hostname,
-            method=method,
-            status=response.status_code,
-            error_type=None,
-            error_code=None,
-            message=None,
-            exception_class=None,
-            elapsed_ms=_elapsed_ms(started),
-        )
+        if log_success:
+            _log_stage(
+                stage=stage,
+                hostname=hostname,
+                method=method,
+                status=response.status_code,
+                error_type=None,
+                error_code=None,
+                message=None,
+                exception_class=None,
+                elapsed_ms=_elapsed_ms(started),
+            )
         return response
 
     def authorization_url(self, state: str) -> str:
@@ -225,6 +227,7 @@ class MetaInstagramOAuthClient:
                         "Meta returned an invalid token response",
                         code="oauth_token_exchange_failed",
                     )
+                _log_short_token_metadata(short_payload, short_response.status_code)
                 short_token = str(short_payload.get("access_token") or "").strip()
                 if not short_token:
                     _log_stage(
@@ -243,6 +246,57 @@ class MetaInstagramOAuthClient:
                         "Meta returned no access token",
                         code="oauth_token_exchange_failed",
                     )
+
+                short_profile_url = f"{self.settings.meta_graph_base_url}/me"
+                probe_started = perf_counter()
+                try:
+                    short_profile_response = self._request_stage(
+                        stage="short_token_profile_probe",
+                        method="GET",
+                        url=short_profile_url,
+                        request=lambda: client.get(
+                            short_profile_url,
+                            params={
+                                "fields": "id,user_id,username,account_type",
+                                "access_token": short_token,
+                            },
+                        ),
+                        log_success=False,
+                    )
+                except InstagramOAuthError:
+                    # This is diagnostic-only: preserve the established OAuth flow.
+                    pass
+                else:
+                    try:
+                        short_profile_payload = short_profile_response.json()
+                    except (ValueError, TypeError) as exc:
+                        _log_stage(
+                            stage="short_token_profile_probe",
+                            hostname=urlsplit(short_profile_url).hostname or "unknown",
+                            method="GET",
+                            status=short_profile_response.status_code,
+                            error_type=None,
+                            error_code=None,
+                            message=None,
+                            exception_class=type(exc).__name__,
+                            elapsed_ms=_elapsed_ms(probe_started),
+                        )
+                    else:
+                        if not isinstance(short_profile_payload, dict):
+                            _log_stage(
+                                stage="short_token_profile_probe",
+                                hostname=urlsplit(short_profile_url).hostname
+                                or "unknown",
+                                method="GET",
+                                status=short_profile_response.status_code,
+                                error_type=None,
+                                error_code=None,
+                                message="Meta returned a non-object Instagram profile response",
+                                exception_class="TypeError",
+                                elapsed_ms=_elapsed_ms(probe_started),
+                            )
+                        else:
+                            _log_short_token_profile_probe(short_profile_payload)
 
                 long_url = f"{self.settings.meta_graph_base_url}/access_token"
                 long_response = self._request_stage(
@@ -488,3 +542,62 @@ def _log_stage(
         elapsed_ms,
         extra={"event_code": f"instagram.oauth.{stage}"},
     )
+
+
+def _log_short_token_metadata(payload: dict[str, object], status: int) -> None:
+    token_value = payload.get("access_token")
+    token_text = token_value.strip() if isinstance(token_value, str) else ""
+    logger.info(
+        "instagram_oauth stage=short_token_metadata http_status=%s "
+        "access_token_present=%s token_length=%s user_id_present=%s "
+        "token_type_present=%s expires_in_present=%s response_keys=%s",
+        status,
+        _bool_text(bool(token_text)),
+        len(token_text),
+        _bool_text(_field_present(payload, "user_id")),
+        _bool_text(_field_present(payload, "token_type")),
+        _bool_text(_field_present(payload, "expires_in")),
+        _safe_response_keys(payload),
+        extra={"event_code": "instagram.oauth.short_token_metadata"},
+    )
+
+
+def _log_short_token_profile_probe(payload: dict[str, object]) -> None:
+    account_type = payload.get("account_type")
+    if isinstance(account_type, str):
+        normalized_type = account_type.strip().upper()
+    else:
+        normalized_type = ""
+    if normalized_type not in {"BUSINESS", "CREATOR"}:
+        normalized_type = "OTHER" if normalized_type else "MISSING"
+    logger.info(
+        "instagram_oauth stage=short_token_profile_probe profile_returned=true "
+        "id_present=%s user_id_present=%s username_present=%s account_type=%s",
+        _bool_text(_field_present(payload, "id")),
+        _bool_text(_field_present(payload, "user_id")),
+        _bool_text(_field_present(payload, "username")),
+        normalized_type,
+        extra={"event_code": "instagram.oauth.short_token_profile_probe"},
+    )
+
+
+def _field_present(payload: dict[str, object], name: str) -> bool:
+    value = payload.get(name)
+    if value is None:
+        return False
+    return not isinstance(value, str) or bool(value.strip())
+
+
+def _safe_response_keys(payload: dict[str, object]) -> str:
+    keys: list[str] = []
+    for key in payload:
+        text = str(key)
+        if re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", text):
+            keys.append(text)
+        else:
+            keys.append("<redacted>")
+    return ",".join(sorted(keys)) or "-"
+
+
+def _bool_text(value: bool) -> str:
+    return "true" if value else "false"
