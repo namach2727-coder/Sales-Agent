@@ -247,11 +247,11 @@ class MetaInstagramOAuthClient:
                 long_url = f"{self.settings.meta_graph_base_url}/access_token"
                 long_response = self._request_stage(
                     stage="long_lived_token_exchange",
-                    method="GET",
+                    method="POST",
                     url=long_url,
-                    request=lambda: client.get(
+                    request=lambda: client.post(
                         long_url,
-                        params={
+                        data={
                             "grant_type": "ig_exchange_token",
                             "client_secret": app_secret,
                             "access_token": short_token,
@@ -264,7 +264,7 @@ class MetaInstagramOAuthClient:
                     _log_stage(
                         stage="long_lived_token_exchange",
                         hostname=urlsplit(long_url).hostname or "unknown",
-                        method="GET",
+                        method="POST",
                         status=long_response.status_code,
                         error_type=None,
                         error_code=None,
@@ -280,7 +280,7 @@ class MetaInstagramOAuthClient:
                     _log_stage(
                         stage="long_lived_token_exchange",
                         hostname=urlsplit(long_url).hostname or "unknown",
-                        method="GET",
+                        method="POST",
                         status=long_response.status_code,
                         error_type=None,
                         error_code=None,
@@ -297,7 +297,7 @@ class MetaInstagramOAuthClient:
                     _log_stage(
                         stage="long_lived_token_exchange",
                         hostname=urlsplit(long_url).hostname or "unknown",
-                        method="GET",
+                        method="POST",
                         status=long_response.status_code,
                         error_type=None,
                         error_code=None,

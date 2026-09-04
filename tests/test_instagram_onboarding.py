@@ -74,6 +74,9 @@ class _ProviderResponse:
 class _ProviderHttpClient:
     def __init__(self) -> None:
         self.profile_fields: str | None = None
+        self.short_method: str | None = None
+        self.long_method: str | None = None
+        self.long_data: dict[str, object] | None = None
 
     def __enter__(self):
         return self
@@ -81,14 +84,19 @@ class _ProviderHttpClient:
     def __exit__(self, *_args: object) -> None:
         return None
 
-    def post(self, _url: str, **_kwargs: object) -> _ProviderResponse:
-        return _ProviderResponse({"access_token": "short-lived-token"})
-
-    def get(self, url: str, **kwargs: object) -> _ProviderResponse:
-        if url.endswith("/access_token"):
+    def post(self, url: str, **kwargs: object) -> _ProviderResponse:
+        if not url.endswith("/oauth/access_token"):
+            self.long_method = "POST"
+            data = kwargs["data"]
+            assert isinstance(data, dict)
+            self.long_data = data
             return _ProviderResponse(
                 {"access_token": "long-lived-token", "token_type": "bearer"}
             )
+        self.short_method = "POST"
+        return _ProviderResponse({"access_token": "short-lived-token"})
+
+    def get(self, url: str, **kwargs: object) -> _ProviderResponse:
         params = kwargs["params"]
         assert isinstance(params, dict)
         self.profile_fields = str(params["fields"])
@@ -119,6 +127,13 @@ def test_meta_oauth_prefers_user_id_for_webhook_routing(monkeypatch) -> None:
 
     assert account.account_id == "17841434793560671"
     assert http_client.profile_fields == "id,user_id,username,account_type"
+    assert http_client.short_method == "POST"
+    assert http_client.long_method == "POST"
+    assert http_client.long_data == {
+        "grant_type": "ig_exchange_token",
+        "client_secret": "test-app-secret",
+        "access_token": "short-lived-token",
+    }
 
 
 class _ScenarioHttpClient:
@@ -141,6 +156,9 @@ class _ScenarioHttpClient:
                 "account_type": "BUSINESS",
             }
         )
+        self.short_method: str | None = None
+        self.long_method: str | None = None
+        self.long_data: dict[str, object] | None = None
 
     def __enter__(self):
         return self
@@ -154,12 +172,17 @@ class _ScenarioHttpClient:
             raise value
         return value
 
-    def post(self, _url: str, **_kwargs: object) -> _ProviderResponse:
+    def post(self, url: str, **kwargs: object) -> _ProviderResponse:
+        if not url.endswith("/oauth/access_token"):
+            self.long_method = "POST"
+            data = kwargs.get("data")
+            if isinstance(data, dict):
+                self.long_data = data
+            return self._result(self.long)
+        self.short_method = "POST"
         return self._result(self.short)
 
     def get(self, url: str, **_kwargs: object) -> _ProviderResponse:
-        if url.endswith("/access_token"):
-            return self._result(self.long)
         return self._result(self.profile)
 
 
@@ -236,6 +259,20 @@ def test_meta_oauth_configuration_error_has_stable_code(caplog) -> None:
             "oauth_provider_rejected",
         ),
         (
+            "long",
+            _ProviderResponse(
+                {
+                    "error": {
+                        "type": "IGApiException",
+                        "code": 100,
+                        "message": "long-lived exchange rejected",
+                    }
+                },
+                status_code=400,
+            ),
+            "oauth_provider_rejected",
+        ),
+        (
             "profile",
             _ProviderResponse(
                 {
@@ -272,12 +309,22 @@ def test_meta_oauth_provider_errors_are_classified_and_redacted(
             )
 
     assert raised.value.code == expected_code
-    expected_stage = (
-        "oauth_token_exchange" if stage == "short" else "instagram_profile_lookup"
-    )
+    expected_stage = {
+        "short": "oauth_token_exchange",
+        "long": "long_lived_token_exchange",
+        "profile": "instagram_profile_lookup",
+    }[stage]
     assert f"stage={expected_stage}" in caplog.text
     assert "test-app-secret" not in caplog.text
     assert "authorization-code" not in caplog.text
+
+    if stage == "long":
+        assert http_client.long_method == "POST"
+        assert http_client.long_data == {
+            "grant_type": "ig_exchange_token",
+            "client_secret": "test-app-secret",
+            "access_token": "short-lived-token",
+        }
 
 
 def test_meta_oauth_network_errors_are_classified_and_logged(monkeypatch, caplog) -> None:
