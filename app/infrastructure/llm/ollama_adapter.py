@@ -52,6 +52,7 @@ class OllamaProvider:
     def __init__(
         self,
         *,
+        api_key: str = "",
         base_url: str,
         model: str,
         timeout_seconds: float = 60.0,
@@ -97,14 +98,20 @@ class OllamaProvider:
         self.context_length = context_length
         self.max_output_tokens = max_output_tokens
         self.thinking_enabled = thinking_enabled
+        configured_api_key = _configured_api_key(api_key)
+        client_options: dict[str, Any] = {
+            "base_url": self.native_base_url,
+            "timeout": httpx.Timeout(self.timeout_seconds),
+            "follow_redirects": False,
+        }
+        if configured_api_key:
+            client_options["headers"] = {
+                "Authorization": f"Bearer {configured_api_key}"
+            }
         self._client: OllamaClient = (
             client
             if client is not None
-            else httpx.Client(
-                base_url=self.native_base_url,
-                timeout=httpx.Timeout(self.timeout_seconds),
-                follow_redirects=False,
-            )
+            else httpx.Client(**client_options)
         )
 
     def generate(self, prompt_package: PromptPackage) -> LLMResponse:
@@ -310,6 +317,19 @@ def _configured_model(value: object) -> str:
     ):
         raise LLMProviderConfigurationError(
             "Ollama model configuration is invalid"
+        )
+    return normalized
+
+
+def _configured_api_key(value: object) -> str:
+    if not isinstance(value, str):
+        raise LLMProviderConfigurationError(
+            "Ollama credential configuration is invalid"
+        )
+    normalized = value.strip()
+    if "\n" in normalized or "\r" in normalized:
+        raise LLMProviderConfigurationError(
+            "Ollama credential configuration is invalid"
         )
     return normalized
 

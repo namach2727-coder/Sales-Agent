@@ -31,6 +31,7 @@ BASE_URL = "http://localhost:11434/v1"
 MODEL = "local-test-model"
 SYSTEM_PROMPT = "OLLAMA-SYSTEM-CONTEXT-DO-NOT-LOG"
 USER_PROMPT = "OLLAMA-CUSTOMER-MESSAGE-DO-NOT-LOG"
+API_KEY = "ollama-example-key-not-real"
 
 
 def _package() -> PromptPackage:
@@ -297,11 +298,126 @@ def test_client_uses_native_base_url_and_configured_timeout(
     assert provider.timeout_seconds == 19.0
     assert captured["base_url"] == "http://localhost:11434"
     assert captured["follow_redirects"] is False
+    assert "headers" not in captured
     timeout = captured["timeout"]
     assert isinstance(timeout, httpx.Timeout)
     assert timeout.connect == 19.0
     assert timeout.read == 19.0
     assert not hasattr(provider, "api_key")
+
+
+def test_cloud_client_uses_bearer_auth_and_native_chat_path(
+    monkeypatch,
+    caplog,
+) -> None:
+    captured: dict[str, Any] = {}
+    fake_client = FakeClient()
+
+    def client_factory(**kwargs: Any) -> FakeClient:
+        captured.update(kwargs)
+        return fake_client
+
+    monkeypatch.setattr(adapter_module.httpx, "Client", client_factory)
+    caplog.set_level("INFO", logger="sales_assistant.llm.ollama")
+    provider = OllamaProvider(
+        api_key=API_KEY,
+        base_url="https://ollama.com",
+        model=MODEL,
+    )
+
+    provider.generate(_package())
+
+    assert provider.native_base_url == "https://ollama.com"
+    assert captured["base_url"] == "https://ollama.com"
+    assert captured["headers"] == {"Authorization": f"Bearer {API_KEY}"}
+    assert fake_client.calls[0][0] == "/api/chat"
+    assert API_KEY not in repr(provider)
+    assert API_KEY not in "\n".join(
+        record.getMessage() for record in caplog.records
+    )
+
+
+def test_ollama_api_key_is_secret_and_passed_by_provider_selector(
+    monkeypatch,
+) -> None:
+    captured: dict[str, Any] = {}
+    fake_client = FakeClient()
+
+    def client_factory(**kwargs: Any) -> FakeClient:
+        captured.update(kwargs)
+        return fake_client
+
+    monkeypatch.setattr(adapter_module.httpx, "Client", client_factory)
+    settings = Settings(
+        _env_file=None,
+        llm_provider="ollama",
+        ollama_api_key=API_KEY,
+        ollama_base_url="https://ollama.com",
+        ollama_model=MODEL,
+    )
+
+    provider = build_llm_provider(settings)
+
+    assert isinstance(provider, OllamaProvider)
+    assert captured["headers"] == {"Authorization": f"Bearer {API_KEY}"}
+    assert API_KEY not in repr(settings)
+
+
+def test_ollama_api_key_uses_standard_environment_mapping(monkeypatch) -> None:
+    monkeypatch.setenv("OLLAMA_API_KEY", API_KEY)
+
+    settings = Settings(_env_file=None)
+
+    assert settings.ollama_api_key.get_secret_value() == API_KEY
+    assert API_KEY not in repr(settings)
+
+
+def test_cloud_transport_failure_does_not_expose_api_key(
+    monkeypatch,
+    caplog,
+) -> None:
+    request = httpx.Request("POST", "https://ollama.com/api/chat")
+    fake_client = FakeClient(
+        error=httpx.ConnectError(
+            f"transport rejected {API_KEY}",
+            request=request,
+        )
+    )
+    monkeypatch.setattr(
+        adapter_module.httpx,
+        "Client",
+        lambda **_kwargs: fake_client,
+    )
+    caplog.set_level("INFO", logger="sales_assistant.llm.ollama")
+    provider = OllamaProvider(
+        api_key=API_KEY,
+        base_url="https://ollama.com",
+        model=MODEL,
+    )
+
+    with pytest.raises(LLMProviderUnavailableError) as raised:
+        provider.generate(_package())
+
+    assert API_KEY not in str(raised.value)
+    assert API_KEY not in "\n".join(
+        record.getMessage() for record in caplog.records
+    )
+
+
+@pytest.mark.parametrize("api_key", [None, object(), "line-one\nline-two"])
+def test_invalid_ollama_api_key_configuration_fails_safely(api_key: object) -> None:
+    with pytest.raises(
+        LLMProviderConfigurationError,
+        match="credential configuration is invalid",
+    ) as raised:
+        OllamaProvider(
+            api_key=api_key,  # type: ignore[arg-type]
+            base_url=BASE_URL,
+            model=MODEL,
+            client=FakeClient(),
+        )
+
+    assert API_KEY not in str(raised.value)
 
 
 def test_provider_selection_is_normalized_and_explicit() -> None:

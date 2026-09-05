@@ -23,6 +23,7 @@ def build_llm_provider(
         )
     if settings.llm_provider == "ollama":
         return OllamaProvider(
+            api_key=settings.ollama_api_key.get_secret_value(),
             base_url=settings.ollama_base_url,
             model=settings.ollama_model,
             timeout_seconds=settings.ollama_timeout_seconds,

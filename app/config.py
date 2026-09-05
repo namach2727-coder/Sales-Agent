@@ -101,6 +101,7 @@ class Settings(BaseSettings):
     )
     openai_timeout_seconds: float = Field(default=30.0, ge=1.0, le=300.0)
     openai_max_retries: int = Field(default=1, ge=0, le=3)
+    ollama_api_key: SecretStr = SecretStr("")
     ollama_base_url: str = "http://localhost:11434/v1"
     ollama_model: str = Field(default="", max_length=100)
     ollama_timeout_seconds: float = Field(default=60.0, ge=1.0, le=300.0)
