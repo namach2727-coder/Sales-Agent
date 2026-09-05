@@ -15,20 +15,36 @@ from app.config import Settings
 
 correlation_id: ContextVar[str] = ContextVar("correlation_id", default="-")
 SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+SAFE_LOG_CATEGORY = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
+        message = record.getMessage()
+        failure_category = _safe_log_category(
+            getattr(record, "failure_category", None)
+        )
+        if failure_category is not None:
+            message = f"{message} failure_category={failure_category}"
         payload = {
             "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
+            "message": message,
             "correlation_id": getattr(record, "correlation_id", None) or correlation_id.get(),
         }
         if hasattr(record, "event_code"):
             payload["event_code"] = record.event_code
+        if failure_category is not None:
+            payload["failure_category"] = failure_category
         return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+def _safe_log_category(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized if SAFE_LOG_CATEGORY.fullmatch(normalized) else None
 
 
 def configure_logging(settings: Settings) -> None:
