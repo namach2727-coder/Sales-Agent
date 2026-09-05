@@ -633,6 +633,7 @@ def test_onboarding_store_reaches_ai_with_meta_send_disabled(flow_engine) -> Non
     assert flow["inbound_status"] == "processed"
     assert flow["ai_status"] == "completed"
     assert flow["delivery_status"] == "failed"
+    assert flow["safe_reason"] == "connection_unavailable"
     assert len(responses.calls) == 1
     assert meta.calls == []
 

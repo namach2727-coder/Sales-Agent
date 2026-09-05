@@ -24,6 +24,7 @@ from app.infrastructure.database.repositories.instagram_outbound_repository impo
     InstagramOutboundMessageContext,
     InstagramOutboundRepository,
 )
+from app.instagram_channel.domain import WRITABLE_STORE_STATUSES
 from app.instagram_channel.exceptions import (
     InstagramCredentialConfigurationError,
 )
@@ -355,11 +356,11 @@ def _active_scope(
     if (
         not isinstance(context, TenantStoreContext)
         or context.tenant_status != "active"
-        or context.store_status != "active"
+        or context.store_status not in WRITABLE_STORE_STATUSES
         or context.store_id is None
         or context.store_public_id is None
     ):
-        raise OutboundScopeError("active tenant/store context is required")
+        raise OutboundScopeError("writable tenant/store context is required")
     return (
         context.tenant_id,
         context.store_id,

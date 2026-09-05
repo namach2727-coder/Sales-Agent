@@ -230,6 +230,17 @@ def test_success_uses_trusted_scope_recipient_and_bound_credentials() -> None:
     assert setup.repository.updates[-1]["provider_message_id"] == "meta-message-1"
 
 
+def test_onboarding_store_is_an_eligible_outbound_scope() -> None:
+    setup = _setup()
+
+    result = _deliver(setup, context=_context(store_status="onboarding"))
+
+    assert result.delivered
+    assert setup.repository.get_calls[0]["tenant_id"] == 1
+    assert setup.repository.get_calls[0]["store_id"] == 2
+    assert len(setup.sender.calls) == 1
+
+
 def test_structured_logs_exclude_credentials_recipient_and_message_text(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -303,7 +314,9 @@ def test_invalid_or_unaddressable_message_stops_before_network(
     "context",
     [
         _context(tenant_status="suspended"),
-        _context(store_status="inactive"),
+        _context(store_status="suspended"),
+        _context(store_status="disabled"),
+        _context(store_status="archived"),
         _context(store_id=None),
         _context(store_public_id=None),
     ],
