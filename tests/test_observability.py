@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 
-from app.observability import JsonFormatter
+from app.observability import JsonFormatter, SafeTextFormatter
 
 
 def _record(*, failure_category: str) -> logging.LogRecord:
@@ -50,5 +50,30 @@ def test_json_formatter_drops_unsafe_category_and_unlisted_extras() -> None:
 
     assert payload["message"] == "instagram_ai_flow_ai_failed"
     assert "failure_category" not in payload
+    assert api_key not in formatted
+    assert customer_message not in formatted
+
+
+def test_text_formatter_exposes_sanitized_failure_category() -> None:
+    formatted = SafeTextFormatter("%(message)s").format(
+        _record(failure_category="llm_provider_configuration_error")
+    )
+
+    assert formatted == (
+        "instagram_ai_flow_ai_failed "
+        "failure_category=llm_provider_configuration_error"
+    )
+
+
+def test_text_formatter_drops_unsafe_category_and_unlisted_extras() -> None:
+    api_key = "TEST-API-KEY-MUST-NOT-BE-LOGGED"
+    customer_message = "PRIVATE-CUSTOMER-MESSAGE-MUST-NOT-BE-LOGGED"
+    record = _record(failure_category=f"invalid category {api_key}")
+    record.api_key = api_key
+    record.customer_message = customer_message
+
+    formatted = SafeTextFormatter("%(message)s").format(record)
+
+    assert formatted == "instagram_ai_flow_ai_failed"
     assert api_key not in formatted
     assert customer_message not in formatted

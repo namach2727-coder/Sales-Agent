@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextvars import ContextVar
+from copy import copy
 from datetime import UTC, datetime
 import json
 import logging
@@ -40,6 +41,21 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 
+class SafeTextFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        failure_category = _safe_log_category(
+            getattr(record, "failure_category", None)
+        )
+        if failure_category is None:
+            return super().format(record)
+        safe_record = copy(record)
+        safe_record.msg = (
+            f"{record.getMessage()} failure_category={failure_category}"
+        )
+        safe_record.args = ()
+        return super().format(safe_record)
+
+
 def _safe_log_category(value: object) -> str | None:
     if not isinstance(value, str):
         return None
@@ -60,7 +76,10 @@ def configure_logging(settings: Settings) -> None:
     formatter: logging.Formatter = (
         JsonFormatter()
         if settings.json_logs
-        else logging.Formatter("%(asctime)s %(levelname)s %(name)s [%(message)s] correlation_id=%(correlation_id)s")
+        else SafeTextFormatter(
+            "%(asctime)s %(levelname)s %(name)s [%(message)s] "
+            "correlation_id=%(correlation_id)s"
+        )
     )
     if not settings.json_logs:
         class CorrelationFilter(logging.Filter):
