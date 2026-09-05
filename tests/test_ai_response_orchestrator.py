@@ -10,6 +10,7 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
+import app.application.services.ai_response_orchestrator as orchestrator_module
 from app import models as registered_models  # noqa: F401
 from app.application.knowledge import KnowledgeContext
 from app.application.llm import LLMProviderUnavailableError, LLMResponse
@@ -18,9 +19,10 @@ from app.application.services import (
     AIResponseConversationStateError,
     AIResponseInvalidProviderResultError,
     AIResponseOrchestrator,
+    AIResponseScopeError,
     ConversationService,
 )
-import app.application.services.ai_response_orchestrator as orchestrator_module
+from app.conversation_core.exceptions import ConversationNotFoundError
 from app.conversation_core.models import Conversation, ConversationMessage
 from app.database import Base
 from app.infrastructure.database.repositories import (
@@ -192,15 +194,21 @@ class FakeProvider:
         return self.response  # type: ignore[return-value]
 
 
-def _context() -> TenantStoreContext:
+def _context(
+    *,
+    tenant_id: int = 1,
+    tenant_status: str = "active",
+    store_id: int = 10,
+    store_status: str = "active",
+) -> TenantStoreContext:
     return TenantStoreContext(
-        tenant_id=1,
+        tenant_id=tenant_id,
         tenant_public_id=TENANT_PUBLIC_ID,
-        tenant_status="active",
+        tenant_status=tenant_status,
         membership_id=None,
-        store_id=10,
+        store_id=store_id,
         store_public_id=STORE_PUBLIC_ID,
-        store_status="active",
+        store_status=store_status,
         platform_access=False,
     )
 
@@ -328,6 +336,56 @@ def test_successful_orchestration_invokes_pipeline_and_persists_assistant() -> N
     assert setup.conversation.last_message_at == occurred_at
     assert setup.conversation.last_outbound_message_at == occurred_at
     assert setup.conversation.status == "waiting_for_customer"
+
+
+def test_onboarding_store_invokes_provider_with_trusted_scope() -> None:
+    setup = _orchestrator()
+
+    setup.orchestrator.generate_response(
+        CONVERSATION_PUBLIC_ID,
+        context=_context(store_status="onboarding"),
+    )
+
+    assert setup.provider.calls == [PROMPT_PACKAGE]
+    assert len(setup.messages.create_calls) == 1
+
+
+@pytest.mark.parametrize("store_status", ["suspended", "disabled", "archived"])
+def test_ineligible_store_status_stops_before_provider(store_status: str) -> None:
+    setup = _orchestrator()
+
+    with pytest.raises(AIResponseScopeError):
+        setup.orchestrator.generate_response(
+            CONVERSATION_PUBLIC_ID,
+            context=_context(store_status=store_status),
+        )
+
+    assert setup.provider.calls == []
+    assert setup.messages.create_calls == []
+
+
+@pytest.mark.parametrize(
+    ("tenant_id", "store_id"),
+    [(2, 10), (1, 11)],
+)
+def test_cross_tenant_or_store_scope_remains_rejected(
+    tenant_id: int,
+    store_id: int,
+) -> None:
+    setup = _orchestrator()
+
+    with pytest.raises(ConversationNotFoundError):
+        setup.orchestrator.generate_response(
+            CONVERSATION_PUBLIC_ID,
+            context=_context(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                store_status="onboarding",
+            ),
+        )
+
+    assert setup.provider.calls == []
+    assert setup.messages.create_calls == []
 
 
 def test_token_usage_and_provider_trace_are_persisted_in_metadata() -> None:

@@ -8,6 +8,7 @@ from decimal import Decimal
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
+from app.business_knowledge.domain import WRITABLE_STORE_STATUSES
 from app.business_knowledge.models import (
     BusinessFAQ,
     BusinessKnowledgeEntry,
@@ -112,7 +113,7 @@ class KnowledgeRepository:
                 and_(
                     Store.tenant_id == Tenant.id,
                     Store.public_id == store_public_id,
-                    Store.status == "active",
+                    Store.status.in_(WRITABLE_STORE_STATUSES),
                 ),
             )
             .where(

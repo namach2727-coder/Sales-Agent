@@ -14,6 +14,7 @@ from app.application.prompts import (
     PromptConversationMessage,
 )
 from app.application.services.conversation_service import ConversationService
+from app.business_knowledge.domain import WRITABLE_STORE_STATUSES
 from app.conversation_core.models import Conversation, ConversationMessage
 from app.infrastructure.database.repositories import MessageRepository
 from app.tenant_management.context import TenantStoreContext
@@ -140,11 +141,11 @@ def _active_scope(
         raise AIResponseScopeError("trusted tenant/store context is required")
     if (
         context.tenant_status != "active"
-        or context.store_status != "active"
+        or context.store_status not in WRITABLE_STORE_STATUSES
         or context.store_id is None
         or context.store_public_id is None
     ):
-        raise AIResponseScopeError("active tenant/store context is required")
+        raise AIResponseScopeError("eligible tenant/store context is required")
     return (
         context.tenant_id,
         context.store_id,

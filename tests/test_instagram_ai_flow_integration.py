@@ -162,7 +162,13 @@ def _settings(*, provider: str = "openai", send_enabled: bool = True) -> Setting
     )
 
 
-def _connection(engine, settings: Settings, *, status: str = "active"):
+def _connection(
+    engine,
+    settings: Settings,
+    *,
+    status: str = "active",
+    store_status: str = "active",
+):
     suffix = uuid.uuid4().hex
     with Session(engine, expire_on_commit=False) as db:
         tenant = Tenant(
@@ -176,7 +182,7 @@ def _connection(engine, settings: Settings, *, status: str = "active"):
             tenant_id=tenant.id,
             name="Main",
             slug=f"store-{suffix}",
-            status="active",
+            status=store_status,
             currency_code="IRR",
         )
         db.add(store)
@@ -588,6 +594,42 @@ def test_disabled_meta_send_persists_ai_result_without_calling_sender(
         assert messages[1].metadata_json["last_failure_category"] == (
             "connection_unavailable"
         )
+
+
+def test_onboarding_store_reaches_ai_with_meta_send_disabled(flow_engine) -> None:
+    settings = _settings(send_enabled=False)
+    scope = _connection(flow_engine, settings, store_status="onboarding")
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+
+    response = _post(
+        _client(flow_engine, settings, FakeLLMClient(responses), meta),
+        _payload(scope.connection.instagram_account_id),
+    )
+
+    assert response.status_code == 200
+    flow = response.json()["flows"][0]
+    assert flow["inbound_status"] == "processed"
+    assert flow["ai_status"] == "completed"
+    assert flow["delivery_status"] == "failed"
+    assert len(responses.calls) == 1
+    assert meta.calls == []
+
+    with Session(flow_engine) as db:
+        messages = tuple(
+            db.scalars(
+                select(ConversationMessage)
+                .where(
+                    ConversationMessage.tenant_id == scope.tenant.id,
+                    ConversationMessage.store_id == scope.store.id,
+                )
+                .order_by(ConversationMessage.id)
+            ).all()
+        )
+    assert [message.direction for message in messages] == [
+        "inbound",
+        "outbound",
+    ]
 
 
 def test_duplicate_webhook_skips_second_message_ai_and_meta_call(flow_engine) -> None:
