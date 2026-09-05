@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     telegram_poll_timeout: int = 25
     manychat_dynamic_block_secret: str = ""
     manychat_dynamic_block_secret_file: str | None = None
-    llm_provider: Literal["openai", "ollama"] = "openai"
+    llm_provider: Literal["openai", "ollama", "groq"] = "openai"
     openai_api_key: SecretStr = SecretStr("")
     openai_api_key_file: str | None = None
     openai_model: str = Field(
@@ -108,6 +108,15 @@ class Settings(BaseSettings):
     ollama_context_length: int = Field(default=4096, ge=512, le=262144)
     ollama_max_output_tokens: int = Field(default=128, ge=1, le=4096)
     ollama_thinking_enabled: bool = False
+    groq_api_key: SecretStr = SecretStr("")
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    groq_model: str = Field(default="", max_length=100)
+    groq_timeout_seconds: float = Field(default=60.0, ge=1.0, le=300.0)
+    groq_max_output_tokens: int = Field(default=256, ge=1, le=4096)
+    groq_context_length: int = Field(default=4096, ge=512, le=262144)
+    groq_reasoning_effort: Literal[
+        "none", "default", "low", "medium", "high"
+    ] = "none"
 
     authentication_enabled: bool = True
     legacy_admin_adapter_enabled: bool = True
@@ -182,12 +191,12 @@ class Settings(BaseSettings):
             return value.strip().casefold()
         return value
 
-    @field_validator("ollama_model")
+    @field_validator("ollama_model", "groq_model")
     @classmethod
     def normalize_ollama_model(cls, value: str) -> str:
         normalized = value.strip()
         if "\n" in normalized or "\r" in normalized:
-            raise ValueError("OLLAMA_MODEL must be one line")
+            raise ValueError("LLM model must be one line")
         return normalized
 
     @field_validator("ollama_base_url")
@@ -204,6 +213,22 @@ class Settings(BaseSettings):
             or parsed.fragment
         ):
             raise ValueError("OLLAMA_BASE_URL must be a plain HTTP(S) URL")
+        return normalized
+
+    @field_validator("groq_base_url")
+    @classmethod
+    def validate_groq_base_url(cls, value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        parsed = urlsplit(normalized)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("GROQ_BASE_URL must be a plain HTTP(S) URL")
         return normalized
 
     @field_validator("meta_graph_base_url")
@@ -228,6 +253,15 @@ class Settings(BaseSettings):
             raise ValueError(
                 "OLLAMA_MODEL is required when LLM_PROVIDER=ollama"
             )
+        if self.llm_provider == "groq":
+            if not self.groq_api_key.get_secret_value().strip():
+                raise ValueError(
+                    "GROQ_API_KEY is required when LLM_PROVIDER=groq"
+                )
+            if not self.groq_model:
+                raise ValueError(
+                    "GROQ_MODEL is required when LLM_PROVIDER=groq"
+                )
         return self
 
     @property

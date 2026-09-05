@@ -98,6 +98,24 @@ class FakeLLMClient:
 
     def post(self, url: str, *, json: dict[str, Any]):
         raw = self.responses.create(**json)
+        if url == "chat/completions":
+            return FakeOllamaResponse(
+                {
+                    "id": "fake-provider-request",
+                    "model": json["model"],
+                    "choices": [
+                        {
+                            "message": {"content": raw.output_text},
+                            "finish_reason": "stop",
+                        }
+                    ],
+                    "usage": {
+                        "prompt_tokens": raw.usage.input_tokens,
+                        "completion_tokens": raw.usage.output_tokens,
+                        "total_tokens": raw.usage.total_tokens,
+                    },
+                }
+            )
         return FakeOllamaResponse(
             {
                 "message": {"content": raw.output_text},
@@ -159,6 +177,8 @@ def _settings(*, provider: str = "openai", send_enabled: bool = True) -> Setting
         openai_api_key="fake-openai-key",
         openai_model="fake-openai-model",
         ollama_model="fake-ollama-model",
+        groq_api_key="fake-groq-key",
+        groq_model="qwen/qwen3.6-27b",
     )
 
 
@@ -326,7 +346,7 @@ def _post(client: TestClient, payload: dict[str, Any], *, valid=True):
     )
 
 
-@pytest.mark.parametrize("provider", ["openai", "ollama"])
+@pytest.mark.parametrize("provider", ["openai", "ollama", "groq"])
 def test_supported_webhook_completes_full_flow_with_configured_fake_provider(
     flow_engine,
     provider: str,
@@ -397,6 +417,7 @@ def test_supported_webhook_completes_full_flow_with_configured_fake_provider(
         PLAIN_TOKEN,
         RECIPIENT,
         "fake-openai-key",
+        "fake-groq-key",
     ):
         assert prohibited not in rendered_logs
 
