@@ -15,7 +15,7 @@ from app.authentication import AuthenticationService, PasswordService
 from app.commerce.router import router
 from app.config import Settings, get_settings
 from app.database import get_db
-from app.models import AuthPlatformRoleAssignment, SaasPlan, StoreModule, TenantSubscription
+from app.models import AuthPlatformRoleAssignment, SaasPlan, StoreModule, SubscriptionOrder, Tenant, TenantSubscription
 from tools.seeding import SeedRunner, default_registry
 
 
@@ -149,9 +149,21 @@ def test_approved_plan_catalog_is_backend_authoritative(commerce_api) -> None:
 
 
 def test_registration_login_and_duplicate_are_public_only(commerce_api) -> None:
-    client, _engine, _settings = commerce_api
+    client, engine, _settings = commerce_api
     created = register(client)
     assert set(created) == {"email", "display_name", "tenant_public_id", "tenant_slug", "store_public_id", "store_slug"}
+    with Session(engine) as db:
+        tenant = db.scalar(select(Tenant).where(Tenant.public_id == created["tenant_public_id"]))
+        assert tenant is not None
+        trial_orders = list(db.scalars(select(SubscriptionOrder).where(SubscriptionOrder.tenant_id == tenant.id, SubscriptionOrder.status == "paid")).all())
+        trial_subscriptions = list(db.scalars(select(TenantSubscription).where(TenantSubscription.tenant_id == tenant.id, TenantSubscription.status == "active")).all())
+    assert len(trial_orders) == len(trial_subscriptions) == 1
+    assert trial_subscriptions[0].limits_json == {"reply_limit": 200, "automation_limit": 3, "instagram_account_limit": 1}
+    headers = login(client)
+    trial_plan = next(item for item in client.get("/api/v1/plans").json() if item["code"] == "TRIAL")
+    repeated = client.post("/api/v1/orders", headers=headers, json={"plan_public_id": trial_plan["public_id"]})
+    assert repeated.status_code == 201
+    assert repeated.json()["public_id"] == trial_orders[0].public_id
     duplicate = client.post("/api/v1/auth/register", json={
         "email": "one@example.com", "password": PASSWORD, "display_name": "Duplicate",
         "tenant_name": "Other Tenant", "tenant_slug": "other-tenant", "store_name": "Other Store", "store_slug": "other-store",
@@ -194,7 +206,7 @@ def test_manual_receipt_and_atomic_idempotent_approval(commerce_api) -> None:
     duplicate = client.post(f"/api/v1/admin/payments/{payment['public_id']}/approve", headers=admin_headers, json={"expected_revision": submitted.json()["revision"]})
     assert duplicate.status_code == 200
     with Session(engine) as db:
-        assert len(list(db.scalars(select(TenantSubscription)).all())) == 1
+        assert len(list(db.scalars(select(TenantSubscription)).all())) == 2
         module = db.scalar(select(StoreModule).where(StoreModule.module_code == "sales_agent_core"))
         assert module is not None and module.status == "active" and module.source == "subscription"
     subscription = client.get("/api/v1/subscription/me", headers=customer_headers)

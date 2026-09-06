@@ -134,6 +134,15 @@ class RegistrationService:
                 self.session.add(AuthTenantRoleAssignment(membership_id=membership.id, role_code="tenant_owner", status="active"))
                 self.session.add(IdentityAuditLog(event_code="identity.registered", target_user_id=identity.id, tenant_id=tenant.id))
                 self.session.add(TenantAuditLog(tenant_id=tenant.id, store_id=store.id, actor_identity_id=identity.id, action="tenant.self_registered", target_type="tenant", target_public_id=tenant.public_id, details_json={"initial_store_public_id": store.public_id}))
+                # New customers receive the backend-authoritative Trial plan in
+                # the same transaction as their identity, tenant, and store.
+                # CommerceService owns order/subscription construction so this
+                # registration path cannot drift from normal free-plan orders.
+                CommerceService(self.session).activate_trial(
+                    tenant=tenant,
+                    store=store,
+                    user_id=identity.id,
+                )
             return identity, tenant, store
         except IntegrityError as exc:
             self.session.rollback()
@@ -171,18 +180,29 @@ class CommerceService:
         plan = self.session.scalar(select(SaasPlan).where(SaasPlan.public_id == plan_public_id, SaasPlan.is_active.is_(True)))
         if plan is None:
             raise CommerceNotFound("plan not found")
-        order = SubscriptionOrder(
-            tenant_id=tenant.id,
-            store_id=store.id,
+        if plan.code == "TRIAL":
+            existing_subscription = self.session.scalar(
+                select(TenantSubscription)
+                .where(
+                    TenantSubscription.tenant_id == tenant.id,
+                    TenantSubscription.store_id == store.id,
+                    TenantSubscription.plan_id == plan.id,
+                    TenantSubscription.status == "active",
+                )
+                .order_by(TenantSubscription.id.desc())
+            )
+            if existing_subscription is not None:
+                existing_order = self.session.get(
+                    SubscriptionOrder, existing_subscription.order_id
+                )
+                if existing_order is not None:
+                    return existing_order
+        order = self._create_order(
+            tenant=tenant,
+            store=store,
             user_id=principal.user_id,
-            plan_id=plan.id,
-            status="pending",
-            price_amount=plan.price_amount,
-            currency=plan.currency,
+            plan=plan,
         )
-        self.session.add(order)
-        self.session.flush()
-        self._audit(tenant.id, store.id, principal.user_id, "order.created", "order", order.public_id, {"plan_code": plan.code})
         if plan.price_amount == 0:
             order.status = "paid"
             self._activate_free_subscription(order, plan)
@@ -334,7 +354,76 @@ class CommerceService:
         tenant, store = self.customer_scope(principal)
         return self.session.scalar(select(TenantSubscription).where(TenantSubscription.tenant_id == tenant.id, TenantSubscription.store_id == store.id, TenantSubscription.status == "active").order_by(TenantSubscription.id.desc()))
 
-    def _activate_free_subscription(self, order: SubscriptionOrder, plan: SaasPlan) -> None:
+    def activate_trial(self, *, tenant: Tenant, store: Store, user_id: int) -> TenantSubscription:
+        """Idempotently activate the seeded Trial plan for a new customer.
+
+        The method participates in the caller's transaction and deliberately
+        does not commit.  It reuses the same order and free-subscription
+        primitives as the public order flow, while allowing registration to
+        remain atomic before an authenticated principal exists.
+        """
+        plan = self.session.scalar(
+            select(SaasPlan).where(
+                SaasPlan.code == "TRIAL",
+                SaasPlan.is_active.is_(True),
+            )
+        )
+        if plan is None:
+            raise CommerceConflict("trial plan is unavailable")
+        existing = self.session.scalar(
+            select(TenantSubscription)
+            .where(
+                TenantSubscription.tenant_id == tenant.id,
+                TenantSubscription.store_id == store.id,
+                TenantSubscription.plan_id == plan.id,
+                TenantSubscription.status == "active",
+            )
+            .order_by(TenantSubscription.id.desc())
+        )
+        if existing is not None:
+            return existing
+        order = self._create_order(
+            tenant=tenant,
+            store=store,
+            user_id=user_id,
+            plan=plan,
+        )
+        order.status = "paid"
+        subscription = self._activate_free_subscription(order, plan)
+        self.session.flush()
+        return subscription
+
+    def _create_order(
+        self,
+        *,
+        tenant: Tenant,
+        store: Store,
+        user_id: int,
+        plan: SaasPlan,
+    ) -> SubscriptionOrder:
+        order = SubscriptionOrder(
+            tenant_id=tenant.id,
+            store_id=store.id,
+            user_id=user_id,
+            plan_id=plan.id,
+            status="pending",
+            price_amount=plan.price_amount,
+            currency=plan.currency,
+        )
+        self.session.add(order)
+        self.session.flush()
+        self._audit(
+            tenant.id,
+            store.id,
+            user_id,
+            "order.created",
+            "order",
+            order.public_id,
+            {"plan_code": plan.code},
+        )
+        return order
+
+    def _activate_free_subscription(self, order: SubscriptionOrder, plan: SaasPlan) -> TenantSubscription:
         started_at = now_utc()
         subscription = TenantSubscription(
             tenant_id=order.tenant_id,
@@ -353,6 +442,7 @@ class CommerceService:
         )
         self.session.add(subscription)
         self._apply_plan_modules(order.store_id, plan, subscription)
+        return subscription
 
     @staticmethod
     def _limits(plan: SaasPlan) -> dict[str, int]:
