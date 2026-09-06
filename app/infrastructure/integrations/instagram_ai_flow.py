@@ -9,7 +9,11 @@ from sqlalchemy.orm import Session
 from app.application.integrations import InstagramAIFlowCoordinator
 from app.application.knowledge import KnowledgeEngine
 from app.application.llm import LLMProvider, LLMResponse
-from app.application.prompts import PromptBuilder, PromptPackage
+from app.application.prompts import (
+    PromptBuilder,
+    PromptContextBudget,
+    PromptPackage,
+)
 from app.application.services import (
     AIResponseOrchestrator,
     ConversationService,
@@ -44,6 +48,20 @@ class ConfiguredLLMProvider:
     def __init__(self, settings: Settings, *, client: Any | None = None) -> None:
         self.settings = settings
         self.client = client
+
+    @property
+    def context_budget(self) -> PromptContextBudget | None:
+        if self.settings.llm_provider == "groq":
+            return PromptContextBudget(
+                context_limit=self.settings.groq_context_length,
+                reserved_output_tokens=self.settings.groq_max_output_tokens,
+            )
+        if self.settings.llm_provider == "ollama":
+            return PromptContextBudget(
+                context_limit=self.settings.ollama_context_length,
+                reserved_output_tokens=self.settings.ollama_max_output_tokens,
+            )
+        return None
 
     def generate(self, prompt_package: PromptPackage) -> LLMResponse:
         provider: LLMProvider = build_llm_provider(

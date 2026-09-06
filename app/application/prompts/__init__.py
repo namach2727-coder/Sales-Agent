@@ -5,6 +5,8 @@ from app.application.prompts.prompt_builder import (
     PromptBuilderError,
     PromptBuilderValidationError,
     PromptConversationMessage,
+    PromptContextBudget,
+    PromptContextBudgetError,
     PromptMetadata,
     PromptPackage,
 )
@@ -14,6 +16,8 @@ __all__ = [
     "PromptBuilderError",
     "PromptBuilderValidationError",
     "PromptConversationMessage",
+    "PromptContextBudget",
+    "PromptContextBudgetError",
     "PromptMetadata",
     "PromptPackage",
 ]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -21,6 +22,7 @@ from app.application.knowledge import (
 
 
 MESSAGE_DIRECTIONS = frozenset({"inbound", "outbound", "system"})
+logger = logging.getLogger("sales_assistant.prompts.context_budget")
 
 
 class PromptBuilderError(Exception):
@@ -29,6 +31,45 @@ class PromptBuilderError(Exception):
 
 class PromptBuilderValidationError(PromptBuilderError):
     code = "validation_error"
+
+
+class PromptContextBudgetError(PromptBuilderError):
+    """Mandatory safe prompt content cannot fit the configured context."""
+
+    code = "context_budget_exceeded"
+
+
+@dataclass(frozen=True, slots=True)
+class PromptContextBudget:
+    """Provider-supplied total context contract for prompt construction."""
+
+    context_limit: int
+    reserved_output_tokens: int
+    safety_margin_tokens: int = 64
+
+    def __post_init__(self) -> None:
+        for name in (
+            "context_limit",
+            "reserved_output_tokens",
+            "safety_margin_tokens",
+        ):
+            value = getattr(self, name)
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value < 0
+            ):
+                raise ValueError(f"{name} must be a non-negative integer")
+        if self.input_budget <= 0:
+            raise ValueError("context budget leaves no room for input")
+
+    @property
+    def input_budget(self) -> int:
+        return (
+            self.context_limit
+            - self.reserved_output_tokens
+            - self.safety_margin_tokens
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +120,7 @@ class PromptBuilder:
         recent_messages: Iterable[PromptConversationMessage],
         latest_customer_message: str,
         preferred_language: str | None = None,
+        context_budget: PromptContextBudget | None = None,
     ) -> PromptPackage:
         conversation_key = _public_identifier(
             conversation_public_id,
@@ -107,20 +149,45 @@ class PromptBuilder:
             knowledge_context.knowledge_snippets
         )
 
-        return PromptPackage(
-            system_prompt=_system_prompt(
-                profile=knowledge_context.business_profile,
-                rules=rules,
-                industry_profile=knowledge_context.industry_profile,
-                preferred_language=language,
-            ),
-            user_prompt=_user_prompt(
+        system_prompt = _system_prompt(
+            profile=knowledge_context.business_profile,
+            rules=rules,
+            industry_profile=knowledge_context.industry_profile,
+            preferred_language=language,
+        )
+        selected_messages = messages
+        selected_products = products
+        selected_faqs = faqs
+        selected_snippets = snippets
+        if context_budget is not None:
+            if not isinstance(context_budget, PromptContextBudget):
+                raise PromptBuilderValidationError("context_budget is invalid")
+            (
+                selected_messages,
+                selected_products,
+                selected_faqs,
+                selected_snippets,
+            ) = _bounded_context(
+                system_prompt=system_prompt,
                 messages=messages,
                 products=products,
                 faqs=faqs,
                 snippets=snippets,
                 latest_customer_message=latest_message,
-            ),
+                budget=context_budget,
+            )
+
+        user_prompt = _user_prompt(
+            messages=selected_messages,
+            products=selected_products,
+            faqs=selected_faqs,
+            snippets=selected_snippets,
+            latest_customer_message=latest_message,
+        )
+
+        return PromptPackage(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
             metadata=PromptMetadata(
                 conversation_public_id=conversation_key,
                 preferred_language=language,
@@ -131,17 +198,17 @@ class PromptBuilder:
                     else None
                 ),
                 product_public_ids=tuple(
-                    product.public_id for product in products
+                    product.public_id for product in selected_products
                 ),
-                faq_public_ids=tuple(item.public_id for item in faqs),
+                faq_public_ids=tuple(item.public_id for item in selected_faqs),
                 business_rule_public_ids=tuple(
                     item.public_id for item in rules
                 ),
                 knowledge_snippet_public_ids=tuple(
-                    item.public_id for item in snippets
+                    item.public_id for item in selected_snippets
                 ),
                 recent_message_public_ids=tuple(
-                    message.public_id for message in messages
+                    message.public_id for message in selected_messages
                 ),
                 industry_profile_public_id=(
                     knowledge_context.industry_profile.public_id
@@ -243,6 +310,191 @@ def _industry_lines(profile: IndustryProfileContext | None) -> list[str]:
         lines.extend(["Safety boundaries:"])
         lines.extend(f"- {_single_line(rule)}" for rule in profile.safety_rules)
     return lines
+
+
+def _bounded_context(
+    *,
+    system_prompt: str,
+    messages: tuple[PromptConversationMessage, ...],
+    products: tuple[MatchedProductContext, ...],
+    faqs: tuple[FAQContext, ...],
+    snippets: tuple[KnowledgeSnippetContext, ...],
+    latest_customer_message: str,
+    budget: PromptContextBudget,
+) -> tuple[
+    tuple[PromptConversationMessage, ...],
+    tuple[MatchedProductContext, ...],
+    tuple[FAQContext, ...],
+    tuple[KnowledgeSnippetContext, ...],
+]:
+    """Keep mandatory content, then ranked knowledge, then newest whole turns."""
+
+    empty_user_prompt = _user_prompt(
+        messages=(),
+        products=(),
+        faqs=(),
+        snippets=(),
+        latest_customer_message=latest_customer_message,
+    )
+    if _estimated_tokens(system_prompt, empty_user_prompt) > budget.input_budget:
+        _log_context_budget(
+            budget=budget,
+            estimated_input_tokens=_estimated_tokens(
+                system_prompt, empty_user_prompt
+            ),
+            history_available=len(messages),
+            history_selected=0,
+            knowledge_available=len(products) + len(faqs) + len(snippets),
+            knowledge_selected=0,
+            status="mandatory_context_exceeded",
+        )
+        raise PromptContextBudgetError(
+            "mandatory prompt context exceeds the configured input budget"
+        )
+
+    selected_products: list[MatchedProductContext] = []
+    selected_faqs: list[FAQContext] = []
+    selected_snippets: list[KnowledgeSnippetContext] = []
+    knowledge_candidates = [
+        *(
+            (item.confidence, 0, item.public_id, "product", item)
+            for item in products
+        ),
+        *((item.confidence, 1, item.public_id, "faq", item) for item in faqs),
+        *(
+            (item.confidence, 2, item.public_id, "snippet", item)
+            for item in snippets
+        ),
+    ]
+    for _confidence, _category, _public_id, kind, item in sorted(
+        knowledge_candidates,
+        key=lambda candidate: (-candidate[0], candidate[1], candidate[2]),
+    ):
+        trial_products = [*selected_products]
+        trial_faqs = [*selected_faqs]
+        trial_snippets = [*selected_snippets]
+        if kind == "product":
+            trial_products.append(item)  # type: ignore[arg-type]
+        elif kind == "faq":
+            trial_faqs.append(item)  # type: ignore[arg-type]
+        else:
+            trial_snippets.append(item)  # type: ignore[arg-type]
+        trial_user_prompt = _user_prompt(
+            messages=(),
+            products=_ordered_products(tuple(trial_products)),
+            faqs=_ordered_faqs(tuple(trial_faqs)),
+            snippets=_ordered_snippets(tuple(trial_snippets)),
+            latest_customer_message=latest_customer_message,
+        )
+        if (
+            _estimated_tokens(system_prompt, trial_user_prompt)
+            <= budget.input_budget
+        ):
+            selected_products = trial_products
+            selected_faqs = trial_faqs
+            selected_snippets = trial_snippets
+
+    bounded_products = _ordered_products(tuple(selected_products))
+    bounded_faqs = _ordered_faqs(tuple(selected_faqs))
+    bounded_snippets = _ordered_snippets(tuple(selected_snippets))
+    selected_messages: tuple[PromptConversationMessage, ...] = ()
+    for turn in reversed(_conversation_turns(messages)):
+        trial_messages = (*turn, *selected_messages)
+        trial_user_prompt = _user_prompt(
+            messages=trial_messages,
+            products=bounded_products,
+            faqs=bounded_faqs,
+            snippets=bounded_snippets,
+            latest_customer_message=latest_customer_message,
+        )
+        if _estimated_tokens(system_prompt, trial_user_prompt) > budget.input_budget:
+            break
+        selected_messages = trial_messages
+
+    final_user_prompt = _user_prompt(
+        messages=selected_messages,
+        products=bounded_products,
+        faqs=bounded_faqs,
+        snippets=bounded_snippets,
+        latest_customer_message=latest_customer_message,
+    )
+    _log_context_budget(
+        budget=budget,
+        estimated_input_tokens=_estimated_tokens(
+            system_prompt,
+            final_user_prompt,
+        ),
+        history_available=len(messages),
+        history_selected=len(selected_messages),
+        knowledge_available=len(products) + len(faqs) + len(snippets),
+        knowledge_selected=(
+            len(bounded_products) + len(bounded_faqs) + len(bounded_snippets)
+        ),
+        status=(
+            "trimmed"
+            if len(selected_messages) < len(messages)
+            or len(bounded_products) < len(products)
+            or len(bounded_faqs) < len(faqs)
+            or len(bounded_snippets) < len(snippets)
+            else "within_budget"
+        ),
+    )
+    return selected_messages, bounded_products, bounded_faqs, bounded_snippets
+
+
+def _conversation_turns(
+    messages: tuple[PromptConversationMessage, ...],
+) -> tuple[tuple[PromptConversationMessage, ...], ...]:
+    turns: list[list[PromptConversationMessage]] = []
+    for message in messages:
+        if (
+            message.direction == "inbound"
+            or not turns
+            or turns[-1][-1].direction == "outbound"
+        ):
+            turns.append([message])
+        else:
+            turns[-1].append(message)
+    return tuple(tuple(turn) for turn in turns)
+
+
+def _estimated_tokens(system_prompt: str, user_prompt: str) -> int:
+    """Conservative dependency-free upper bound for tokenizer pieces."""
+
+    return len(system_prompt.encode("utf-8")) + len(user_prompt.encode("utf-8"))
+
+
+def _log_context_budget(
+    *,
+    budget: PromptContextBudget,
+    estimated_input_tokens: int,
+    history_available: int,
+    history_selected: int,
+    knowledge_available: int,
+    knowledge_selected: int,
+    status: str,
+) -> None:
+    logger.info(
+        (
+            "prompt context budget configured_context_limit=%s "
+            "reserved_output_tokens=%s safety_margin_tokens=%s "
+            "estimated_input_tokens=%s history_messages_available=%s "
+            "history_messages_selected=%s history_messages_dropped=%s "
+            "knowledge_chunks_available=%s knowledge_chunks_selected=%s "
+            "context_budget_status=%s"
+        ),
+        budget.context_limit,
+        budget.reserved_output_tokens,
+        budget.safety_margin_tokens,
+        estimated_input_tokens,
+        history_available,
+        history_selected,
+        history_available - history_selected,
+        knowledge_available,
+        knowledge_selected,
+        status,
+        extra={"event_code": "prompt.context_budget"},
+    )
 
 
 def _profile_lines(

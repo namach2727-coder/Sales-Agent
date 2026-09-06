@@ -12,6 +12,7 @@ from app.application.llm import LLMProvider, LLMResponse
 from app.application.prompts import (
     PromptBuilder,
     PromptConversationMessage,
+    PromptContextBudget,
 )
 from app.application.services.conversation_service import ConversationService
 from app.business_knowledge.domain import WRITABLE_STORE_STATUSES
@@ -101,6 +102,7 @@ class AIResponseOrchestrator:
             ),
             latest_customer_message=latest_customer_message.text,
             preferred_language=preferred_language,
+            context_budget=_provider_context_budget(self.llm),
         )
         if before_provider_call is not None:
             before_provider_call()
@@ -235,6 +237,17 @@ def _assistant_metadata(response: LLMResponse) -> dict[str, object]:
         (key, value) for key, value in optional_values if value is not None
     )
     return metadata
+
+
+def _provider_context_budget(
+    provider: LLMProvider,
+) -> PromptContextBudget | None:
+    budget = getattr(provider, "context_budget", None)
+    if budget is None:
+        return None
+    if not isinstance(budget, PromptContextBudget):
+        raise AIResponseOrchestratorError("invalid provider context budget")
+    return budget
 
 
 def _aware_datetime(value: datetime, *, field: str) -> datetime:

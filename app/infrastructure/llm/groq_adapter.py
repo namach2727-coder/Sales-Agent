@@ -22,7 +22,7 @@ from app.application.llm import (
     LLMProviderUnavailableError,
     LLMResponse,
 )
-from app.application.prompts import PromptPackage
+from app.application.prompts import PromptContextBudget, PromptPackage
 
 
 logger = logging.getLogger("sales_assistant.llm.groq")
@@ -84,6 +84,14 @@ class GroqProvider:
                 follow_redirects=False,
                 headers={"Authorization": f"Bearer {credential}"},
             )
+        )
+
+    @property
+    def context_budget(self) -> PromptContextBudget:
+        return PromptContextBudget(
+            context_limit=self.context_length,
+            reserved_output_tokens=self.max_output_tokens,
+            safety_margin_tokens=PROMPT_OVERHEAD_BUDGET,
         )
 
     def generate(self, prompt_package: PromptPackage) -> LLMResponse:

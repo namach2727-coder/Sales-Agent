@@ -65,9 +65,11 @@ class FakeResponses:
         *,
         text: str = ASSISTANT_TEXT,
         error: Exception | None = None,
+        unique_request_ids: bool = False,
     ) -> None:
         self.text = text
         self.error = error
+        self.unique_request_ids = unique_request_ids
         self.calls: list[dict[str, Any]] = []
         self.transaction_probe = None
 
@@ -85,7 +87,11 @@ class FakeResponses:
                 output_tokens=4,
                 total_tokens=14,
             ),
-            _request_id="fake-provider-request",
+            _request_id=(
+                f"fake-provider-request-{len(self.calls)}"
+                if self.unique_request_ids
+                else "fake-provider-request"
+            ),
             status="completed",
             finish_reason="completed",
             incomplete_details=None,
@@ -101,7 +107,7 @@ class FakeLLMClient:
         if url == "chat/completions":
             return FakeOllamaResponse(
                 {
-                    "id": "fake-provider-request",
+                    "id": raw._request_id,
                     "model": json["model"],
                     "choices": [
                         {
@@ -141,20 +147,32 @@ class FakeOllamaResponse:
 
 
 class FakeMetaResponse:
-    def __init__(self, status_code: int = 200) -> None:
+    def __init__(
+        self,
+        status_code: int = 200,
+        *,
+        message_id: str = "meta-message-integration",
+    ) -> None:
         self.status_code = status_code
+        self.message_id = message_id
 
     def json(self) -> dict[str, str]:
         return (
-            {"message_id": "meta-message-integration"}
+            {"message_id": self.message_id}
             if self.status_code == 200
             else {"error": "RAW-META-ERROR-MUST-NOT-LEAK"}
         )
 
 
 class FakeMetaClient:
-    def __init__(self, status_code: int = 200) -> None:
+    def __init__(
+        self,
+        status_code: int = 200,
+        *,
+        unique_message_ids: bool = False,
+    ) -> None:
         self.status_code = status_code
+        self.unique_message_ids = unique_message_ids
         self.calls: list[tuple[str, dict[str, Any]]] = []
         self.transaction_probe = None
 
@@ -162,7 +180,14 @@ class FakeMetaClient:
         if self.transaction_probe is not None:
             self.transaction_probe()
         self.calls.append((url, kwargs))
-        return FakeMetaResponse(self.status_code)
+        return FakeMetaResponse(
+            self.status_code,
+            message_id=(
+                f"meta-message-integration-{len(self.calls)}"
+                if self.unique_message_ids
+                else "meta-message-integration"
+            ),
+        )
 
 
 def _settings(*, provider: str = "openai", send_enabled: bool = True) -> Settings:
@@ -446,6 +471,83 @@ def test_story_reply_reuses_messaging_ai_and_outbound_pipeline(flow_engine) -> N
         )
         assert inbound is not None
         assert inbound.metadata_json["instagram_event_kind"] == "story_reply"
+
+
+def test_story_reply_with_long_history_reaches_groq_after_context_bounding(
+    flow_engine,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    settings = _settings(provider="groq")
+    scope = _connection(flow_engine, settings)
+    responses = FakeResponses(unique_request_ids=True)
+    meta = FakeMetaClient(unique_message_ids=True)
+    client = _client(flow_engine, settings, FakeLLMClient(responses), meta)
+
+    initial = _payload(
+        scope.connection.instagram_account_id,
+        message_id=f"initial-history-{uuid.uuid4().hex}",
+    )
+    assert _post(client, initial).status_code == 200
+
+    history_count = 16
+    base_timestamp_ms = round(datetime.now(UTC).timestamp() * 1000) + 1_000
+    with Session(flow_engine) as db:
+        conversation = db.scalar(
+            select(Conversation).where(
+                Conversation.tenant_id == scope.tenant.id,
+                Conversation.store_id == scope.store.id,
+            )
+        )
+        assert conversation is not None
+        for index in range(history_count):
+            occurred_at = datetime.fromtimestamp(
+                (base_timestamp_ms + index * 2_000) / 1_000,
+                tz=UTC,
+            )
+            db.add(
+                ConversationMessage(
+                    tenant_id=scope.tenant.id,
+                    store_id=scope.store.id,
+                    conversation_id=conversation.id,
+                    instagram_connection_id=scope.connection.id,
+                    idempotency_key=f"seed-outbound-{uuid.uuid4().hex}",
+                    direction="outbound",
+                    content_type="text",
+                    text=f"HISTORY-{index}-" + ("سابقه گفتگو " * 8),
+                    occurred_at=occurred_at,
+                )
+            )
+        db.commit()
+
+    marker = "STORY-LATEST-MARKER"
+    story_payload = _story_reply_payload(scope.connection.instagram_account_id)
+    story_payload["entry"][0]["messaging"][0]["message"]["text"] = marker
+    story_payload["entry"][0]["messaging"][0]["timestamp"] = (
+        base_timestamp_ms + history_count * 2_000
+    )
+    with caplog.at_level(
+        logging.INFO,
+        logger="sales_assistant.prompts.context_budget",
+    ):
+        response = _post(client, story_payload)
+
+    assert response.status_code == 200
+    assert response.json()["flows"][0]["ai_status"] == "completed"
+    assert response.json()["flows"][0]["safe_reason"] is None
+    assert response.json()["flows"][0]["delivery_status"] == "sent"
+    request = responses.calls[-1]
+    system_prompt = request["messages"][0]["content"]
+    user_prompt = request["messages"][1]["content"]
+    assert marker not in system_prompt
+    assert user_prompt.count(marker) == 1
+    assert "Missing, unknown, or not supplied facts must never be invented." in (
+        system_prompt
+    )
+    assert len(system_prompt.encode("utf-8")) + len(
+        user_prompt.encode("utf-8")
+    ) <= 4096 - 256 - 64
+    assert "context_budget_status=trimmed" in caplog.text
+    assert len(responses.calls) == len(meta.calls) == 2
 
 
 def test_comment_reuses_ai_and_sends_one_private_reply(flow_engine) -> None:

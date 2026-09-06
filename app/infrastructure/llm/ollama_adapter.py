@@ -20,7 +20,7 @@ from app.application.llm import (
     LLMProviderUnavailableError,
     LLMResponse,
 )
-from app.application.prompts import PromptPackage
+from app.application.prompts import PromptContextBudget, PromptPackage
 
 
 logger = logging.getLogger("sales_assistant.llm.ollama")
@@ -112,6 +112,13 @@ class OllamaProvider:
             client
             if client is not None
             else httpx.Client(**client_options)
+        )
+
+    @property
+    def context_budget(self) -> PromptContextBudget:
+        return PromptContextBudget(
+            context_limit=self.context_length,
+            reserved_output_tokens=self.max_output_tokens,
         )
 
     def generate(self, prompt_package: PromptPackage) -> LLMResponse:

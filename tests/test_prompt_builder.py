@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import FrozenInstanceError, asdict, fields
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+import logging
 
 import pytest
 
@@ -25,6 +26,8 @@ from app.application.prompts import (
     PromptBuilder,
     PromptBuilderValidationError,
     PromptConversationMessage,
+    PromptContextBudget,
+    PromptContextBudgetError,
     PromptPackage,
 )
 
@@ -148,6 +151,7 @@ def _build(
     messages: tuple[PromptConversationMessage, ...] = (),
     latest: str = "قیمت مانتو چنده؟",
     conversation_public_id: str = CONVERSATION_ID,
+    context_budget: PromptContextBudget | None = None,
 ):
     return PromptBuilder().build(
         knowledge_context=knowledge,
@@ -155,6 +159,7 @@ def _build(
         recent_messages=messages,
         latest_customer_message=latest,
         preferred_language="fa-IR",
+        context_budget=context_budget,
     )
 
 
@@ -322,6 +327,128 @@ def test_conversation_history_is_sorted_and_included() -> None:
         first.public_id,
         second.public_id,
     )
+
+
+def test_short_conversation_is_unchanged_when_it_fits_budget() -> None:
+    messages = (
+        _message(
+            public_id="00000000-0000-4000-8000-000000000062",
+            minute=1,
+            text="سؤال کوتاه",
+        ),
+        _message(
+            public_id="00000000-0000-4000-8000-000000000063",
+            minute=2,
+            text="پاسخ کوتاه",
+            direction="outbound",
+        ),
+    )
+    unbounded = _build(_knowledge(), messages=messages)
+    bounded = _build(
+        _knowledge(),
+        messages=messages,
+        context_budget=PromptContextBudget(4096, 256),
+    )
+
+    assert bounded == unbounded
+
+
+def test_long_history_keeps_newest_whole_turns_and_drops_oldest() -> None:
+    messages = tuple(
+        message
+        for turn in range(4)
+        for message in (
+            _message(
+                public_id=f"00000000-0000-4000-8000-{70 + turn * 2:012d}",
+                minute=turn * 2,
+                text=f"OLD-{turn}-" + ("پرسش " * 45),
+            ),
+            _message(
+                public_id=f"00000000-0000-4000-8000-{71 + turn * 2:012d}",
+                minute=turn * 2 + 1,
+                text=f"ANSWER-{turn}-" + ("پاسخ " * 45),
+                direction="outbound",
+            ),
+        )
+    )
+
+    package = _build(
+        _knowledge(),
+        messages=messages,
+        latest="LATEST-CUSTOMER-MESSAGE",
+        context_budget=PromptContextBudget(1800, 256),
+    )
+
+    assert "OLD-0-" not in package.user_prompt
+    assert "ANSWER-0-" not in package.user_prompt
+    assert "OLD-3-" in package.user_prompt
+    assert "ANSWER-3-" in package.user_prompt
+    assert package.user_prompt.count("LATEST-CUSTOMER-MESSAGE") == 1
+    assert package.metadata.recent_message_public_ids == (
+        messages[-2].public_id,
+        messages[-1].public_id,
+    )
+
+
+def test_relevant_knowledge_is_selected_before_stale_history() -> None:
+    faq = FAQContext(
+        public_id="00000000-0000-4000-8000-000000000090",
+        question="هزینه ارسال چقدر است؟",
+        answer="IMPORTANT-DELIVERY-FACT",
+        confidence=1.0,
+    )
+    stale = _message(
+        public_id="00000000-0000-4000-8000-000000000091",
+        minute=1,
+        text="STALE-HISTORY " + ("قدیمی " * 100),
+    )
+
+    package = _build(
+        _knowledge(faq=(faq,), confidence=1.0),
+        messages=(stale,),
+        context_budget=PromptContextBudget(1400, 256),
+    )
+
+    assert "IMPORTANT-DELIVERY-FACT" in package.user_prompt
+    assert "STALE-HISTORY" not in package.user_prompt
+    assert package.metadata.faq_public_ids == (faq.public_id,)
+    assert package.metadata.recent_message_public_ids == ()
+
+
+def test_mandatory_context_exceeding_budget_fails_closed() -> None:
+    with pytest.raises(PromptContextBudgetError, match="mandatory prompt"):
+        _build(
+            _knowledge(),
+            latest="پیام ضروری مشتری",
+            context_budget=PromptContextBudget(512, 256),
+        )
+
+
+def test_context_budget_observability_is_sanitized(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    private_text = "PRIVATE-CUSTOMER-CONTENT"
+    with caplog.at_level(
+        logging.INFO,
+        logger="sales_assistant.prompts.context_budget",
+    ):
+        _build(
+            _knowledge(),
+            messages=(
+                _message(
+                    public_id="00000000-0000-4000-8000-000000000092",
+                    minute=1,
+                    text=private_text,
+                ),
+            ),
+            context_budget=PromptContextBudget(4096, 256),
+        )
+
+    assert "configured_context_limit=4096" in caplog.text
+    assert "reserved_output_tokens=256" in caplog.text
+    assert "history_messages_available=1" in caplog.text
+    assert "context_budget_status=within_budget" in caplog.text
+    assert private_text not in caplog.text
 
 
 def test_empty_knowledge_produces_a_valid_factual_package() -> None:
