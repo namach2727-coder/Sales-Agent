@@ -112,3 +112,4 @@ class SubscriptionRead(BaseModel):
     limits: dict[str, int]
     starts_at: datetime
     current_period_end: datetime | None
+    effective_capabilities: list[str]

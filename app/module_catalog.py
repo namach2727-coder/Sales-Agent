@@ -7,7 +7,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import Settings
-from app.models import ModuleDefinition, Store, StoreInstagramConnection, StoreModule
+from app.models import (
+    ModuleDefinition,
+    SaasPlan,
+    Store,
+    StoreInstagramConnection,
+    StoreModule,
+    TenantSubscription,
+)
 
 
 @dataclass(frozen=True)
@@ -20,10 +27,36 @@ class ModuleSeed:
     availability: str = "ready"
     dependencies: tuple[str, ...] = ()
     default_limits: dict[str, int] = field(default_factory=dict)
+    is_sellable: bool = True
 
 
 # Prices are initial, provider-editable catalogue prices stored in IRR.
 MODULE_SEEDS = (
+    ModuleSeed(
+        "instagram_automation",
+        "اتوماسیون اینستاگرام",
+        "اجرای اتوماسیون‌های تأییدشده برای حساب متصل اینستاگرام",
+        "sales",
+        0,
+        is_sellable=False,
+    ),
+    ModuleSeed(
+        "knowledge_base",
+        "پایگاه دانش",
+        "مدیریت دانش تأییدشده کسب‌وکار برای پاسخ‌گویی",
+        "sales",
+        0,
+        is_sellable=False,
+    ),
+    ModuleSeed(
+        "ai_assistant",
+        "دستیار هوش مصنوعی",
+        "پاسخ‌گویی هوشمند بر پایه دانش تأییدشده کسب‌وکار",
+        "sales",
+        0,
+        dependencies=("knowledge_base",),
+        is_sellable=False,
+    ),
     ModuleSeed(
         "sales_agent_core",
         "هسته دستیار فروش",
@@ -141,7 +174,7 @@ def seed_module_catalog(db: Session) -> None:
                 dependencies=list(seed.dependencies),
                 default_limits=dict(seed.default_limits),
                 availability=seed.availability,
-                is_sellable=True,
+                is_sellable=seed.is_sellable,
                 sort_order=index,
             )
         )
@@ -236,6 +269,118 @@ def module_enabled(
         if not module_enabled(db, store, str(dependency), now=current, _seen=seen):
             return False
     return True
+
+
+CAPABILITY_CODES: frozenset[str] = frozenset(
+    {"instagram_automation", "knowledge_base", "ai_assistant"}
+)
+
+
+def effective_subscription(
+    db: Session,
+    *,
+    tenant_id: int,
+    store_id: int,
+    now: datetime | None = None,
+) -> TenantSubscription | None:
+    """Return the single deterministic subscription effective for a store."""
+    current = now or datetime.now(UTC)
+    subscription = db.scalar(
+        select(TenantSubscription)
+        .where(
+            TenantSubscription.tenant_id == tenant_id,
+            TenantSubscription.store_id == store_id,
+            TenantSubscription.status == "active",
+        )
+        .order_by(TenantSubscription.starts_at.desc(), TenantSubscription.id.desc())
+    )
+    if subscription is None:
+        return None
+    starts_at = _comparable_time(subscription.starts_at)
+    period_end = _comparable_time(subscription.current_period_end)
+    if starts_at is not None and starts_at > current:
+        return None
+    if period_end is not None and period_end <= current:
+        return None
+    return subscription
+
+
+def effective_capabilities(
+    db: Session,
+    *,
+    tenant_id: int,
+    store_id: int,
+    now: datetime | None = None,
+) -> tuple[str, ...]:
+    """Resolve backend-authoritative plan capabilities for one trusted scope."""
+    store = db.scalar(
+        select(Store).where(Store.id == store_id, Store.tenant_id == tenant_id)
+    )
+    if store is None:
+        return ()
+    current = now or datetime.now(UTC)
+    subscription = effective_subscription(
+        db,
+        tenant_id=tenant_id,
+        store_id=store_id,
+        now=current,
+    )
+    if subscription is None:
+        return ()
+    plan = db.get(SaasPlan, subscription.plan_id)
+    if plan is None:
+        return ()
+    granted = {str(code) for code in (plan.module_codes or [])}
+
+    def capability_enabled(code: str, seen: set[str] | None = None) -> bool:
+        if code not in granted:
+            return False
+        visited = set(seen or ())
+        if code in visited:
+            return False
+        visited.add(code)
+        definition = db.get(ModuleDefinition, code)
+        if definition is None:
+            return False
+        if any(
+            not capability_enabled(str(dependency), visited)
+            for dependency in (definition.dependencies or [])
+        ):
+            return False
+        return module_enabled(db, store, code, now=current)
+
+    return tuple(
+        sorted(
+            code
+            for code in CAPABILITY_CODES.intersection(granted)
+            if capability_enabled(code)
+        )
+    )
+
+
+def has_capability(
+    db: Session,
+    *,
+    tenant_id: int,
+    store_id: int,
+    capability_code: str,
+    now: datetime | None = None,
+) -> bool:
+    """Return whether a canonical capability is effective in a trusted scope."""
+    if capability_code not in CAPABILITY_CODES:
+        return False
+    return capability_code in effective_capabilities(
+        db,
+        tenant_id=tenant_id,
+        store_id=store_id,
+        now=now,
+    )
+
+
+def _comparable_time(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
 def effective_price_irr(entitlement: StoreModule) -> int:

@@ -39,6 +39,7 @@ from app.commerce.storage import LocalPrivateReceiptStorage, ReceiptValidationEr
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.models import ManualPayment, SaasPlan, Store, SubscriptionOrder, Tenant, TenantSubscription
+from app.module_catalog import effective_capabilities
 from app.tenant_management.domain import TenantManagementError
 
 
@@ -241,6 +242,23 @@ def my_subscription(principal: AuthenticatedPrincipal = Depends(require_authenti
             return None
         tenant, store, plan = db.get(Tenant, item.tenant_id), db.get(Store, item.store_id), db.get(SaasPlan, item.plan_id)
         assert tenant is not None and store is not None and plan is not None
-        return SubscriptionRead(public_id=item.public_id, tenant_public_id=tenant.public_id, store_public_id=store.public_id, plan_public_id=plan.public_id, plan_code=plan.code, status=item.status, limits=dict(item.limits_json or {}), starts_at=item.starts_at, current_period_end=item.current_period_end)
+        return SubscriptionRead(
+            public_id=item.public_id,
+            tenant_public_id=tenant.public_id,
+            store_public_id=store.public_id,
+            plan_public_id=plan.public_id,
+            plan_code=plan.code,
+            status=item.status,
+            limits=dict(item.limits_json or {}),
+            starts_at=item.starts_at,
+            current_period_end=item.current_period_end,
+            effective_capabilities=list(
+                effective_capabilities(
+                    db,
+                    tenant_id=tenant.id,
+                    store_id=store.id,
+                )
+            ),
+        )
     except CommerceError as exc:
         _error(exc)

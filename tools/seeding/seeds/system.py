@@ -41,7 +41,7 @@ def seed_module_definitions(context: SeedContext) -> SeedMutation:
                 dependencies=list(item.dependencies),
                 default_limits=dict(item.default_limits),
                 availability=item.availability,
-                is_sellable=True,
+                is_sellable=item.is_sellable,
                 sort_order=index,
             )
         )
@@ -67,7 +67,7 @@ def seed_saas_plans(context: SeedContext) -> SeedMutation:
             "automation_limit": 1,
             "instagram_account_limit": 1,
             "duration_days": None,
-            "module_codes": ["sales_agent_core"],
+            "module_codes": [],
             "is_active": False,
         },
         {
@@ -78,7 +78,11 @@ def seed_saas_plans(context: SeedContext) -> SeedMutation:
             "automation_limit": 3,
             "instagram_account_limit": 1,
             "duration_days": 14,
-            "module_codes": ["sales_agent_core"],
+            "module_codes": [
+                "instagram_automation",
+                "knowledge_base",
+                "ai_assistant",
+            ],
             "is_active": True,
         },
         {
@@ -89,7 +93,7 @@ def seed_saas_plans(context: SeedContext) -> SeedMutation:
             "automation_limit": 10,
             "instagram_account_limit": 1,
             "duration_days": 30,
-            "module_codes": ["sales_agent_core"],
+            "module_codes": ["instagram_automation"],
             "is_active": True,
         },
         {
@@ -100,7 +104,11 @@ def seed_saas_plans(context: SeedContext) -> SeedMutation:
             "automation_limit": 30,
             "instagram_account_limit": 1,
             "duration_days": 30,
-            "module_codes": ["sales_agent_core"],
+            "module_codes": [
+                "instagram_automation",
+                "knowledge_base",
+                "ai_assistant",
+            ],
             "is_active": True,
         },
     )

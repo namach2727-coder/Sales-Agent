@@ -8,7 +8,7 @@ from app.config import Settings
 from app.catalog_training import ensure_default_store
 from app.database import Base, get_db
 from app.main import app, settings
-from app.module_catalog import ensure_store_modules
+from app.module_catalog import MODULE_SEEDS, ensure_store_modules
 from app.tenancy import normalize_store_slug, parse_tenant_slug
 
 
@@ -59,7 +59,7 @@ def test_legacy_store_gets_separately_priced_default_modules(module_client) -> N
     assert response.status_code == 200
     payload = response.json()
     assert payload["store"]["subdomain"] == "default.agent.example.test"
-    assert len(payload["modules"]) == 9
+    assert len(payload["modules"]) == len(MODULE_SEEDS)
     modules = {item["code"]: item for item in payload["modules"]}
     assert modules["sales_agent_core"]["enabled"] is True
     assert modules["comments_to_dm"]["enabled"] is True

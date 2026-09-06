@@ -141,6 +141,13 @@ def test_approved_plan_catalog_is_backend_authoritative(commerce_api) -> None:
         "START": (2_990_000, 30, 1_500, 10, 1, True),
         "PRO": (6_990_000, 30, 5_000, 30, 1, True),
     }
+    assert {
+        code: set(plan.module_codes or []) for code, plan in plans.items()
+    } == {
+        "TRIAL": {"instagram_automation", "knowledge_base", "ai_assistant"},
+        "START": {"instagram_automation"},
+        "PRO": {"instagram_automation", "knowledge_base", "ai_assistant"},
+    }
     public = {item["code"]: item for item in client.get("/api/v1/plans").json()}
     assert "FREE" not in public
     assert public["TRIAL"]["duration_days"] == 14
@@ -160,6 +167,13 @@ def test_registration_login_and_duplicate_are_public_only(commerce_api) -> None:
     assert len(trial_orders) == len(trial_subscriptions) == 1
     assert trial_subscriptions[0].limits_json == {"reply_limit": 200, "automation_limit": 3, "instagram_account_limit": 1}
     headers = login(client)
+    subscription = client.get("/api/v1/subscription/me", headers=headers)
+    assert subscription.status_code == 200
+    assert set(subscription.json()["effective_capabilities"]) == {
+        "instagram_automation",
+        "knowledge_base",
+        "ai_assistant",
+    }
     trial_plan = next(item for item in client.get("/api/v1/plans").json() if item["code"] == "TRIAL")
     repeated = client.post("/api/v1/orders", headers=headers, json={"plan_public_id": trial_plan["public_id"]})
     assert repeated.status_code == 201

@@ -29,6 +29,7 @@ from app.models import (
     UserIdentity,
 )
 from app.tenant_management.domain import normalize_name, normalize_slug, normalize_subdomain
+from app.module_catalog import effective_subscription
 
 
 class CommerceError(Exception):
@@ -352,7 +353,11 @@ class CommerceService:
 
     def subscription(self, principal: AuthenticatedPrincipal) -> TenantSubscription | None:
         tenant, store = self.customer_scope(principal)
-        return self.session.scalar(select(TenantSubscription).where(TenantSubscription.tenant_id == tenant.id, TenantSubscription.store_id == store.id, TenantSubscription.status == "active").order_by(TenantSubscription.id.desc()))
+        return effective_subscription(
+            self.session,
+            tenant_id=tenant.id,
+            store_id=store.id,
+        )
 
     def activate_trial(self, *, tenant: Tenant, store: Store, user_id: int) -> TenantSubscription:
         """Idempotently activate the seeded Trial plan for a new customer.

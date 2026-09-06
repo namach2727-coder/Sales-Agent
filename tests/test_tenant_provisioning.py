@@ -17,6 +17,7 @@ from app.models import (
     StoreModule,
     TenantMembership,
 )
+from app.module_catalog import MODULE_SEEDS
 from app.provisioning import (
     ProvisioningConflictError,
     ProvisioningExecutionError,
@@ -96,7 +97,7 @@ def test_valid_provisioning_is_atomic_audited_and_tenant_scoped(
         rows = list(
             session.scalars(select(StoreModule).where(StoreModule.store_id == store.id))
         )
-        assert len(rows) == definition_count == 9
+        assert len(rows) == definition_count == len(MODULE_SEEDS)
         assert all(row.store_id == store.id and row.status == "inactive" for row in rows)
         history = list(session.scalars(select(SeedHistory).order_by(SeedHistory.id)))
         assert [row.tenant_id for row in history] == [None, store.id]
@@ -233,7 +234,7 @@ def test_provisioning_tenant_a_does_not_modify_tenant_b(
                 select(StoreModule).where(StoreModule.store_id == beta.tenant_id)
             )
         )
-        assert len(beta_rows) == 9
+        assert len(beta_rows) == len(MODULE_SEEDS)
         beta_core = next(row for row in beta_rows if row.module_code == "sales_agent_core")
         assert beta_core.status == "active"
         assert beta_core.limits_json == {"manager_owned": 77}
