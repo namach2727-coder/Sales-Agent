@@ -68,6 +68,7 @@ POST_BASELINE_TABLES = {
     "tenant_subscriptions",
     "commerce_audit_logs",
     "instagram_oauth_states",
+    "automation_rules",
 }
 BASELINE_TABLES = (
     set(Base.metadata.tables) - POST_BASELINE_TABLES - {"legacy_conversations"}
@@ -212,7 +213,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0014_transport_neutral_inbound"]
+    assert scripts.get_heads() == ["0015_automation_rules"]
     baseline = scripts.get_revision("0001_baseline_schema")
     seed_history = scripts.get_revision("0002_create_seed_history")
     rbac = scripts.get_revision("0003_authorization_rbac")
@@ -226,7 +227,8 @@ def test_alembic_loads_with_one_linear_head() -> None:
     instagram_onboarding = scripts.get_revision("0011_instagram_oauth_onboarding")
     billing_duration = scripts.get_revision("0012_plan_billing_duration")
     store_automation = scripts.get_revision("0013_store_automation_control")
-    head = scripts.get_revision("0014_transport_neutral_inbound")
+    transport_neutral = scripts.get_revision("0014_transport_neutral_inbound")
+    head = scripts.get_revision("0015_automation_rules")
     assert baseline is not None and baseline.down_revision is None
     assert seed_history is not None and seed_history.down_revision == "0001_baseline_schema"
     assert rbac is not None and rbac.down_revision == "0002_create_seed_history"
@@ -240,7 +242,8 @@ def test_alembic_loads_with_one_linear_head() -> None:
     assert instagram_onboarding is not None and instagram_onboarding.down_revision == "0010_saas_commerce"
     assert billing_duration is not None and billing_duration.down_revision == "0011_instagram_oauth_onboarding"
     assert store_automation is not None and store_automation.down_revision == "0012_plan_billing_duration"
-    assert head is not None and head.down_revision == "0013_store_automation_control"
+    assert transport_neutral is not None and transport_neutral.down_revision == "0013_store_automation_control"
+    assert head is not None and head.down_revision == "0014_transport_neutral_inbound"
 
 
 @requires_alembic
@@ -295,6 +298,7 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
+        "0015_automation_rules",
         "0014_transport_neutral_inbound",
         "0013_store_automation_control",
         "0012_plan_billing_duration",

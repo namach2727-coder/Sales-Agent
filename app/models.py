@@ -1089,3 +1089,6 @@ from app.instagram_channel import models as instagram_channel_models  # noqa: E4
 
 # Register FOUNDATION-09A tenant/store-scoped conversation persistence tables.
 from app.conversation_core import models as conversation_core_models  # noqa: E402,F401
+
+# Register Phase B automation rule persistence with the shared metadata.
+from app.automation_rules import models as automation_rule_models  # noqa: E402,F401
