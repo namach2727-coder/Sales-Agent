@@ -16,6 +16,7 @@ from app.authentication.dependencies import require_authenticated_principal
 from app.authz.permissions import PermissionCode
 from app.config import Settings, get_settings
 from app.automation.service import automation_is_enabled
+from app.automation_rules.runtime import InstagramAutomationRuleRuntime
 from app.database import get_db
 from app.instagram_channel.exceptions import (
     InstagramChannelConflictError,
@@ -55,7 +56,11 @@ from app.instagram_channel.service import (
 )
 from app.infrastructure.integrations import (
     build_instagram_ai_flow_coordinator,
+    build_instagram_outbound_delivery,
 )
+from app.infrastructure.database.repositories import ConversationRepository, MessageRepository
+from app.application.services import ConversationService
+from app.module_catalog import has_capability
 from app.observability import correlation_id
 from app.tenant_management.context import (
     TenantStoreContext,
@@ -80,6 +85,27 @@ def get_instagram_ai_flow_builder() -> Callable[..., object]:
     """Injectable construction seam; performs no network activity."""
 
     return build_instagram_ai_flow_coordinator
+
+
+def get_instagram_automation_runtime_builder() -> Callable[..., object]:
+    """Injectable deterministic runtime seam; performs no network activity."""
+
+    def build(session: Session, settings: Settings) -> InstagramAutomationRuleRuntime:
+        return InstagramAutomationRuleRuntime(
+            session,
+            conversation_service=ConversationService(
+                ConversationRepository(session), MessageRepository(session)
+            ),
+            outbound_delivery=build_instagram_outbound_delivery(session, settings),
+        )
+
+    return build
+
+
+def get_instagram_capability_checker() -> Callable[..., bool]:
+    """Inject the backend-authoritative capability resolver."""
+
+    return has_capability
 
 
 def _raise(error: Exception) -> None:
@@ -204,6 +230,12 @@ async def receive_instagram_webhook(
     ai_flow_builder: Callable[..., object] = Depends(
         get_instagram_ai_flow_builder
     ),
+    automation_runtime_builder: Callable[..., object] = Depends(
+        get_instagram_automation_runtime_builder
+    ),
+    capability_checker: Callable[..., bool] = Depends(
+        get_instagram_capability_checker
+    ),
 ) -> dict[str, object]:
     raw_body = await request.body()
     signature = request.headers.get("x-hub-signature-256")
@@ -276,6 +308,74 @@ async def receive_instagram_webhook(
                             "inbound_message_public_id": item.inbound.message_public_id,
                             "assistant_message_public_id": None,
                             "safe_reason": "automation_disabled",
+                        }
+                    )
+                    continue
+                automation = automation_runtime_builder(db, settings)
+                automation_result = automation.process(
+                    conversation_public_id=item.inbound.conversation_public_id,
+                    inbound_message_public_id=item.inbound.message_public_id,
+                    context=item.context,
+                    correlation_id=correlation_id.get(),
+                )
+                if automation_result.handled:
+                    flow_results.append(
+                        {
+                            "acknowledged": True,
+                            "inbound_status": item.inbound.status,
+                            "ai_status": "skipped",
+                            "delivery_status": automation_result.delivery_status,
+                            "duplicate": False,
+                            "ignored": False,
+                            "correlation_id": correlation_id.get(),
+                            "conversation_public_id": item.inbound.conversation_public_id,
+                            "inbound_message_public_id": item.inbound.message_public_id,
+                            "assistant_message_public_id": automation_result.outbound_message_public_id,
+                            "safe_reason": automation_result.safe_reason,
+                        }
+                    )
+                    continue
+                if not capability_checker(
+                    db,
+                    tenant_id=item.context.tenant_id,
+                    store_id=item.context.store_id,
+                    capability_code="ai_assistant",
+                ):
+                    flow_results.append(
+                        {
+                            "acknowledged": True,
+                            "inbound_status": item.inbound.status,
+                            "ai_status": "skipped",
+                            "delivery_status": "skipped",
+                            "duplicate": False,
+                            "ignored": False,
+                            "correlation_id": correlation_id.get(),
+                            "conversation_public_id": item.inbound.conversation_public_id,
+                            "inbound_message_public_id": item.inbound.message_public_id,
+                            "assistant_message_public_id": None,
+                            "safe_reason": "ai_capability_unavailable",
+                        }
+                    )
+                    continue
+                if not capability_checker(
+                    db,
+                    tenant_id=item.context.tenant_id,
+                    store_id=item.context.store_id,
+                    capability_code="knowledge_base",
+                ):
+                    flow_results.append(
+                        {
+                            "acknowledged": True,
+                            "inbound_status": item.inbound.status,
+                            "ai_status": "skipped",
+                            "delivery_status": "skipped",
+                            "duplicate": False,
+                            "ignored": False,
+                            "correlation_id": correlation_id.get(),
+                            "conversation_public_id": item.inbound.conversation_public_id,
+                            "inbound_message_public_id": item.inbound.message_public_id,
+                            "assistant_message_public_id": None,
+                            "safe_reason": "knowledge_capability_unavailable",
                         }
                     )
                     continue

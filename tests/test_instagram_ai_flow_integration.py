@@ -20,14 +20,23 @@ from sqlalchemy.orm import Session
 from app import models as registered_models  # noqa: F401
 from app.config import Settings, get_settings
 from app.conversation_core.models import Conversation, ConversationMessage
+from app.application.services import ConversationService
+from app.automation_rules.models import AutomationRule
+from app.automation_rules.runtime import InstagramAutomationRuleRuntime
 from app.database import Base, get_db
-from app.infrastructure.integrations import build_instagram_ai_flow_coordinator
+from app.infrastructure.database.repositories import ConversationRepository, MessageRepository
+from app.infrastructure.integrations import (
+    build_instagram_ai_flow_coordinator,
+    build_instagram_outbound_delivery,
+)
 from app.instagram_channel.models import (
     InstagramConnection,
     InstagramInboundEvent,
     InstagramWebhookDelivery,
 )
 from app.instagram_channel.router import (
+    get_instagram_automation_runtime_builder,
+    get_instagram_capability_checker,
     get_instagram_ai_flow_builder,
     public_router,
 )
@@ -328,6 +337,11 @@ def _client(
     settings: Settings,
     llm: FakeLLMClient,
     meta: FakeMetaClient,
+    *,
+    capabilities: frozenset[str] = frozenset(
+        {"instagram_automation", "knowledge_base", "ai_assistant"}
+    ),
+    real_automation: bool = False,
 ) -> TestClient:
     application = FastAPI()
     application.add_middleware(CorrelationIdMiddleware)
@@ -355,6 +369,33 @@ def _client(
     application.dependency_overrides[
         get_instagram_ai_flow_builder
     ] = lambda: builder
+    application.dependency_overrides[get_instagram_capability_checker] = lambda: (
+        lambda *_args, **kwargs: kwargs["capability_code"] in capabilities
+    )
+
+    class NoMatchingAutomation:
+        def process(self, **_kwargs):
+            return SimpleNamespace(handled=False)
+
+    def automation_builder(db: Session, selected_settings: Settings):
+        if not real_automation:
+            return NoMatchingAutomation()
+        return InstagramAutomationRuleRuntime(
+            db,
+            conversation_service=ConversationService(
+                ConversationRepository(db), MessageRepository(db)
+            ),
+            outbound_delivery=build_instagram_outbound_delivery(
+                db, selected_settings, instagram_client=meta
+            ),
+            capability_checker=lambda *_args, **kwargs: (
+                kwargs["capability_code"] in capabilities
+            ),
+        )
+
+    application.dependency_overrides[
+        get_instagram_automation_runtime_builder
+    ] = lambda: automation_builder
     return TestClient(application)
 
 
@@ -369,6 +410,220 @@ def _post(client: TestClient, payload: dict[str, Any], *, valid=True):
             "x-request-id": "public-flow-correlation",
         },
     )
+
+
+def _add_rule(
+    engine,
+    scope,
+    *,
+    trigger="DM_KEYWORD",
+    match_type="CONTAINS",
+    keyword=CUSTOMER_TEXT,
+    text="AUTOMATION-RESPONSE",
+    priority=100,
+    enabled=True,
+):
+    with Session(engine) as db:
+        rule = AutomationRule(
+            tenant_id=scope.tenant.id,
+            store_id=scope.store.id,
+            name="Runtime rule",
+            enabled=enabled,
+            trigger_type=trigger,
+            match_type=match_type,
+            keywords=[keyword],
+            action_type=(
+                "SEND_PRIVATE_MESSAGE" if trigger == "COMMENT_KEYWORD" else "SEND_MESSAGE"
+            ),
+            action_payload={"text": text},
+            priority=priority,
+        )
+        db.add(rule)
+        db.commit()
+        return rule.public_id
+
+
+@pytest.mark.parametrize(
+    ("trigger", "payload_factory"),
+    (
+        ("DM_KEYWORD", lambda account: _payload(account)),
+        ("STORY_REPLY_KEYWORD", lambda account: _story_reply_payload(account)),
+        ("COMMENT_KEYWORD", lambda account: _comment_payload(account)),
+    ),
+)
+def test_matching_rule_uses_transport_and_never_enters_ai(
+    flow_engine, trigger, payload_factory
+):
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    _add_rule(flow_engine, scope, trigger=trigger)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    response = _post(
+        _client(
+            flow_engine, settings, FakeLLMClient(responses), meta,
+            real_automation=True,
+        ),
+        payload_factory(scope.connection.instagram_account_id),
+    )
+
+    assert response.status_code == 200
+    flow = response.json()["flows"][0]
+    assert flow["ai_status"] == "skipped"
+    assert flow["delivery_status"] == "sent"
+    assert responses.calls == []
+    assert len(meta.calls) == 1
+    assert meta.calls[0][1]["json"]["message"]["text"] == "AUTOMATION-RESPONSE"
+    if trigger == "COMMENT_KEYWORD":
+        assert "comment_id" in meta.calls[0][1]["json"]["recipient"]
+
+
+def test_priority_and_stable_tie_break_execute_exactly_one_rule(flow_engine):
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    _add_rule(flow_engine, scope, text="LOW", priority=10)
+    _add_rule(flow_engine, scope, text="FIRST-HIGH", priority=200)
+    _add_rule(flow_engine, scope, text="SECOND-HIGH", priority=200)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    response = _post(
+        _client(flow_engine, settings, FakeLLMClient(responses), meta, real_automation=True),
+        _payload(scope.connection.instagram_account_id),
+    )
+    assert response.status_code == 200
+    assert len(meta.calls) == 1
+    assert meta.calls[0][1]["json"]["message"]["text"] == "FIRST-HIGH"
+    assert responses.calls == []
+
+
+def test_start_no_match_and_matched_delivery_failure_never_fall_through_to_ai(
+    flow_engine,
+):
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    start_client = _client(
+        flow_engine, settings, FakeLLMClient(responses), meta,
+        capabilities=frozenset({"instagram_automation"}), real_automation=True,
+    )
+    no_match = _post(start_client, _payload(scope.connection.instagram_account_id))
+    assert no_match.json()["flows"][0]["safe_reason"] == "ai_capability_unavailable"
+    assert responses.calls == meta.calls == []
+
+    _add_rule(flow_engine, scope)
+    failing_meta = FakeMetaClient(status_code=500)
+    failed = _post(
+        _client(
+            flow_engine, settings, FakeLLMClient(responses), failing_meta,
+            capabilities=frozenset({"instagram_automation"}), real_automation=True,
+        ),
+        _payload(scope.connection.instagram_account_id),
+    )
+    assert failed.json()["flows"][0]["delivery_status"] == "failed"
+    assert responses.calls == []
+    assert len(failing_meta.calls) == 1
+
+
+def test_human_active_suppresses_rule_and_ai_and_duplicate_does_not_send(
+    flow_engine,
+):
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    _add_rule(flow_engine, scope)
+    with Session(flow_engine) as db:
+        db.add(
+            Conversation(
+                tenant_id=scope.tenant.id,
+                store_id=scope.store.id,
+                instagram_connection_id=scope.connection.id,
+                provider_participant_key=RECIPIENT,
+                status="human_active",
+            )
+        )
+        db.commit()
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    client = _client(
+        flow_engine, settings, FakeLLMClient(responses), meta, real_automation=True
+    )
+    payload = _payload(scope.connection.instagram_account_id)
+    first = _post(client, payload)
+    duplicate = _post(client, payload)
+    assert first.json()["flows"][0]["safe_reason"] == "conversation_human_active"
+    assert duplicate.json()["duplicate"] is True
+    assert responses.calls == meta.calls == []
+
+
+def test_no_automation_capability_falls_back_to_ai_when_ai_is_entitled(flow_engine):
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    _add_rule(flow_engine, scope)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    response = _post(
+        _client(
+            flow_engine, settings, FakeLLMClient(responses), meta,
+            capabilities=frozenset({"knowledge_base", "ai_assistant"}),
+            real_automation=True,
+        ),
+        _payload(scope.connection.instagram_account_id),
+    )
+    assert response.json()["flows"][0]["ai_status"] == "completed"
+    assert len(responses.calls) == len(meta.calls) == 1
+
+
+def test_disabled_and_wrong_trigger_rules_are_ignored(flow_engine):
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    _add_rule(flow_engine, scope, enabled=False)
+    _add_rule(flow_engine, scope, trigger="STORY_REPLY_KEYWORD")
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    response = _post(
+        _client(
+            flow_engine, settings, FakeLLMClient(responses), meta,
+            capabilities=frozenset({"instagram_automation"}), real_automation=True,
+        ),
+        _payload(scope.connection.instagram_account_id),
+    )
+    assert response.json()["flows"][0]["safe_reason"] == "ai_capability_unavailable"
+    assert responses.calls == meta.calls == []
+
+
+def test_rule_scope_cannot_cross_tenant_or_store(flow_engine):
+    settings = _settings()
+    target = _connection(flow_engine, settings)
+    other = _connection(flow_engine, settings)
+    _add_rule(flow_engine, other)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    response = _post(
+        _client(
+            flow_engine, settings, FakeLLMClient(responses), meta,
+            capabilities=frozenset({"instagram_automation"}), real_automation=True,
+        ),
+        _payload(target.connection.instagram_account_id),
+    )
+    assert response.json()["flows"][0]["safe_reason"] == "ai_capability_unavailable"
+    assert responses.calls == meta.calls == []
+
+
+def test_no_effective_capabilities_fail_closed_before_rule_or_ai(flow_engine):
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    _add_rule(flow_engine, scope)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    response = _post(
+        _client(
+            flow_engine, settings, FakeLLMClient(responses), meta,
+            capabilities=frozenset(), real_automation=True,
+        ),
+        _payload(scope.connection.instagram_account_id),
+    )
+    assert response.json()["flows"][0]["safe_reason"] == "ai_capability_unavailable"
+    assert responses.calls == meta.calls == []
 
 
 @pytest.mark.parametrize("provider", ["openai", "ollama", "groq"])

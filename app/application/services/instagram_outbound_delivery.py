@@ -379,12 +379,16 @@ def _validate_message(message: InstagramOutboundMessageContext) -> None:
         metadata.get("author_type") == "human"
         and metadata.get("source") == "inbox_manual_reply"
     )
+    is_automation = (
+        metadata.get("author_type") == "automation"
+        and metadata.get("source") == "automation_rule"
+    )
     if (
         message.direction != "outbound"
         or message.content_type != "text"
         or message.text is None
         or not message.text.strip()
-        or not (is_ai or is_human)
+        or not (is_ai or is_human or is_automation)
     ):
         raise OutboundInvalidMessageError(
             "message is not a deliverable text"
