@@ -16,8 +16,11 @@ backend lineage. It must not be treated as the backend RC source.
 
 ## Current phase
 
-DirectPilot MVP customer Final-UAT API completion. Production is not
-provisioned or deployed.
+`AUTOMATION_AI_PHASE_A_CAPABILITY_LIFECYCLE` is complete and released on
+`backend-main` at commit
+`74991049f66a5943eba162baac6e5d70eb8c3fc0`. The current/next delivery phase is
+**Phase B: AutomationRule Domain + CRUD**. Phase B does not include Instagram
+runtime interception or AI fallback routing.
 
 ## Architecture and implemented MVP
 
@@ -51,11 +54,14 @@ The validated linear chain is:
 -> `0011_instagram_oauth_onboarding`
 -> `0012_plan_billing_duration`
 -> `0013_store_automation_control`
+-> `0014_transport_neutral_inbound`
 
-Current source Alembic head is `0013_store_automation_control`; current UAT
+Current source Alembic head is `0014_transport_neutral_inbound`; current UAT
 remains safely unchanged at `0012_plan_billing_duration` until the normal
 forward migration is deployed. Revision 0013 adds only the store-owned,
-revisioned automation switch with a safe default of enabled for existing rows.
+revisioned automation switch with a safe default of enabled for existing rows;
+revision 0014 adds transport-neutral inbound processing without changing the
+legacy webhook contract.
 
 The 0010-0012 files are byte-identical between the reviewed RC source and the
 running UAT image. They are tracked by the canonical RC commit and must remain
@@ -109,9 +115,9 @@ touching UAT:
 
 ## Validation evidence
 
-- Migration policy: one head (`0013_store_automation_control`), schema drift check
+- Migration policy: one head (`0014_transport_neutral_inbound`), schema drift check
   and base -> head -> base -> head checks pass.
-- Full SQLite: `620 passed, 4 skipped`.
+- Full SQLite: `635 passed, 4 skipped` (RELEASE-01 validation).
 - PostgreSQL: fresh database -> `0013` passed; full suite produced `620 passed,
   2 skipped` plus two receipt tests blocked only by Windows path length, and
   both blocked tests passed when rerun with a shorter workspace temp path.
@@ -129,26 +135,156 @@ touching UAT:
   completed with **654 passed, 4 skipped**. Frontend checks after the V2
   questionnaire changes: **86 passed**, TypeScript, ESLint, build, and
   diff-check pass.
+- Automation/AI Phase A validation: capability-focused tests **14 passed**;
+  commerce/module tests **50 passed**; final focused tests **20 passed**; final
+  full backend regression **727 passed, 4 skipped**. Compile, diff, focused
+  secret review, tenant isolation, store isolation, and security checks pass.
+- Phase A was pushed to `backend-main` at
+  `74991049f66a5943eba162baac6e5d70eb8c3fc0`. Render `/live`, `/ready`, and
+  `/version` returned HTTP 200 after the release check. The public endpoints do
+  not expose the active deployment SHA, so exact Render commit verification is
+  **MANUAL_REQUIRED**; this is not a functional blocker.
 
 The recurring Windows pytest temporary-directory cleanup warning happens after
 successful test completion and does not change the passing exit status.
 
 ## Remaining P0 blockers
 
-1. Apply the normal forward-only `0012` -> `0013` migration to disposable UAT,
-   deploy the updated backend, and complete the 15-step customer Final-UAT.
-2. Provision the always-on Linux Docker host, DNS/TLS reverse proxy, off-host
+1. Configure and verify Render UAT `META_APP_ID` and
+   `META_OAUTH_REDIRECT_URI` (`https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback`);
+   local provider validation is complete but Render control is unavailable in
+   this environment, so `/connect` readiness remains unverified.
+2. Apply the normal forward-only `0012` -> `0014` migration chain to disposable
+   UAT, deploy the updated backend, and complete the customer Final-UAT.
+3. Provision the always-on Linux Docker host, DNS/TLS reverse proxy, off-host
    backup destination, monitoring/operator ownership, and production-only
    secrets.
-3. Perform and evidence production PostgreSQL backup/restore rehearsal before
+4. Perform and evidence production PostgreSQL backup/restore rehearsal before
    migrating real data.
-4. Complete production Meta application review/configuration and controlled
+5. Complete production Meta application review/configuration and controlled
    webhook/outbound acceptance without reusing UAT assets.
-5. Select and configure the existing external AI-provider adapter (or a
+6. Select and configure the existing external AI-provider adapter (or a
    deliberately operated non-laptop Ollama endpoint).
 
 ## Exact next action
 
-Integrate the documented knowledge, inbox, automation, and OAuth redirect
-contracts in `directpilot-web`, then run its customer Final-UAT against an
-updated disposable UAT deployment.
+Implement Phase B, limited to the tenant/store-owned `AutomationRule` domain
+and CRUD contract: trigger and match types, keywords, actions, priority,
+revision, validation, the `instagram_automation` entitlement gate, and the
+appropriate `automation_limit` decision/enforcement. Do not add Instagram
+runtime interception, AI fallback routing, or LLM execution changes in Phase B.
+
+## Automation and AI capability lifecycle
+
+Phase A status: **PASS**.
+
+The backend-authoritative canonical capability codes are:
+
+- `instagram_automation`
+- `knowledge_base`
+- `ai_assistant`
+
+The controlled plan mapping is:
+
+| Plan | Effective capability grants |
+|---|---|
+| TRIAL | `instagram_automation`, `knowledge_base`, `ai_assistant` |
+| START | `instagram_automation` |
+| PRO | `instagram_automation`, `knowledge_base`, `ai_assistant` |
+
+Runtime authorization foundations are capability-based and never depend on a
+display plan name or a frontend claim. The canonical implementation in
+`app/module_catalog.py` provides `effective_subscription()`,
+`effective_capabilities()`, and `has_capability()`.
+
+The latest tenant/store-scoped active subscription, ordered by `starts_at` and
+then internal ID, controls effective capabilities. Capabilities are never
+unioned across arbitrary simultaneous active subscriptions. An expired or
+not-yet-started effective subscription grants no capabilities. Resolution also
+requires the plan grant, valid module definition, valid `StoreModule` state and
+time bounds, and valid dependencies.
+
+On PRO -> START, `instagram_automation` remains enabled while `knowledge_base`
+and `ai_assistant` become ineffective. On START -> PRO, all three become
+effective. Downgrades do not delete Knowledge records or other historical
+data. A stale `StoreModule` row cannot independently grant a capability absent
+from the effective subscription and plan.
+
+The authenticated `GET /api/v1/subscription/me` response exposes
+`effective_capabilities`. The backend remains authoritative.
+
+No schema migration was required. The migration head remains
+`0014_transport_neutral_inbound`. Controlled seed reconciliation is
+non-destructive and preserves subscription history, Knowledge records,
+conversations, Instagram connections, and historical module rows. No database
+reset occurred.
+
+Phase A caused zero LLM calls and changed no AI runtime path. The existing
+limits remain `CONTEXT_LIMIT=4096` and `MAX_OUTPUT=256`.
+
+The future deterministic-automation invariant remains:
+
+`DETERMINISTIC AUTOMATION MATCH` -> zero PromptBuilder -> zero Knowledge
+generation -> zero Groq/OpenAI/Ollama calls -> zero AI usage -> zero AI tokens.
+
+Phase A provides the entitlement foundation only; later Automation phases must
+enforce this invariant at runtime.
+
+## Automation roadmap
+
+Completed:
+
+- Instagram OAuth
+- DM Cloud E2E
+- Story Reply Cloud E2E
+- Comment -> Private Reply Cloud E2E
+- Knowledge -> AI Cloud E2E
+- echo/loop prevention
+- token-aware conversation context
+- Inbox MVP
+- registration/Trial activation and idempotency
+- Phase A capability lifecycle
+
+Current/next — Phase B: AutomationRule Domain + CRUD:
+
+- `AutomationRule` model/domain
+- tenant/store ownership and isolation
+- trigger types, match types, keywords, actions, and priority
+- revision and validation
+- authenticated CRUD
+- `instagram_automation` entitlement gate
+- `automation_limit` behavior decision/enforcement appropriate to Phase B
+
+Phase B must not implement Instagram rule execution, DM/comment/story
+interception, AI fallback routing, or LLM execution changes. Those belong to
+Phase C.
+
+After Phase B:
+
+- Phase C: deterministic matching engine and Instagram interception
+- Phase D: frontend Automation UX
+- Phase E: commercial enforcement and metering
+- Phase F: Cloud UAT
+
+## Non-blocking backlog
+
+- P2: raw `&#x20;` rendering in some historical Inbox messages.
+- P2: Render public endpoints do not expose the active deployment SHA.
+
+## RELEASE-01 validation (2026-09-01)
+
+- The frontend worktree contains the existing FLOW-01/KNOWLEDGE-01/INBOX-01
+  changes plus RELEASE-01 customer UX polish: animated DirectPilot brand mark
+  with reduced-motion support, real dashboard status summary, setup checklist,
+  human/AI inbox states, and customer-facing automation/product/knowledge copy.
+- Frontend checks: `npm test` **48 passed**, TypeScript **pass**, ESLint
+  **pass**, production build **pass**, and `git diff --check` **pass**.
+- Backend focused regression: **70 passed**; full SQLite suite: **635 passed,
+  4 skipped**; migration policy, compile/import, and `git diff --check` pass.
+- A disposable local customer journey (register → Trial → knowledge → product
+  → automation → inbox) completed through the real API against a temporary
+  SQLite database. No UAT database, Meta endpoint, or outbound message was
+  touched.
+- Public/UAT browser acceptance is **blocked** until the Tailscale/public UAT
+  endpoint and a browser-reachable backend are available. The temporary local
+  API port is intentionally isolated from UAT.
