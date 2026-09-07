@@ -119,6 +119,30 @@ class InstagramAIFlowCoordinator:
             phase="inbound",
             outcome="persisted",
         )
+        is_ai_paused = getattr(self.ai, "is_ai_paused", None)
+        if callable(is_ai_paused) and is_ai_paused(
+            inbound.conversation_public_id,
+            context=context,
+        ):
+            self.transactions.commit()
+            self._log(
+                "instagram_ai_flow_ai_skipped",
+                context=context,
+                inbound=inbound,
+                correlation_id=correlation,
+                phase="ai",
+                outcome="skipped",
+                failure_category="conversation_human_active",
+            )
+            return _result(
+                inbound,
+                correlation_id=correlation,
+                ai_status="skipped",
+                delivery_status="skipped",
+                duplicate=False,
+                ignored=False,
+                safe_reason="conversation_human_active",
+            )
         ai_started = monotonic()
         self._log(
             "instagram_ai_flow_ai_started",

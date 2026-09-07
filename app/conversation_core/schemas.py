@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ConversationRead(BaseModel):
@@ -14,6 +14,7 @@ class ConversationRead(BaseModel):
     last_inbound_message_at: datetime | None
     last_outbound_message_at: datetime | None
     message_count: int
+    revision: int
     created_at: datetime
     updated_at: datetime
 
@@ -28,7 +29,7 @@ class ConversationPage(BaseModel):
 class ConversationMessageRead(BaseModel):
     public_id: str
     direction: Literal["inbound", "outbound", "system"]
-    role: Literal["customer", "assistant", "system"]
+    role: Literal["customer", "assistant", "human", "system"]
     content_type: str
     content: str | None
     delivery_status: str | None
@@ -41,3 +42,12 @@ class ConversationMessagePage(BaseModel):
     page: int
     page_size: int
     total: int
+
+
+class ManualMessageCreate(BaseModel):
+    text: str = Field(min_length=1, max_length=10_000)
+    idempotency_key: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+    )

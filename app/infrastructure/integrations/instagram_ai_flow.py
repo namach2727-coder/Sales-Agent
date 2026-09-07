@@ -101,7 +101,26 @@ def build_instagram_ai_flow_coordinator(
         prompt_builder=PromptBuilder(),
         llm_provider=ConfiguredLLMProvider(settings, client=llm_client),
     )
-    outbound = InstagramOutboundDeliveryService(
+    outbound = build_instagram_outbound_delivery(
+        session,
+        settings,
+        instagram_client=instagram_client,
+    )
+    return InstagramAIFlowCoordinator(
+        ai_orchestrator=ai,
+        outbound_delivery=outbound,
+        transactions=SQLAlchemyTransactionPhaseBoundary(session),
+        llm_provider_name=settings.llm_provider,
+    )
+
+
+def build_instagram_outbound_delivery(
+    session: Session,
+    settings: Settings,
+    *,
+    instagram_client: Any | None = None,
+) -> InstagramOutboundDeliveryService:
+    return InstagramOutboundDeliveryService(
         repository=InstagramOutboundRepository(session),
         token_cipher=ConfiguredTokenCipher(settings),
         sender_factory=lambda *, access_token, sender_account_id: (
@@ -112,10 +131,4 @@ def build_instagram_ai_flow_coordinator(
                 client=instagram_client,
             )
         ),
-    )
-    return InstagramAIFlowCoordinator(
-        ai_orchestrator=ai,
-        outbound_delivery=outbound,
-        transactions=SQLAlchemyTransactionPhaseBoundary(session),
-        llm_provider_name=settings.llm_provider,
     )

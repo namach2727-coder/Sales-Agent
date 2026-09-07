@@ -135,6 +135,23 @@ class AIResponseOrchestrator:
             )
         return assistant_message.public_id
 
+    def is_ai_paused(
+        self,
+        conversation_public_id: str,
+        *,
+        context: TenantStoreContext,
+    ) -> bool:
+        """Return whether human takeover blocks future AI processing."""
+        tenant_id, store_id, _tenant_public_id, _store_public_id = _active_scope(
+            context
+        )
+        conversation = self.conversations.get_conversation(
+            conversation_public_id,
+            tenant_id=tenant_id,
+            store_id=store_id,
+        )
+        return conversation.status == "human_active"
+
 
 def _active_scope(
     context: TenantStoreContext,

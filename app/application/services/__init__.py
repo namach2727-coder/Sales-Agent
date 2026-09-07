@@ -12,6 +12,13 @@ from app.application.services.conversation_service import ConversationService
 from app.application.services.instagram_outbound_delivery import (
     InstagramOutboundDeliveryService,
 )
+from app.application.services.inbox_service import (
+    InboxConversationStateError,
+    InboxError,
+    InboxManualReplyError,
+    InboxService,
+    ManualReplyResult,
+)
 
 __all__ = [
     "AIResponseConversationStateError",
@@ -21,5 +28,10 @@ __all__ = [
     "AIResponseOrchestratorError",
     "AIResponseScopeError",
     "ConversationService",
+    "InboxConversationStateError",
+    "InboxError",
+    "InboxManualReplyError",
+    "InboxService",
     "InstagramOutboundDeliveryService",
+    "ManualReplyResult",
 ]

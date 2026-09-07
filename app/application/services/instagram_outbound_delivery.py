@@ -37,7 +37,7 @@ InstagramSenderFactory = Callable[..., OutboundSender]
 
 
 class InstagramOutboundDeliveryService:
-    """Deliver one existing assistant message without owning its transaction."""
+    """Deliver one existing outbound message without owning its transaction."""
 
     def __init__(
         self,
@@ -370,16 +370,24 @@ def _active_scope(
 
 
 def _validate_message(message: InstagramOutboundMessageContext) -> None:
+    metadata = message.metadata
+    is_ai = (
+        metadata.get("author_type") == "assistant"
+        and metadata.get("source") == "ai_response_orchestrator"
+    )
+    is_human = (
+        metadata.get("author_type") == "human"
+        and metadata.get("source") == "inbox_manual_reply"
+    )
     if (
         message.direction != "outbound"
         or message.content_type != "text"
         or message.text is None
         or not message.text.strip()
-        or message.metadata.get("author_type") != "assistant"
-        or message.metadata.get("source") != "ai_response_orchestrator"
+        or not (is_ai or is_human)
     ):
         raise OutboundInvalidMessageError(
-            "message is not a deliverable assistant text"
+            "message is not a deliverable text"
         )
 
 

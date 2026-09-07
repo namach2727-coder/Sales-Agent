@@ -250,6 +250,34 @@ def test_inbox_is_scoped_paginated_and_deterministically_ordered(customer_api) -
     ).status_code == 404
 
 
+def test_inbox_takeover_resume_is_idempotent_and_tenant_scoped(customer_api) -> None:
+    client, engine = customer_api
+    owner, owner_headers = _register(client, "inbox-control-owner")
+    _other, other_headers = _register(client, "inbox-control-other")
+    latest_public_id, _ = _seed_inbox(engine, owner)
+    url = f"{_scope_path(owner)}/inbox/conversations/{latest_public_id}"
+
+    takeover = client.post(f"{url}/takeover", headers=owner_headers)
+    assert takeover.status_code == 200
+    assert takeover.json()["status"] == "human_active"
+    assert takeover.json()["revision"] == 2
+    assert client.post(f"{url}/takeover", headers=owner_headers).json()[
+        "revision"
+    ] == 2
+
+    resume = client.post(f"{url}/resume", headers=owner_headers)
+    assert resume.status_code == 200
+    assert resume.json()["status"] == "open"
+    assert resume.json()["revision"] == 3
+    assert client.post(f"{url}/resume", headers=owner_headers).json()[
+        "revision"
+    ] == 3
+    assert client.post(
+        f"{_scope_path(_other)}/inbox/conversations/{latest_public_id}/takeover",
+        headers=other_headers,
+    ).status_code == 404
+
+
 def test_automation_state_is_audited_revisioned_and_tenant_scoped(customer_api) -> None:
     client, engine = customer_api
     owner, owner_headers = _register(client, "automation-owner")
