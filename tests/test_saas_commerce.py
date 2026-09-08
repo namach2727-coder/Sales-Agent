@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from alembic import command
@@ -13,9 +14,10 @@ from sqlalchemy.orm import Session
 
 from app.authentication import AuthenticationService, PasswordService
 from app.commerce.router import router
+from app.commerce.service import CommerceService
 from app.config import Settings, get_settings
 from app.database import get_db
-from app.models import AuthPlatformRoleAssignment, SaasPlan, StoreModule, SubscriptionOrder, Tenant, TenantSubscription
+from app.models import AuthPlatformRoleAssignment, SaasPlan, Store, StoreModule, SubscriptionOrder, Tenant, TenantSubscription
 from tools.seeding import SeedRunner, default_registry
 
 
@@ -185,6 +187,180 @@ def test_registration_login_and_duplicate_are_public_only(commerce_api) -> None:
     assert duplicate.status_code == 409
     headers = login(client)
     assert client.get("/api/v1/auth/me", headers=headers).status_code == 200
+
+
+def test_existing_trial_reconciliation_is_idempotent_and_reuse_preserves_commerce(commerce_api) -> None:
+    client, engine, _settings = commerce_api
+    created = register(client, "historical")
+    headers = login(client, "historical")
+    with Session(engine) as db, db.begin():
+        tenant = db.scalar(select(Tenant).where(Tenant.public_id == created["tenant_public_id"]))
+        store = db.scalar(select(Store).where(Store.public_id == created["store_public_id"]))
+        assert tenant is not None and store is not None
+        subscription = db.scalar(
+            select(TenantSubscription).where(TenantSubscription.store_id == store.id)
+        )
+        assert subscription is not None
+        order = db.get(SubscriptionOrder, subscription.order_id)
+        assert order is not None
+        snapshot = (
+            subscription.public_id,
+            subscription.order_id,
+            subscription.starts_at,
+            subscription.current_period_end,
+            dict(subscription.limits_json),
+            order.public_id,
+        )
+        for item in db.scalars(
+            select(StoreModule).where(StoreModule.store_id == store.id)
+        ).all():
+            db.delete(item)
+
+    first = client.post("/api/v1/subscription/me/reconcile-capabilities", headers=headers)
+    second = client.post("/api/v1/subscription/me/reconcile-capabilities", headers=headers)
+    assert first.status_code == second.status_code == 200
+    expected = {"instagram_automation", "knowledge_base", "ai_assistant"}
+    assert set(first.json()["effective_capabilities"]) == expected
+    assert set(second.json()["effective_capabilities"]) == expected
+
+    with Session(engine) as db, db.begin():
+        tenant = db.scalar(select(Tenant).where(Tenant.public_id == created["tenant_public_id"]))
+        store = db.scalar(select(Store).where(Store.public_id == created["store_public_id"]))
+        assert tenant is not None and store is not None
+        subscription = db.scalar(
+            select(TenantSubscription).where(TenantSubscription.store_id == store.id)
+        )
+        assert subscription is not None
+        order = db.get(SubscriptionOrder, subscription.order_id)
+        assert order is not None
+        reused = CommerceService(db).activate_trial(
+            tenant=tenant,
+            store=store,
+            user_id=order.user_id,
+        )
+        assert reused.id == subscription.id
+        assert (
+            reused.public_id,
+            reused.order_id,
+            reused.starts_at,
+            reused.current_period_end,
+            dict(reused.limits_json),
+            order.public_id,
+        ) == snapshot
+        modules = list(
+            db.scalars(select(StoreModule).where(StoreModule.store_id == store.id)).all()
+        )
+        assert len(modules) == 3
+        assert {item.module_code for item in modules if item.status == "active"} == expected
+
+
+def test_reconciliation_uses_only_effective_plan_and_preserves_tenant_isolation(commerce_api) -> None:
+    client, engine, _settings = commerce_api
+    first = register(client, "plans-one")
+    first_headers = login(client, "plans-one")
+    second = register(client, "plans-two")
+    now = datetime.now(UTC)
+
+    with Session(engine) as db, db.begin():
+        tenant = db.scalar(select(Tenant).where(Tenant.public_id == first["tenant_public_id"]))
+        store = db.scalar(select(Store).where(Store.public_id == first["store_public_id"]))
+        other_store = db.scalar(select(Store).where(Store.public_id == second["store_public_id"]))
+        pro = db.scalar(select(SaasPlan).where(SaasPlan.code == "PRO"))
+        assert tenant is not None and store is not None and other_store is not None and pro is not None
+        pro_order = SubscriptionOrder(
+            tenant_id=tenant.id,
+            store_id=store.id,
+            user_id=1,
+            plan_id=pro.id,
+            status="paid",
+            price_amount=pro.price_amount,
+            currency=pro.currency,
+        )
+        db.add(pro_order)
+        db.flush()
+        db.add(
+            TenantSubscription(
+                tenant_id=tenant.id,
+                store_id=store.id,
+                plan_id=pro.id,
+                order_id=pro_order.id,
+                status="active",
+                limits_json={"preserved": 1},
+                starts_at=now,
+                current_period_end=now + timedelta(days=30),
+            )
+        )
+        other_before = {
+            item.module_code: (item.status, item.source)
+            for item in db.scalars(
+                select(StoreModule).where(StoreModule.store_id == other_store.id)
+            ).all()
+        }
+
+    pro_result = client.post(
+        "/api/v1/subscription/me/reconcile-capabilities", headers=first_headers
+    )
+    assert pro_result.status_code == 200
+    assert pro_result.json()["plan_code"] == "PRO"
+    assert set(pro_result.json()["effective_capabilities"]) == {
+        "instagram_automation",
+        "knowledge_base",
+        "ai_assistant",
+    }
+
+    with Session(engine) as db, db.begin():
+        tenant = db.scalar(select(Tenant).where(Tenant.public_id == first["tenant_public_id"]))
+        store = db.scalar(select(Store).where(Store.public_id == first["store_public_id"]))
+        other_store = db.scalar(select(Store).where(Store.public_id == second["store_public_id"]))
+        start = db.scalar(select(SaasPlan).where(SaasPlan.code == "START"))
+        assert tenant is not None and store is not None and other_store is not None and start is not None
+        start_order = SubscriptionOrder(
+            tenant_id=tenant.id,
+            store_id=store.id,
+            user_id=1,
+            plan_id=start.id,
+            status="paid",
+            price_amount=start.price_amount,
+            currency=start.currency,
+        )
+        db.add(start_order)
+        db.flush()
+        db.add(
+            TenantSubscription(
+                tenant_id=tenant.id,
+                store_id=store.id,
+                plan_id=start.id,
+                order_id=start_order.id,
+                status="active",
+                limits_json={"preserved": 2},
+                starts_at=datetime.now(UTC),
+                current_period_end=now + timedelta(days=30),
+            )
+        )
+
+    start_result = client.post(
+        "/api/v1/subscription/me/reconcile-capabilities", headers=first_headers
+    )
+    assert start_result.status_code == 200
+    assert start_result.json()["plan_code"] == "START"
+    assert set(start_result.json()["effective_capabilities"]) == {"instagram_automation"}
+    with Session(engine) as db:
+        store = db.scalar(select(Store).where(Store.public_id == first["store_public_id"]))
+        other_store = db.scalar(select(Store).where(Store.public_id == second["store_public_id"]))
+        assert store is not None and other_store is not None
+        modules = {
+            item.module_code: item.status
+            for item in db.scalars(select(StoreModule).where(StoreModule.store_id == store.id)).all()
+        }
+        assert modules["instagram_automation"] == "active"
+        assert modules["knowledge_base"] == "inactive"
+        assert modules["ai_assistant"] == "inactive"
+        assert {
+            item.module_code: (item.status, item.source)
+            for item in db.scalars(
+                select(StoreModule).where(StoreModule.store_id == other_store.id)
+            ).all()
+        } == other_before
 
 
 def test_plan_price_is_authoritative_and_order_idor_is_denied(commerce_api) -> None:

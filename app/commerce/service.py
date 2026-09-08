@@ -359,6 +359,32 @@ class CommerceService:
             store_id=store.id,
         )
 
+    def reconcile_subscription_modules(
+        self, principal: AuthenticatedPrincipal
+    ) -> TenantSubscription:
+        """Reconcile the caller's effective subscription with its current plan.
+
+        This operation repairs lifecycle entitlements only.  It deliberately
+        leaves the subscription, order, dates, status, and limit snapshot
+        unchanged.
+        """
+        tenant, store = self.customer_scope(principal)
+        subscription = effective_subscription(
+            self.session,
+            tenant_id=tenant.id,
+            store_id=store.id,
+        )
+        if subscription is None:
+            raise CommerceConflict("active subscription required")
+        self._reconcile_subscription_modules(
+            tenant=tenant,
+            store=store,
+            subscription=subscription,
+        )
+        self.session.commit()
+        self.session.refresh(subscription)
+        return subscription
+
     def activate_trial(self, *, tenant: Tenant, store: Store, user_id: int) -> TenantSubscription:
         """Idempotently activate the seeded Trial plan for a new customer.
 
@@ -386,6 +412,12 @@ class CommerceService:
             .order_by(TenantSubscription.id.desc())
         )
         if existing is not None:
+            self._reconcile_subscription_modules(
+                tenant=tenant,
+                store=store,
+                subscription=existing,
+            )
+            self.session.flush()
             return existing
         order = self._create_order(
             tenant=tenant,
@@ -454,10 +486,28 @@ class CommerceService:
         return {"reply_limit": plan.reply_limit, "automation_limit": plan.automation_limit, "instagram_account_limit": plan.instagram_account_limit}
 
     def _apply_plan_modules(self, store_id: int, plan: SaasPlan, subscription: TenantSubscription) -> None:
-        for code in plan.module_codes or []:
-            if self.session.get(ModuleDefinition, code) is None:
-                raise CommerceConflict("plan references an unavailable module")
-            item = self.session.scalar(select(StoreModule).where(StoreModule.store_id == store_id, StoreModule.module_code == code))
+        desired_codes = set(plan.module_codes or [])
+        definitions = {
+            item.code: item
+            for item in self.session.scalars(
+                select(ModuleDefinition).where(ModuleDefinition.code.in_(desired_codes))
+            ).all()
+        } if desired_codes else {}
+        if definitions.keys() != desired_codes:
+            raise CommerceConflict("plan references an unavailable module")
+
+        existing_modules = {
+            item.module_code: item
+            for item in self.session.scalars(
+                select(StoreModule).where(StoreModule.store_id == store_id)
+            ).all()
+        }
+        for code, item in existing_modules.items():
+            if item.source == "subscription" and code not in desired_codes:
+                item.status = "inactive"
+
+        for code in sorted(desired_codes):
+            item = existing_modules.get(code)
             if item is None:
                 item = StoreModule(store_id=store_id, module_code=code, status="active", currency=plan.currency, source="subscription", limits_json=self._limits(plan))
                 self.session.add(item)
@@ -465,6 +515,31 @@ class CommerceService:
                 item.status = "active"
                 item.source = "subscription"
                 item.limits_json = self._limits(plan)
+
+    def _reconcile_subscription_modules(
+        self,
+        *,
+        tenant: Tenant,
+        store: Store,
+        subscription: TenantSubscription,
+    ) -> None:
+        if store.tenant_id != tenant.id or (
+            subscription.tenant_id != tenant.id
+            or subscription.store_id != store.id
+            or subscription.status != "active"
+        ):
+            raise CommerceForbidden("subscription is outside the requested scope")
+        effective = effective_subscription(
+            self.session,
+            tenant_id=tenant.id,
+            store_id=store.id,
+        )
+        if effective is None or effective.id != subscription.id:
+            raise CommerceConflict("subscription is not currently effective")
+        plan = self.session.get(SaasPlan, subscription.plan_id)
+        if plan is None:
+            raise CommerceConflict("subscription plan is unavailable")
+        self._apply_plan_modules(store.id, plan, subscription)
 
     def _audit(self, tenant_id: int, store_id: int | None, actor_user_id: int | None, action: str, target_type: str, target_public_id: str, details: dict[str, object]) -> None:
         self.session.add(CommerceAuditLog(tenant_id=tenant_id, store_id=store_id, actor_user_id=actor_user_id, action=action, target_type=target_type, target_public_id=target_public_id, details_json=details))
