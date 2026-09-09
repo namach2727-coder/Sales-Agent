@@ -16,11 +16,10 @@ backend lineage. It must not be treated as the backend RC source.
 
 ## Current phase
 
-`AUTOMATION_AI_PHASE_A_CAPABILITY_LIFECYCLE` is complete and released on
-`backend-main` at commit
-`74991049f66a5943eba162baac6e5d70eb8c3fc0`. The current/next delivery phase is
-**Phase B: AutomationRule Domain + CRUD**. Phase B does not include Instagram
-runtime interception or AI fallback routing.
+Automation/AI Phase C is **COMPLETE / PASS**. Real cloud UAT verified the
+rule-first runtime for deterministic DM, Story Reply, and Comment -> Private
+Reply, the no-match Knowledge-grounded AI fallback, and Human Takeover
+suppression/resume. Phase D, the customer-facing Automation UX, is now active.
 
 ## Architecture and implemented MVP
 
@@ -168,11 +167,9 @@ successful test completion and does not change the passing exit status.
 
 ## Exact next action
 
-Implement Phase B, limited to the tenant/store-owned `AutomationRule` domain
-and CRUD contract: trigger and match types, keywords, actions, priority,
-revision, validation, the `instagram_automation` entitlement gate, and the
-appropriate `automation_limit` decision/enforcement. Do not add Instagram
-runtime interception, AI fallback routing, or LLM execution changes in Phase B.
+Implement Phase D: a Persian, RTL customer-facing AutomationRule management
+experience over the existing authenticated CRUD contract. Keep rule
+administration deterministic and zero-LLM.
 
 ## Automation and AI capability lifecycle
 
@@ -245,7 +242,7 @@ Completed:
 - registration/Trial activation and idempotency
 - Phase A capability lifecycle
 
-Current/next — Phase B: AutomationRule Domain + CRUD:
+Completed — Phase B: AutomationRule Domain + CRUD:
 
 - `AutomationRule` model/domain
 - tenant/store ownership and isolation
@@ -255,13 +252,44 @@ Current/next — Phase B: AutomationRule Domain + CRUD:
 - `instagram_automation` entitlement gate
 - `automation_limit` behavior decision/enforcement appropriate to Phase B
 
-Phase B must not implement Instagram rule execution, DM/comment/story
-interception, AI fallback routing, or LLM execution changes. Those belong to
-Phase C.
+Completed — Phase C: deterministic matching engine and Instagram
+interception:
 
-After Phase B:
+- Rule-first order: normalize/deduplicate/scope -> human-active guard ->
+  `instagram_automation` entitlement -> deterministic rule evaluation. A
+  successful match delivers and stops; an unmatched event may enter the
+  `ai_assistant` fallback, with `knowledge_base` controlling Knowledge context.
+- DM exact-match cloud UAT: marker `DPTEST4827`, rule
+  `ba11099e-5c89-44bc-8048-c864f3038e75`, exactly one sent deterministic
+  response, zero LLM tokens, and no duplicate/echo/loop.
+- No-match AI fallback cloud UAT: marker `DPAIFALLBACK-Q7M9X2`, controlled
+  Knowledge fact `DP-4827`, Groq model `qwen/qwen3.6-27b`, 1,115 input and 46
+  output tokens (1,161 total), context 4,096 and max output 256. Grounding and
+  single delivery were verified with no duplicate/echo/loop.
+- Human Takeover lifecycle on conversation
+  `4be87d47-9c08-4b0e-8641-8e2e3682ea3e`: normal automation -> takeover ->
+  `human_active` -> deterministic and AI suppression -> resume -> automation
+  restored. Marker `DPHUMAN-H8K4R2` caused zero automatic outbound and zero
+  LLM tokens while takeover was active.
+- Story Reply exact-match cloud UAT: marker `DPSTORY-7Q9M2K`, rule
+  `ecdce8b6-729b-49dd-a2d3-0eb8e0a5b891`, `event_kind=story_reply`, correlation
+  `94647335-fb5d-497f-8548-3a304ac9c31d`, one sent response, zero LLM tokens,
+  and no duplicate/echo/loop.
+- Comment -> Private Reply exact-match cloud UAT: marker
+  `DPCOMMENT-4K8M7Q`, rule `ca74ccf4-0b71-4d5e-b4c8-40622c99629e`,
+  `event_kind=comment`, correlation `88c3fa42-763f-4a89-8647-fd4ce099c89c`,
+  action `SEND_PRIVATE_MESSAGE`; the comment identifier and
+  `recipient.comment_id` path were verified. One private reply was sent with
+  zero LLM tokens and no duplicate/echo/loop.
+- Current UAT inventory is three enabled rules (DM, Story, Comment) against an
+  automation limit of three; remaining capacity is zero.
+- Capability mapping remains: TRIAL and PRO grant `instagram_automation`,
+  `knowledge_base`, and `ai_assistant`; START grants `instagram_automation`
+  only. There is no automatic plan upgrade, and deterministic rules always
+  take priority over AI.
 
-- Phase C: deterministic matching engine and Instagram interception
+**Phase C Cloud UAT is complete and passed.** Phase D is now active:
+
 - Phase D: frontend Automation UX
 - Phase E: commercial enforcement and metering
 - Phase F: Cloud UAT
