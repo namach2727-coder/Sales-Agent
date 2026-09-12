@@ -164,6 +164,27 @@ def test_plan_capabilities_are_effective(capability_db, plan_code, expected):
         ) == expected
 
 
+def test_independent_product_capabilities_union_and_expire(capability_db):
+    now = datetime.now(UTC)
+    with Session(capability_db) as db, db.begin():
+        tenant = db.query(Tenant).filter_by(slug="capability-tenant").one()
+        store = db.query(Store).filter_by(slug="capability-store").one()
+        automation = SaasPlan(code="AUTO_NEW", name="Automation", product_family="AUTOMATION", module_codes=["instagram_automation"], is_active=True)
+        ai = SaasPlan(code="AI_NEW", name="AI", product_family="AI_ASSISTANT", module_codes=["ai_assistant", "knowledge_base"], is_active=True)
+        db.add_all((automation, ai))
+        db.flush()
+        for plan in (automation, ai):
+            order = SubscriptionOrder(tenant_id=tenant.id, store_id=store.id, user_id=1, plan_id=plan.id, status="paid", price_amount=0, currency="IRR")
+            db.add(order)
+            db.flush()
+            db.add(TenantSubscription(tenant_id=tenant.id, store_id=store.id, plan_id=plan.id, order_id=order.id, product_family=plan.product_family, source="TRIAL", status="active", limits_json={}, starts_at=now - timedelta(minutes=1), current_period_end=now + timedelta(days=1)))
+        db.flush()
+        assert set(effective_capabilities(db, tenant_id=tenant.id, store_id=store.id, now=now)) == CAPABILITIES
+        db.query(TenantSubscription).filter_by(product_family="AI_ASSISTANT").one().current_period_end = now
+        db.flush()
+        assert set(effective_capabilities(db, tenant_id=tenant.id, store_id=store.id, now=now)) == {"instagram_automation"}
+
+
 def test_latest_subscription_controls_upgrade_and_downgrade(capability_db):
     now = datetime.now(UTC)
     with Session(capability_db) as db, db.begin():

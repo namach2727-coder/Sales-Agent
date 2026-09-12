@@ -660,14 +660,8 @@ def _login(client: TestClient, name: str) -> dict[str, str]:
 
 def _trial_entitlement(client: TestClient, headers: dict[str, str]) -> None:
     existing = client.get("/api/v1/subscription/me", headers=headers)
-    if existing.status_code == 200 and existing.json() and existing.json()["plan_code"] == "TRIAL":
-        return
-    plan = next(item for item in client.get("/api/v1/plans").json() if item["code"] == "TRIAL")
-    result = client.post(
-        "/api/v1/orders", headers=headers, json={"plan_public_id": plan["public_id"]}
-    )
-    assert result.status_code == 201
-    assert result.json()["status"] == "paid"
+    assert existing.status_code == 200
+    assert "instagram_automation" in existing.json()["effective_capabilities"]
 
 
 def _start(client: TestClient, headers: dict[str, str]) -> str:

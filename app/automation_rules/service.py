@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.automation_rules.models import AutomationRule
 from app.models import TenantAuditLog, utc_now
-from app.module_catalog import effective_subscription, has_capability
+from app.module_catalog import effective_subscription_for_family, has_capability
 
 
 class AutomationRuleError(Exception):
@@ -92,7 +92,13 @@ class AutomationRuleService:
         self._authorize()
         if values.pop("expected_revision") != 0:
             raise AutomationRuleConflict("new resources require expected_revision 0")
-        subscription = effective_subscription(self.session, tenant_id=self.tenant_id, store_id=self.store_id)
+        subscription = effective_subscription_for_family(
+            self.session, tenant_id=self.tenant_id, store_id=self.store_id,
+            product_family="AUTOMATION",
+        ) or effective_subscription_for_family(
+            self.session, tenant_id=self.tenant_id, store_id=self.store_id,
+            product_family="LEGACY_BUNDLE",
+        )
         limit = None if subscription is None else (subscription.limits_json or {}).get("automation_limit")
         if not isinstance(limit, int) or isinstance(limit, bool) or limit < 0:
             raise AutomationRuleForbidden("effective automation limit is unavailable")

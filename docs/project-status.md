@@ -19,7 +19,8 @@ backend lineage. It must not be treated as the backend RC source.
 Automation/AI Phase C is **COMPLETE / PASS**. Real cloud UAT verified the
 rule-first runtime for deterministic DM, Story Reply, and Comment -> Private
 Reply, the no-match Knowledge-grounded AI fallback, and Human Takeover
-suppression/resume. Phase D, the customer-facing Automation UX, is now active.
+suppression/resume. Phase D.1 now separates Automation and AI Assistant into
+independent product families and adds the System Admin commercial foundation.
 
 ## Architecture and implemented MVP
 
@@ -54,19 +55,20 @@ The validated linear chain is:
 -> `0012_plan_billing_duration`
 -> `0013_store_automation_control`
 -> `0014_transport_neutral_inbound`
+-> `0015_automation_rules`
+-> `0016_product_family_commerce`
 
-Current source Alembic head is `0014_transport_neutral_inbound`; current UAT
-remains safely unchanged at `0012_plan_billing_duration` until the normal
-forward migration is deployed. Revision 0013 adds only the store-owned,
-revisioned automation switch with a safe default of enabled for existing rows;
-revision 0014 adds transport-neutral inbound processing without changing the
-legacy webhook contract.
+Current source Alembic head is `0016_product_family_commerce`. Revision 0016 is
+additive: existing START subscriptions are classified as Automation, existing
+TRIAL/PRO subscriptions as compatibility-only `LEGACY_BUNDLE`, and historical
+orders, amounts, dates, public IDs, relations, rules, Knowledge, and AI usage
+remain unchanged.
 
 The 0010-0012 files are byte-identical between the reviewed RC source and the
 running UAT image. They are tracked by the canonical RC commit and must remain
 immutable after that commit.
 
-## Approved commercial model
+## Historical commercial model
 
 | Plan | Price | Period | AI replies | Automations | Instagram accounts |
 |---|---:|---:|---:|---:|---:|
@@ -74,10 +76,13 @@ immutable after that commit.
 | START | 2,990,000 IRR | 30 days | 1,500 | 10 | 1 |
 | PRO | 6,990,000 IRR | 30 days | 5,000 | 30 | 1 |
 
-Limits apply per plan period. Follower-based pricing is not used. The backend
-is the price, period, order amount, and entitlement authority. Legacy FREE and
-PILOT records are retained only for referential compatibility and are inactive,
-so they are unavailable for new orders.
+These values describe the historical catalog only. Legacy TRIAL/START/PRO are
+not available for new purchase or renewal after Phase D.1. START remains
+Automation-only until expiry; TRIAL and PRO remain compatibility-only combined
+entitlements until expiry. New Automation and AI Assistant prices, durations,
+and limits are System Admin-managed; no unapproved sellable values are seeded
+or hard-coded. The backend remains authoritative for catalog values, charged
+order amounts, and subscription snapshots.
 
 ## Current UAT evidence
 
@@ -153,8 +158,8 @@ successful test completion and does not change the passing exit status.
    `META_OAUTH_REDIRECT_URI` (`https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback`);
    local provider validation is complete but Render control is unavailable in
    this environment, so `/connect` readiness remains unverified.
-2. Apply the normal forward-only `0012` -> `0014` migration chain to disposable
-   UAT, deploy the updated backend, and complete the customer Final-UAT.
+2. Apply the normal forward-only migration to `0016_product_family_commerce`
+   during the next backend deployment and verify product/legacy reconciliation.
 3. Provision the always-on Linux Docker host, DNS/TLS reverse proxy, off-host
    backup destination, monitoring/operator ownership, and production-only
    secrets.
@@ -167,9 +172,8 @@ successful test completion and does not change the passing exit status.
 
 ## Exact next action
 
-Implement Phase D: a Persian, RTL customer-facing AutomationRule management
-experience over the existing authenticated CRUD contract. Keep rule
-administration deterministic and zero-LLM.
+After Phase D.1 release verification, begin Phase D.2 full AI Assistant
+workspace UX without changing the independent product entitlement boundary.
 
 ## Automation and AI capability lifecycle
 
@@ -191,13 +195,15 @@ The controlled plan mapping is:
 
 Runtime authorization foundations are capability-based and never depend on a
 display plan name or a frontend claim. The canonical implementation in
-`app/module_catalog.py` provides `effective_subscription()`,
-`effective_capabilities()`, and `has_capability()`.
+`app/module_catalog.py` provides `effective_subscription_for_family()`,
+`effective_product_subscriptions()`, `effective_capabilities()`, and
+`has_capability()`.
 
-The latest tenant/store-scoped active subscription, ordered by `starts_at` and
-then internal ID, controls effective capabilities. Capabilities are never
-unioned across arbitrary simultaneous active subscriptions. An expired or
-not-yet-started effective subscription grants no capabilities. Resolution also
+The latest tenant/store-scoped active subscription within each product family,
+ordered by `starts_at` and then internal ID, controls that family's effective
+capabilities. Capabilities are unioned across Automation, AI Assistant, and an
+active compatibility-only Legacy Bundle. An expired or not-yet-started
+subscription grants no capabilities. Resolution also
 requires the plan grant, valid module definition, valid `StoreModule` state and
 time bounds, and valid dependencies.
 
@@ -210,11 +216,10 @@ from the effective subscription and plan.
 The authenticated `GET /api/v1/subscription/me` response exposes
 `effective_capabilities`. The backend remains authoritative.
 
-No schema migration was required. The migration head remains
-`0014_transport_neutral_inbound`. Controlled seed reconciliation is
-non-destructive and preserves subscription history, Knowledge records,
-conversations, Instagram connections, and historical module rows. No database
-reset occurred.
+Phase D.1 adds the additive `0016_product_family_commerce` migration. Controlled
+seed reconciliation is non-destructive and preserves subscription history,
+Knowledge records, conversations, Instagram connections, and historical module
+rows. No database reset is part of this change.
 
 Phase A caused zero LLM calls and changed no AI runtime path. The existing
 limits remain `CONTEXT_LIMIT=4096` and `MAX_OUTPUT=256`.
@@ -293,6 +298,34 @@ interception:
 - Phase D: frontend Automation UX
 - Phase E: commercial enforcement and metering
 - Phase F: Cloud UAT
+
+## Phase D.1 independent product commerce
+
+- `AUTOMATION` grants `instagram_automation`; `AI_ASSISTANT` grants
+  `ai_assistant` and `knowledge_base`. A store may own either, both, or neither.
+- Legacy START remains Automation-only. Legacy TRIAL and PRO remain immutable
+  `LEGACY_BUNDLE` subscriptions until their existing expiry. None of the legacy
+  plans is offered for new purchase or renewal.
+- New registration Trial activation atomically and idempotently creates two
+  separate subscriptions: one Automation trial and one AI Assistant trial.
+- `GET /api/v1/subscription/me` retains its singular compatibility fields and
+  adds authoritative product-aware state plus a separate legacy-bundle view.
+- Catalog price, duration, limits, trial eligibility, visibility, and purchase
+  availability are System Admin-managed. Active subscription terms are
+  snapshotted at activation, so later catalog edits affect only future
+  activations and renewals.
+- The existing `platform_super_admin` role authorizes the minimal server-backed
+  plan, customer/store, subscription, grant, and revoke APIs. Tenant admins are
+  not platform administrators. Sensitive admin changes write sanitized audit
+  records and never include credential material.
+- Customer pricing remains API-driven. Structural Automation and AI Assistant
+  trial plans are non-purchasable, and no new sellable price has been invented.
+- Automation-only customers see Automation; AI-only customers see AI Assistant
+  and Knowledge; customers with both see both. Full AI Workspace UX remains
+  deferred to Phase D.2.
+- Deterministic Automation and all Admin/catalog operations remain zero-LLM.
+  Runtime limits remain `GROQ_CONTEXT_LENGTH=4096` and
+  `GROQ_MAX_OUTPUT_TOKENS=256`.
 
 ## Non-blocking backlog
 

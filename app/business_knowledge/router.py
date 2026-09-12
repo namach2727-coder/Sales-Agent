@@ -63,6 +63,7 @@ from app.business_knowledge.industry import (
     industry_readiness,
 )
 from app.database import get_db
+from app.module_catalog import has_capability
 from app.tenant_management.context import (
     TenantStoreContext,
     resolve_authorized_context,
@@ -141,6 +142,13 @@ def _service(
     except TenantManagementError as exc:
         _raise(exc)
     assert context.store_id is not None and context.store_status is not None
+    if not context.platform_access and not has_capability(
+        db,
+        tenant_id=context.tenant_id,
+        store_id=context.store_id,
+        capability_code="knowledge_base",
+    ):
+        _raise(BusinessKnowledgePermissionError("AI Assistant subscription required"))
     return (
         BusinessKnowledgeService(
             db,

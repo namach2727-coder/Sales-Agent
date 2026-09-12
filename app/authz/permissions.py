@@ -29,6 +29,10 @@ class PermissionCode:
     PLATFORM_SETTINGS_MANAGE = "platform.settings_manage"
     PAYMENT_READ = "payment.read"
     PAYMENT_MANAGE = "payment.manage"
+    COMMERCE_CATALOG_READ = "commerce.catalog_read"
+    COMMERCE_CATALOG_MANAGE = "commerce.catalog_manage"
+    COMMERCE_SUBSCRIPTION_READ = "commerce.subscription_read"
+    COMMERCE_SUBSCRIPTION_MANAGE = "commerce.subscription_manage"
 
     TENANT_SETTINGS_READ = "tenant.settings_read"
     TENANT_SETTINGS_UPDATE = "tenant.settings_update"
@@ -122,6 +126,10 @@ PLATFORM_PERMISSIONS = (
     _permission(PermissionCode.PLATFORM_SETTINGS_MANAGE, PermissionScope.PLATFORM, "Manage platform settings."),
     _permission(PermissionCode.PAYMENT_READ, PermissionScope.PLATFORM, "Read manual payment review queue."),
     _permission(PermissionCode.PAYMENT_MANAGE, PermissionScope.PLATFORM, "Approve or reject manual payments."),
+    _permission(PermissionCode.COMMERCE_CATALOG_READ, PermissionScope.PLATFORM, "Read the commercial plan catalog."),
+    _permission(PermissionCode.COMMERCE_CATALOG_MANAGE, PermissionScope.PLATFORM, "Manage commercial plan policy."),
+    _permission(PermissionCode.COMMERCE_SUBSCRIPTION_READ, PermissionScope.PLATFORM, "Inspect customer product subscriptions."),
+    _permission(PermissionCode.COMMERCE_SUBSCRIPTION_MANAGE, PermissionScope.PLATFORM, "Manage explicit product grants."),
 )
 
 TENANT_PERMISSIONS = (

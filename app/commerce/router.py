@@ -16,6 +16,13 @@ from app.authentication.passwords import PasswordService
 from app.authentication.schemas import LoginInput
 from app.authz.permissions import PermissionCode
 from app.commerce.schemas import (
+    AdminGrantCreate,
+    AdminCustomerStoreRead,
+    AdminPlanRead,
+    AdminPlanUpdate,
+    AdminPlanWrite,
+    AdminRevokeInput,
+    AdminSubscriptionRead,
     CardTransferCreate,
     CardTransferInstructions,
     OrderCreate,
@@ -23,6 +30,7 @@ from app.commerce.schemas import (
     PaymentDecision,
     PaymentRead,
     PlanRead,
+    ProductSubscriptionRead,
     PublicLoginResponse,
     PublicMembership,
     PublicPrincipal,
@@ -39,7 +47,7 @@ from app.commerce.storage import LocalPrivateReceiptStorage, ReceiptValidationEr
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.models import ManualPayment, SaasPlan, Store, SubscriptionOrder, Tenant, TenantSubscription
-from app.module_catalog import effective_capabilities
+from app.module_catalog import effective_capabilities, effective_product_subscriptions
 from app.tenant_management.domain import TenantManagementError
 
 
@@ -59,7 +67,7 @@ def _public_principal(db: Session, principal: AuthenticatedPrincipal) -> PublicP
         for item in principal.tenant_memberships
         if item.status == "active" and item.tenant_id in tenants
     ]
-    return PublicPrincipal(email=principal.email, display_name=principal.display_name, session_public_id=principal.session_id, authenticated_at=principal.authenticated_at, tenant_memberships=memberships)
+    return PublicPrincipal(email=principal.email, display_name=principal.display_name, session_public_id=principal.session_id, authenticated_at=principal.authenticated_at, tenant_memberships=memberships, platform_role_codes=list(principal.platform_role_codes))
 
 
 @router.post("/auth/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
@@ -138,6 +146,148 @@ def _payment_read(db: Session, item: ManualPayment) -> PaymentRead:
     order = db.get(SubscriptionOrder, item.order_id)
     assert order is not None
     return PaymentRead(public_id=item.public_id, order_public_id=order.public_id, status=item.status, amount=item.amount, currency=item.currency, revision=item.revision, receipt_configured=bool(item.receipt_storage_key), created_at=item.created_at)
+
+
+def _product_subscription_read(db: Session, item: TenantSubscription) -> ProductSubscriptionRead:
+    plan = db.get(SaasPlan, item.plan_id)
+    assert plan is not None
+    return ProductSubscriptionRead(
+        product_family=item.product_family,
+        active=True,
+        subscription_public_id=item.public_id,
+        plan_public_id=plan.public_id,
+        plan_code=plan.code,
+        source=item.source,
+        status=item.status,
+        limits=dict(item.limits_json or {}),
+        starts_at=item.starts_at,
+        current_period_end=item.current_period_end,
+    )
+
+
+def _admin_subscription_read(db: Session, item: TenantSubscription) -> AdminSubscriptionRead:
+    tenant, store, plan = db.get(Tenant, item.tenant_id), db.get(Store, item.store_id), db.get(SaasPlan, item.plan_id)
+    assert tenant is not None and store is not None and plan is not None
+    return AdminSubscriptionRead(
+        public_id=item.public_id, tenant_public_id=tenant.public_id,
+        store_public_id=store.public_id, plan_public_id=plan.public_id,
+        plan_code=plan.code, product_family=item.product_family,
+        source=item.source, status=item.status, limits=dict(item.limits_json or {}),
+        starts_at=item.starts_at, current_period_end=item.current_period_end,
+    )
+
+
+@router.get("/admin/commerce/plans", response_model=list[AdminPlanRead])
+def admin_commerce_plans(
+    _principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.COMMERCE_CATALOG_READ)),
+    db: Session = Depends(get_db),
+) -> list[AdminPlanRead]:
+    return [AdminPlanRead.model_validate(item, from_attributes=True) for item in CommerceService(db).admin_plans()]
+
+
+@router.post("/admin/commerce/plans", response_model=AdminPlanRead, status_code=201)
+def admin_create_commerce_plan(
+    payload: AdminPlanWrite,
+    principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.COMMERCE_CATALOG_MANAGE)),
+    db: Session = Depends(get_db),
+) -> AdminPlanRead:
+    try:
+        item = CommerceService(db).admin_create_plan(actor_user_id=principal.user_id, **payload.model_dump())
+        return AdminPlanRead.model_validate(item, from_attributes=True)
+    except CommerceError as exc:
+        _error(exc)
+
+
+@router.patch("/admin/commerce/plans/{plan_public_id}", response_model=AdminPlanRead)
+def admin_update_commerce_plan(
+    plan_public_id: str,
+    payload: AdminPlanUpdate,
+    principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.COMMERCE_CATALOG_MANAGE)),
+    db: Session = Depends(get_db),
+) -> AdminPlanRead:
+    values = payload.model_dump(exclude={"expected_revision"}, exclude_unset=True)
+    try:
+        item = CommerceService(db).admin_update_plan(plan_public_id, actor_user_id=principal.user_id, expected_revision=payload.expected_revision, **values)
+        return AdminPlanRead.model_validate(item, from_attributes=True)
+    except CommerceError as exc:
+        _error(exc)
+
+
+@router.get("/admin/commerce/subscriptions", response_model=list[AdminSubscriptionRead])
+def admin_commerce_subscriptions(
+    _principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.COMMERCE_SUBSCRIPTION_READ)),
+    db: Session = Depends(get_db),
+) -> list[AdminSubscriptionRead]:
+    return [_admin_subscription_read(db, item) for item in CommerceService(db).admin_subscriptions()]
+
+
+@router.get("/admin/commerce/customers", response_model=list[AdminCustomerStoreRead])
+def admin_commerce_customers(
+    _principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.COMMERCE_SUBSCRIPTION_READ)),
+    db: Session = Depends(get_db),
+) -> list[AdminCustomerStoreRead]:
+    rows = db.execute(select(Tenant, Store).join(Store, Store.tenant_id == Tenant.id).order_by(Tenant.name, Store.name)).all()
+    return [AdminCustomerStoreRead(
+        tenant_public_id=tenant.public_id, tenant_name=tenant.name,
+        store_public_id=store.public_id, store_name=store.name, store_status=store.status,
+        effective_capabilities=list(effective_capabilities(db, tenant_id=tenant.id, store_id=store.id)),
+    ) for tenant, store in rows]
+
+
+@router.post("/admin/commerce/subscriptions/grants", response_model=AdminSubscriptionRead, status_code=201)
+def admin_grant_subscription(
+    payload: AdminGrantCreate,
+    principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.COMMERCE_SUBSCRIPTION_MANAGE)),
+    db: Session = Depends(get_db),
+) -> AdminSubscriptionRead:
+    try:
+        item = CommerceService(db).admin_grant(actor_user_id=principal.user_id, **payload.model_dump())
+        return _admin_subscription_read(db, item)
+    except CommerceError as exc:
+        _error(exc)
+
+
+@router.post("/admin/commerce/subscriptions/{subscription_public_id}/revoke", response_model=AdminSubscriptionRead)
+def admin_revoke_subscription(
+    subscription_public_id: str,
+    _payload: AdminRevokeInput,
+    principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.COMMERCE_SUBSCRIPTION_MANAGE)),
+    db: Session = Depends(get_db),
+) -> AdminSubscriptionRead:
+    try:
+        item = CommerceService(db).admin_revoke(subscription_public_id, actor_user_id=principal.user_id)
+        return _admin_subscription_read(db, item)
+    except CommerceError as exc:
+        _error(exc)
+
+
+def _subscription_read(db: Session, item: TenantSubscription) -> SubscriptionRead:
+    tenant, store, plan = db.get(Tenant, item.tenant_id), db.get(Store, item.store_id), db.get(SaasPlan, item.plan_id)
+    assert tenant is not None and store is not None and plan is not None
+    effective = {sub.product_family: sub for sub in effective_product_subscriptions(
+        db, tenant_id=tenant.id, store_id=store.id
+    )}
+    products = [
+        _product_subscription_read(db, effective[family])
+        if family in effective
+        else ProductSubscriptionRead(product_family=family, active=False)
+        for family in ("AUTOMATION", "AI_ASSISTANT")
+    ]
+    legacy = effective.get("LEGACY_BUNDLE")
+    return SubscriptionRead(
+        public_id=item.public_id,
+        tenant_public_id=tenant.public_id,
+        store_public_id=store.public_id,
+        plan_public_id=plan.public_id,
+        plan_code=plan.code,
+        status=item.status,
+        limits=dict(item.limits_json or {}),
+        starts_at=item.starts_at,
+        current_period_end=item.current_period_end,
+        effective_capabilities=list(effective_capabilities(db, tenant_id=tenant.id, store_id=store.id)),
+        products=products,
+        legacy_bundle=_product_subscription_read(db, legacy) if legacy else None,
+    )
 
 
 @router.post("/payments/card-transfer", response_model=CardTransferInstructions, status_code=201)
@@ -240,26 +390,7 @@ def my_subscription(principal: AuthenticatedPrincipal = Depends(require_authenti
         item = CommerceService(db).subscription(principal)
         if item is None:
             return None
-        tenant, store, plan = db.get(Tenant, item.tenant_id), db.get(Store, item.store_id), db.get(SaasPlan, item.plan_id)
-        assert tenant is not None and store is not None and plan is not None
-        return SubscriptionRead(
-            public_id=item.public_id,
-            tenant_public_id=tenant.public_id,
-            store_public_id=store.public_id,
-            plan_public_id=plan.public_id,
-            plan_code=plan.code,
-            status=item.status,
-            limits=dict(item.limits_json or {}),
-            starts_at=item.starts_at,
-            current_period_end=item.current_period_end,
-            effective_capabilities=list(
-                effective_capabilities(
-                    db,
-                    tenant_id=tenant.id,
-                    store_id=store.id,
-                )
-            ),
-        )
+        return _subscription_read(db, item)
     except CommerceError as exc:
         _error(exc)
 
@@ -273,27 +404,6 @@ def reconcile_my_subscription_capabilities(
         CommerceService(db).reconcile_subscription_modules(principal)
         item = CommerceService(db).subscription(principal)
         assert item is not None
-        tenant = db.get(Tenant, item.tenant_id)
-        store = db.get(Store, item.store_id)
-        plan = db.get(SaasPlan, item.plan_id)
-        assert tenant is not None and store is not None and plan is not None
-        return SubscriptionRead(
-            public_id=item.public_id,
-            tenant_public_id=tenant.public_id,
-            store_public_id=store.public_id,
-            plan_public_id=plan.public_id,
-            plan_code=plan.code,
-            status=item.status,
-            limits=dict(item.limits_json or {}),
-            starts_at=item.starts_at,
-            current_period_end=item.current_period_end,
-            effective_capabilities=list(
-                effective_capabilities(
-                    db,
-                    tenant_id=tenant.id,
-                    store_id=store.id,
-                )
-            ),
-        )
+        return _subscription_read(db, item)
     except CommerceError as exc:
         _error(exc)

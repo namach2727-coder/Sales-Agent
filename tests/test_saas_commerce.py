@@ -17,7 +17,7 @@ from app.commerce.router import router
 from app.commerce.service import CommerceService
 from app.config import Settings, get_settings
 from app.database import get_db
-from app.models import AuthPlatformRoleAssignment, SaasPlan, Store, StoreModule, SubscriptionOrder, Tenant, TenantSubscription
+from app.models import AuthPlatformRoleAssignment, CommerceAdminAuditLog, SaasPlan, Store, StoreModule, SubscriptionOrder, Tenant, TenantSubscription
 from tools.seeding import SeedRunner, default_registry
 
 
@@ -43,8 +43,10 @@ def commerce_api(tmp_path: Path):
             automation_limit=2,
             instagram_account_limit=1,
             duration_days=30,
-            module_codes=["sales_agent_core"],
+            module_codes=["instagram_automation"],
             is_active=True,
+            is_purchasable=True,
+            product_family="AUTOMATION",
         )
         db.add(paid)
     settings = Settings(
@@ -152,9 +154,8 @@ def test_approved_plan_catalog_is_backend_authoritative(commerce_api) -> None:
     }
     public = {item["code"]: item for item in client.get("/api/v1/plans").json()}
     assert "FREE" not in public
-    assert public["TRIAL"]["duration_days"] == 14
-    assert public["START"]["price_amount"] == 2_990_000
-    assert public["PRO"]["price_amount"] == 6_990_000
+    assert {"TRIAL", "START", "PRO"}.isdisjoint(public)
+    assert public["TEST_PAID"]["product_family"] == "AUTOMATION"
 
 
 def test_registration_login_and_duplicate_are_public_only(commerce_api) -> None:
@@ -166,8 +167,9 @@ def test_registration_login_and_duplicate_are_public_only(commerce_api) -> None:
         assert tenant is not None
         trial_orders = list(db.scalars(select(SubscriptionOrder).where(SubscriptionOrder.tenant_id == tenant.id, SubscriptionOrder.status == "paid")).all())
         trial_subscriptions = list(db.scalars(select(TenantSubscription).where(TenantSubscription.tenant_id == tenant.id, TenantSubscription.status == "active")).all())
-    assert len(trial_orders) == len(trial_subscriptions) == 1
-    assert trial_subscriptions[0].limits_json == {"reply_limit": 200, "automation_limit": 3, "instagram_account_limit": 1}
+    assert len(trial_orders) == len(trial_subscriptions) == 2
+    assert {item.product_family for item in trial_subscriptions} == {"AUTOMATION", "AI_ASSISTANT"}
+    assert all(item.source == "TRIAL" for item in trial_subscriptions)
     headers = login(client)
     subscription = client.get("/api/v1/subscription/me", headers=headers)
     assert subscription.status_code == 200
@@ -176,10 +178,7 @@ def test_registration_login_and_duplicate_are_public_only(commerce_api) -> None:
         "knowledge_base",
         "ai_assistant",
     }
-    trial_plan = next(item for item in client.get("/api/v1/plans").json() if item["code"] == "TRIAL")
-    repeated = client.post("/api/v1/orders", headers=headers, json={"plan_public_id": trial_plan["public_id"]})
-    assert repeated.status_code == 201
-    assert repeated.json()["public_id"] == trial_orders[0].public_id
+    assert all(item["code"] != "TRIAL" for item in client.get("/api/v1/plans").json())
     duplicate = client.post("/api/v1/auth/register", json={
         "email": "one@example.com", "password": PASSWORD, "display_name": "Duplicate",
         "tenant_name": "Other Tenant", "tenant_slug": "other-tenant", "store_name": "Other Store", "store_slug": "other-store",
@@ -343,7 +342,9 @@ def test_reconciliation_uses_only_effective_plan_and_preserves_tenant_isolation(
     )
     assert start_result.status_code == 200
     assert start_result.json()["plan_code"] == "START"
-    assert set(start_result.json()["effective_capabilities"]) == {"instagram_automation"}
+    assert set(start_result.json()["effective_capabilities"]) == {
+        "instagram_automation", "knowledge_base", "ai_assistant"
+    }
     with Session(engine) as db:
         store = db.scalar(select(Store).where(Store.public_id == first["store_public_id"]))
         other_store = db.scalar(select(Store).where(Store.public_id == second["store_public_id"]))
@@ -353,8 +354,10 @@ def test_reconciliation_uses_only_effective_plan_and_preserves_tenant_isolation(
             for item in db.scalars(select(StoreModule).where(StoreModule.store_id == store.id)).all()
         }
         assert modules["instagram_automation"] == "active"
-        assert modules["knowledge_base"] == "inactive"
-        assert modules["ai_assistant"] == "inactive"
+        # The newer Automation-only START subscription must not revoke the
+        # still-active legacy bundle's AI and Knowledge entitlements.
+        assert modules["knowledge_base"] == "active"
+        assert modules["ai_assistant"] == "active"
         assert {
             item.module_code: (item.status, item.source)
             for item in db.scalars(
@@ -396,8 +399,8 @@ def test_manual_receipt_and_atomic_idempotent_approval(commerce_api) -> None:
     duplicate = client.post(f"/api/v1/admin/payments/{payment['public_id']}/approve", headers=admin_headers, json={"expected_revision": submitted.json()["revision"]})
     assert duplicate.status_code == 200
     with Session(engine) as db:
-        assert len(list(db.scalars(select(TenantSubscription)).all())) == 2
-        module = db.scalar(select(StoreModule).where(StoreModule.module_code == "sales_agent_core"))
+        assert len(list(db.scalars(select(TenantSubscription)).all())) == 3
+        module = db.scalar(select(StoreModule).where(StoreModule.module_code == "instagram_automation"))
         assert module is not None and module.status == "active" and module.source == "subscription"
     subscription = client.get("/api/v1/subscription/me", headers=customer_headers)
     assert subscription.status_code == 200 and subscription.json()["plan_code"] == "TEST_PAID"
@@ -416,3 +419,30 @@ def test_payment_rejection_and_customer_cannot_use_admin_route(commerce_api) -> 
     assert submitted.status_code == 200
     denied = client.post(f"/api/v1/admin/payments/{payment['public_id']}/reject", headers=headers, json={"expected_revision": submitted.json()["revision"], "reason": "test"})
     assert denied.status_code == 403
+
+
+def test_platform_admin_manages_dynamic_product_catalog(commerce_api) -> None:
+    client, engine, _settings = commerce_api
+    register(client, "catalog-admin")
+    assert client.get("/api/v1/admin/commerce/plans", headers=login(client, "catalog-admin")).status_code == 403
+    fast = PasswordService(hasher=PasswordHasher(time_cost=1, memory_cost=8192, parallelism=1, type=Type.ID))
+    with Session(engine, expire_on_commit=False) as db:
+        admin = AuthenticationService(db, password_service=fast).create_user(email="platform-catalog-admin@example.com", display_name="Catalog Admin", password=PASSWORD, email_verified=True)
+    with Session(engine) as db, db.begin():
+        db.add(AuthPlatformRoleAssignment(principal_type="user", principal_id=str(admin.id), role_code="platform_super_admin", status="active"))
+    token = client.post("/api/v1/auth/login", json={"email":"platform-catalog-admin@example.com","password":PASSWORD}).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    created = client.post("/api/v1/admin/commerce/plans", headers=headers, json={
+        "code":"AUTOMATION_MONTHLY", "name":"Automation Monthly", "product_family":"AUTOMATION",
+        "description":"Configurable automation plan", "price_amount":1000, "currency":"IRR",
+        "duration_days":30, "billing_unit":"day", "automation_limit":5, "reply_limit":0,
+        "instagram_account_limit":1, "is_active":True, "is_purchasable":True,
+        "display_order":1, "trial_eligible":False,
+    })
+    assert created.status_code == 201
+    plan = created.json()
+    assert client.get("/api/v1/plans").json()[0]["product_family"] == "AUTOMATION"
+    changed = client.patch(f"/api/v1/admin/commerce/plans/{plan['public_id']}", headers=headers, json={"expected_revision":plan["revision"], "price_amount":2000})
+    assert changed.status_code == 200
+    with Session(engine) as db:
+        assert db.query(CommerceAdminAuditLog).count() == 2

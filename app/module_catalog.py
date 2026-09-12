@@ -274,6 +274,9 @@ def module_enabled(
 CAPABILITY_CODES: frozenset[str] = frozenset(
     {"instagram_automation", "knowledge_base", "ai_assistant"}
 )
+PRODUCT_FAMILIES: frozenset[str] = frozenset(
+    {"AUTOMATION", "AI_ASSISTANT", "LEGACY_BUNDLE"}
+)
 
 
 def effective_subscription(
@@ -305,6 +308,64 @@ def effective_subscription(
     return subscription
 
 
+def effective_subscription_for_family(
+    db: Session,
+    *,
+    tenant_id: int,
+    store_id: int,
+    product_family: str,
+    now: datetime | None = None,
+) -> TenantSubscription | None:
+    """Return the newest currently-effective subscription in one family."""
+    if product_family not in PRODUCT_FAMILIES:
+        return None
+    current = now or datetime.now(UTC)
+    candidates = db.scalars(
+        select(TenantSubscription)
+        .where(
+            TenantSubscription.tenant_id == tenant_id,
+            TenantSubscription.store_id == store_id,
+            TenantSubscription.product_family == product_family,
+            TenantSubscription.status == "active",
+            TenantSubscription.starts_at <= current,
+        )
+        .order_by(TenantSubscription.starts_at.desc(), TenantSubscription.id.desc())
+    ).all()
+    return next(
+        (
+            item
+            for item in candidates
+            if item.current_period_end is None
+            or _comparable_time(item.current_period_end) > current
+        ),
+        None,
+    )
+
+
+def effective_product_subscriptions(
+    db: Session,
+    *,
+    tenant_id: int,
+    store_id: int,
+    now: datetime | None = None,
+) -> tuple[TenantSubscription, ...]:
+    """Resolve one effective subscription per independent/legacy family."""
+    return tuple(
+        item
+        for family in sorted(PRODUCT_FAMILIES)
+        if (
+            item := effective_subscription_for_family(
+                db,
+                tenant_id=tenant_id,
+                store_id=store_id,
+                product_family=family,
+                now=now,
+            )
+        )
+        is not None
+    )
+
+
 def effective_capabilities(
     db: Session,
     *,
@@ -319,18 +380,13 @@ def effective_capabilities(
     if store is None:
         return ()
     current = now or datetime.now(UTC)
-    subscription = effective_subscription(
-        db,
-        tenant_id=tenant_id,
-        store_id=store_id,
-        now=current,
-    )
-    if subscription is None:
-        return ()
-    plan = db.get(SaasPlan, subscription.plan_id)
-    if plan is None:
-        return ()
-    granted = {str(code) for code in (plan.module_codes or [])}
+    granted: set[str] = set()
+    for subscription in effective_product_subscriptions(
+        db, tenant_id=tenant_id, store_id=store_id, now=current
+    ):
+        plan = db.get(SaasPlan, subscription.plan_id)
+        if plan is not None:
+            granted.update(str(code) for code in (plan.module_codes or []))
 
     def capability_enabled(code: str, seen: set[str] | None = None) -> bool:
         if code not in granted:

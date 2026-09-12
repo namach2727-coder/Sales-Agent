@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 import uuid
 
@@ -52,11 +52,14 @@ from app.business_knowledge.service import (
 from app.database import get_db
 from app.models import (
     AuthTenantRoleAssignment,
+    SaasPlan,
     Store,
     StoreAccessAssignment,
+    StoreModule,
     Tenant,
     TenantAuditLog,
     TenantMembership,
+    TenantSubscription,
     UserIdentity,
 )
 from tools.seeding import SeedRunner, default_registry
@@ -195,6 +198,38 @@ def base_path(tenant: Tenant, store: Store) -> str:
         f"/api/v1/tenants/{tenant.public_id}/stores/{store.public_id}"
         "/business-knowledge"
     )
+
+
+def grant_ai_assistant(engine, tenant: Tenant, store: Store) -> None:
+    """Provision the entitlement expected by customer-facing Knowledge APIs."""
+    now = datetime.now(UTC)
+    with Session(engine) as db, db.begin():
+        plan = db.scalar(select(SaasPlan).where(SaasPlan.code == "AI_ASSISTANT_TRIAL"))
+        assert plan is not None
+        db.add(
+            TenantSubscription(
+                tenant_id=tenant.id,
+                store_id=store.id,
+                plan_id=plan.id,
+                product_family="AI_ASSISTANT",
+                source="TRIAL",
+                status="active",
+                limits_json={},
+                starts_at=now,
+                current_period_end=now + timedelta(days=14),
+            )
+        )
+        for module_code in ("ai_assistant", "knowledge_base"):
+            db.add(
+                StoreModule(
+                    store_id=store.id,
+                    module_code=module_code,
+                    status="active",
+                    source="subscription",
+                    starts_at=now,
+                    current_period_end=now + timedelta(days=14),
+                )
+            )
 
 
 def test_domain_normalization_and_unsafe_input_rejection() -> None:
@@ -610,6 +645,7 @@ def test_api_contract_authorization_safe_404_and_no_delete(knowledge_engine) -> 
         role="tenant_content_manager",
         all_store_access=False,
     )
+    grant_ai_assistant(knowledge_engine, tenant, store)
     client = api_client(knowledge_engine, principal)
     path = base_path(tenant, store)
     response = client.post(
@@ -670,6 +706,7 @@ def test_api_operator_is_read_only_and_publish_requires_permission(
         knowledge_engine,
         role="tenant_operator",
     )
+    grant_ai_assistant(knowledge_engine, tenant, store)
     with Session(knowledge_engine) as db:
         profile = service(db, tenant, store).create_profile(
             expected_revision=0,
@@ -729,6 +766,7 @@ def test_migration_contains_exact_tables_and_endpoint_inventory(knowledge_engine
 
 def test_industry_profile_api_is_revision_checked_and_scope_bound(knowledge_engine) -> None:
     tenant, store, _membership, principal = tenant_context(knowledge_engine)
+    grant_ai_assistant(knowledge_engine, tenant, store)
     client = api_client(knowledge_engine, principal)
     path = base_path(tenant, store) + "/industry-profile"
 

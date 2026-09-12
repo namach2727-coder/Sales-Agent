@@ -15,6 +15,7 @@ from app.models import (
     AuthRole,
     AuthTenantRoleAssignment,
     CommerceAuditLog,
+    CommerceAdminAuditLog,
     IdentityAuditLog,
     ManualPayment,
     ModuleDefinition,
@@ -29,7 +30,7 @@ from app.models import (
     UserIdentity,
 )
 from app.tenant_management.domain import normalize_name, normalize_slug, normalize_subdomain
-from app.module_catalog import effective_subscription
+from app.module_catalog import effective_product_subscriptions, effective_subscription
 
 
 class CommerceError(Exception):
@@ -174,11 +175,101 @@ class CommerceService:
         return tenant, store
 
     def list_plans(self) -> list[SaasPlan]:
-        return list(self.session.scalars(select(SaasPlan).where(SaasPlan.is_active.is_(True)).order_by(SaasPlan.price_amount, SaasPlan.code)).all())
+        return list(self.session.scalars(select(SaasPlan).where(
+            SaasPlan.is_active.is_(True), SaasPlan.is_purchasable.is_(True)
+        ).order_by(SaasPlan.display_order, SaasPlan.price_amount, SaasPlan.code)).all())
+
+    @staticmethod
+    def _validate_plan_policy(*, product_family: str, module_codes: list[str]) -> None:
+        expected = {
+            "AUTOMATION": {"instagram_automation"},
+            "AI_ASSISTANT": {"ai_assistant", "knowledge_base"},
+        }
+        if product_family not in expected or set(module_codes) != expected[product_family]:
+            raise CommerceValidationError("invalid product capability mapping")
+
+    def admin_plans(self) -> list[SaasPlan]:
+        return list(self.session.scalars(select(SaasPlan).order_by(SaasPlan.display_order, SaasPlan.code)).all())
+
+    def admin_create_plan(self, *, actor_user_id: int, **values: object) -> SaasPlan:
+        family = str(values["product_family"])
+        modules = ["instagram_automation"] if family == "AUTOMATION" else ["ai_assistant", "knowledge_base"]
+        self._validate_plan_policy(product_family=family, module_codes=modules)
+        if self.session.scalar(select(SaasPlan.id).where(SaasPlan.code == values["code"])) is not None:
+            raise CommerceConflict("plan code already exists")
+        plan = SaasPlan(module_codes=modules, revision=1, **values)
+        self.session.add(plan)
+        self.session.flush()
+        self._admin_audit(actor_user_id, "commercial_plan.created", "saas_plan", plan.public_id, {"fields": sorted(values)})
+        self.session.commit()
+        self.session.refresh(plan)
+        return plan
+
+    def admin_update_plan(self, public_id: str, *, actor_user_id: int, expected_revision: int, **changes: object) -> SaasPlan:
+        plan = self.session.scalar(select(SaasPlan).where(SaasPlan.public_id == public_id))
+        if plan is None:
+            raise CommerceNotFound("plan not found")
+        if plan.revision != expected_revision:
+            raise CommerceConflict("revision conflict")
+        if plan.product_family == "LEGACY_BUNDLE":
+            raise CommerceForbidden("legacy plans are immutable")
+        applied = {key: value for key, value in changes.items() if value is not None}
+        if not applied:
+            raise CommerceValidationError("at least one change is required")
+        before = {key: getattr(plan, key) for key in applied}
+        for key, value in applied.items():
+            setattr(plan, key, value)
+        plan.revision += 1
+        self._admin_audit(actor_user_id, "commercial_plan.updated", "saas_plan", plan.public_id, {"changed_fields": sorted(applied), "before": before, "after": applied})
+        self.session.commit()
+        self.session.refresh(plan)
+        return plan
+
+    def admin_subscriptions(self) -> list[TenantSubscription]:
+        return list(self.session.scalars(select(TenantSubscription).order_by(TenantSubscription.id.desc())).all())
+
+    def admin_grant(self, *, actor_user_id: int, tenant_public_id: str, store_public_id: str, plan_public_id: str, expires_at: datetime | None) -> TenantSubscription:
+        tenant = self.session.scalar(select(Tenant).where(Tenant.public_id == tenant_public_id))
+        store = self.session.scalar(select(Store).where(Store.public_id == store_public_id))
+        plan = self.session.scalar(select(SaasPlan).where(SaasPlan.public_id == plan_public_id, SaasPlan.is_active.is_(True)))
+        if tenant is None or store is None or store.tenant_id != tenant.id or plan is None:
+            raise CommerceNotFound("commercial scope not found")
+        if plan.product_family == "LEGACY_BUNDLE":
+            raise CommerceForbidden("legacy bundle cannot be granted")
+        started = now_utc()
+        subscription = TenantSubscription(
+            tenant_id=tenant.id, store_id=store.id, plan_id=plan.id,
+            order_id=None, payment_id=None, product_family=plan.product_family,
+            source="ADMIN_GRANT", status="active", limits_json=self._limits(plan),
+            starts_at=started, current_period_end=expires_at,
+        )
+        self.session.add(subscription)
+        self.session.flush()
+        self._apply_plan_modules(store.id, plan, subscription)
+        self._audit(tenant.id, store.id, actor_user_id, "subscription.admin_granted", "tenant_subscription", subscription.public_id, {"product_family": plan.product_family, "plan_public_id": plan.public_id})
+        self.session.commit()
+        self.session.refresh(subscription)
+        return subscription
+
+    def admin_revoke(self, public_id: str, *, actor_user_id: int) -> TenantSubscription:
+        item = self.session.scalar(select(TenantSubscription).where(TenantSubscription.public_id == public_id))
+        if item is None:
+            raise CommerceNotFound("subscription not found")
+        if item.source != "ADMIN_GRANT" or item.status != "active":
+            raise CommerceConflict("only an active admin grant can be revoked")
+        item.status = "cancelled"
+        self._audit(item.tenant_id, item.store_id, actor_user_id, "subscription.admin_revoked", "tenant_subscription", item.public_id, {"product_family": item.product_family})
+        self.session.commit()
+        self.session.refresh(item)
+        return item
 
     def create_order(self, principal: AuthenticatedPrincipal, plan_public_id: str) -> SubscriptionOrder:
         tenant, store = self.customer_scope(principal)
-        plan = self.session.scalar(select(SaasPlan).where(SaasPlan.public_id == plan_public_id, SaasPlan.is_active.is_(True)))
+        plan = self.session.scalar(select(SaasPlan).where(
+            SaasPlan.public_id == plan_public_id,
+            SaasPlan.is_active.is_(True),
+            SaasPlan.is_purchasable.is_(True),
+        ))
         if plan is None:
             raise CommerceNotFound("plan not found")
         if plan.code == "TRIAL":
@@ -315,6 +406,8 @@ class CommerceService:
             plan_id=plan.id,
             order_id=order.id,
             payment_id=payment.id,
+            product_family=plan.product_family,
+            source="PURCHASED",
             status="active",
             limits_json=self._limits(plan),
             starts_at=(started_at := now_utc()),
@@ -369,66 +462,55 @@ class CommerceService:
         unchanged.
         """
         tenant, store = self.customer_scope(principal)
-        subscription = effective_subscription(
-            self.session,
-            tenant_id=tenant.id,
-            store_id=store.id,
+        subscriptions = effective_product_subscriptions(
+            self.session, tenant_id=tenant.id, store_id=store.id
         )
-        if subscription is None:
+        if not subscriptions:
             raise CommerceConflict("active subscription required")
-        self._reconcile_subscription_modules(
-            tenant=tenant,
-            store=store,
-            subscription=subscription,
-        )
+        for subscription in subscriptions:
+            plan = self.session.get(SaasPlan, subscription.plan_id)
+            if plan is None:
+                raise CommerceConflict("subscription plan is unavailable")
+            self._apply_plan_modules(store.id, plan, subscription)
         self.session.commit()
+        subscription = effective_subscription(self.session, tenant_id=tenant.id, store_id=store.id)
+        assert subscription is not None
         self.session.refresh(subscription)
         return subscription
 
     def activate_trial(self, *, tenant: Tenant, store: Store, user_id: int) -> TenantSubscription:
-        """Idempotently activate the seeded Trial plan for a new customer.
+        """Atomically activate independent Automation and AI trials.
 
         The method participates in the caller's transaction and deliberately
         does not commit.  It reuses the same order and free-subscription
         primitives as the public order flow, while allowing registration to
         remain atomic before an authenticated principal exists.
         """
-        plan = self.session.scalar(
-            select(SaasPlan).where(
-                SaasPlan.code == "TRIAL",
-                SaasPlan.is_active.is_(True),
-            )
-        )
-        if plan is None:
-            raise CommerceConflict("trial plan is unavailable")
-        existing = self.session.scalar(
-            select(TenantSubscription)
-            .where(
+        plans = list(self.session.scalars(select(SaasPlan).where(
+            SaasPlan.code.in_(("AUTOMATION_TRIAL", "AI_ASSISTANT_TRIAL")),
+            SaasPlan.is_active.is_(True),
+            SaasPlan.trial_eligible.is_(True),
+        )).all())
+        if {plan.product_family for plan in plans} != {"AUTOMATION", "AI_ASSISTANT"}:
+            raise CommerceConflict("independent trial plans are unavailable")
+        started_at = now_utc()
+        subscriptions: list[TenantSubscription] = []
+        for plan in sorted(plans, key=lambda item: item.product_family):
+            existing = self.session.scalar(select(TenantSubscription).where(
                 TenantSubscription.tenant_id == tenant.id,
                 TenantSubscription.store_id == store.id,
-                TenantSubscription.plan_id == plan.id,
+                TenantSubscription.product_family == plan.product_family,
+                TenantSubscription.source == "TRIAL",
                 TenantSubscription.status == "active",
-            )
-            .order_by(TenantSubscription.id.desc())
-        )
-        if existing is not None:
-            self._reconcile_subscription_modules(
-                tenant=tenant,
-                store=store,
-                subscription=existing,
-            )
-            self.session.flush()
-            return existing
-        order = self._create_order(
-            tenant=tenant,
-            store=store,
-            user_id=user_id,
-            plan=plan,
-        )
-        order.status = "paid"
-        subscription = self._activate_free_subscription(order, plan)
+            ).order_by(TenantSubscription.id.desc()))
+            if existing is not None:
+                subscriptions.append(existing)
+                continue
+            order = self._create_order(tenant=tenant, store=store, user_id=user_id, plan=plan)
+            order.status = "paid"
+            subscriptions.append(self._activate_free_subscription(order, plan, started_at=started_at))
         self.session.flush()
-        return subscription
+        return subscriptions[0]
 
     def _create_order(
         self,
@@ -460,14 +542,16 @@ class CommerceService:
         )
         return order
 
-    def _activate_free_subscription(self, order: SubscriptionOrder, plan: SaasPlan) -> TenantSubscription:
-        started_at = now_utc()
+    def _activate_free_subscription(self, order: SubscriptionOrder, plan: SaasPlan, *, started_at: datetime | None = None) -> TenantSubscription:
+        started_at = started_at or now_utc()
         subscription = TenantSubscription(
             tenant_id=order.tenant_id,
             store_id=order.store_id,
             plan_id=plan.id,
             order_id=order.id,
             payment_id=None,
+            product_family=plan.product_family,
+            source="TRIAL" if plan.trial_eligible else "PURCHASED",
             status="active",
             limits_json=self._limits(plan),
             starts_at=started_at,
@@ -483,10 +567,22 @@ class CommerceService:
 
     @staticmethod
     def _limits(plan: SaasPlan) -> dict[str, int]:
-        return {"reply_limit": plan.reply_limit, "automation_limit": plan.automation_limit, "instagram_account_limit": plan.instagram_account_limit}
+        limits = {"reply_limit": plan.reply_limit, "automation_limit": plan.automation_limit, "instagram_account_limit": plan.instagram_account_limit}
+        if plan.ai_request_limit is not None:
+            limits["ai_request_limit"] = plan.ai_request_limit
+        if plan.ai_token_limit is not None:
+            limits["ai_token_limit"] = plan.ai_token_limit
+        if plan.duration_days is not None:
+            limits["duration_days"] = plan.duration_days
+        return limits
 
     def _apply_plan_modules(self, store_id: int, plan: SaasPlan, subscription: TenantSubscription) -> None:
         desired_codes = set(plan.module_codes or [])
+        family_codes = {
+            "AUTOMATION": {"instagram_automation"},
+            "AI_ASSISTANT": {"ai_assistant", "knowledge_base"},
+            "LEGACY_BUNDLE": {"instagram_automation", "ai_assistant", "knowledge_base"},
+        }[plan.product_family]
         definitions = {
             item.code: item
             for item in self.session.scalars(
@@ -503,7 +599,7 @@ class CommerceService:
             ).all()
         }
         for code, item in existing_modules.items():
-            if item.source == "subscription" and code not in desired_codes:
+            if item.source == "subscription" and code in family_codes and code not in desired_codes:
                 item.status = "inactive"
 
         for code in sorted(desired_codes):
@@ -541,5 +637,8 @@ class CommerceService:
             raise CommerceConflict("subscription plan is unavailable")
         self._apply_plan_modules(store.id, plan, subscription)
 
-    def _audit(self, tenant_id: int, store_id: int | None, actor_user_id: int | None, action: str, target_type: str, target_public_id: str, details: dict[str, object]) -> None:
+    def _audit(self, tenant_id: int | None, store_id: int | None, actor_user_id: int | None, action: str, target_type: str, target_public_id: str, details: dict[str, object]) -> None:
         self.session.add(CommerceAuditLog(tenant_id=tenant_id, store_id=store_id, actor_user_id=actor_user_id, action=action, target_type=target_type, target_public_id=target_public_id, details_json=details))
+
+    def _admin_audit(self, actor_user_id: int, action: str, target_type: str, target_public_id: str, changes: dict[str, object]) -> None:
+        self.session.add(CommerceAdminAuditLog(actor_user_id=actor_user_id, action=action, target_type=target_type, target_public_id=target_public_id, changes_json=changes))
