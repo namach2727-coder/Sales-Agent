@@ -19,8 +19,10 @@ backend lineage. It must not be treated as the backend RC source.
 Automation/AI Phase C is **COMPLETE / PASS**. Real cloud UAT verified the
 rule-first runtime for deterministic DM, Story Reply, and Comment -> Private
 Reply, the no-match Knowledge-grounded AI fallback, and Human Takeover
-suppression/resume. Phase D.1 now separates Automation and AI Assistant into
-independent product families and adds the System Admin commercial foundation.
+suppression/resume. Phase D.1 is **COMPLETE / RELEASED / CLOUD VERIFIED**.
+Automation and AI Assistant are independent product families with simultaneous
+ownership supported, backed by the System Admin commercial foundation. Phase
+D.2 — AI Assistant Workspace is next.
 
 ## Architecture and implemented MVP
 
@@ -86,8 +88,7 @@ order amounts, and subscription snapshots.
 
 ## Current UAT evidence
 
-- Revision: `0012_plan_billing_duration` (not reset or migrated by the
-  Final-UAT API implementation task).
+- Migration head: `0016_product_family_commerce`.
 - UAT persistent database and volumes were not reset or downgraded.
 - Tenant, store, user, platform/tenant RBAC, tenant membership, encrypted active
   Instagram connection, conversation, messages, inbound events, and webhook
@@ -154,26 +155,20 @@ successful test completion and does not change the passing exit status.
 
 ## Remaining P0 blockers
 
-1. Configure and verify Render UAT `META_APP_ID` and
-   `META_OAUTH_REDIRECT_URI` (`https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback`);
-   local provider validation is complete but Render control is unavailable in
-   this environment, so `/connect` readiness remains unverified.
-2. Apply the normal forward-only migration to `0016_product_family_commerce`
-   during the next backend deployment and verify product/legacy reconciliation.
-3. Provision the always-on Linux Docker host, DNS/TLS reverse proxy, off-host
+1. Provision the always-on Linux Docker host, DNS/TLS reverse proxy, off-host
    backup destination, monitoring/operator ownership, and production-only
    secrets.
-4. Perform and evidence production PostgreSQL backup/restore rehearsal before
+2. Perform and evidence production PostgreSQL backup/restore rehearsal before
    migrating real data.
-5. Complete production Meta application review/configuration and controlled
+3. Complete production Meta application review/configuration and controlled
    webhook/outbound acceptance without reusing UAT assets.
-6. Select and configure the existing external AI-provider adapter (or a
+4. Select and configure the existing external AI-provider adapter (or a
    deliberately operated non-laptop Ollama endpoint).
 
 ## Exact next action
 
-After Phase D.1 release verification, begin Phase D.2 full AI Assistant
-workspace UX without changing the independent product entitlement boundary.
+Begin Phase D.2 — AI Assistant Workspace without changing the independent
+product entitlement boundary.
 
 ## Automation and AI capability lifecycle
 
@@ -301,6 +296,25 @@ interception:
 
 ## Phase D.1 independent product commerce
 
+Status: **COMPLETE / RELEASED / CLOUD VERIFIED**.
+
+- Authoritative backend runtime commit:
+  `58e2efde42dc2634eff38a35f9f4d2bb63c8fd7a`.
+- Authoritative frontend production commit:
+  `e0f37bb7bc12bdc0051ea13cd7b3686aa635ebf0`.
+- Cloud health and readiness passed with migration head
+  `0016_product_family_commerce`.
+- Authenticated acceptance passed for `/subscription/me`, the product-aware
+  collection, legacy compatibility, preserved historical subscription, and
+  effective capabilities `ai_assistant`, `instagram_automation`, and
+  `knowledge_base`.
+- Three Automation rules and five Knowledge records were preserved. The catalog
+  correctly exposes zero purchasable plans while commercial pricing values are
+  pending; legacy TRIAL/START/PRO are not purchasable and no fake zero-price
+  sellable plan is visible.
+- The System Admin authorization boundary passed: the non-platform-super-admin
+  acceptance identity was correctly denied Admin reads.
+
 - `AUTOMATION` grants `instagram_automation`; `AI_ASSISTANT` grants
   `ai_assistant` and `knowledge_base`. A store may own either, both, or neither.
 - Legacy START remains Automation-only. Legacy TRIAL and PRO remain immutable
@@ -324,8 +338,12 @@ interception:
   and Knowledge; customers with both see both. Full AI Workspace UX remains
   deferred to Phase D.2.
 - Deterministic Automation and all Admin/catalog operations remain zero-LLM.
+  Knowledge belongs to AI Assistant and is not an Automation product concern.
   Runtime limits remain `GROQ_CONTEXT_LENGTH=4096` and
   `GROQ_MAX_OUTPUT_TOKENS=256`.
+- The authenticated acceptance was read-only: it caused no database,
+  subscription, catalog, AutomationRule, or Knowledge mutation; no Meta,
+  Instagram, LLM, or AI-usage action occurred.
 
 ## Non-blocking backlog
 
