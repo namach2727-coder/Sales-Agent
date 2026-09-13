@@ -214,7 +214,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0016_product_family_commerce"]
+    assert scripts.get_heads() == ["0017_ai_assistant_workspace"]
     baseline = scripts.get_revision("0001_baseline_schema")
     seed_history = scripts.get_revision("0002_create_seed_history")
     rbac = scripts.get_revision("0003_authorization_rbac")
@@ -230,7 +230,8 @@ def test_alembic_loads_with_one_linear_head() -> None:
     store_automation = scripts.get_revision("0013_store_automation_control")
     transport_neutral = scripts.get_revision("0014_transport_neutral_inbound")
     automation_rules = scripts.get_revision("0015_automation_rules")
-    head = scripts.get_revision("0016_product_family_commerce")
+    product_commerce = scripts.get_revision("0016_product_family_commerce")
+    head = scripts.get_revision("0017_ai_assistant_workspace")
     assert baseline is not None and baseline.down_revision is None
     assert seed_history is not None and seed_history.down_revision == "0001_baseline_schema"
     assert rbac is not None and rbac.down_revision == "0002_create_seed_history"
@@ -246,7 +247,8 @@ def test_alembic_loads_with_one_linear_head() -> None:
     assert store_automation is not None and store_automation.down_revision == "0012_plan_billing_duration"
     assert transport_neutral is not None and transport_neutral.down_revision == "0013_store_automation_control"
     assert automation_rules is not None and automation_rules.down_revision == "0014_transport_neutral_inbound"
-    assert head is not None and head.down_revision == "0015_automation_rules"
+    assert product_commerce is not None and product_commerce.down_revision == "0015_automation_rules"
+    assert head is not None and head.down_revision == "0016_product_family_commerce"
 
 
 @requires_alembic
@@ -301,6 +303,7 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
+        "0017_ai_assistant_workspace",
         "0016_product_family_commerce",
         "0015_automation_rules",
         "0014_transport_neutral_inbound",

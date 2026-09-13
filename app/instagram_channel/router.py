@@ -16,6 +16,7 @@ from app.authentication.dependencies import require_authenticated_principal
 from app.authz.permissions import PermissionCode
 from app.config import Settings, get_settings
 from app.automation.service import automation_is_enabled
+from app.ai_assistant.service import ai_is_enabled
 from app.automation_rules.runtime import InstagramAutomationRuleRuntime
 from app.database import get_db
 from app.instagram_channel.exceptions import (
@@ -290,51 +291,35 @@ async def receive_instagram_webhook(
         flow_results: list[dict[str, object]] = []
         if ingestion.flow_items:
             for item in ingestion.flow_items:
-                if not automation_is_enabled(
+                if automation_is_enabled(
                     db,
                     tenant_id=item.context.tenant_id,
                     store_id=item.context.store_id,
                 ):
-                    flow_results.append(
-                        {
-                            "acknowledged": True,
-                            "inbound_status": item.inbound.status,
-                            "ai_status": "skipped",
-                            "delivery_status": "skipped",
-                            "duplicate": False,
-                            "ignored": False,
-                            "correlation_id": correlation_id.get(),
-                            "conversation_public_id": item.inbound.conversation_public_id,
-                            "inbound_message_public_id": item.inbound.message_public_id,
-                            "assistant_message_public_id": None,
-                            "safe_reason": "automation_disabled",
-                        }
+                    automation = automation_runtime_builder(db, settings)
+                    automation_result = automation.process(
+                        conversation_public_id=item.inbound.conversation_public_id,
+                        inbound_message_public_id=item.inbound.message_public_id,
+                        context=item.context,
+                        correlation_id=correlation_id.get(),
                     )
-                    continue
-                automation = automation_runtime_builder(db, settings)
-                automation_result = automation.process(
-                    conversation_public_id=item.inbound.conversation_public_id,
-                    inbound_message_public_id=item.inbound.message_public_id,
-                    context=item.context,
-                    correlation_id=correlation_id.get(),
-                )
-                if automation_result.handled:
-                    flow_results.append(
-                        {
-                            "acknowledged": True,
-                            "inbound_status": item.inbound.status,
-                            "ai_status": "skipped",
-                            "delivery_status": automation_result.delivery_status,
-                            "duplicate": False,
-                            "ignored": False,
-                            "correlation_id": correlation_id.get(),
-                            "conversation_public_id": item.inbound.conversation_public_id,
-                            "inbound_message_public_id": item.inbound.message_public_id,
-                            "assistant_message_public_id": automation_result.outbound_message_public_id,
-                            "safe_reason": automation_result.safe_reason,
-                        }
-                    )
-                    continue
+                    if automation_result.handled:
+                        flow_results.append(
+                            {
+                                "acknowledged": True,
+                                "inbound_status": item.inbound.status,
+                                "ai_status": "skipped",
+                                "delivery_status": automation_result.delivery_status,
+                                "duplicate": False,
+                                "ignored": False,
+                                "correlation_id": correlation_id.get(),
+                                "conversation_public_id": item.inbound.conversation_public_id,
+                                "inbound_message_public_id": item.inbound.message_public_id,
+                                "assistant_message_public_id": automation_result.outbound_message_public_id,
+                                "safe_reason": automation_result.safe_reason,
+                            }
+                        )
+                        continue
                 if not capability_checker(
                     db,
                     tenant_id=item.context.tenant_id,
@@ -354,6 +339,27 @@ async def receive_instagram_webhook(
                             "inbound_message_public_id": item.inbound.message_public_id,
                             "assistant_message_public_id": None,
                             "safe_reason": "ai_capability_unavailable",
+                        }
+                    )
+                    continue
+                if not ai_is_enabled(
+                    db,
+                    tenant_id=item.context.tenant_id,
+                    store_id=item.context.store_id,
+                ):
+                    flow_results.append(
+                        {
+                            "acknowledged": True,
+                            "inbound_status": item.inbound.status,
+                            "ai_status": "skipped",
+                            "delivery_status": "skipped",
+                            "duplicate": False,
+                            "ignored": False,
+                            "correlation_id": correlation_id.get(),
+                            "conversation_public_id": item.inbound.conversation_public_id,
+                            "inbound_message_public_id": item.inbound.message_public_id,
+                            "assistant_message_public_id": None,
+                            "safe_reason": "ai_disabled",
                         }
                     )
                     continue

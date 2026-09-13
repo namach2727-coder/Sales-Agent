@@ -864,7 +864,7 @@ def test_own_comment_is_ignored_without_ai_or_private_reply(flow_engine) -> None
     assert meta.calls == []
 
 
-def test_disabled_automation_persists_inbound_without_ai_send_or_replay(
+def test_disabled_automation_still_allows_independent_ai_and_no_replay(
     flow_engine,
 ) -> None:
     settings = _settings()
@@ -874,16 +874,16 @@ def test_disabled_automation_persists_inbound_without_ai_send_or_replay(
         assert store is not None
         store.automation_enabled = False
         store.automation_revision += 1
-    responses = FakeResponses()
+    responses = FakeResponses(unique_request_ids=True)
     meta = FakeMetaClient()
     client = _client(flow_engine, settings, FakeLLMClient(responses), meta)
     first_payload = _payload(scope.connection.instagram_account_id)
 
     disabled = _post(client, first_payload)
     assert disabled.status_code == 200
-    assert disabled.json()["flows"][0]["ai_status"] == "skipped"
-    assert responses.calls == []
-    assert meta.calls == []
+    assert disabled.json()["flows"][0]["ai_status"] == "completed"
+    assert len(responses.calls) == 1
+    assert len(meta.calls) == 1
     with Session(flow_engine) as db:
         conversation = db.scalar(
             select(Conversation).where(
@@ -893,23 +893,11 @@ def test_disabled_automation_persists_inbound_without_ai_send_or_replay(
         )
         assert conversation is not None
         assert conversation.inbound_message_count == 1
-        assert conversation.outbound_message_count == 0
+        assert conversation.outbound_message_count == 1
 
     duplicate = _post(client, first_payload)
     assert duplicate.status_code == 200
     assert duplicate.json()["duplicate"] is True
-    with Session(flow_engine) as db, db.begin():
-        store = db.get(Store, scope.store.id)
-        assert store is not None
-        store.automation_enabled = True
-        store.automation_revision += 1
-
-    enabled = _post(
-        client,
-        _payload(scope.connection.instagram_account_id),
-    )
-    assert enabled.status_code == 200
-    assert enabled.json()["flows"][0]["ai_status"] == "completed"
     assert len(responses.calls) == 1
     assert len(meta.calls) == 1
     with Session(flow_engine) as db:
@@ -920,7 +908,31 @@ def test_disabled_automation_persists_inbound_without_ai_send_or_replay(
                 )
             ).all()
         )
-    assert len(messages) == 3
+    assert len(messages) == 2
+
+
+def test_disabled_ai_persists_inbound_without_llm_or_outbound(flow_engine) -> None:
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    with Session(flow_engine) as db, db.begin():
+        store = db.get(Store, scope.store.id)
+        assert store is not None
+        store.ai_enabled = False
+        store.ai_revision += 1
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    response = _post(
+        _client(
+            flow_engine, settings, FakeLLMClient(responses), meta,
+            capabilities=frozenset({"knowledge_base", "ai_assistant"}),
+            real_automation=True,
+        ),
+        _payload(scope.connection.instagram_account_id),
+    )
+    assert response.status_code == 200
+    assert response.json()["flows"][0]["safe_reason"] == "ai_disabled"
+    assert responses.calls == []
+    assert meta.calls == []
 
 
 def test_disabled_meta_send_persists_ai_result_without_calling_sender(

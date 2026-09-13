@@ -242,6 +242,7 @@ class Store(Base):
             "automation_revision >= 1",
             name="ck_stores_automation_revision",
         ),
+        CheckConstraint("ai_revision >= 1", name="ck_stores_ai_revision"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -260,6 +261,8 @@ class Store(Base):
     active_version_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     automation_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     automation_revision: Mapped[int] = mapped_column(Integer, default=1)
+    ai_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    ai_revision: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now

@@ -21,6 +21,7 @@ from app.catalog.router import router as business_catalog_router
 from app.business_knowledge.router import router as business_knowledge_router
 from app.automation.router import router as automation_router
 from app.automation_rules.router import router as automation_rules_router
+from app.ai_assistant.router import router as ai_assistant_router
 from app.commerce.router import router as commerce_router
 from app.conversation_core.router import router as conversation_core_router
 from app.config import get_settings, validate_runtime_settings
@@ -121,6 +122,7 @@ app.include_router(business_knowledge_router)
 app.include_router(conversation_core_router)
 app.include_router(automation_router)
 app.include_router(automation_rules_router)
+app.include_router(ai_assistant_router)
 app.include_router(commerce_router)
 
 
