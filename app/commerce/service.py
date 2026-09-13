@@ -188,6 +188,11 @@ class CommerceService:
         if product_family not in expected or set(module_codes) != expected[product_family]:
             raise CommerceValidationError("invalid product capability mapping")
 
+    @staticmethod
+    def _validate_sellable_policy(*, price_amount: int, is_purchasable: bool, trial_eligible: bool) -> None:
+        if is_purchasable and price_amount <= 0 and not trial_eligible:
+            raise CommerceValidationError("a purchasable paid plan requires a positive price")
+
     def admin_plans(self) -> list[SaasPlan]:
         return list(self.session.scalars(select(SaasPlan).order_by(SaasPlan.display_order, SaasPlan.code)).all())
 
@@ -195,6 +200,11 @@ class CommerceService:
         family = str(values["product_family"])
         modules = ["instagram_automation"] if family == "AUTOMATION" else ["ai_assistant", "knowledge_base"]
         self._validate_plan_policy(product_family=family, module_codes=modules)
+        self._validate_sellable_policy(
+            price_amount=int(values["price_amount"]),
+            is_purchasable=bool(values["is_purchasable"]),
+            trial_eligible=bool(values["trial_eligible"]),
+        )
         if self.session.scalar(select(SaasPlan.id).where(SaasPlan.code == values["code"])) is not None:
             raise CommerceConflict("plan code already exists")
         plan = SaasPlan(module_codes=modules, revision=1, **values)
@@ -217,6 +227,11 @@ class CommerceService:
         if not applied:
             raise CommerceValidationError("at least one change is required")
         before = {key: getattr(plan, key) for key in applied}
+        self._validate_sellable_policy(
+            price_amount=int(applied.get("price_amount", plan.price_amount)),
+            is_purchasable=bool(applied.get("is_purchasable", plan.is_purchasable)),
+            trial_eligible=bool(applied.get("trial_eligible", plan.trial_eligible)),
+        )
         for key, value in applied.items():
             setattr(plan, key, value)
         plan.revision += 1

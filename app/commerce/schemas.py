@@ -144,6 +144,18 @@ class AdminCustomerStoreRead(BaseModel):
     effective_capabilities: list[str]
 
 
+class AdminCommerceAuditRead(BaseModel):
+    source: str
+    actor_display_name: str | None
+    action: str
+    target_type: str
+    target_public_id: str
+    changed_fields: list[str] = Field(default_factory=list)
+    before: dict[str, object] = Field(default_factory=dict)
+    after: dict[str, object] = Field(default_factory=dict)
+    created_at: datetime
+
+
 class ProductSubscriptionRead(BaseModel):
     product_family: str
     active: bool

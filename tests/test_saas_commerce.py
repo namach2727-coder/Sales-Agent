@@ -446,3 +446,69 @@ def test_platform_admin_manages_dynamic_product_catalog(commerce_api) -> None:
     assert changed.status_code == 200
     with Session(engine) as db:
         assert db.query(CommerceAdminAuditLog).count() == 2
+
+
+def test_paid_plan_requires_positive_price_before_becoming_purchasable(commerce_api) -> None:
+    client, engine, _settings = commerce_api
+    customer = register(client, "price-policy")
+    normal_headers = login(client, "price-policy")
+    fast = PasswordService(hasher=PasswordHasher(time_cost=1, memory_cost=8192, parallelism=1, type=Type.ID))
+    with Session(engine, expire_on_commit=False) as db:
+        admin = AuthenticationService(db, password_service=fast).create_user(
+            email="price-policy-admin@example.com", display_name="Price Policy Admin",
+            password=PASSWORD, email_verified=True,
+        )
+    with Session(engine) as db, db.begin():
+        db.add(AuthPlatformRoleAssignment(principal_type="user", principal_id=str(admin.id), role_code="platform_super_admin", status="active"))
+    token = client.post("/api/v1/auth/login", json={"email":"price-policy-admin@example.com","password":PASSWORD}).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    base = {
+        "code":"AUTOMATION_SAFE_DRAFT", "name":"Safe Draft", "product_family":"AUTOMATION",
+        "description":"Non-purchasable commercial draft", "price_amount":0, "currency":"IRR",
+        "duration_days":30, "billing_unit":"day", "automation_limit":5, "reply_limit":0,
+        "instagram_account_limit":1, "ai_request_limit":None, "ai_token_limit":None,
+        "is_active":True, "is_purchasable":False, "display_order":8, "trial_eligible":False,
+    }
+    draft = client.post("/api/v1/admin/commerce/plans", headers=headers, json=base)
+    assert draft.status_code == 201
+    plan = draft.json()
+    rejected = client.patch(
+        f"/api/v1/admin/commerce/plans/{plan['public_id']}", headers=headers,
+        json={"expected_revision":plan["revision"], "is_purchasable":True},
+    )
+    assert rejected.status_code == 422
+    updated = client.patch(
+        f"/api/v1/admin/commerce/plans/{plan['public_id']}", headers=headers,
+        json={"expected_revision":plan["revision"], "price_amount":1000, "currency":"USD", "duration_days":2, "billing_unit":"month", "automation_limit":9},
+    )
+    assert updated.status_code == 200
+    sellable = client.patch(
+        f"/api/v1/admin/commerce/plans/{plan['public_id']}", headers=headers,
+        json={"expected_revision":updated.json()["revision"], "is_purchasable":True},
+    )
+    assert sellable.status_code == 200
+    catalog = client.get("/api/v1/plans").json()
+    assert any(item["code"] == "AUTOMATION_SAFE_DRAFT" and item["price_amount"] == 1000 for item in catalog)
+    assert client.get("/api/v1/admin/commerce/audit", headers=normal_headers).status_code == 403
+    audit = client.get("/api/v1/admin/commerce/audit", headers=headers)
+    assert audit.status_code == 200
+    assert any(item["action"] == "commercial_plan.updated" and "price_amount" in item["changed_fields"] for item in audit.json())
+    assert "password" not in audit.text.casefold()
+    assert "bearer" not in audit.text.casefold()
+    assert "secret" not in audit.text.casefold()
+    granted = client.post("/api/v1/admin/commerce/subscriptions/grants", headers=headers, json={
+        "tenant_public_id": customer["tenant_public_id"], "store_public_id": customer["store_public_id"],
+        "plan_public_id": plan["public_id"], "expires_at": None,
+    })
+    assert granted.status_code == 201 and granted.json()["source"] == "ADMIN_GRANT"
+    revoked = client.post(
+        f"/api/v1/admin/commerce/subscriptions/{granted.json()['public_id']}/revoke",
+        headers=headers, json={"expected_status":"active"},
+    )
+    assert revoked.status_code == 200 and revoked.json()["status"] == "cancelled"
+    audit = client.get("/api/v1/admin/commerce/audit", headers=headers).json()
+    assert {"subscription.admin_granted", "subscription.admin_revoked"}.issubset({item["action"] for item in audit})
+
+
+def test_zero_price_trial_is_an_explicit_sellable_exception(commerce_api) -> None:
+    CommerceService._validate_sellable_policy(price_amount=0, is_purchasable=True, trial_eligible=True)

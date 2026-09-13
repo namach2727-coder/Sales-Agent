@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -17,6 +18,7 @@ from app.authentication.schemas import LoginInput
 from app.authz.permissions import PermissionCode
 from app.commerce.schemas import (
     AdminGrantCreate,
+    AdminCommerceAuditRead,
     AdminCustomerStoreRead,
     AdminPlanRead,
     AdminPlanUpdate,
@@ -46,7 +48,7 @@ from app.commerce.service import CommerceConflict, CommerceError, CommerceForbid
 from app.commerce.storage import LocalPrivateReceiptStorage, ReceiptValidationError
 from app.config import Settings, get_settings
 from app.database import get_db
-from app.models import ManualPayment, SaasPlan, Store, SubscriptionOrder, Tenant, TenantSubscription
+from app.models import CommerceAdminAuditLog, CommerceAuditLog, ManualPayment, SaasPlan, Store, SubscriptionOrder, Tenant, TenantSubscription, UserIdentity
 from app.module_catalog import effective_capabilities, effective_product_subscriptions
 from app.tenant_management.domain import TenantManagementError
 
@@ -232,6 +234,65 @@ def admin_commerce_customers(
         store_public_id=store.public_id, store_name=store.name, store_status=store.status,
         effective_capabilities=list(effective_capabilities(db, tenant_id=tenant.id, store_id=store.id)),
     ) for tenant, store in rows]
+
+
+@router.get("/admin/commerce/audit", response_model=list[AdminCommerceAuditRead])
+def admin_commerce_audit(
+    action: str | None = None,
+    target_type: str | None = None,
+    target_public_id: str | None = None,
+    created_from: datetime | None = None,
+    created_to: datetime | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+    _principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.COMMERCE_CATALOG_READ)),
+    db: Session = Depends(get_db),
+) -> list[AdminCommerceAuditRead]:
+    plan_query = select(CommerceAdminAuditLog)
+    commerce_query = select(CommerceAuditLog).where(
+        CommerceAuditLog.action.in_(("subscription.admin_granted", "subscription.admin_revoked"))
+    )
+    for column_name, value in (
+        ("action", action),
+        ("target_type", target_type),
+        ("target_public_id", target_public_id),
+    ):
+        if value:
+            plan_query = plan_query.where(getattr(CommerceAdminAuditLog, column_name) == value)
+            commerce_query = commerce_query.where(getattr(CommerceAuditLog, column_name) == value)
+    if created_from is not None:
+        plan_query = plan_query.where(CommerceAdminAuditLog.created_at >= created_from)
+        commerce_query = commerce_query.where(CommerceAuditLog.created_at >= created_from)
+    if created_to is not None:
+        plan_query = plan_query.where(CommerceAdminAuditLog.created_at <= created_to)
+        commerce_query = commerce_query.where(CommerceAuditLog.created_at <= created_to)
+
+    plan_rows = list(db.scalars(plan_query.order_by(CommerceAdminAuditLog.created_at.desc()).limit(limit)).all())
+    commerce_rows = list(db.scalars(commerce_query.order_by(CommerceAuditLog.created_at.desc()).limit(limit)).all())
+    actor_ids = {row.actor_user_id for row in [*plan_rows, *commerce_rows] if row.actor_user_id is not None}
+    actors = {
+        item.id: item
+        for item in db.scalars(select(UserIdentity).where(UserIdentity.id.in_(actor_ids))).all()
+    } if actor_ids else {}
+    result: list[AdminCommerceAuditRead] = []
+    for row in plan_rows:
+        changes = dict(row.changes_json or {})
+        actor = actors.get(row.actor_user_id)
+        result.append(AdminCommerceAuditRead(
+            source="commercial_policy", actor_display_name=actor.display_name if actor else None, action=row.action,
+            target_type=row.target_type, target_public_id=row.target_public_id,
+            changed_fields=list(changes.get("changed_fields") or changes.get("fields") or []),
+            before=dict(changes.get("before") or {}), after=dict(changes.get("after") or {}),
+            created_at=row.created_at,
+        ))
+    for row in commerce_rows:
+        details = dict(row.details_json or {})
+        actor = actors.get(row.actor_user_id) if row.actor_user_id is not None else None
+        result.append(AdminCommerceAuditRead(
+            source="subscription", actor_display_name=actor.display_name if actor else None, action=row.action,
+            target_type=row.target_type, target_public_id=row.target_public_id,
+            changed_fields=sorted(details), before={}, after=details, created_at=row.created_at,
+        ))
+    return sorted(result, key=lambda item: item.created_at, reverse=True)[:limit]
 
 
 @router.post("/admin/commerce/subscriptions/grants", response_model=AdminSubscriptionRead, status_code=201)
