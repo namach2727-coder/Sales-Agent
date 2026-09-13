@@ -22,7 +22,9 @@ Reply, the no-match Knowledge-grounded AI fallback, and Human Takeover
 suppression/resume. Phase D.1 is **COMPLETE / RELEASED / CLOUD VERIFIED**.
 Automation and AI Assistant are independent product families with simultaneous
 ownership supported, backed by the System Admin commercial foundation. Phase
-D.2 — AI Assistant Workspace is next.
+Phase D.2 — AI Assistant Workspace is **COMPLETE / IMPLEMENTED / RELEASED /
+CLOUD VERIFIED**. Authenticated cloud acceptance verified the independent AI
+workspace and a real Knowledge-grounded Instagram AI response.
 
 ## Architecture and implemented MVP
 
@@ -59,12 +61,15 @@ The validated linear chain is:
 -> `0014_transport_neutral_inbound`
 -> `0015_automation_rules`
 -> `0016_product_family_commerce`
+-> `0017_ai_assistant_workspace`
 
-Current source Alembic head is `0016_product_family_commerce`. Revision 0016 is
+Current source Alembic head is `0017_ai_assistant_workspace`. Revision 0016 is
 additive: existing START subscriptions are classified as Automation, existing
 TRIAL/PRO subscriptions as compatibility-only `LEGACY_BUNDLE`, and historical
 orders, amounts, dates, public IDs, relations, rules, Knowledge, and AI usage
-remain unchanged.
+remain unchanged. Revision 0017 adds the tenant/store-scoped AI Assistant
+workspace settings and usage foundation without changing the independent
+Automation product boundary.
 
 The 0010-0012 files are byte-identical between the reviewed RC source and the
 running UAT image. They are tracked by the canonical RC commit and must remain
@@ -88,7 +93,7 @@ order amounts, and subscription snapshots.
 
 ## Current UAT evidence
 
-- Migration head: `0016_product_family_commerce`.
+- Migration head: `0017_ai_assistant_workspace`.
 - UAT persistent database and volumes were not reset or downgraded.
 - Tenant, store, user, platform/tenant RBAC, tenant membership, encrypted active
   Instagram connection, conversation, messages, inbound events, and webhook
@@ -167,8 +172,8 @@ successful test completion and does not change the passing exit status.
 
 ## Exact next action
 
-Begin Phase D.2 — AI Assistant Workspace without changing the independent
-product entitlement boundary.
+Define the next post-D.2 product phase without changing the independent
+Automation and AI Assistant entitlement boundary.
 
 ## Automation and AI capability lifecycle
 
@@ -344,6 +349,37 @@ Status: **COMPLETE / RELEASED / CLOUD VERIFIED**.
 - The authenticated acceptance was read-only: it caused no database,
   subscription, catalog, AutomationRule, or Knowledge mutation; no Meta,
   Instagram, LLM, or AI-usage action occurred.
+
+## Phase D.2 AI Assistant Workspace
+
+Status: **COMPLETE / IMPLEMENTED / RELEASED / CLOUD VERIFIED**.
+
+- Authoritative backend runtime commit:
+  `dba9841d7bd44e6d1ab61f59befd4181417a1530`.
+- Authoritative frontend production commit:
+  `1dbdd2bf4541cddf4d23e479a90b2919b2a9c1b0`.
+- Cloud health and readiness passed with migration head
+  `0017_ai_assistant_workspace`.
+- Authenticated read-only acceptance verified the AI Assistant workspace,
+  separate Automation entry, Knowledge visibility, AI enabled state, usage
+  summary, hidden provider/model/API-key internals, and the normal-user Admin
+  authorization boundary. Existing three Automation rules and five Knowledge
+  records were preserved.
+- AI entitlement and the store-level enabled state remain separate controls:
+  entitlement plus enabled permits AI; disabling suppresses AI without
+  changing entitlement; an unentitled store cannot enable AI.
+- Real Instagram cloud UAT verified both Knowledge lifecycle cases. While the
+  relevant FAQ was draft, retrieval correctly selected zero Knowledge chunks
+  and the AI reported that the information was unavailable. After publication,
+  retrieval selected the relevant FAQ, included one Knowledge chunk within the
+  bounded PromptBuilder context, called Groq/Qwen, recorded AI usage, and sent
+  exactly one answer consistent with the published FAQ.
+- The grounded cloud path produced no deterministic Automation match,
+  duplicate inbound, duplicate outbound, echo re-ingestion, or loop. Human
+  Takeover priority and the independent Automation product boundary remain
+  unchanged.
+- Runtime limits remain `GROQ_CONTEXT_LENGTH=4096` and
+  `GROQ_MAX_OUTPUT_TOKENS=256`; the verified request respected both limits.
 
 ## Non-blocking backlog
 
