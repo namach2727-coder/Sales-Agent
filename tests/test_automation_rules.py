@@ -150,6 +150,35 @@ def test_tenant_and_store_isolation_fail_closed(rules_api) -> None:
     assert client.delete(route(scope_a, rule["public_id"]), headers=headers_b, params={"expected_revision": 1}).status_code == 404
 
 
+def test_edit_at_capacity_updates_same_rule_without_consuming_capacity(rules_api) -> None:
+    client, _ = rules_api
+    headers, scope = customer(client, "edit-capacity")
+    created = [client.post(route(scope), headers=headers, json=payload()).json() for _ in range(3)]
+    target = created[0]
+    update_payload = payload("COMMENT_KEYWORD", expected_revision=target["revision"])
+    update_payload.update({
+        "name": "Edited existing rule", "match_type": "EXACT", "keywords": ["new-trigger"],
+        "action_payload": {"text": "updated deterministic response"}, "priority": 777, "enabled": False,
+    })
+
+    response = client.patch(route(scope, target["public_id"]), headers=headers, json=update_payload)
+
+    assert response.status_code == 200, response.text
+    updated = response.json()
+    assert updated["public_id"] == target["public_id"]
+    assert updated["revision"] == target["revision"] + 1
+    assert updated["trigger_type"] == "COMMENT_KEYWORD"
+    assert updated["action_type"] == "SEND_PRIVATE_MESSAGE"
+    assert updated["match_type"] == "EXACT"
+    assert updated["keywords"] == ["new-trigger"]
+    assert updated["action_payload"] == {"text": "updated deterministic response"}
+    assert updated["priority"] == 777
+    assert updated["enabled"] is False
+    listing = client.get(route(scope), headers=headers).json()
+    assert listing["total"] == 3
+    assert {item["public_id"] for item in listing["items"]} == {item["public_id"] for item in created}
+
+
 def test_missing_capability_denies_management_without_deleting_rules(rules_api) -> None:
     client, engine = rules_api
     headers, scope = customer(client, "downgrade")
