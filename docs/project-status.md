@@ -314,14 +314,35 @@ The primary event took no AI fallback, PromptBuilder, Knowledge retrieval,
 LLM provider, or AI-usage path. No professional-account echo re-ingestion or
 loop was observed.
 
-Non-blocking follow-up, `READY_EVENT_WITH_IGNORE_ERROR`: a separate adjacent
-webhook from the same external sender and recipient was not a duplicate of
-the primary event. Its delivery was `processed` while its inbound event
-remained `ready`; runtime logged an ignored inbound event followed by an
-unexpected webhook-processing error. Scoped database checks found no message,
-outbound, Automation output, AI output, or persistent business side effect
-from that adjacent event. Investigate event-state/error-handling consistency
-separately; this does not reopen the accepted Automation Edit UAT.
+### Ignored inbound event state consistency
+
+`READY_EVENT_WITH_IGNORE_ERROR` is **RESOLVED / IMPLEMENTED / RELEASED /
+CLOUD VERIFIED**. The backend fix in
+`aef9551afb08574f289f3ec5c65c717d1c46814d` was pushed to
+`backend-main`; the operator confirmed the matching Render deployment is
+Live. Rechecked `/live` and `/ready` returned HTTP 200, with database
+available and migration current. Validation passed 53 targeted tests and
+781 full backend tests (4 skipped), plus compile/import and diff checks.
+
+Root cause: an ignored inbound result retained event status `ready` after
+its webhook delivery became `processed`; the router then entered Automation
+without conversation/message identifiers and raised
+`ConversationValidationError`. Ignored and duplicate inbound results now
+transition to terminal `ignored`, and benign results stop before Automation
+or AI. Genuine exceptions are not broadly swallowed; normal Automation and
+AI paths remain intact.
+
+Read-only UAT history found 49 `ready` events with processed deliveries.
+Twenty-eight had messages: five with Automation output, thirteen with AI
+output, and ten with a message but no outbound. The other 21 had no message:
+six were probable duplicates and fifteen remain unresolved. No row was
+proven to be an ignored, duplicate, or failed event incorrectly left ready;
+no row was a probable old-bug match. Because `ready` is valid for handled
+events and there are zero safely proven repair candidates, historical repair
+is **not required**. No historical rows were changed.
+
+Separate non-blocking follow-up: `REAL_FAILURE_REPLAY_LIMITATION` remains
+outside this ignored-event control-flow fix and requires its own audit.
 
 ## Phase D.1 independent product commerce
 
