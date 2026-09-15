@@ -291,6 +291,26 @@ async def receive_instagram_webhook(
         flow_results: list[dict[str, object]] = []
         if ingestion.flow_items:
             for item in ingestion.flow_items:
+                if item.inbound.status != "processed":
+                    # Keep the existing ignored/duplicate receipt contract,
+                    # but never pass a missing inbound message to Automation
+                    # or AI after a benign inbound classification.
+                    flow_results.append(
+                        {
+                            "acknowledged": True,
+                            "inbound_status": item.inbound.status,
+                            "ai_status": "skipped",
+                            "delivery_status": "skipped",
+                            "duplicate": item.inbound.status == "duplicate",
+                            "ignored": item.inbound.status == "ignored",
+                            "correlation_id": correlation_id.get(),
+                            "conversation_public_id": item.inbound.conversation_public_id,
+                            "inbound_message_public_id": item.inbound.message_public_id,
+                            "assistant_message_public_id": None,
+                            "safe_reason": item.inbound.reason,
+                        }
+                    )
+                    continue
                 if automation_is_enabled(
                     db,
                     tenant_id=item.context.tenant_id,

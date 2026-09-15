@@ -862,6 +862,10 @@ class InstagramWebhookIngestionService:
             created += 1
             result = inbound_messages.process(event.public_id)
             message_results[result.status] += 1
+            if result.status in {"ignored", "duplicate"}:
+                # A message that cannot be processed must not remain ready or
+                # enter Automation/AI without a persisted inbound message.
+                event.processing_status = "ignored"
             flow_items.append(
                 InstagramInboundFlowItem(
                     inbound=result,

@@ -21,6 +21,7 @@ from app import models as registered_models  # noqa: F401
 from app.config import Settings, get_settings
 from app.conversation_core.models import Conversation, ConversationMessage
 from app.application.services import ConversationService
+from app.application.instagram.inbound_message import InstagramInboundMessageService
 from app.automation_rules.models import AutomationRule
 from app.automation_rules.runtime import InstagramAutomationRuleRuntime
 from app.database import Base, get_db
@@ -1166,6 +1167,141 @@ def test_unsupported_empty_invalid_signature_and_unknown_scope_make_no_calls(
     assert unknown_response.json()["status"] == "ignored"
     assert responses.calls == []
     assert meta.calls == []
+
+
+def test_ignored_message_with_enabled_automation_is_terminal_and_never_enters_flow(
+    flow_engine, caplog: pytest.LogCaptureFixture,
+) -> None:
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    client = _client(
+        flow_engine, settings, FakeLLMClient(responses), meta,
+        real_automation=True,
+    )
+    payload = _payload(scope.connection.instagram_account_id)
+    payload["entry"][0]["messaging"][0]["message"]["text"] = "   "
+    mid = payload["entry"][0]["messaging"][0]["message"]["mid"]
+    with caplog.at_level(logging.INFO):
+        response = _post(client, payload)
+        replay = _post(client, payload)
+    assert response.status_code == replay.status_code == 200
+    assert len(response.json()["flows"]) == 1
+    assert response.json()["flows"][0]["ignored"] is True
+    assert replay.json()["duplicate"] is True
+    assert "Instagram inbound event ignored" in caplog.text
+    assert "Instagram webhook processing failed unexpectedly" not in caplog.text
+    with Session(flow_engine) as db:
+        event_row = db.scalar(
+            select(InstagramInboundEvent).where(
+                InstagramInboundEvent.provider_event_id == mid
+            )
+        )
+        assert event_row is not None
+        assert event_row.processing_status == "ignored"
+        delivery = db.get(InstagramWebhookDelivery, event_row.webhook_delivery_id)
+        assert delivery is not None
+        assert delivery.processing_status == "processed"
+        assert db.scalar(select(func.count(ConversationMessage.id)).where(
+            ConversationMessage.instagram_inbound_event_id == event_row.id
+        )) == 0
+    assert responses.calls == []
+    assert meta.calls == []
+
+
+def test_professional_echo_and_unsupported_event_skip_enabled_automation(
+    flow_engine, caplog: pytest.LogCaptureFixture,
+) -> None:
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    client = _client(
+        flow_engine, settings, FakeLLMClient(responses), meta,
+        real_automation=True,
+    )
+    own = _payload(scope.connection.instagram_account_id)
+    own["entry"][0]["messaging"][0]["sender"]["id"] = scope.connection.instagram_account_id
+    unsupported = _payload(scope.connection.instagram_account_id)
+    unsupported["entry"][0]["messaging"][0].pop("message")
+    with caplog.at_level(logging.INFO):
+        echo = _post(client, own)
+        unknown = _post(client, unsupported)
+    assert echo.status_code == unknown.status_code == 200
+    assert echo.json()["flows"][0]["ignored"] is True
+    assert unknown.json()["flows"][0]["ignored"] is True
+    assert "Instagram webhook processing failed unexpectedly" not in caplog.text
+    assert responses.calls == []
+    assert meta.calls == []
+    with Session(flow_engine) as db:
+        deliveries = tuple(db.scalars(select(InstagramWebhookDelivery).where(
+            InstagramWebhookDelivery.instagram_connection_id == scope.connection.id
+        )).all())
+        events = tuple(db.scalars(select(InstagramInboundEvent).where(
+            InstagramInboundEvent.instagram_connection_id == scope.connection.id
+        )).all())
+        assert all(d.processing_status == "processed" for d in deliveries)
+        assert all(e.processing_status == "ignored" for e in events)
+
+
+def test_distinct_delivery_with_duplicate_provider_message_has_no_second_flow(
+    flow_engine,
+) -> None:
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    client = _client(
+        flow_engine, settings, FakeLLMClient(responses), meta,
+        real_automation=True,
+    )
+    first = _payload(scope.connection.instagram_account_id)
+    second = json.loads(json.dumps(first))
+    second["entry"][0]["messaging"][0]["timestamp"] += 1000
+    assert _post(client, first).status_code == 200
+    result = _post(client, second)
+    assert result.status_code == 200
+    assert result.json()["flows"][0]["duplicate"] is True
+    with Session(flow_engine) as db:
+        events = tuple(db.scalars(select(InstagramInboundEvent).where(
+            InstagramInboundEvent.instagram_connection_id == scope.connection.id
+        )).all())
+        assert len(events) == 2
+        assert sorted(e.processing_status for e in events) == ["ignored", "ready"]
+        assert db.scalar(select(func.count(ConversationMessage.id)).where(
+            ConversationMessage.instagram_connection_id == scope.connection.id,
+            ConversationMessage.direction == "inbound",
+        )) == 1
+    assert len(responses.calls) == 1
+    assert len(meta.calls) <= 1
+
+
+def test_real_ingestion_failure_is_visible_not_masked_as_ignored(
+    flow_engine, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+) -> None:
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    client = _client(flow_engine, settings, FakeLLMClient(responses), meta)
+    payload = _payload(scope.connection.instagram_account_id)
+    original = InstagramInboundMessageService.process
+
+    def fail_once(self, event_public_id: str):
+        raise RuntimeError("synthetic ingestion failure without credentials")
+
+    monkeypatch.setattr(InstagramInboundMessageService, "process", fail_once)
+    with caplog.at_level(logging.ERROR):
+        failed = _post(client, payload)
+    assert failed.status_code == 500
+    assert "Instagram webhook processing failed unexpectedly" in caplog.text
+    monkeypatch.setattr(InstagramInboundMessageService, "process", original)
+    retried = _post(client, payload)
+    assert retried.status_code == 200
+    # SQLite's SAVEPOINT behavior retains the delivery after the failed
+    # request. This pre-existing replay limitation is not a benign ignore.
+    assert retried.json()["duplicate"] is True
 
 
 def test_inactive_connection_is_not_routed_to_ai_or_meta(flow_engine) -> None:
