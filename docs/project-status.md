@@ -299,6 +299,30 @@ interception:
 - Phase E: commercial enforcement and metering
 - Phase F: Cloud UAT
 
+### Automation Edit Workflow cloud acceptance
+
+Automation Edit Workflow is **COMPLETE / IMPLEMENTED / RELEASED / CLOUD
+VERIFIED**. The frontend implementation was released in commit
+`361cedefbde60f388746b079ef8e5122be0430c7`; the backend Edit API uses
+the pre-existing authenticated PATCH implementation. Cloud UAT updated the
+existing rule `ba11099e-5c89-44bc-8048-c864f3038e75` in place at its full
+capacity of 3/3 rules, without creating a fourth rule. The prior exact DM
+trigger `DPTEST4827` was replaced by `DP-EDIT-8H3R6V2Q`, with deterministic
+response `EDIT-UAT-8H3R6V2Q`; rule count remained three before and after.
+The edited trigger matched at runtime and produced exactly one sent outbound.
+The primary event took no AI fallback, PromptBuilder, Knowledge retrieval,
+LLM provider, or AI-usage path. No professional-account echo re-ingestion or
+loop was observed.
+
+Non-blocking follow-up, `READY_EVENT_WITH_IGNORE_ERROR`: a separate adjacent
+webhook from the same external sender and recipient was not a duplicate of
+the primary event. Its delivery was `processed` while its inbound event
+remained `ready`; runtime logged an ignored inbound event followed by an
+unexpected webhook-processing error. Scoped database checks found no message,
+outbound, Automation output, AI output, or persistent business side effect
+from that adjacent event. Investigate event-state/error-handling consistency
+separately; this does not reopen the accepted Automation Edit UAT.
+
 ## Phase D.1 independent product commerce
 
 Status: **COMPLETE / RELEASED / CLOUD VERIFIED**.
