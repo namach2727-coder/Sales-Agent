@@ -15,9 +15,14 @@ from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
-from app.conversation_core.models import Conversation, ConversationMessage
+from app.conversation_core.models import (
+    Conversation,
+    ConversationMessage,
+    ConversationProcessingRecord,
+)
 from app.database import get_db
 from app.instagram_channel.domain import parse_instagram_webhook
+from app.instagram_channel.exceptions import InstagramChannelConflictError
 from app.instagram_channel.models import (
     InstagramConnection,
     InstagramInboundEvent,
@@ -198,6 +203,38 @@ def test_webhook_ingestion_routes_and_deduplicates_delivery(webhook_engine) -> N
         assert message.direction == "inbound"
     assert first == ("accepted", False, 1)
     assert second == ("duplicate", True, 0)
+
+
+def test_pending_processing_replay_is_not_executed_concurrently(
+    webhook_engine,
+) -> None:
+    connection = create_connection(webhook_engine)
+    payload = messaging_payload(
+        connection.instagram_account_id,
+        f"pending-{uuid.uuid4().hex}",
+    )
+    body = body_for(payload)
+    with Session(webhook_engine) as db:
+        first = InstagramWebhookIngestionService(db).ingest_for_ai(
+            raw_body=body,
+            payload=payload,
+            external_delivery_key=f"delivery-{uuid.uuid4().hex}",
+            correlation_id="pending-first",
+        )
+        assert first.flow_items
+    with Session(webhook_engine) as db:
+        with pytest.raises(InstagramChannelConflictError):
+            InstagramWebhookIngestionService(db).ingest_for_ai(
+                raw_body=body,
+                payload=payload,
+                external_delivery_key=None,
+                correlation_id="pending-concurrent",
+            )
+        record = db.scalar(select(ConversationProcessingRecord).where(
+            ConversationProcessingRecord.tenant_id == connection.tenant_id,
+            ConversationProcessingRecord.status == "pending",
+        ))
+        assert record is not None
 
 
 def test_event_idempotency_across_distinct_deliveries(webhook_engine) -> None:

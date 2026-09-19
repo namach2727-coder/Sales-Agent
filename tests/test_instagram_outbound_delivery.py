@@ -289,6 +289,27 @@ def test_second_call_after_recorded_success_has_no_network_or_attempt() -> None:
     assert setup.repository.updates == []
 
 
+def test_pending_delivery_requires_reconciliation_without_resend() -> None:
+    repo = FakeRepository(
+        message=_message(
+            metadata={
+                **_message().metadata,
+                "delivery_status": "pending",
+                "delivery_provider": "instagram",
+                "delivery_attempt_count": 1,
+            },
+        )
+    )
+    setup = _setup(repository=repo)
+
+    with pytest.raises(OutboundUnavailableError, match="reconciliation"):
+        _deliver(setup)
+
+    assert setup.cipher.values == []
+    assert setup.factory.calls == []
+    assert setup.repository.updates == []
+
+
 @pytest.mark.parametrize(
     ("changes", "error_type"),
     [

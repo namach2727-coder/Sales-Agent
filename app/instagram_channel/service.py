@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from time import monotonic
 from typing import Any
@@ -18,6 +18,11 @@ from app.application.instagram import (
     InstagramInboundProcessingResult,
 )
 from app.application.services import ConversationService
+from app.conversation_core.models import (
+    Conversation,
+    ConversationMessage,
+    ConversationProcessingRecord,
+)
 from app.infrastructure.database.repositories import (
     ConversationRepository,
     InstagramInboundMessageRepository,
@@ -59,6 +64,8 @@ logger = logging.getLogger("sales_assistant.instagram_channel")
 class InstagramInboundFlowItem:
     inbound: InstagramInboundProcessingResult
     context: TenantStoreContext
+    processing_record_public_id: str
+    delivery_public_id: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +77,9 @@ class InstagramWebhookIngestionResult:
 
     def legacy_tuple(self) -> tuple[str, bool, int]:
         return self.status, self.duplicate, self.event_count
+
+
+_PROCESSING_LEASE = timedelta(minutes=5)
 
 
 def connection_to_public(item: InstagramConnection) -> dict[str, object]:
@@ -575,6 +585,7 @@ class InstagramWebhookIngestionService:
         *,
         external_delivery_key: str | None,
         payload_hash: str,
+        lock: bool = False,
     ) -> InstagramWebhookDelivery | None:
         criteria = [InstagramWebhookDelivery.provider == "meta"]
         if external_delivery_key is not None:
@@ -587,9 +598,10 @@ class InstagramWebhookIngestionService:
             )
         else:
             criteria.append(InstagramWebhookDelivery.payload_hash == payload_hash)
-        return self.session.scalar(
-            select(InstagramWebhookDelivery).where(*criteria)
-        )
+        statement = select(InstagramWebhookDelivery).where(*criteria)
+        if lock:
+            statement = statement.with_for_update()
+        return self.session.scalar(statement)
 
     def _audit_delivery(
         self,
@@ -621,6 +633,414 @@ class InstagramWebhookIngestionService:
             )
         )
 
+    def _trusted_context(
+        self,
+        delivery: InstagramWebhookDelivery,
+    ) -> TenantStoreContext:
+        if delivery.tenant_id is None or delivery.store_id is None:
+            raise InstagramChannelScopeError("delivery scope is unavailable")
+        tenant = self.session.get(Tenant, delivery.tenant_id)
+        store = self.session.get(Store, delivery.store_id)
+        if tenant is None or store is None:
+            raise InstagramChannelScopeError("delivery ownership is unavailable")
+        return TenantStoreContext(
+            tenant_id=tenant.id,
+            tenant_public_id=tenant.public_id,
+            tenant_status=tenant.status,
+            membership_id=None,
+            store_id=store.id,
+            store_public_id=store.public_id,
+            store_status=store.status,
+            platform_access=False,
+        )
+
+    def _processing_record(
+        self,
+        event: InstagramInboundEvent,
+        result: InstagramInboundProcessingResult,
+    ) -> ConversationProcessingRecord:
+        now = utc_now()
+        if result.status != "processed":
+            return ConversationProcessingRecord(
+                tenant_id=event.tenant_id,
+                store_id=event.store_id,
+                instagram_inbound_event_id=event.id,
+                status="ignored",
+                attempt_count=1,
+                started_at=now,
+                processed_at=now,
+            )
+        conversation = self.session.scalar(
+            select(Conversation).where(
+                Conversation.public_id == result.conversation_public_id,
+                Conversation.tenant_id == event.tenant_id,
+                Conversation.store_id == event.store_id,
+            )
+        )
+        message = self.session.scalar(
+            select(ConversationMessage).where(
+                ConversationMessage.public_id == result.message_public_id,
+                ConversationMessage.tenant_id == event.tenant_id,
+                ConversationMessage.store_id == event.store_id,
+                ConversationMessage.instagram_inbound_event_id == event.id,
+            )
+        )
+        if conversation is None or message is None:
+            raise InstagramChannelScopeError(
+                "persisted inbound processing references are unavailable"
+            )
+        return ConversationProcessingRecord(
+            tenant_id=event.tenant_id,
+            store_id=event.store_id,
+            instagram_inbound_event_id=event.id,
+            conversation_id=conversation.id,
+            message_id=message.id,
+            status="pending",
+            attempt_count=1,
+            started_at=now,
+        )
+
+    def _resume_flow_item(
+        self,
+        delivery: InstagramWebhookDelivery,
+        event: InstagramInboundEvent,
+        record: ConversationProcessingRecord,
+        context: TenantStoreContext,
+    ) -> InstagramInboundFlowItem:
+        if record.conversation_id is None or record.message_id is None:
+            raise InstagramChannelScopeError(
+                "retryable processing references are unavailable"
+            )
+        conversation = self.session.get(Conversation, record.conversation_id)
+        message = self.session.get(ConversationMessage, record.message_id)
+        if (
+            conversation is None
+            or message is None
+            or conversation.tenant_id != event.tenant_id
+            or conversation.store_id != event.store_id
+            or message.tenant_id != event.tenant_id
+            or message.store_id != event.store_id
+            or message.instagram_inbound_event_id != event.id
+        ):
+            raise InstagramChannelScopeError(
+                "retryable processing artifacts are unavailable"
+            )
+        return InstagramInboundFlowItem(
+            inbound=InstagramInboundProcessingResult(
+                status="processed",
+                conversation_public_id=conversation.public_id,
+                message_public_id=message.public_id,
+                created_conversation=False,
+            ),
+            context=context,
+            processing_record_public_id=record.public_id,
+            delivery_public_id=delivery.public_id,
+        )
+
+    @staticmethod
+    def _lease_expired(record: ConversationProcessingRecord) -> bool:
+        if record.started_at is None:
+            return True
+        started_at = record.started_at
+        now = utc_now()
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=now.tzinfo)
+        return started_at <= now - _PROCESSING_LEASE
+
+    def _handle_duplicate(
+        self,
+        delivery: InstagramWebhookDelivery,
+        *,
+        correlation_id: str | None,
+    ) -> InstagramWebhookIngestionResult | None:
+        """Return a terminal/replay result, or None for an orphan ingress retry."""
+
+        delivery.retry_count += 1
+        events = list(
+            self.session.scalars(
+                select(InstagramInboundEvent)
+                .where(InstagramInboundEvent.webhook_delivery_id == delivery.id)
+                .order_by(InstagramInboundEvent.id)
+                .with_for_update()
+            ).all()
+        )
+        if not events:
+            if delivery.processing_status in {"ignored", "rejected"}:
+                self.session.commit()
+                return InstagramWebhookIngestionResult(
+                    status="ignored", duplicate=True, event_count=0
+                )
+            if delivery.processing_status == "processed":
+                self.session.commit()
+                return InstagramWebhookIngestionResult(
+                    status="duplicate", duplicate=True, event_count=0
+                )
+            if (
+                delivery.processing_status == "failed"
+                and delivery.failure_category == "invalid_payload"
+            ):
+                self.session.commit()
+                raise InstagramWebhookPayloadError(
+                    "Webhook payload structure is invalid"
+                )
+            # An ingress attempt failed before creating an event. Reuse the
+            # existing receipt instead of letting its unique key consume the
+            # provider retry.
+            delivery.processing_status = "received"
+            delivery.failure_category = None
+            delivery.safe_failure_detail = None
+            delivery.processed_at = None
+            return None
+
+        context = self._trusted_context(delivery)
+        records = {
+            record.instagram_inbound_event_id: record
+            for record in self.session.scalars(
+                select(ConversationProcessingRecord)
+                .where(
+                    ConversationProcessingRecord.instagram_inbound_event_id.in_(
+                        [event.id for event in events]
+                    )
+                )
+                .with_for_update()
+            ).all()
+        }
+        flow_items: list[InstagramInboundFlowItem] = []
+        terminal_processed = 0
+        terminal_ignored = 0
+        already_processing = 0
+        now = utc_now()
+        inbound_messages = InstagramInboundMessageService(
+            InstagramInboundMessageRepository(self.session),
+            ConversationService(
+                ConversationRepository(self.session),
+                MessageRepository(self.session),
+            ),
+        )
+        for event in events:
+            record = records.get(event.id)
+            if record is None:
+                if event.processing_status == "ignored":
+                    record = ConversationProcessingRecord(
+                        tenant_id=event.tenant_id,
+                        store_id=event.store_id,
+                        instagram_inbound_event_id=event.id,
+                        status="ignored",
+                        attempt_count=1,
+                        started_at=now,
+                        processed_at=now,
+                    )
+                    self.session.add(record)
+                    self.session.flush()
+                    terminal_ignored += 1
+                    continue
+                result = inbound_messages.process(event.public_id)
+                if result.status == "duplicate":
+                    # The canonical inbound message already exists. Its
+                    # references are the safe resume boundary.
+                    result = InstagramInboundProcessingResult(
+                        status="processed",
+                        conversation_public_id=result.conversation_public_id,
+                        message_public_id=result.message_public_id,
+                        created_conversation=False,
+                    )
+                record = self._processing_record(event, result)
+                self.session.add(record)
+                self.session.flush()
+                records[event.id] = record
+                if record.status == "pending":
+                    flow_items.append(
+                        self._resume_flow_item(
+                            delivery, event, record, context
+                        )
+                    )
+                    continue
+            if record.status == "processed":
+                terminal_processed += 1
+                continue
+            if record.status == "ignored" or event.processing_status == "ignored":
+                terminal_ignored += 1
+                continue
+            if record.status == "pending" and not self._lease_expired(record):
+                already_processing += 1
+                continue
+            if record.status not in {"pending", "failed"}:
+                raise InstagramChannelScopeError(
+                    "processing record is not retryable"
+                )
+            record.status = "pending"
+            record.attempt_count += 1
+            record.started_at = now
+            record.processed_at = None
+            record.failure_category = None
+            record.safe_failure_detail = None
+            flow_items.append(
+                self._resume_flow_item(delivery, event, record, context)
+            )
+
+        if flow_items:
+            delivery.processing_status = "accepted"
+            delivery.failure_category = None
+            delivery.safe_failure_detail = None
+            delivery.processed_at = None
+            self.session.commit()
+            logger.info(
+                "Instagram webhook replay resumed",
+                extra={
+                    "event_code": "instagram.webhook.replay_resumed",
+                    "correlation_id": correlation_id,
+                    "attempt_count": delivery.retry_count,
+                    "outcome": "resumed",
+                },
+            )
+            return InstagramWebhookIngestionResult(
+                status="accepted",
+                duplicate=False,
+                event_count=len(flow_items),
+                flow_items=tuple(flow_items),
+            )
+        self._audit_delivery(
+            delivery,
+            action="instagram.webhook.duplicate",
+            details={
+                "delivery_public_id": delivery.public_id,
+                "correlation_id": correlation_id,
+            },
+        )
+        self.session.commit()
+        if already_processing:
+            event_code = "instagram.webhook.replay_already_processing"
+        else:
+            event_code = "instagram.webhook.duplicate_completed"
+        logger.info(
+            "duplicate Instagram webhook",
+            extra={
+                "event_code": event_code,
+                "correlation_id": correlation_id,
+                "attempt_count": delivery.retry_count,
+                "outcome": (
+                    "already_processing" if already_processing else "duplicate"
+                ),
+            },
+        )
+        if already_processing:
+            raise InstagramChannelConflictError(
+                "webhook processing is already active"
+            )
+        if terminal_ignored and not terminal_processed:
+            return InstagramWebhookIngestionResult(
+                status="ignored", duplicate=True, event_count=0
+            )
+        return InstagramWebhookIngestionResult(
+            status="duplicate", duplicate=True, event_count=0
+        )
+
+    def complete_flow_item(self, item: InstagramInboundFlowItem) -> None:
+        record = self.session.scalar(
+            select(ConversationProcessingRecord)
+            .where(
+                ConversationProcessingRecord.public_id
+                == item.processing_record_public_id
+            )
+            .with_for_update()
+        )
+        if record is None:
+            raise InstagramChannelNotFoundError(
+                "processing record was not found"
+            )
+        if record.status == "pending":
+            record.status = "processed"
+            record.processed_at = utc_now()
+            record.failure_category = None
+            record.safe_failure_detail = None
+        self._complete_delivery_if_terminal(item.delivery_public_id)
+        self.session.commit()
+        logger.info(
+            "Instagram webhook processing completed",
+            extra={
+                "event_code": "instagram.webhook.processing_completed",
+                "processing_record_public_id": item.processing_record_public_id,
+                "delivery_public_id": item.delivery_public_id,
+                "outcome": "completed",
+            },
+        )
+
+    def fail_ingestion(
+        self,
+        ingestion: InstagramWebhookIngestionResult,
+        *,
+        category: str,
+    ) -> None:
+        public_ids = [
+            item.processing_record_public_id for item in ingestion.flow_items
+        ]
+        if not public_ids:
+            return
+        records = list(
+            self.session.scalars(
+                select(ConversationProcessingRecord)
+                .where(ConversationProcessingRecord.public_id.in_(public_ids))
+                .with_for_update()
+            ).all()
+        )
+        now = utc_now()
+        for record in records:
+            if record.status == "pending":
+                record.status = "failed"
+                record.failure_category = category
+                record.safe_failure_detail = "Webhook downstream processing failed"
+                record.processed_at = now
+        delivery_ids = {
+            item.delivery_public_id for item in ingestion.flow_items
+        }
+        deliveries = list(
+            self.session.scalars(
+                select(InstagramWebhookDelivery)
+                .where(InstagramWebhookDelivery.public_id.in_(delivery_ids))
+                .with_for_update()
+            ).all()
+        )
+        for delivery in deliveries:
+            delivery.processing_status = "failed"
+            delivery.failure_category = category
+            delivery.safe_failure_detail = "Webhook downstream processing failed"
+            delivery.processed_at = now
+        self.session.commit()
+        logger.error(
+            "Instagram webhook downstream processing failed",
+            extra={
+                "event_code": "instagram.webhook.processing_failed",
+                "failure_category": category,
+                "outcome": "failed",
+            },
+        )
+
+    def _complete_delivery_if_terminal(self, delivery_public_id: str) -> None:
+        delivery = self.session.scalar(
+            select(InstagramWebhookDelivery)
+            .where(InstagramWebhookDelivery.public_id == delivery_public_id)
+            .with_for_update()
+        )
+        if delivery is None:
+            raise InstagramChannelNotFoundError("delivery was not found")
+        unfinished = self.session.scalar(
+            select(func.count(ConversationProcessingRecord.id))
+            .join(
+                InstagramInboundEvent,
+                InstagramInboundEvent.id
+                == ConversationProcessingRecord.instagram_inbound_event_id,
+            )
+            .where(
+                InstagramInboundEvent.webhook_delivery_id == delivery.id,
+                ConversationProcessingRecord.status.in_({"pending", "failed"}),
+            )
+        )
+        if not unfinished:
+            delivery.processing_status = "processed"
+            delivery.failure_category = None
+            delivery.safe_failure_detail = None
+            delivery.processed_at = utc_now()
+
     def ingest(
         self,
         *,
@@ -630,13 +1050,15 @@ class InstagramWebhookIngestionService:
         correlation_id: str | None,
     ) -> tuple[str, bool, int]:
         """Compatibility API retained for existing ingestion consumers."""
-
-        return self.ingest_for_ai(
+        result = self.ingest_for_ai(
             raw_body=raw_body,
             payload=payload,
             external_delivery_key=external_delivery_key,
             correlation_id=correlation_id,
-        ).legacy_tuple()
+        )
+        for item in result.flow_items:
+            self.complete_flow_item(item)
+        return result.legacy_tuple()
 
     def ingest_for_ai(
         self,
@@ -674,29 +1096,18 @@ class InstagramWebhookIngestionService:
             duplicate = self._find_duplicate(
                 external_delivery_key=external_key,
                 payload_hash=payload_hash,
+                lock=True,
             )
             if duplicate is None:
                 self.session.rollback()
                 raise
-            duplicate.retry_count += 1
-            self._audit_delivery(
+            replay = self._handle_duplicate(
                 duplicate,
-                action="instagram.webhook.duplicate",
-                details={
-                    "delivery_public_id": duplicate.public_id,
-                    "correlation_id": correlation_id,
-                },
+                correlation_id=correlation_id,
             )
-            self.session.commit()
-            logger.info(
-                "duplicate Instagram webhook",
-                extra={"event_code": "instagram.webhook.duplicate"},
-            )
-            return InstagramWebhookIngestionResult(
-                status="duplicate",
-                duplicate=True,
-                event_count=0,
-            )
+            if replay is not None:
+                return replay
+            delivery = duplicate
 
         try:
             parsed_events = parse_instagram_webhook(payload)
@@ -866,10 +1277,15 @@ class InstagramWebhookIngestionService:
                 # A message that cannot be processed must not remain ready or
                 # enter Automation/AI without a persisted inbound message.
                 event.processing_status = "ignored"
+            processing_record = self._processing_record(event, result)
+            self.session.add(processing_record)
+            self.session.flush()
             flow_items.append(
                 InstagramInboundFlowItem(
                     inbound=result,
                     context=trusted_context,
+                    processing_record_public_id=processing_record.public_id,
+                    delivery_public_id=delivery.public_id,
                 )
             )
         now = utc_now()
@@ -881,8 +1297,10 @@ class InstagramWebhookIngestionService:
             .where(InstagramConnection.id == connection.id)
             .values(last_webhook_received_at=now, updated_at=now)
         )
-        delivery.processing_status = "processed"
-        delivery.processed_at = now
+        delivery.processing_status = (
+            "accepted" if flow_items else "processed"
+        )
+        delivery.processed_at = None if flow_items else now
         self._audit_delivery(
             delivery,
             action="instagram.webhook.accepted",
@@ -896,8 +1314,8 @@ class InstagramWebhookIngestionService:
         )
         self.session.commit()
         logger.info(
-            "Instagram webhook processed",
-            extra={"event_code": "instagram.webhook.processed"},
+            "Instagram webhook accepted",
+            extra={"event_code": "instagram.webhook.accepted"},
         )
         _ = monotonic() - started
         return InstagramWebhookIngestionResult(

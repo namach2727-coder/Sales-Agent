@@ -338,6 +338,25 @@ def test_successful_orchestration_invokes_pipeline_and_persists_assistant() -> N
     assert setup.conversation.status == "waiting_for_customer"
 
 
+def test_replay_reuses_persisted_ai_response_without_pipeline_calls() -> None:
+    setup = _orchestrator()
+    first_public_id = setup.orchestrator.generate_response(
+        CONVERSATION_PUBLIC_ID,
+        context=_context(),
+    )
+
+    second_public_id = setup.orchestrator.generate_response(
+        CONVERSATION_PUBLIC_ID,
+        context=_context(),
+    )
+
+    assert second_public_id == first_public_id
+    assert len(setup.messages.create_calls) == 1
+    assert len(setup.knowledge.calls) == 1
+    assert len(setup.prompt_builder.calls) == 1
+    assert len(setup.provider.calls) == 1
+
+
 def test_onboarding_store_invokes_provider_with_trusted_scope() -> None:
     setup = _orchestrator()
 

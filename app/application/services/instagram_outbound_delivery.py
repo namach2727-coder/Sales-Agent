@@ -105,6 +105,14 @@ class InstagramOutboundDeliveryService:
                 already_delivered=True,
                 provider_message_id=provider_message_id,
             )
+        if metadata.get("delivery_status") == "pending":
+            # A prior process may have reached the provider after committing
+            # this state. Automatic replay cannot distinguish "not sent" from
+            # "accepted by Meta but not recorded" and must not risk a second
+            # customer-facing message.
+            raise OutboundUnavailableError(
+                "pending Instagram delivery requires reconciliation"
+            )
 
         recipient_type = _metadata_text(
             persisted.reply_to_metadata.get("instagram_recipient_type")

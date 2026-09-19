@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -19,7 +20,11 @@ from sqlalchemy.orm import Session
 
 from app import models as registered_models  # noqa: F401
 from app.config import Settings, get_settings
-from app.conversation_core.models import Conversation, ConversationMessage
+from app.conversation_core.models import (
+    Conversation,
+    ConversationMessage,
+    ConversationProcessingRecord,
+)
 from app.application.services import ConversationService
 from app.application.instagram.inbound_message import InstagramInboundMessageService
 from app.automation_rules.models import AutomationRule
@@ -65,6 +70,16 @@ def flow_engine(tmp_path_factory: pytest.TempPathFactory):
         cursor.close()
 
     Base.metadata.create_all(engine)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def postgres_flow_engine():
+    url = os.getenv("DIRECTPILOT_POSTGRES_TEST_URL", "").strip()
+    if not url:
+        pytest.skip("DIRECTPILOT_POSTGRES_TEST_URL is not configured")
+    engine = create_engine(url)
     yield engine
     engine.dispose()
 
@@ -1299,9 +1314,171 @@ def test_real_ingestion_failure_is_visible_not_masked_as_ignored(
     monkeypatch.setattr(InstagramInboundMessageService, "process", original)
     retried = _post(client, payload)
     assert retried.status_code == 200
-    # SQLite's SAVEPOINT behavior retains the delivery after the failed
-    # request. This pre-existing replay limitation is not a benign ignore.
-    assert retried.json()["duplicate"] is True
+    assert retried.json()["duplicate"] is False
+    assert len(retried.json()["flows"]) == 1
+    with Session(flow_engine) as db:
+        assert db.scalar(select(func.count(InstagramWebhookDelivery.id)).where(
+            InstagramWebhookDelivery.tenant_id == scope.tenant.id,
+        )) == 1
+        assert db.scalar(select(func.count(InstagramInboundEvent.id)).where(
+            InstagramInboundEvent.tenant_id == scope.tenant.id,
+        )) == 1
+        assert db.scalar(select(func.count(ConversationMessage.id)).where(
+            ConversationMessage.tenant_id == scope.tenant.id,
+            ConversationMessage.direction == "inbound",
+        )) == 1
+        record = db.scalar(select(ConversationProcessingRecord).where(
+            ConversationProcessingRecord.tenant_id == scope.tenant.id,
+        ))
+        assert record is not None
+        assert record.status == "processed"
+
+
+def test_postgres_failure_before_inbound_persistence_replays_once(
+    postgres_flow_engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Boundary A must use PostgreSQL, not SQLite SAVEPOINT semantics."""
+
+    settings = _settings()
+    scope = _connection(postgres_flow_engine, settings)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+    client = _client(
+        postgres_flow_engine,
+        settings,
+        FakeLLMClient(responses),
+        meta,
+    )
+    payload = _payload(scope.connection.instagram_account_id)
+    original = InstagramInboundMessageService.process
+    attempts = 0
+
+    def fail_once(self, event_public_id: str):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("synthetic pre-persistence failure")
+        return original(self, event_public_id)
+
+    monkeypatch.setattr(InstagramInboundMessageService, "process", fail_once)
+    first = _post(client, payload)
+    assert first.status_code == 500
+
+    replay = _post(client, payload)
+    assert replay.status_code == 200
+    assert replay.json()["duplicate"] is False
+    assert attempts == 2
+
+    with Session(postgres_flow_engine) as db:
+        assert db.scalar(select(func.count(InstagramWebhookDelivery.id)).where(
+            InstagramWebhookDelivery.tenant_id == scope.tenant.id,
+        )) == 1
+        assert db.scalar(select(func.count(InstagramInboundEvent.id)).where(
+            InstagramInboundEvent.tenant_id == scope.tenant.id,
+        )) == 1
+        assert db.scalar(select(func.count(ConversationMessage.id)).where(
+            ConversationMessage.tenant_id == scope.tenant.id,
+            ConversationMessage.direction == "inbound",
+        )) == 1
+        record = db.scalar(select(ConversationProcessingRecord).where(
+            ConversationProcessingRecord.tenant_id == scope.tenant.id,
+        ))
+        assert record is not None
+        assert record.status == "processed"
+    assert len(responses.calls) == 1
+    assert len(meta.calls) == 1
+
+
+def test_failed_downstream_processing_resumes_exactly_once(
+    flow_engine,
+) -> None:
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    responses = FakeResponses()
+    meta = FakeMetaClient(unique_message_ids=True)
+    client = _client(
+        flow_engine,
+        settings,
+        FakeLLMClient(responses),
+        meta,
+        capabilities=frozenset({"instagram_automation"}),
+    )
+    _add_rule(flow_engine, scope)
+    attempts = 0
+
+    def automation_builder(db: Session, selected_settings: Settings):
+        runtime = InstagramAutomationRuleRuntime(
+            db,
+            conversation_service=ConversationService(
+                ConversationRepository(db), MessageRepository(db)
+            ),
+            outbound_delivery=build_instagram_outbound_delivery(
+                db, selected_settings, instagram_client=meta
+            ),
+            capability_checker=lambda *_args, **kwargs: (
+                kwargs["capability_code"] == "instagram_automation"
+            ),
+        )
+
+        class FailOnce:
+            def process(self, **kwargs):
+                nonlocal attempts
+                attempts += 1
+                if attempts == 1:
+                    raise RuntimeError("synthetic downstream transient")
+                return runtime.process(**kwargs)
+
+        return FailOnce()
+
+    client.app.dependency_overrides[
+        get_instagram_automation_runtime_builder
+    ] = lambda: automation_builder
+    payload = _payload(scope.connection.instagram_account_id)
+
+    first = _post(client, payload)
+    assert first.status_code == 500
+    with Session(flow_engine) as db:
+        delivery = db.scalar(select(InstagramWebhookDelivery).where(
+            InstagramWebhookDelivery.tenant_id == scope.tenant.id,
+        ))
+        record = db.scalar(select(ConversationProcessingRecord).where(
+            ConversationProcessingRecord.tenant_id == scope.tenant.id,
+        ))
+        assert delivery is not None and delivery.processing_status == "failed"
+        assert record is not None and record.status == "failed"
+        assert db.scalar(select(func.count(ConversationMessage.id)).where(
+            ConversationMessage.tenant_id == scope.tenant.id,
+            ConversationMessage.direction == "inbound",
+        )) == 1
+        assert db.scalar(select(func.count(ConversationMessage.id)).where(
+            ConversationMessage.tenant_id == scope.tenant.id,
+            ConversationMessage.direction == "outbound",
+        )) == 0
+
+    replay = _post(client, payload)
+    assert replay.status_code == 200
+    assert replay.json()["duplicate"] is False
+    assert attempts == 2
+    with Session(flow_engine) as db:
+        delivery = db.scalar(select(InstagramWebhookDelivery).where(
+            InstagramWebhookDelivery.tenant_id == scope.tenant.id,
+        ))
+        record = db.scalar(select(ConversationProcessingRecord).where(
+            ConversationProcessingRecord.tenant_id == scope.tenant.id,
+        ))
+        assert delivery is not None and delivery.processing_status == "processed"
+        assert record is not None and record.status == "processed"
+        assert db.scalar(select(func.count(ConversationMessage.id)).where(
+            ConversationMessage.tenant_id == scope.tenant.id,
+            ConversationMessage.direction == "inbound",
+        )) == 1
+        assert db.scalar(select(func.count(ConversationMessage.id)).where(
+            ConversationMessage.tenant_id == scope.tenant.id,
+            ConversationMessage.direction == "outbound",
+        )) == 1
+    assert len(meta.calls) == 1
+    assert responses.calls == []
 
 
 def test_inactive_connection_is_not_routed_to_ai_or_meta(flow_engine) -> None:

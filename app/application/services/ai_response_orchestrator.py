@@ -86,6 +86,33 @@ class AIResponseOrchestrator:
             tenant_id=tenant_id,
             store_id=store_id,
         )
+        replay_customer_message = next(
+            (
+                message
+                for message in reversed(history)
+                if message.direction == "inbound"
+                and message.content_type == "text"
+                and message.text is not None
+                and message.text.strip()
+            ),
+            None,
+        )
+        existing_response = next(
+            (
+                message
+                for message in history
+                if message.direction == "outbound"
+                and replay_customer_message is not None
+                and message.reply_to_message_id == replay_customer_message.id
+                and (message.metadata_json or {}).get("author_type")
+                == "assistant"
+                and (message.metadata_json or {}).get("source")
+                == "ai_response_orchestrator"
+            ),
+            None,
+        )
+        if existing_response is not None:
+            return existing_response.public_id
         latest_customer_message = _latest_customer_message(history)
         knowledge_context = self.knowledge.retrieve(
             tenant_public_id=tenant_public_id,

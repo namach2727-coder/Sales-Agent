@@ -281,8 +281,10 @@ async def receive_instagram_webhook(
         request.headers.get("x-hub-delivery")
         or request.headers.get("x-meta-delivery-id")
     )
+    ingestion_service = InstagramWebhookIngestionService(db)
+    ingestion = None
     try:
-        ingestion = InstagramWebhookIngestionService(db).ingest_for_ai(
+        ingestion = ingestion_service.ingest_for_ai(
             raw_body=raw_body,
             payload=payload,
             external_delivery_key=external_delivery_key,
@@ -310,6 +312,7 @@ async def receive_instagram_webhook(
                             "safe_reason": item.inbound.reason,
                         }
                     )
+                    ingestion_service.complete_flow_item(item)
                     continue
                 if automation_is_enabled(
                     db,
@@ -339,6 +342,7 @@ async def receive_instagram_webhook(
                                 "safe_reason": automation_result.safe_reason,
                             }
                         )
+                        ingestion_service.complete_flow_item(item)
                         continue
                 if not capability_checker(
                     db,
@@ -361,6 +365,7 @@ async def receive_instagram_webhook(
                             "safe_reason": "ai_capability_unavailable",
                         }
                     )
+                    ingestion_service.complete_flow_item(item)
                     continue
                 if not ai_is_enabled(
                     db,
@@ -382,6 +387,7 @@ async def receive_instagram_webhook(
                             "safe_reason": "ai_disabled",
                         }
                     )
+                    ingestion_service.complete_flow_item(item)
                     continue
                 if not capability_checker(
                     db,
@@ -404,6 +410,7 @@ async def receive_instagram_webhook(
                             "safe_reason": "knowledge_capability_unavailable",
                         }
                     )
+                    ingestion_service.complete_flow_item(item)
                     continue
                 coordinator = ai_flow_builder(db, settings)
                 result = coordinator.process(
@@ -412,6 +419,7 @@ async def receive_instagram_webhook(
                     correlation_id=correlation_id.get(),
                 )
                 flow_results.append(asdict(result))
+                ingestion_service.complete_flow_item(item)
     except InstagramWebhookPayloadError as exc:
         raise HTTPException(
             status_code=400,
@@ -426,6 +434,11 @@ async def receive_instagram_webhook(
             extra={"event_code": "instagram.webhook.processing_failed"},
         )
         db.rollback()
+        if ingestion is not None:
+            ingestion_service.fail_ingestion(
+                ingestion,
+                category="instagram_channel_error",
+            )
         raise HTTPException(
             status_code=500,
             detail={
@@ -435,6 +448,11 @@ async def receive_instagram_webhook(
         ) from exc
     except Exception as exc:
         db.rollback()
+        if ingestion is not None:
+            ingestion_service.fail_ingestion(
+                ingestion,
+                category="unexpected_processing_error",
+            )
         logger.error(
             "Instagram webhook processing failed unexpectedly",
             extra={"event_code": "instagram.webhook.processing_failed"},
