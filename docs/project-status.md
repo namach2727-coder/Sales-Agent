@@ -341,8 +341,34 @@ no row was a probable old-bug match. Because `ready` is valid for handled
 events and there are zero safely proven repair candidates, historical repair
 is **not required**. No historical rows were changed.
 
-Separate non-blocking follow-up: `REAL_FAILURE_REPLAY_LIMITATION` remains
-outside this ignored-event control-flow fix and requires its own audit.
+### Real failure replay recovery
+
+`REAL_FAILURE_REPLAY_LIMITATION` is **RESOLVED / IMPLEMENTED / RELEASED /
+CLOUD VERIFIED**. The backend implementation in
+`10467ea859252b15b5ec9ba2db8df6e61d398c4f` is deployed on Render; the
+operator correlated the displayed `10467ea` deployment prefix with that exact
+commit and confirmed it Live. Rechecked `/live` and `/ready` returned HTTP 200,
+with database available and migration current.
+
+Root cause: status-blind webhook delivery deduplication consumed exact provider
+retries after downstream processing failed, because ingress state was committed
+before Automation or AI completed. Replay is now governed by
+`ConversationProcessingRecord`: failed or recoverable pending work resumes from
+the existing event, conversation, and inbound message, while processed and
+ignored work remains terminal. Active pending processing is protected against
+concurrent duplicate execution. Automation, AI, and outbound replay paths are
+idempotent; deterministic Automation remains zero-LLM and Human Takeover keeps
+priority.
+
+Regression evidence includes PostgreSQL boundary A, failure boundaries A/B/C/D,
+concurrent replay, deterministic zero-AI, AI fallback, and Human Takeover. The
+full backend suite passed 785 tests with 5 skipped. No migration, schema change,
+historical repair, or production/UAT data change was required.
+
+Separate non-blocking follow-up: `OUTBOUND_DELIVERY_RECONCILIATION`. An
+ambiguous locally pending outbound is intentionally never auto-resent because
+the provider may already have accepted it before local sent-state persistence;
+blind replay could duplicate an external message.
 
 ## Phase D.1 independent product commerce
 
