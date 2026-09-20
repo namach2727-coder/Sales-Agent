@@ -26,6 +26,12 @@ Phase D.2 — AI Assistant Workspace is **COMPLETE / IMPLEMENTED / RELEASED /
 CLOUD VERIFIED**. Authenticated cloud acceptance verified the independent AI
 workspace and a real Knowledge-grounded Instagram AI response.
 
+`ADMIN_PAYMENT_REVIEW_UI` is **COMPLETE / IMPLEMENTED / RELEASED / CLOUD
+VERIFIED**. Platform Admin cloud smoke verified the Admin route, payment-review
+navigation, queue, detail panel, empty state, and subscription route. Receipt,
+approval, and rejection mutation UAT was intentionally not performed because
+no safe existing payment candidate was available; no payment was fabricated.
+
 ## Architecture and implemented MVP
 
 - FastAPI/SQLAlchemy/Alembic/PostgreSQL modular monolith.
@@ -172,8 +178,8 @@ successful test completion and does not change the passing exit status.
 
 ## Exact next action
 
-Define the next post-D.2 product phase without changing the independent
-Automation and AI Assistant entitlement boundary.
+Run the controlled receipt/approval/rejection cloud UAT only when a legitimate
+safe payment candidate exists; do not fabricate a payment for verification.
 
 ## Automation and AI capability lifecycle
 
@@ -493,6 +499,36 @@ Status: **COMPLETE / IMPLEMENTED / RELEASED / CLOUD VERIFIED**.
   unchanged.
 - Runtime limits remain `GROQ_CONTEXT_LENGTH=4096` and
   `GROQ_MAX_OUTPUT_TOKENS=256`; the verified request respected both limits.
+
+## Admin payment review
+
+Status: **COMPLETE / IMPLEMENTED / RELEASED / CLOUD VERIFIED**.
+
+- Backend release commit:
+  `3868df07cc449292fbf607ffb0fb6676625d6252`.
+- Frontend production commit:
+  `ef6be39dfadee639f38072d01c3550e28b5c5235`.
+- Backend `/live` and `/ready` returned HTTP 200, with the database available
+  and migration current. The Vercel production deployment is Ready and served
+  through `directpilot.ir`.
+- Manual Platform Admin cloud smoke passed for `/admin`, navigation to
+  `بررسی پرداخت‌ها`, `/admin/payments`, the payment queue, payment detail and
+  empty-queue states, and `/admin/subscriptions`.
+- The secured workflow uses the existing private receipt route and
+  backend-authoritative payment authorization. Approval and rejection require
+  explicit confirmation and the expected revision. HTTP 409 reloads
+  authoritative state without automatically retrying the mutation, and the UI
+  prevents duplicate concurrent actions.
+- Subscription activation remains atomic and backend-owned after approval.
+  The frontend contains no subscription activation logic, polling, API proxy,
+  or new dynamic function.
+- Release validation passed 10 targeted backend tests, 791 full backend tests
+  with 6 skipped, compile/import, and diff checks. Frontend validation passed
+  4 targeted tests, 127 full tests, type-check, lint, production build, and
+  diff-check.
+- Receipt review and approve/reject cloud mutation UAT are **NOT PERFORMED —
+  NO SAFE EXISTING PAYMENT**. No payment record was fabricated or mutated for
+  release verification.
 
 ## Non-blocking backlog
 
