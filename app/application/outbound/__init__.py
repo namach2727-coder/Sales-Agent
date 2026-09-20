@@ -6,6 +6,7 @@ from app.application.outbound.contracts import (
     OutboundSender,
 )
 from app.application.outbound.exceptions import (
+    OutboundAmbiguousDeliveryError,
     OutboundAuthenticationError,
     OutboundConnectionUnavailableError,
     OutboundDeliveryError,
@@ -21,6 +22,7 @@ from app.application.outbound.exceptions import (
 )
 
 __all__ = [
+    "OutboundAmbiguousDeliveryError",
     "OutboundAuthenticationError",
     "OutboundConnectionUnavailableError",
     "OutboundDeliveryError",

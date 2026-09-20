@@ -8,6 +8,7 @@ import logging
 from time import perf_counter
 
 from app.application.outbound import (
+    OutboundAmbiguousDeliveryError,
     OutboundConnectionUnavailableError,
     OutboundDeliveryError,
     OutboundDeliveryResult,
@@ -17,6 +18,7 @@ from app.application.outbound import (
     OutboundRecipientUnavailableError,
     OutboundScopeError,
     OutboundSender,
+    OutboundTimeoutError,
     OutboundUnavailableError,
 )
 from app.infrastructure.database.repositories.instagram_outbound_repository import (
@@ -27,6 +29,16 @@ from app.infrastructure.database.repositories.instagram_outbound_repository impo
 from app.instagram_channel.domain import WRITABLE_STORE_STATUSES
 from app.instagram_channel.exceptions import (
     InstagramCredentialConfigurationError,
+)
+from app.application.outbound.delivery_state import (
+    DELIVERY_AMBIGUOUS,
+    FAILED_CONFIRMED,
+    NOT_REQUIRED,
+    NOT_SENT_CONFIRMED,
+    REQUIRED,
+    SENT_CONFIRMED,
+    attempt_marker,
+    certainty,
 )
 from app.instagram_channel.security import TokenCipher
 from app.tenant_management.context import TenantStoreContext
@@ -59,6 +71,7 @@ class InstagramOutboundDeliveryService:
         correlation_id: str | None = None,
         delivered_at: datetime | None = None,
         before_provider_call: Callable[[], None] | None = None,
+        retry_claim_id: str | None = None,
     ) -> OutboundDeliveryResult:
         tenant_id, store_id, tenant_public_id, store_public_id = _active_scope(
             context
@@ -105,13 +118,23 @@ class InstagramOutboundDeliveryService:
                 already_delivered=True,
                 provider_message_id=provider_message_id,
             )
-        if metadata.get("delivery_status") == "pending":
+        claimed_retry = (
+            retry_claim_id is not None
+            and metadata.get("delivery_status") == "pending"
+            and metadata.get("delivery_attempt_id") == retry_claim_id
+            and certainty(metadata) == DELIVERY_AMBIGUOUS
+        )
+        if metadata.get("delivery_status") == "pending" and not claimed_retry:
             # A prior process may have reached the provider after committing
             # this state. Automatic replay cannot distinguish "not sent" from
             # "accepted by Meta but not recorded" and must not risk a second
             # customer-facing message.
             raise OutboundUnavailableError(
                 "pending Instagram delivery requires reconciliation"
+            )
+        if metadata.get("delivery_status") == "failed" and not claimed_retry:
+            raise OutboundUnavailableError(
+                "failed Instagram delivery requires explicit safe retry"
             )
 
         recipient_type = _metadata_text(
@@ -139,6 +162,22 @@ class InstagramOutboundDeliveryService:
             raise OutboundRecipientUnavailableError(
                 "Instagram recipient is unavailable"
             )
+        outbound = OutboundMessage(
+            message_public_id=persisted.message_public_id,
+            conversation_public_id=persisted.conversation_public_id,
+            tenant_public_id=tenant_public_id,
+            store_public_id=store_public_id,
+            channel="instagram",
+            recipient_external_id=recipient,
+            text=persisted.text or "",
+            recipient_type=recipient_type,
+            correlation_id=safe_correlation_id,
+        )
+        next_attempt_count = (
+            _attempt_count(metadata)
+            if claimed_retry
+            else _attempt_count(metadata) + 1
+        )
         try:
             connections = self.repository.list_active_connections(
                 tenant_id=tenant_id,
@@ -152,7 +191,22 @@ class InstagramOutboundDeliveryService:
                 raise OutboundConnectionUnavailableError(
                     "Instagram connection credentials are unavailable"
                 )
-        except OutboundConnectionUnavailableError:
+        except OutboundConnectionUnavailableError as exc:
+            failed = _delivery_metadata(
+                metadata,
+                status="failed",
+                attempt_count=next_attempt_count,
+                failure_category=exc.category,
+                certainty_value=NOT_SENT_CONFIRMED,
+                reconciliation_value=NOT_REQUIRED,
+                safe_retry=True,
+            )
+            self._update(
+                persisted,
+                tenant_id=tenant_id,
+                store_id=store_id,
+                metadata=failed,
+            )
             logger.warning(
                 "instagram_outbound_connection_unavailable",
                 extra=_log_fields(
@@ -164,30 +218,20 @@ class InstagramOutboundDeliveryService:
                 ),
             )
             raise
-
-        outbound = OutboundMessage(
-            message_public_id=persisted.message_public_id,
-            conversation_public_id=persisted.conversation_public_id,
-            tenant_public_id=tenant_public_id,
-            store_public_id=store_public_id,
-            channel="instagram",
-            recipient_external_id=recipient,
-            text=persisted.text or "",
-            recipient_type=recipient_type,
-            correlation_id=safe_correlation_id,
-        )
-        attempt_count = _attempt_count(metadata) + 1
-        pending_metadata = _delivery_metadata(
-            metadata,
-            status="pending",
-            attempt_count=attempt_count,
-        )
-        self._update(
-            persisted,
-            tenant_id=tenant_id,
-            store_id=store_id,
-            metadata=pending_metadata,
-        )
+        if claimed_retry:
+            attempt_count = _attempt_count(metadata)
+            pending_metadata = metadata
+        else:
+            attempt_count = next_attempt_count
+            pending_metadata, retry_claim_id = attempt_marker(
+                metadata, attempt_count=attempt_count
+            )
+            self._update(
+                persisted,
+                tenant_id=tenant_id,
+                store_id=store_id,
+                metadata=pending_metadata,
+            )
         operation_started = perf_counter()
         logger.info(
             "instagram_outbound_started",
@@ -202,6 +246,7 @@ class InstagramOutboundDeliveryService:
         if before_provider_call is not None:
             before_provider_call()
 
+        provider_invoked = False
         try:
             # Plaintext exists only for the smallest possible interval: after
             # all validation and immediately before constructing the sender.
@@ -212,6 +257,7 @@ class InstagramOutboundDeliveryService:
                 access_token=access_token,
                 sender_account_id=connection.instagram_account_id,
             )
+            provider_invoked = True
             result = sender.send(outbound)
             _validate_result(outbound, result)
         except InstagramCredentialConfigurationError as exc:
@@ -228,8 +274,22 @@ class InstagramOutboundDeliveryService:
                 store_public_id=store_public_id,
                 correlation_id=safe_correlation_id,
                 operation_started=operation_started,
+                certainty_value=NOT_SENT_CONFIRMED,
+                safe_retry=True,
             )
             raise failure from exc
+        except (OutboundAmbiguousDeliveryError, OutboundTimeoutError):
+            self._record_ambiguous(
+                persisted,
+                tenant_id=tenant_id,
+                store_id=store_id,
+                metadata=pending_metadata,
+                tenant_public_id=tenant_public_id,
+                store_public_id=store_public_id,
+                correlation_id=safe_correlation_id,
+                operation_started=operation_started,
+            )
+            raise
         except OutboundDeliveryError as exc:
             self._record_failure(
                 persisted,
@@ -241,23 +301,47 @@ class InstagramOutboundDeliveryService:
                 store_public_id=store_public_id,
                 correlation_id=safe_correlation_id,
                 operation_started=operation_started,
+                certainty_value=(
+                    FAILED_CONFIRMED if provider_invoked else NOT_SENT_CONFIRMED
+                ),
+                safe_retry=(
+                    not provider_invoked
+                    or exc.category in {"rate_limit", "unavailable"}
+                ),
             )
             raise
         except Exception as exc:
-            failure = OutboundUnavailableError(
-                "Instagram delivery is unavailable"
-            )
-            self._record_failure(
-                persisted,
-                tenant_id=tenant_id,
-                store_id=store_id,
-                metadata=pending_metadata,
-                failure=failure,
-                tenant_public_id=tenant_public_id,
-                store_public_id=store_public_id,
-                correlation_id=safe_correlation_id,
-                operation_started=operation_started,
-            )
+            if provider_invoked:
+                failure = OutboundAmbiguousDeliveryError(
+                    "Instagram delivery outcome is unknown"
+                )
+                self._record_ambiguous(
+                    persisted,
+                    tenant_id=tenant_id,
+                    store_id=store_id,
+                    metadata=pending_metadata,
+                    tenant_public_id=tenant_public_id,
+                    store_public_id=store_public_id,
+                    correlation_id=safe_correlation_id,
+                    operation_started=operation_started,
+                )
+            else:
+                failure = OutboundUnavailableError(
+                    "Instagram delivery is unavailable"
+                )
+                self._record_failure(
+                    persisted,
+                    tenant_id=tenant_id,
+                    store_id=store_id,
+                    metadata=pending_metadata,
+                    failure=failure,
+                    tenant_public_id=tenant_public_id,
+                    store_public_id=store_public_id,
+                    correlation_id=safe_correlation_id,
+                    operation_started=operation_started,
+                    certainty_value=NOT_SENT_CONFIRMED,
+                    safe_retry=True,
+                )
             raise failure from exc
 
         timestamp = _aware_datetime(delivered_at or datetime.now(UTC))
@@ -267,6 +351,9 @@ class InstagramOutboundDeliveryService:
             attempt_count=attempt_count,
             provider_message_id=result.provider_message_id,
             delivered_at=timestamp.isoformat(),
+            certainty_value=SENT_CONFIRMED,
+            reconciliation_value=NOT_REQUIRED,
+            safe_retry=False,
         )
         # There is an unavoidable crash window between Meta accepting the
         # request and this flush. This MVP is at-most-once after a recorded
@@ -307,12 +394,17 @@ class InstagramOutboundDeliveryService:
         store_public_id: str,
         correlation_id: str | None,
         operation_started: float,
+        certainty_value: str,
+        safe_retry: bool,
     ) -> None:
         failed = _delivery_metadata(
             metadata,
             status="failed",
             attempt_count=_attempt_count(metadata),
             failure_category=failure.category,
+            certainty_value=certainty_value,
+            reconciliation_value=NOT_REQUIRED,
+            safe_retry=safe_retry,
         )
         self._update(
             persisted,
@@ -331,6 +423,51 @@ class InstagramOutboundDeliveryService:
                     outcome="failed",
                 ),
                 "failure_category": failure.category,
+                "latency_ms": round(
+                    (perf_counter() - operation_started) * 1000, 3
+                ),
+            },
+        )
+
+    def _record_ambiguous(
+        self,
+        persisted: InstagramOutboundMessageContext,
+        *,
+        tenant_id: int,
+        store_id: int,
+        metadata: dict[str, object],
+        tenant_public_id: str,
+        store_public_id: str,
+        correlation_id: str | None,
+        operation_started: float,
+    ) -> None:
+        ambiguous = _delivery_metadata(
+            metadata,
+            status="pending",
+            attempt_count=_attempt_count(metadata),
+            failure_category="delivery_ambiguous",
+            certainty_value=DELIVERY_AMBIGUOUS,
+            reconciliation_value=REQUIRED,
+            safe_retry=False,
+            reconciliation_reason="provider_acceptance_unknown",
+        )
+        self._update(
+            persisted,
+            tenant_id=tenant_id,
+            store_id=store_id,
+            metadata=ambiguous,
+        )
+        logger.warning(
+            "instagram_outbound_ambiguous",
+            extra={
+                **_log_fields(
+                    persisted,
+                    tenant_public_id=tenant_public_id,
+                    store_public_id=store_public_id,
+                    correlation_id=correlation_id,
+                    outcome="ambiguous",
+                ),
+                "failure_category": "delivery_ambiguous",
                 "latency_ms": round(
                     (perf_counter() - operation_started) * 1000, 3
                 ),
@@ -402,18 +539,20 @@ def _validate_message(message: InstagramOutboundMessageContext) -> None:
             "message is not a deliverable text"
         )
 
-
 def _already_delivered(
     message: InstagramOutboundMessageContext,
     metadata: dict[str, object],
 ) -> bool:
-    return (
-        metadata.get("delivery_status") == "sent"
-        and metadata.get("delivery_provider") == "instagram"
-        and bool(
-            message.provider_message_id
-            or _metadata_text(metadata.get("provider_message_id"))
-        )
+    if (
+        metadata.get("delivery_status") != "sent"
+        or metadata.get("delivery_provider") != "instagram"
+    ):
+        return False
+    if certainty(metadata) == SENT_CONFIRMED:
+        return True
+    return bool(
+        message.provider_message_id
+        or _metadata_text(metadata.get("provider_message_id"))
     )
 
 
@@ -461,6 +600,10 @@ def _delivery_metadata(
     provider_message_id: str | None = None,
     delivered_at: str | None = None,
     failure_category: str | None = None,
+    certainty_value: str | None = None,
+    reconciliation_value: str | None = None,
+    safe_retry: bool | None = None,
+    reconciliation_reason: str | None = None,
 ) -> dict[str, object]:
     result = dict(existing)
     result.update(
@@ -478,6 +621,16 @@ def _delivery_metadata(
         result["last_failure_category"] = failure_category
     elif status == "sent":
         result.pop("last_failure_category", None)
+    if certainty_value is not None:
+        result["delivery_certainty"] = certainty_value
+    if reconciliation_value is not None:
+        result["reconciliation_status"] = reconciliation_value
+    if safe_retry is not None:
+        result["safe_retry_eligible"] = safe_retry
+    if reconciliation_reason is not None:
+        result["reconciliation_reason"] = reconciliation_reason
+    elif reconciliation_value == NOT_REQUIRED:
+        result.pop("reconciliation_reason", None)
     return result
 
 

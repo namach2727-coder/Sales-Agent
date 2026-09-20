@@ -51,3 +51,23 @@ class ManualMessageCreate(BaseModel):
         min_length=1,
         max_length=64,
     )
+
+
+class OutboundReconciliationDecision(BaseModel):
+    decision: Literal[
+        "CONFIRM_SENT", "CONFIRM_NOT_SENT", "LEAVE_UNRESOLVED"
+    ]
+
+
+class OutboundReconciliationRead(BaseModel):
+    message_public_id: str
+    conversation_public_id: str
+    delivery_status: str | None
+    delivery_certainty: str | None
+    reconciliation_status: str | None
+    safe_retry_eligible: bool
+    provider_message_id_present: bool
+    provider_call_started_at: str | None
+    last_failure_category: str | None
+    reconciled_at: str | None
+    allowed_actions: list[str]

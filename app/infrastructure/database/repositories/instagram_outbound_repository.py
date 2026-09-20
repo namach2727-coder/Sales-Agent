@@ -66,9 +66,47 @@ class InstagramOutboundRepository:
                 Conversation.public_id == conversation_public_id,
             )
         ).one_or_none()
+        return self._message_context(row, tenant_id=tenant_id, store_id=store_id)
+
+    def get_scoped_message_context(
+        self,
+        message_public_id: str,
+        *,
+        tenant_id: int,
+        store_id: int,
+        for_update: bool = False,
+    ) -> InstagramOutboundMessageContext | None:
+        statement = (
+            select(ConversationMessage, Conversation)
+            .join(
+                Conversation,
+                and_(
+                    Conversation.id == ConversationMessage.conversation_id,
+                    Conversation.tenant_id == ConversationMessage.tenant_id,
+                    Conversation.store_id == ConversationMessage.store_id,
+                ),
+            )
+            .where(
+                ConversationMessage.public_id == message_public_id,
+                ConversationMessage.tenant_id == tenant_id,
+                ConversationMessage.store_id == store_id,
+            )
+        )
+        if for_update:
+            statement = statement.with_for_update(of=ConversationMessage)
+        row = self.session.execute(statement).one_or_none()
+        return self._message_context(row, tenant_id=tenant_id, store_id=store_id)
+
+    def _message_context(
+        self,
+        row: object,
+        *,
+        tenant_id: int,
+        store_id: int,
+    ) -> InstagramOutboundMessageContext | None:
         if row is None:
             return None
-        message, conversation = row
+        message, conversation = row  # type: ignore[misc]
         reply_to = (
             self.session.get(ConversationMessage, message.reply_to_message_id)
             if message.reply_to_message_id is not None

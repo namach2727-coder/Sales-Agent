@@ -37,6 +37,12 @@ class OutboundUnavailableError(OutboundDeliveryError):
     category = "unavailable"
 
 
+class OutboundAmbiguousDeliveryError(OutboundDeliveryError):
+    """The provider may have accepted the request, so retry is unsafe."""
+
+    category = "delivery_ambiguous"
+
+
 class OutboundRejectedError(OutboundDeliveryError):
     category = "rejected"
 

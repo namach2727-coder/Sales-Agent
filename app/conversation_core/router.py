@@ -10,6 +10,11 @@ from app.application.services import (
     InboxConversationStateError,
     InboxManualReplyError,
     InboxService,
+    InstagramOutboundReconciliationService,
+    OutboundReconciliationConflict,
+    OutboundReconciliationError,
+    OutboundReconciliationNotFound,
+    OutboundReconciliationValidation,
 )
 from app.authentication.context import AuthenticatedPrincipal
 from app.authentication.dependencies import require_authenticated_principal
@@ -33,6 +38,8 @@ from app.conversation_core.schemas import (
     ManualMessageCreate,
     ConversationPage,
     ConversationRead,
+    OutboundReconciliationDecision,
+    OutboundReconciliationRead,
 )
 from app.database import get_db
 from app.infrastructure.database.repositories import (
@@ -152,6 +159,21 @@ def _conversation_service(db: Session) -> ConversationService:
 
 
 def _action_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, OutboundReconciliationNotFound):
+        return HTTPException(
+            status_code=404,
+            detail={"code": "not_found", "message": "Resource not found"},
+        )
+    if isinstance(exc, OutboundReconciliationConflict):
+        return HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": "Outbound state conflict"},
+        )
+    if isinstance(exc, OutboundReconciliationValidation):
+        return HTTPException(
+            status_code=422,
+            detail={"code": exc.code, "message": "Invalid reconciliation action"},
+        )
     if isinstance(exc, ConversationNotFoundError):
         return HTTPException(
             status_code=404,
@@ -192,6 +214,22 @@ def _action_error(exc: Exception) -> HTTPException:
     return HTTPException(
         status_code=500,
         detail={"code": "inbox_action_failed", "message": "Action failed"},
+    )
+
+
+def _reconciliation_read(item: object) -> OutboundReconciliationRead:
+    return OutboundReconciliationRead(
+        message_public_id=getattr(item, "message_public_id"),
+        conversation_public_id=getattr(item, "conversation_public_id"),
+        delivery_status=getattr(item, "delivery_status"),
+        delivery_certainty=getattr(item, "delivery_certainty"),
+        reconciliation_status=getattr(item, "reconciliation_status"),
+        safe_retry_eligible=getattr(item, "safe_retry_eligible"),
+        provider_message_id_present=getattr(item, "provider_message_id_present"),
+        provider_call_started_at=getattr(item, "provider_call_started_at"),
+        last_failure_category=getattr(item, "last_failure_category"),
+        reconciled_at=getattr(item, "reconciled_at"),
+        allowed_actions=list(getattr(item, "allowed_actions")),
     )
 
 
@@ -377,3 +415,95 @@ def send_manual_message(
         db.rollback()
         raise _action_error(exc) from exc
     return _message_read(result.message)
+
+
+@router.get(
+    "/outbound/{message_public_id}/reconciliation",
+    response_model=OutboundReconciliationRead,
+)
+def read_outbound_reconciliation(
+    tenant_public_id: str,
+    store_public_id: str,
+    message_public_id: str,
+    principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> OutboundReconciliationRead:
+    context = _context(db, principal, tenant_public_id, store_public_id)
+    try:
+        item = InstagramOutboundReconciliationService(
+            db,
+            outbound_delivery=build_instagram_outbound_delivery(db, settings),
+            actor_identity_id=principal.user_id,
+        ).get(message_public_id, context=context)
+    except OutboundReconciliationError as exc:
+        raise _action_error(exc) from exc
+    return _reconciliation_read(item)
+
+
+@router.post(
+    "/outbound/{message_public_id}/reconciliation",
+    response_model=OutboundReconciliationRead,
+)
+def reconcile_outbound_message(
+    tenant_public_id: str,
+    store_public_id: str,
+    message_public_id: str,
+    payload: OutboundReconciliationDecision,
+    principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> OutboundReconciliationRead:
+    context = _context(
+        db, principal, tenant_public_id, store_public_id, mutation=True
+    )
+    try:
+        item = InstagramOutboundReconciliationService(
+            db,
+            outbound_delivery=build_instagram_outbound_delivery(db, settings),
+            actor_identity_id=principal.user_id,
+        ).reconcile(message_public_id, decision=payload.decision, context=context)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise _action_error(exc) from exc
+    return _reconciliation_read(item)
+
+
+@router.post(
+    "/outbound/{message_public_id}/retry",
+    response_model=OutboundReconciliationRead,
+)
+def retry_outbound_message(
+    tenant_public_id: str,
+    store_public_id: str,
+    message_public_id: str,
+    principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> OutboundReconciliationRead:
+    context = _context(
+        db, principal, tenant_public_id, store_public_id, mutation=True
+    )
+    service = InstagramOutboundReconciliationService(
+        db,
+        outbound_delivery=build_instagram_outbound_delivery(db, settings),
+        actor_identity_id=principal.user_id,
+    )
+    try:
+        item, _delivery = service.retry(
+            message_public_id,
+            context=context,
+            commit_before_provider_call=db.commit,
+        )
+        db.commit()
+    except OutboundDeliveryError as exc:
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+        raise _action_error(exc) from exc
+    except Exception as exc:
+        db.rollback()
+        raise _action_error(exc) from exc
+    return _reconciliation_read(item)

@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from app.application.outbound import (
+    OutboundAmbiguousDeliveryError,
     OutboundAuthenticationError,
     OutboundConnectionUnavailableError,
     OutboundDeliveryResult,
@@ -16,7 +17,6 @@ from app.application.outbound import (
     OutboundRecipientUnavailableError,
     OutboundRejectedError,
     OutboundRequestError,
-    OutboundTimeoutError,
     OutboundUnavailableError,
 )
 from app.config import Settings
@@ -82,27 +82,29 @@ class InstagramGraphSender:
             else:
                 response = self._client.post(self.send_url, **request)
         except httpx.TimeoutException as exc:
-            raise OutboundTimeoutError("Instagram delivery timed out") from exc
+            raise OutboundAmbiguousDeliveryError(
+                "Instagram delivery outcome is unknown"
+            ) from exc
         except httpx.HTTPError as exc:
-            raise OutboundUnavailableError(
-                "Instagram delivery is unavailable"
+            raise OutboundAmbiguousDeliveryError(
+                "Instagram delivery outcome is unknown"
             ) from exc
 
         _raise_for_status(response)
         try:
             payload = response.json()
         except (TypeError, ValueError) as exc:
-            raise OutboundInvalidResponseError(
-                "Instagram returned an invalid response"
+            raise OutboundAmbiguousDeliveryError(
+                "Instagram delivery outcome is unknown"
             ) from exc
         if not isinstance(payload, dict):
-            raise OutboundInvalidResponseError(
-                "Instagram returned an invalid response"
+            raise OutboundAmbiguousDeliveryError(
+                "Instagram delivery outcome is unknown"
             )
         provider_message_id = payload.get("message_id")
         if not isinstance(provider_message_id, str) or not provider_message_id.strip():
-            raise OutboundInvalidResponseError(
-                "Instagram returned an invalid response"
+            raise OutboundAmbiguousDeliveryError(
+                "Instagram delivery outcome is unknown"
             )
         return OutboundDeliveryResult(
             message_public_id=message.message_public_id,

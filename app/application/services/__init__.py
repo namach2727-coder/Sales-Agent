@@ -12,6 +12,13 @@ from app.application.services.conversation_service import ConversationService
 from app.application.services.instagram_outbound_delivery import (
     InstagramOutboundDeliveryService,
 )
+from app.application.services.instagram_outbound_reconciliation import (
+    InstagramOutboundReconciliationService,
+    OutboundReconciliationConflict,
+    OutboundReconciliationError,
+    OutboundReconciliationNotFound,
+    OutboundReconciliationValidation,
+)
 from app.application.services.inbox_service import (
     InboxConversationStateError,
     InboxError,
@@ -33,5 +40,10 @@ __all__ = [
     "InboxManualReplyError",
     "InboxService",
     "InstagramOutboundDeliveryService",
+    "InstagramOutboundReconciliationService",
     "ManualReplyResult",
+    "OutboundReconciliationConflict",
+    "OutboundReconciliationError",
+    "OutboundReconciliationNotFound",
+    "OutboundReconciliationValidation",
 ]

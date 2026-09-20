@@ -11,6 +11,7 @@ from pydantic import ValidationError
 import pytest
 
 from app.application.outbound import (
+    OutboundAmbiguousDeliveryError,
     OutboundAuthenticationError,
     OutboundConnectionUnavailableError,
     OutboundDeliveryResult,
@@ -224,6 +225,11 @@ def test_success_uses_trusted_scope_recipient_and_bound_credentials() -> None:
     metadata = setup.repository.updates[-1]["metadata"]
     assert metadata["delivery_status"] == "sent"
     assert metadata["delivery_attempt_count"] == 1
+    assert metadata["delivery_certainty"] == "SENT_CONFIRMED"
+    assert metadata["reconciliation_status"] == "NOT_REQUIRED"
+    assert metadata["safe_retry_eligible"] is False
+    assert metadata["delivery_attempt_id"]
+    assert metadata["provider_call_started_at"]
     assert metadata["provider_message_id"] == "meta-message-1"
     assert metadata["delivered_at"] == at.isoformat()
     assert metadata["llm_total_tokens"] == 12
@@ -395,12 +401,23 @@ def test_known_delivery_failure_is_persisted_and_remains_retryable(
     with pytest.raises(type(failure)):
         _deliver(setup)
     failed = setup.repository.updates[-1]["metadata"]
-    assert failed["delivery_status"] == "failed"
+    expected_ambiguous = isinstance(failure, OutboundTimeoutError)
+    assert failed["delivery_status"] == ("pending" if expected_ambiguous else "failed")
     assert failed["delivery_attempt_count"] == 1
-    assert failed["last_failure_category"] == failure.category
+    assert failed["last_failure_category"] == (
+        "delivery_ambiguous" if expected_ambiguous else failure.category
+    )
+    assert failed["delivery_certainty"] == (
+        "DELIVERY_AMBIGUOUS" if expected_ambiguous else "FAILED_CONFIRMED"
+    )
+    assert failed["safe_retry_eligible"] is (
+        False
+        if expected_ambiguous
+        else failure.category in {"rate_limit", "unavailable"}
+    )
 
 
-def test_failed_message_manual_retry_increments_attempt_and_clears_failure() -> None:
+def test_failed_message_cannot_bypass_explicit_safe_retry_claim() -> None:
     repo = FakeRepository(
         message=_message(
             metadata={
@@ -413,10 +430,31 @@ def test_failed_message_manual_retry_increments_attempt_and_clears_failure() -> 
         )
     )
     setup = _setup(repository=repo)
-    _deliver(setup)
-    metadata = setup.repository.updates[-1]["metadata"]
-    assert metadata["delivery_attempt_count"] == 3
-    assert "last_failure_category" not in metadata
+    with pytest.raises(OutboundUnavailableError, match="explicit safe retry"):
+        _deliver(setup)
+    assert setup.factory.calls == []
+    assert setup.repository.updates == []
+
+
+def test_provider_success_then_sent_persistence_failure_leaves_ambiguous_claim() -> None:
+    class FailFinalUpdateRepository(FakeRepository):
+        def update_delivery(self, message_public_id: str, **kwargs: Any) -> bool:
+            super().update_delivery(message_public_id, **kwargs)
+            return len(self.updates) == 1
+
+    repo = FailFinalUpdateRepository()
+    setup = _setup(repository=repo)
+
+    with pytest.raises(OutboundInvalidMessageError):
+        _deliver(setup)
+
+    assert len(setup.sender.calls) == 1
+    assert len(repo.updates) == 2
+    durable_pre_send = repo.updates[0]["metadata"]
+    assert durable_pre_send["delivery_status"] == "pending"
+    assert durable_pre_send["delivery_certainty"] == "DELIVERY_AMBIGUOUS"
+    assert durable_pre_send["reconciliation_status"] == "REQUIRED"
+    assert durable_pre_send["safe_retry_eligible"] is False
 
 
 def test_corrupt_encrypted_token_fails_closed_and_records_failure() -> None:
@@ -656,13 +694,13 @@ def test_graph_statuses_map_to_safe_errors(status: int, error_type: type[Excepti
             httpx.ReadTimeout(
                 "raw", request=httpx.Request("POST", "https://example.test")
             ),
-            OutboundTimeoutError,
+            OutboundAmbiguousDeliveryError,
         ),
         (
             httpx.ConnectError(
                 "raw", request=httpx.Request("POST", "https://example.test")
             ),
-            OutboundUnavailableError,
+            OutboundAmbiguousDeliveryError,
         ),
     ],
 )
@@ -683,5 +721,5 @@ def test_graph_transport_errors_are_normalized(error: Exception, error_type: typ
     ],
 )
 def test_graph_success_requires_safe_message_identifier(response: FakeHttpResponse) -> None:
-    with pytest.raises(OutboundInvalidResponseError):
+    with pytest.raises(OutboundAmbiguousDeliveryError):
         _graph_sender(FakeHttpClient(response)).send(_outbound_message())
