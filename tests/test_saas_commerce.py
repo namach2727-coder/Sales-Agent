@@ -394,8 +394,20 @@ def test_manual_receipt_and_atomic_idempotent_approval(commerce_api) -> None:
     admin_login = client.post("/api/v1/auth/login", json={"email": "admin@example.com", "password": PASSWORD})
     assert admin_login.status_code == 200
     admin_headers = {"Authorization": f"Bearer {admin_login.json()['access_token']}"}
+    queue = client.get("/api/v1/admin/payments", headers=admin_headers)
+    assert queue.status_code == 200
+    queued = queue.json()[0]
+    assert queued["public_id"] == payment["public_id"]
+    assert queued["plan_code"] == "TEST_PAID"
+    assert queued["product_family"] == "AUTOMATION"
+    assert queued["order_status"] == "payment_submitted"
+    assert queued["submitted_at"] is not None
+    assert queued["tenant_name"] and queued["store_name"]
+    detail = client.get(f"/api/v1/admin/payments/{payment['public_id']}", headers=admin_headers)
+    assert detail.status_code == 200 and detail.json() == queued
     approved = client.post(f"/api/v1/admin/payments/{payment['public_id']}/approve", headers=admin_headers, json={"expected_revision": submitted.json()["revision"]})
     assert approved.status_code == 200 and approved.json()["status"] == "approved"
+    assert approved.json()["order_status"] == "paid"
     duplicate = client.post(f"/api/v1/admin/payments/{payment['public_id']}/approve", headers=admin_headers, json={"expected_revision": submitted.json()["revision"]})
     assert duplicate.status_code == 200
     with Session(engine) as db:
@@ -419,6 +431,7 @@ def test_payment_rejection_and_customer_cannot_use_admin_route(commerce_api) -> 
     assert submitted.status_code == 200
     denied = client.post(f"/api/v1/admin/payments/{payment['public_id']}/reject", headers=headers, json={"expected_revision": submitted.json()["revision"], "reason": "test"})
     assert denied.status_code == 403
+    assert client.get("/api/v1/admin/payments", headers=headers).status_code == 403
 
 
 def test_platform_admin_manages_dynamic_product_catalog(commerce_api) -> None:

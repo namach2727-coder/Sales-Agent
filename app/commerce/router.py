@@ -17,6 +17,7 @@ from app.authentication.passwords import PasswordService
 from app.authentication.schemas import LoginInput
 from app.authz.permissions import PermissionCode
 from app.commerce.schemas import (
+    AdminPaymentRead,
     AdminGrantCreate,
     AdminCommerceAuditRead,
     AdminCustomerStoreRead,
@@ -148,6 +149,23 @@ def _payment_read(db: Session, item: ManualPayment) -> PaymentRead:
     order = db.get(SubscriptionOrder, item.order_id)
     assert order is not None
     return PaymentRead(public_id=item.public_id, order_public_id=order.public_id, status=item.status, amount=item.amount, currency=item.currency, revision=item.revision, receipt_configured=bool(item.receipt_storage_key), created_at=item.created_at)
+
+
+def _admin_payment_read(db: Session, item: ManualPayment) -> AdminPaymentRead:
+    order = db.get(SubscriptionOrder, item.order_id)
+    tenant = db.get(Tenant, item.tenant_id)
+    store = db.get(Store, item.store_id)
+    plan = db.get(SaasPlan, order.plan_id if order else None)
+    assert order is not None and tenant is not None and store is not None and plan is not None
+    return AdminPaymentRead(
+        **_payment_read(db, item).model_dump(),
+        tenant_name=tenant.name,
+        store_name=store.name,
+        plan_code=plan.code,
+        product_family=plan.product_family,
+        order_status=order.status,
+        submitted_at=item.submitted_at,
+    )
 
 
 def _product_subscription_read(db: Session, item: TenantSubscription) -> ProductSubscriptionRead:
@@ -409,23 +427,31 @@ async def upload_receipt(payment_public_id: str, request: Request, principal: Au
         _error(exc)
 
 
-@router.get("/admin/payments", response_model=list[PaymentRead])
-def admin_payments(_principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.PAYMENT_READ)), db: Session = Depends(get_db)) -> list[PaymentRead]:
-    return [_payment_read(db, item) for item in CommerceService(db).admin_payments()]
+@router.get("/admin/payments", response_model=list[AdminPaymentRead])
+def admin_payments(_principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.PAYMENT_READ)), db: Session = Depends(get_db)) -> list[AdminPaymentRead]:
+    return [_admin_payment_read(db, item) for item in CommerceService(db).admin_payments()]
 
 
-@router.post("/admin/payments/{payment_public_id}/approve", response_model=PaymentRead)
-def approve_payment(payment_public_id: str, payload: PaymentDecision, principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.PAYMENT_MANAGE)), db: Session = Depends(get_db)) -> PaymentRead:
+@router.get("/admin/payments/{payment_public_id}", response_model=AdminPaymentRead)
+def admin_payment(payment_public_id: str, _principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.PAYMENT_READ)), db: Session = Depends(get_db)) -> AdminPaymentRead:
     try:
-        return _payment_read(db, CommerceService(db).approve(payment_public_id, expected_revision=payload.expected_revision, actor_user_id=principal.user_id))
+        return _admin_payment_read(db, CommerceService(db).admin_payment(payment_public_id))
     except CommerceError as exc:
         _error(exc)
 
 
-@router.post("/admin/payments/{payment_public_id}/reject", response_model=PaymentRead)
-def reject_payment(payment_public_id: str, payload: PaymentDecision, principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.PAYMENT_MANAGE)), db: Session = Depends(get_db)) -> PaymentRead:
+@router.post("/admin/payments/{payment_public_id}/approve", response_model=AdminPaymentRead)
+def approve_payment(payment_public_id: str, payload: PaymentDecision, principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.PAYMENT_MANAGE)), db: Session = Depends(get_db)) -> AdminPaymentRead:
     try:
-        return _payment_read(db, CommerceService(db).reject(payment_public_id, expected_revision=payload.expected_revision, actor_user_id=principal.user_id, reason=payload.reason))
+        return _admin_payment_read(db, CommerceService(db).approve(payment_public_id, expected_revision=payload.expected_revision, actor_user_id=principal.user_id))
+    except CommerceError as exc:
+        _error(exc)
+
+
+@router.post("/admin/payments/{payment_public_id}/reject", response_model=AdminPaymentRead)
+def reject_payment(payment_public_id: str, payload: PaymentDecision, principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.PAYMENT_MANAGE)), db: Session = Depends(get_db)) -> AdminPaymentRead:
+    try:
+        return _admin_payment_read(db, CommerceService(db).reject(payment_public_id, expected_revision=payload.expected_revision, actor_user_id=principal.user_id, reason=payload.reason))
     except CommerceError as exc:
         _error(exc)
 

@@ -200,6 +200,15 @@ class PaymentRead(BaseModel):
     created_at: datetime
 
 
+class AdminPaymentRead(PaymentRead):
+    tenant_name: str
+    store_name: str
+    plan_code: str
+    product_family: str
+    order_status: str
+    submitted_at: datetime | None
+
+
 class CardTransferInstructions(BaseModel):
     payment: PaymentRead
     card_number: str
