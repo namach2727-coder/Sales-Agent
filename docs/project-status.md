@@ -365,10 +365,52 @@ concurrent replay, deterministic zero-AI, AI fallback, and Human Takeover. The
 full backend suite passed 785 tests with 5 skipped. No migration, schema change,
 historical repair, or production/UAT data change was required.
 
-Separate non-blocking follow-up: `OUTBOUND_DELIVERY_RECONCILIATION`. An
-ambiguous locally pending outbound is intentionally never auto-resent because
-the provider may already have accepted it before local sent-state persistence;
-blind replay could duplicate an external message.
+The former `OUTBOUND_DELIVERY_RECONCILIATION` follow-up is resolved by the
+released capability documented below.
+
+### Outbound delivery reconciliation
+
+`OUTBOUND_DELIVERY_RECONCILIATION` is **COMPLETE / IMPLEMENTED / RELEASED /
+CLOUD VERIFIED**. Backend commit
+`c6168e63ebf866e1052a9424f53b40cb0f0ebd88` is Live on Render; `/live` and
+`/ready` returned HTTP 200, with database available and migration current.
+Frontend commit `225f89720dba50c7a2dd129467e1e13363be1f12` is Ready in Vercel
+production and served through `directpilot.ir`. Its cloud build generated 39
+static/SSG pages with only the expected dynamic contact, checkout, and payment
+routes; no frontend API proxy or polling loop was introduced.
+
+Outbound attempts now persist explicit delivery certainty, a durable attempt
+identifier, provider-call start time, reconciliation state, and an audit trail.
+Timeouts and connection drops become ambiguous rather than blindly retryable.
+Tenant/store-authorized status and decision APIs allow operators to confirm
+sent, confirm not sent, or leave an outcome unresolved. Retry is available only
+after confirmed-not-sent and is serialized with PostgreSQL row locking.
+Automation replay remains zero-LLM; AI replay reuses the persisted response
+without another provider call. Human Takeover retains priority.
+
+The customer UI exposes reconciliation state only for affected pending or
+failed outbound messages. It shows the ambiguous warning and authorized
+operator decisions, presents retry only when allowed by the backend, refreshes
+authoritative state after decisions, and resolves conflicts by refreshing on
+HTTP 409. Status is fetched on demand; there is no polling.
+
+Known limitation: DirectPilot has no implemented authoritative Meta/provider
+message-status or idempotency lookup. A genuinely ambiguous outcome can
+therefore require explicit operator determination. A crashed active retry also
+remains protected by its lease before reconciliation becomes available. Cloud
+mutation UAT was not performed because no safe existing ambiguous, pending, or
+failed candidate existed; no ambiguity was fabricated and no Instagram message
+was sent. This does not block the release because the implementation has local
+and PostgreSQL coverage and the cloud deployment and health are verified.
+
+Separate non-blocking follow-up:
+`CUSTOMER_SUBSCRIPTION_HISTORY_CLASSIFICATION`. Release smoke observed
+`GET /api/v1/plans` return an expected empty catalog under Phase D.1 and
+`GET /api/v1/subscription/me` return no currently effective subscription for
+one authenticated customer scope. The reconciliation release did not modify
+commerce, authentication, or catalog behavior. The historical reason remains
+unclassified because authorized Admin/Neon read credentials were unavailable;
+no catalog or subscription data was changed.
 
 ## Phase D.1 independent product commerce
 
