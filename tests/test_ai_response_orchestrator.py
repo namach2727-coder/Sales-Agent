@@ -22,6 +22,7 @@ from app.application.services import (
     AIResponseScopeError,
     ConversationService,
 )
+from app.ai_assistant.service import AIRequestQuotaExceeded
 from app.conversation_core.exceptions import ConversationNotFoundError
 from app.conversation_core.models import Conversation, ConversationMessage
 from app.database import Base
@@ -194,6 +195,17 @@ class FakeProvider:
         return self.response  # type: ignore[return-value]
 
 
+class FakeRequestQuota:
+    def __init__(self, error: Exception | None = None) -> None:
+        self.error = error
+        self.calls: list[dict[str, int]] = []
+
+    def ensure_available(self, *, tenant_id: int, store_id: int) -> None:
+        self.calls.append({"tenant_id": tenant_id, "store_id": store_id})
+        if self.error is not None:
+            raise self.error
+
+
 def _context(
     *,
     tenant_id: int = 1,
@@ -266,6 +278,7 @@ def _orchestrator(
     *,
     conversation: Conversation | None = None,
     provider: FakeProvider | None = None,
+    quota: FakeRequestQuota | None = None,
 ) -> SimpleNamespace:
     selected_conversation = conversation or _conversation()
     conversation_repository = FakeConversationRepository(
@@ -287,6 +300,7 @@ def _orchestrator(
         knowledge_engine=knowledge,  # type: ignore[arg-type]
         prompt_builder=prompt_builder,  # type: ignore[arg-type]
         llm_provider=llm,
+        request_quota=quota,
     )
     return SimpleNamespace(
         orchestrator=orchestrator,
@@ -296,7 +310,25 @@ def _orchestrator(
         knowledge=knowledge,
         prompt_builder=prompt_builder,
         provider=llm,
+        quota=quota,
     )
+
+
+def test_exhausted_request_quota_stops_before_knowledge_prompt_and_provider() -> None:
+    quota = FakeRequestQuota(AIRequestQuotaExceeded("exhausted"))
+    setup = _orchestrator(quota=quota)
+
+    with pytest.raises(AIRequestQuotaExceeded):
+        setup.orchestrator.generate_response(
+            CONVERSATION_PUBLIC_ID,
+            context=_context(),
+        )
+
+    assert quota.calls == [{"tenant_id": 1, "store_id": 10}]
+    assert setup.knowledge.calls == []
+    assert setup.prompt_builder.calls == []
+    assert setup.provider.calls == []
+    assert setup.messages.create_calls == []
 
 
 def test_successful_orchestration_invokes_pipeline_and_persists_assistant() -> None:

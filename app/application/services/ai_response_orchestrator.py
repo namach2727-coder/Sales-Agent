@@ -7,6 +7,7 @@ import hashlib
 from collections.abc import Callable
 from uuid import uuid4
 
+from app.ai_assistant.service import AIRequestQuotaService
 from app.application.knowledge import KnowledgeEngine
 from app.application.llm import LLMProvider, LLMResponse
 from app.application.prompts import (
@@ -55,12 +56,14 @@ class AIResponseOrchestrator:
         knowledge_engine: KnowledgeEngine,
         prompt_builder: PromptBuilder,
         llm_provider: LLMProvider,
+        request_quota: AIRequestQuotaService | None = None,
     ) -> None:
         self.conversations = conversation_service
         self.messages = message_repository
         self.knowledge = knowledge_engine
         self.prompt_builder = prompt_builder
         self.llm = llm_provider
+        self.request_quota = request_quota
 
     def generate_response(
         self,
@@ -113,6 +116,11 @@ class AIResponseOrchestrator:
         )
         if existing_response is not None:
             return existing_response.public_id
+        if self.request_quota is not None:
+            self.request_quota.ensure_available(
+                tenant_id=tenant_id,
+                store_id=store_id,
+            )
         latest_customer_message = _latest_customer_message(history)
         knowledge_context = self.knowledge.retrieve(
             tenant_public_id=tenant_public_id,

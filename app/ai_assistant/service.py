@@ -21,6 +21,10 @@ class AIAssistantConflict(AIAssistantError):
     code = "stale_revision"
 
 
+class AIRequestQuotaExceeded(AIAssistantError):
+    code = "ai_request_limit_exhausted"
+
+
 @dataclass(frozen=True, slots=True)
 class AIUsageSummary:
     request_count: int
@@ -71,36 +75,143 @@ class AIAssistantService:
         return self.read()
 
     def usage(self) -> AIUsageSummary:
-        subscriptions = effective_product_subscriptions(self.session, tenant_id=self.tenant_id, store_id=self.store_id)
-        eligible: list[tuple[TenantSubscription, SaasPlan]] = []
-        for subscription in subscriptions:
-            plan = self.session.get(SaasPlan, subscription.plan_id)
-            if plan is not None and plan.product_family in {"AI_ASSISTANT", "LEGACY_BUNDLE"}:
-                eligible.append((subscription, plan))
-        period_start = min((item.starts_at for item, _ in eligible), default=None)
-        period_end_values = [item.current_period_end for item, _ in eligible if item.current_period_end is not None]
-        period_end = max(period_end_values, default=None)
-        limits = [item.limits_json or {} for item, _ in eligible]
-        request_limit = _combined_limit(limits, "ai_request_limit")
-        token_limit = _combined_limit(limits, "ai_token_limit")
-        statement = select(ConversationMessage.metadata_json).where(
-            ConversationMessage.tenant_id == self.tenant_id,
-            ConversationMessage.store_id == self.store_id,
-            ConversationMessage.direction == "outbound",
+        eligible = _eligible_subscriptions(
+            self.session,
+            tenant_id=self.tenant_id,
+            store_id=self.store_id,
         )
-        if period_start is not None:
-            statement = statement.where(ConversationMessage.occurred_at >= period_start)
-        if period_end is not None:
-            statement = statement.where(ConversationMessage.occurred_at < period_end)
-        request_count = input_tokens = output_tokens = total_tokens = 0
-        for metadata in self.session.scalars(statement).all():
-            if not isinstance(metadata, dict) or metadata.get("source") != "ai_response_orchestrator":
-                continue
-            request_count += 1
-            input_tokens += _safe_count(metadata.get("llm_input_tokens"))
-            output_tokens += _safe_count(metadata.get("llm_output_tokens"))
-            total_tokens += _safe_count(metadata.get("llm_total_tokens"))
-        return AIUsageSummary(request_count, input_tokens, output_tokens, total_tokens, request_limit, token_limit, period_start, period_end)
+        return _usage_summary(
+            self.session,
+            tenant_id=self.tenant_id,
+            store_id=self.store_id,
+            eligible=eligible,
+        )
+
+
+class AIRequestQuotaService:
+    """Serialize and enforce the persisted AI request limit for one scope."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def ensure_available(self, *, tenant_id: int, store_id: int) -> AIUsageSummary:
+        eligible = _eligible_subscriptions(
+            self.session,
+            tenant_id=tenant_id,
+            store_id=store_id,
+        )
+        subscription_ids = sorted(subscription.id for subscription, _ in eligible)
+        if subscription_ids:
+            locked = tuple(
+                self.session.scalars(
+                    _quota_lock_statement(subscription_ids)
+                ).all()
+            )
+            plan_ids = {item.plan_id for item in locked}
+            plans = {
+                plan.id: plan
+                for plan in self.session.scalars(
+                    select(SaasPlan).where(SaasPlan.id.in_(plan_ids))
+                ).all()
+            }
+            eligible = [
+                (subscription, plan)
+                for subscription in locked
+                if (plan := plans.get(subscription.plan_id)) is not None
+                and plan.product_family in {"AI_ASSISTANT", "LEGACY_BUNDLE"}
+            ]
+        summary = _usage_summary(
+            self.session,
+            tenant_id=tenant_id,
+            store_id=store_id,
+            eligible=eligible,
+        )
+        if (
+            summary.request_limit is not None
+            and summary.request_count >= summary.request_limit
+        ):
+            raise AIRequestQuotaExceeded("AI request limit is exhausted")
+        return summary
+
+
+def _eligible_subscriptions(
+    session: Session,
+    *,
+    tenant_id: int,
+    store_id: int,
+) -> list[tuple[TenantSubscription, SaasPlan]]:
+    subscriptions = effective_product_subscriptions(
+        session,
+        tenant_id=tenant_id,
+        store_id=store_id,
+    )
+    eligible: list[tuple[TenantSubscription, SaasPlan]] = []
+    for subscription in subscriptions:
+        plan = session.get(SaasPlan, subscription.plan_id)
+        if plan is not None and plan.product_family in {
+            "AI_ASSISTANT",
+            "LEGACY_BUNDLE",
+        }:
+            eligible.append((subscription, plan))
+    return eligible
+
+
+def _quota_lock_statement(subscription_ids: list[int]):
+    return (
+        select(TenantSubscription)
+        .where(TenantSubscription.id.in_(subscription_ids))
+        .order_by(TenantSubscription.id)
+        .with_for_update()
+    )
+
+
+def _usage_summary(
+    session: Session,
+    *,
+    tenant_id: int,
+    store_id: int,
+    eligible: list[tuple[TenantSubscription, SaasPlan]],
+) -> AIUsageSummary:
+    period_start = min((item.starts_at for item, _ in eligible), default=None)
+    period_end_values = [
+        item.current_period_end
+        for item, _ in eligible
+        if item.current_period_end is not None
+    ]
+    period_end = max(period_end_values, default=None)
+    limits = [item.limits_json or {} for item, _ in eligible]
+    request_limit = _combined_limit(limits, "ai_request_limit")
+    token_limit = _combined_limit(limits, "ai_token_limit")
+    statement = select(ConversationMessage.metadata_json).where(
+        ConversationMessage.tenant_id == tenant_id,
+        ConversationMessage.store_id == store_id,
+        ConversationMessage.direction == "outbound",
+    )
+    if period_start is not None:
+        statement = statement.where(ConversationMessage.occurred_at >= period_start)
+    if period_end is not None:
+        statement = statement.where(ConversationMessage.occurred_at < period_end)
+    request_count = input_tokens = output_tokens = total_tokens = 0
+    for metadata in session.scalars(statement).all():
+        if (
+            not isinstance(metadata, dict)
+            or metadata.get("source") != "ai_response_orchestrator"
+        ):
+            continue
+        request_count += 1
+        input_tokens += _safe_count(metadata.get("llm_input_tokens"))
+        output_tokens += _safe_count(metadata.get("llm_output_tokens"))
+        total_tokens += _safe_count(metadata.get("llm_total_tokens"))
+    return AIUsageSummary(
+        request_count,
+        input_tokens,
+        output_tokens,
+        total_tokens,
+        request_limit,
+        token_limit,
+        period_start,
+        period_end,
+    )
 
 
 def ai_is_enabled(session: Session, *, tenant_id: int, store_id: int) -> bool:

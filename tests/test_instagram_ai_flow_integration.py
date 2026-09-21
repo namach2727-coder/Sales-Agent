@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import hashlib
 import hmac
 import json
@@ -47,7 +47,7 @@ from app.instagram_channel.router import (
     public_router,
 )
 from app.instagram_channel.security import FernetTokenCipher
-from app.models import Store, Tenant
+from app.models import SaasPlan, Store, Tenant, TenantSubscription
 from app.observability import CorrelationIdMiddleware
 
 
@@ -368,10 +368,13 @@ def _client(
             yield db
 
     def builder(db: Session, selected_settings: Settings):
+        def assert_quota_transaction_open() -> None:
+            assert db.in_transaction()
+
         def assert_no_open_transaction() -> None:
             assert not db.in_transaction()
 
-        llm.responses.transaction_probe = assert_no_open_transaction
+        llm.responses.transaction_probe = assert_quota_transaction_open
         meta.transaction_probe = assert_no_open_transaction
         return build_instagram_ai_flow_coordinator(
             db,
@@ -457,6 +460,56 @@ def _add_rule(
         db.add(rule)
         db.commit()
         return rule.public_id
+
+
+def _add_ai_subscription(
+    engine,
+    scope,
+    *,
+    request_limit: int | None,
+) -> datetime:
+    suffix = uuid.uuid4().hex
+    with Session(engine) as db:
+        plan = SaasPlan(
+            code=f"AI_QUOTA_{suffix.upper()}",
+            name="AI quota test",
+            product_family="AI_ASSISTANT",
+            price_amount=1,
+            currency="IRR",
+            duration_days=30,
+            billing_unit="day",
+            automation_limit=0,
+            reply_limit=request_limit or 0,
+            instagram_account_limit=1,
+            ai_request_limit=request_limit,
+            ai_token_limit=None,
+            is_active=True,
+            is_purchasable=False,
+            trial_eligible=False,
+            module_codes=["ai_assistant", "knowledge_base"],
+        )
+        db.add(plan)
+        db.flush()
+        limits = {"reply_limit": request_limit or 0}
+        if request_limit is not None:
+            limits["ai_request_limit"] = request_limit
+        now = datetime.now(UTC)
+        starts_at = now - timedelta(minutes=1)
+        db.add(
+            TenantSubscription(
+                tenant_id=scope.tenant.id,
+                store_id=scope.store.id,
+                plan_id=plan.id,
+                product_family="AI_ASSISTANT",
+                source="ADMIN_GRANT",
+                status="active",
+                limits_json=limits,
+                starts_at=starts_at,
+                current_period_end=now + timedelta(days=30),
+            )
+        )
+        db.commit()
+        return starts_at
 
 
 @pytest.mark.parametrize(
@@ -587,6 +640,138 @@ def test_no_automation_capability_falls_back_to_ai_when_ai_is_entitled(flow_engi
     )
     assert response.json()["flows"][0]["ai_status"] == "completed"
     assert len(responses.calls) == len(meta.calls) == 1
+
+
+def test_exhausted_ai_request_limit_stops_before_knowledge_llm_and_outbound(
+    flow_engine,
+) -> None:
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    _add_ai_subscription(flow_engine, scope, request_limit=0)
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+
+    response = _post(
+        _client(
+            flow_engine,
+            settings,
+            FakeLLMClient(responses),
+            meta,
+            capabilities=frozenset({"knowledge_base", "ai_assistant"}),
+        ),
+        _payload(scope.connection.instagram_account_id),
+    )
+
+    flow = response.json()["flows"][0]
+    assert flow["ai_status"] == "skipped"
+    assert flow["delivery_status"] == "skipped"
+    assert flow["safe_reason"] == "ai_request_limit_exhausted"
+    assert responses.calls == []
+    assert meta.calls == []
+    with Session(flow_engine) as db:
+        messages = tuple(
+            db.scalars(
+                select(ConversationMessage).where(
+                    ConversationMessage.tenant_id == scope.tenant.id,
+                    ConversationMessage.store_id == scope.store.id,
+                )
+            ).all()
+        )
+        assert len(messages) == 1
+        assert messages[0].direction == "inbound"
+
+
+def test_positive_ai_request_limit_counts_persisted_period_responses(
+    flow_engine,
+) -> None:
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    _add_ai_subscription(flow_engine, scope, request_limit=1)
+    responses = FakeResponses(unique_request_ids=True)
+    meta = FakeMetaClient(unique_message_ids=True)
+    client = _client(
+        flow_engine,
+        settings,
+        FakeLLMClient(responses),
+        meta,
+        capabilities=frozenset({"knowledge_base", "ai_assistant"}),
+    )
+
+    first = _post(
+        client,
+        _payload(
+            scope.connection.instagram_account_id,
+            message_id=f"quota-first-{uuid.uuid4().hex}",
+        ),
+    )
+    second = _post(
+        client,
+        _payload(
+            scope.connection.instagram_account_id,
+            message_id=f"quota-second-{uuid.uuid4().hex}",
+        ),
+    )
+
+    assert first.json()["flows"][0]["ai_status"] == "completed"
+    assert second.json()["flows"][0]["safe_reason"] == (
+        "ai_request_limit_exhausted"
+    )
+    assert len(responses.calls) == 1
+    assert len(meta.calls) == 1
+
+
+def test_ai_request_usage_before_subscription_period_does_not_consume_quota(
+    flow_engine,
+) -> None:
+    settings = _settings()
+    scope = _connection(flow_engine, settings)
+    starts_at = _add_ai_subscription(flow_engine, scope, request_limit=1)
+    with Session(flow_engine) as db:
+        conversation = Conversation(
+            tenant_id=scope.tenant.id,
+            store_id=scope.store.id,
+            instagram_connection_id=scope.connection.id,
+            provider_participant_key=RECIPIENT,
+            status="open",
+        )
+        db.add(conversation)
+        db.flush()
+        db.add(
+            ConversationMessage(
+                tenant_id=scope.tenant.id,
+                store_id=scope.store.id,
+                conversation_id=conversation.id,
+                instagram_connection_id=scope.connection.id,
+                idempotency_key=f"old-ai-{uuid.uuid4().hex}",
+                direction="outbound",
+                content_type="text",
+                text="OLD-AI-RESPONSE",
+                occurred_at=starts_at - timedelta(seconds=1),
+                metadata_json={"source": "ai_response_orchestrator"},
+            )
+        )
+        db.commit()
+    responses = FakeResponses()
+    meta = FakeMetaClient()
+
+    payload = _payload(scope.connection.instagram_account_id)
+    payload["entry"][0]["messaging"][0]["timestamp"] = round(
+        datetime.now(UTC).timestamp() * 1000
+    )
+    result = _post(
+        _client(
+            flow_engine,
+            settings,
+            FakeLLMClient(responses),
+            meta,
+            capabilities=frozenset({"knowledge_base", "ai_assistant"}),
+        ),
+        payload,
+    )
+
+    assert result.json()["flows"][0]["ai_status"] == "completed"
+    assert len(responses.calls) == 1
+    assert len(meta.calls) == 1
 
 
 def test_disabled_and_wrong_trigger_rules_are_ignored(flow_engine):

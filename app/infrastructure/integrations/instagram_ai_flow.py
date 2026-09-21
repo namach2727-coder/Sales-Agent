@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.ai_assistant.service import AIRequestQuotaService
 from app.application.integrations import InstagramAIFlowCoordinator
 from app.application.knowledge import KnowledgeEngine
 from app.application.llm import LLMProvider, LLMResponse
@@ -100,6 +101,7 @@ def build_instagram_ai_flow_coordinator(
         knowledge_engine=KnowledgeEngine(KnowledgeRepository(session)),
         prompt_builder=PromptBuilder(),
         llm_provider=ConfiguredLLMProvider(settings, client=llm_client),
+        request_quota=AIRequestQuotaService(session),
     )
     outbound = build_instagram_outbound_delivery(
         session,

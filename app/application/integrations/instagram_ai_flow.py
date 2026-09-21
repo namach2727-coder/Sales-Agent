@@ -7,6 +7,7 @@ import logging
 from time import monotonic
 from typing import Literal, Protocol
 
+from app.ai_assistant.service import AIRequestQuotaExceeded
 from app.application.instagram import InstagramInboundProcessingResult
 from app.application.knowledge import KnowledgeEngineError
 from app.application.llm import LLMProviderError
@@ -143,6 +144,10 @@ class InstagramAIFlowCoordinator:
                 ignored=False,
                 safe_reason="conversation_human_active",
             )
+        # Persist inbound work before opening the quota-protected AI phase.
+        # The quota guard's subscription lock stays held through assistant
+        # persistence so concurrent requests cannot exceed the hard cap.
+        self.transactions.commit()
         ai_started = monotonic()
         self._log(
             "instagram_ai_flow_ai_started",
@@ -156,9 +161,30 @@ class InstagramAIFlowCoordinator:
             assistant_public_id = self.ai.generate_response(
                 inbound.conversation_public_id,
                 context=context,
-                before_provider_call=self.transactions.commit,
             )
             self.transactions.commit()
+        except AIRequestQuotaExceeded as exc:
+            self.transactions.rollback()
+            reason = _safe_error_code(exc, "ai_request_limit_exhausted")
+            self._log(
+                "instagram_ai_flow_ai_skipped",
+                context=context,
+                inbound=inbound,
+                correlation_id=correlation,
+                phase="ai",
+                outcome="skipped",
+                failure_category=reason,
+                latency_ms=_latency_ms(ai_started),
+            )
+            return _result(
+                inbound,
+                correlation_id=correlation,
+                ai_status="skipped",
+                delivery_status="skipped",
+                duplicate=False,
+                ignored=False,
+                safe_reason=reason,
+            )
         except _AI_FAILURES as exc:
             self.transactions.rollback()
             reason = _safe_error_code(exc, "ai_failed")
