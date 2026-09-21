@@ -50,7 +50,7 @@ from app.commerce.storage import LocalPrivateReceiptStorage, ReceiptValidationEr
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.models import CommerceAdminAuditLog, CommerceAuditLog, ManualPayment, SaasPlan, Store, SubscriptionOrder, Tenant, TenantSubscription, UserIdentity
-from app.module_catalog import effective_capabilities, effective_product_subscriptions
+from app.module_catalog import effective_capabilities, effective_capabilities_for_stores, effective_product_subscriptions
 from app.tenant_management.domain import TenantManagementError
 
 
@@ -243,14 +243,25 @@ def admin_commerce_subscriptions(
 
 @router.get("/admin/commerce/customers", response_model=list[AdminCustomerStoreRead])
 def admin_commerce_customers(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=100, ge=1, le=100),
     _principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.COMMERCE_SUBSCRIPTION_READ)),
     db: Session = Depends(get_db),
 ) -> list[AdminCustomerStoreRead]:
-    rows = db.execute(select(Tenant, Store).join(Store, Store.tenant_id == Tenant.id).order_by(Tenant.name, Store.name)).all()
+    rows = db.execute(
+        select(Tenant, Store)
+        .join(Store, Store.tenant_id == Tenant.id)
+        .order_by(Tenant.name, Store.name, Tenant.id, Store.id)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
+    capabilities_by_store = effective_capabilities_for_stores(
+        db, stores=[store for _tenant, store in rows]
+    )
     return [AdminCustomerStoreRead(
         tenant_public_id=tenant.public_id, tenant_name=tenant.name,
         store_public_id=store.public_id, store_name=store.name, store_status=store.status,
-        effective_capabilities=list(effective_capabilities(db, tenant_id=tenant.id, store_id=store.id)),
+        effective_capabilities=list(capabilities_by_store[store.id]),
     ) for tenant, store in rows]
 
 

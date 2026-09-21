@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import Settings
@@ -379,39 +379,128 @@ def effective_capabilities(
     )
     if store is None:
         return ()
+    return effective_capabilities_for_stores(db, stores=(store,), now=now)[store.id]
+
+
+def effective_capabilities_for_stores(
+    db: Session,
+    *,
+    stores: tuple[Store, ...] | list[Store],
+    now: datetime | None = None,
+) -> dict[int, tuple[str, ...]]:
+    """Resolve capabilities for a bounded store collection with bulk queries.
+
+    The in-memory resolver deliberately mirrors ``effective_capabilities``:
+    one newest unexpired active subscription per product family grants plan
+    modules, while each granted capability and all of its dependencies still
+    require an effective store-module entitlement.
+    """
+    if not stores:
+        return {}
+
     current = now or datetime.now(UTC)
-    granted: set[str] = set()
-    for subscription in effective_product_subscriptions(
-        db, tenant_id=tenant_id, store_id=store_id, now=current
-    ):
-        plan = db.get(SaasPlan, subscription.plan_id)
-        if plan is not None:
-            granted.update(str(code) for code in (plan.module_codes or []))
-
-    def capability_enabled(code: str, seen: set[str] | None = None) -> bool:
-        if code not in granted:
-            return False
-        visited = set(seen or ())
-        if code in visited:
-            return False
-        visited.add(code)
-        definition = db.get(ModuleDefinition, code)
-        if definition is None:
-            return False
-        if any(
-            not capability_enabled(str(dependency), visited)
-            for dependency in (definition.dependencies or [])
-        ):
-            return False
-        return module_enabled(db, store, code, now=current)
-
-    return tuple(
-        sorted(
-            code
-            for code in CAPABILITY_CODES.intersection(granted)
-            if capability_enabled(code)
+    stores_by_id = {store.id: store for store in stores}
+    store_ids = tuple(stores_by_id)
+    subscription_rows = db.scalars(
+        select(TenantSubscription)
+        .where(
+            TenantSubscription.store_id.in_(store_ids),
+            TenantSubscription.status == "active",
+            TenantSubscription.product_family.in_(PRODUCT_FAMILIES),
+            TenantSubscription.starts_at <= current,
+            or_(
+                TenantSubscription.current_period_end.is_(None),
+                TenantSubscription.current_period_end > current,
+            ),
         )
-    )
+        .order_by(
+            TenantSubscription.store_id,
+            TenantSubscription.product_family,
+            TenantSubscription.starts_at.desc(),
+            TenantSubscription.id.desc(),
+        )
+    ).all()
+    selected_subscriptions: dict[tuple[int, str], TenantSubscription] = {}
+    for subscription in subscription_rows:
+        store = stores_by_id.get(subscription.store_id)
+        if store is None or subscription.tenant_id != store.tenant_id:
+            continue
+        selected_subscriptions.setdefault(
+            (subscription.store_id, subscription.product_family), subscription
+        )
+
+    plan_ids = {item.plan_id for item in selected_subscriptions.values()}
+    plans = {
+        plan.id: plan
+        for plan in db.scalars(select(SaasPlan).where(SaasPlan.id.in_(plan_ids))).all()
+    } if plan_ids else {}
+    definitions = {
+        definition.code: definition
+        for definition in db.scalars(select(ModuleDefinition)).all()
+    }
+    entitlements = {
+        (entitlement.store_id, entitlement.module_code): entitlement
+        for entitlement in db.scalars(
+            select(StoreModule).where(StoreModule.store_id.in_(store_ids))
+        ).all()
+    }
+
+    result: dict[int, tuple[str, ...]] = {}
+    for store in stores:
+        granted: set[str] = set()
+        for family in PRODUCT_FAMILIES:
+            subscription = selected_subscriptions.get((store.id, family))
+            plan = plans.get(subscription.plan_id) if subscription is not None else None
+            if plan is not None:
+                granted.update(str(code) for code in (plan.module_codes or []))
+
+        def loaded_module_enabled(code: str, seen: set[str] | None = None) -> bool:
+            if store.status in {"suspended", "disabled", "deleted"}:
+                return False
+            entitlement = entitlements.get((store.id, code))
+            definition = definitions.get(code)
+            if (
+                entitlement is None
+                or definition is None
+                or entitlement.status not in {"active", "trial"}
+                or definition.availability == "planned"
+                or not _time_valid(entitlement, current)
+            ):
+                return False
+            visited = set(seen or ())
+            if code in visited:
+                return False
+            visited.add(code)
+            return all(
+                loaded_module_enabled(str(dependency), visited)
+                for dependency in (definition.dependencies or [])
+            )
+
+        def capability_enabled(code: str, seen: set[str] | None = None) -> bool:
+            if code not in granted:
+                return False
+            visited = set(seen or ())
+            if code in visited:
+                return False
+            visited.add(code)
+            definition = definitions.get(code)
+            if definition is None:
+                return False
+            if any(
+                not capability_enabled(str(dependency), visited)
+                for dependency in (definition.dependencies or [])
+            ):
+                return False
+            return loaded_module_enabled(code)
+
+        result[store.id] = tuple(
+            sorted(
+                code
+                for code in CAPABILITY_CODES.intersection(granted)
+                if capability_enabled(code)
+            )
+        )
+    return result
 
 
 def has_capability(

@@ -99,6 +99,36 @@ def login(client: TestClient, suffix: str = "one") -> dict[str, str]:
     return {"Authorization": f"Bearer {payload['access_token']}"}
 
 
+def platform_admin_headers(client: TestClient, engine, suffix: str) -> dict[str, str]:
+    fast = PasswordService(
+        hasher=PasswordHasher(
+            time_cost=1, memory_cost=8192, parallelism=1, type=Type.ID
+        )
+    )
+    email = f"platform-{suffix}@example.com"
+    with Session(engine, expire_on_commit=False) as db:
+        admin = AuthenticationService(db, password_service=fast).create_user(
+            email=email,
+            display_name="Platform Admin",
+            password=PASSWORD,
+            email_verified=True,
+        )
+    with Session(engine) as db, db.begin():
+        db.add(
+            AuthPlatformRoleAssignment(
+                principal_type="user",
+                principal_id=str(admin.id),
+                role_code="platform_super_admin",
+                status="active",
+            )
+        )
+    response = client.post(
+        "/api/v1/auth/login", json={"email": email, "password": PASSWORD}
+    )
+    assert response.status_code == 200
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
 def paid_plan(client: TestClient) -> dict:
     return next(item for item in client.get("/api/v1/plans").json() if item["code"] == "TEST_PAID")
 
@@ -525,3 +555,67 @@ def test_paid_plan_requires_positive_price_before_becoming_purchasable(commerce_
 
 def test_zero_price_trial_is_an_explicit_sellable_exception(commerce_api) -> None:
     CommerceService._validate_sellable_policy(price_amount=0, is_purchasable=True, trial_eligible=True)
+
+
+def test_admin_customer_listing_is_bounded_paginated_and_authorized(commerce_api) -> None:
+    client, engine, _settings = commerce_api
+    normal = register(client, "customer-list-normal")
+    client.cookies.clear()
+    assert client.get("/api/v1/admin/commerce/customers").status_code == 401
+    normal_headers = login(client, "customer-list-normal")
+    assert (
+        client.get(
+            "/api/v1/admin/commerce/customers", headers=normal_headers
+        ).status_code
+        == 403
+    )
+    headers = platform_admin_headers(client, engine, "customer-list")
+    with Session(engine) as db, db.begin():
+        for number in range(105):
+            tenant = Tenant(
+                name=f"000 Customer {number:03d}",
+                slug=f"page-tenant-{number:03d}",
+                status="active",
+            )
+            db.add(tenant)
+            db.flush()
+            db.add(
+                Store(
+                    tenant_id=tenant.id,
+                    name=f"Store {number:03d}",
+                    slug=f"page-store-{number:03d}",
+                    status="active",
+                )
+            )
+
+    default_page = client.get(
+        "/api/v1/admin/commerce/customers", headers=headers
+    )
+    assert default_page.status_code == 200
+    assert len(default_page.json()) == 100
+    first = client.get(
+        "/api/v1/admin/commerce/customers?page=1&page_size=2", headers=headers
+    )
+    second = client.get(
+        "/api/v1/admin/commerce/customers?page=2&page_size=2", headers=headers
+    )
+    assert [item["tenant_name"] for item in first.json()] == [
+        "000 Customer 000",
+        "000 Customer 001",
+    ]
+    assert [item["tenant_name"] for item in second.json()] == [
+        "000 Customer 002",
+        "000 Customer 003",
+    ]
+    assert client.get(
+        "/api/v1/admin/commerce/customers?page=999&page_size=100", headers=headers
+    ).json() == []
+    assert (
+        client.get(
+            "/api/v1/admin/commerce/customers?page_size=101", headers=headers
+        ).status_code
+        == 422
+    )
+    assert normal["tenant_public_id"] not in {
+        item["tenant_public_id"] for item in first.json()
+    }

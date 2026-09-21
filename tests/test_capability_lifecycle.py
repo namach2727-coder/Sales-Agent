@@ -16,7 +16,11 @@ from app.models import (
     Tenant,
     TenantSubscription,
 )
-from app.module_catalog import effective_capabilities, has_capability
+from app.module_catalog import (
+    effective_capabilities,
+    effective_capabilities_for_stores,
+    has_capability,
+)
 
 
 CAPABILITIES = {
@@ -338,3 +342,26 @@ def test_capabilities_are_tenant_and_store_scoped(capability_db):
         assert effective_capabilities(
             db, tenant_id=tenant.id, store_id=other_store.id, now=now
         ) == ()
+
+
+def test_bulk_capabilities_match_single_store_resolution(capability_db):
+    now = datetime.now(UTC)
+    with Session(capability_db) as db, db.begin():
+        tenant = db.query(Tenant).filter_by(slug="capability-tenant").one()
+        stores = list(
+            db.query(Store).filter_by(tenant_id=tenant.id).order_by(Store.id).all()
+        )
+        _activate(
+            db,
+            tenant_id=tenant.id,
+            store_id=stores[0].id,
+            plan_code="PRO",
+            starts_at=now,
+        )
+        bulk = effective_capabilities_for_stores(db, stores=stores, now=now)
+        assert bulk == {
+            store.id: effective_capabilities(
+                db, tenant_id=tenant.id, store_id=store.id, now=now
+            )
+            for store in stores
+        }
