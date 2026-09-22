@@ -987,7 +987,7 @@ class SaasPlan(Base):
 
 
 class SubscriptionOrder(Base):
-    """Tenant-owned purchase intent with immutable plan price snapshot."""
+    """Tenant-owned purchase intent with immutable commercial snapshots."""
 
     __tablename__ = "subscription_orders"
     __table_args__ = (
@@ -1007,6 +1007,15 @@ class SubscriptionOrder(Base):
     status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
     price_amount: Mapped[int] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String(3), default="IRR")
+    plan_code_snapshot: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    plan_name_snapshot: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    product_family_snapshot: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    duration_days_snapshot: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    instagram_account_limit_snapshot: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    automation_limit_snapshot: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ai_reply_limit_snapshot: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ai_request_limit_snapshot: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ai_token_limit_snapshot: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 

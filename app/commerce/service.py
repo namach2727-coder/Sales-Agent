@@ -421,19 +421,19 @@ class CommerceService:
             plan_id=plan.id,
             order_id=order.id,
             payment_id=payment.id,
-            product_family=plan.product_family,
+            product_family=self._order_product_family(order, plan),
             source="PURCHASED",
             status="active",
-            limits_json=self._limits(plan),
+            limits_json=self._order_limits(order, plan),
             starts_at=(started_at := now_utc()),
             current_period_end=(
-                started_at + timedelta(days=plan.duration_days)
-                if plan.duration_days is not None
+                started_at + timedelta(days=self._order_duration_days(order, plan))
+                if self._order_duration_days(order, plan) is not None
                 else None
             ),
         )
         self.session.add(subscription)
-        self._apply_plan_modules(order.store_id, plan, subscription)
+        self._apply_order_modules(order.store_id, order, plan, subscription)
         self._audit(payment.tenant_id, payment.store_id, actor_user_id, "payment.approved", "payment", payment.public_id, {"order_public_id": order.public_id})
         self.session.commit()
         self.session.refresh(payment)
@@ -543,6 +543,15 @@ class CommerceService:
             status="pending",
             price_amount=plan.price_amount,
             currency=plan.currency,
+            plan_code_snapshot=plan.code,
+            plan_name_snapshot=plan.name,
+            product_family_snapshot=plan.product_family,
+            duration_days_snapshot=plan.duration_days,
+            instagram_account_limit_snapshot=plan.instagram_account_limit,
+            automation_limit_snapshot=plan.automation_limit,
+            ai_reply_limit_snapshot=plan.reply_limit,
+            ai_request_limit_snapshot=plan.ai_request_limit,
+            ai_token_limit_snapshot=plan.ai_token_limit,
         )
         self.session.add(order)
         self.session.flush()
@@ -565,20 +574,57 @@ class CommerceService:
             plan_id=plan.id,
             order_id=order.id,
             payment_id=None,
-            product_family=plan.product_family,
+            product_family=self._order_product_family(order, plan),
             source="TRIAL" if plan.trial_eligible else "PURCHASED",
             status="active",
-            limits_json=self._limits(plan),
+            limits_json=self._order_limits(order, plan),
             starts_at=started_at,
             current_period_end=(
-                started_at + timedelta(days=plan.duration_days)
-                if plan.duration_days is not None
+                started_at + timedelta(days=self._order_duration_days(order, plan))
+                if self._order_duration_days(order, plan) is not None
                 else None
             ),
         )
         self.session.add(subscription)
-        self._apply_plan_modules(order.store_id, plan, subscription)
+        self._apply_order_modules(order.store_id, order, plan, subscription)
         return subscription
+
+    @staticmethod
+    def _order_product_family(order: SubscriptionOrder, plan: SaasPlan) -> str:
+        return order.product_family_snapshot or plan.product_family
+
+    @staticmethod
+    def _order_duration_days(order: SubscriptionOrder, plan: SaasPlan) -> int | None:
+        return order.duration_days_snapshot if order.plan_code_snapshot is not None else plan.duration_days
+
+    @staticmethod
+    def _order_limits(order: SubscriptionOrder, plan: SaasPlan) -> dict[str, int]:
+        if order.plan_code_snapshot is None:
+            return CommerceService._limits(plan)
+        limits = {
+            "reply_limit": order.ai_reply_limit_snapshot or 0,
+            "automation_limit": order.automation_limit_snapshot or 0,
+            "instagram_account_limit": order.instagram_account_limit_snapshot or 0,
+        }
+        if order.ai_request_limit_snapshot is not None:
+            limits["ai_request_limit"] = order.ai_request_limit_snapshot
+        if order.ai_token_limit_snapshot is not None:
+            limits["ai_token_limit"] = order.ai_token_limit_snapshot
+        if order.duration_days_snapshot is not None:
+            limits["duration_days"] = order.duration_days_snapshot
+        return limits
+
+    def _apply_order_modules(self, store_id: int, order: SubscriptionOrder, plan: SaasPlan, subscription: TenantSubscription) -> None:
+        if order.plan_code_snapshot is None:
+            self._apply_plan_modules(store_id, plan, subscription)
+            return
+        family = self._order_product_family(order, plan)
+        desired_codes = {
+            "AUTOMATION": {"instagram_automation"},
+            "AI_ASSISTANT": {"ai_assistant", "knowledge_base"},
+            "LEGACY_BUNDLE": {"instagram_automation", "ai_assistant", "knowledge_base"},
+        }[family]
+        self._apply_modules(store_id, desired_codes, family, order.currency, self._order_limits(order, plan))
 
     @staticmethod
     def _limits(plan: SaasPlan) -> dict[str, int]:
@@ -593,11 +639,14 @@ class CommerceService:
 
     def _apply_plan_modules(self, store_id: int, plan: SaasPlan, subscription: TenantSubscription) -> None:
         desired_codes = set(plan.module_codes or [])
+        self._apply_modules(store_id, desired_codes, plan.product_family, plan.currency, self._limits(plan))
+
+    def _apply_modules(self, store_id: int, desired_codes: set[str], product_family: str, currency: str, limits: dict[str, int]) -> None:
         family_codes = {
             "AUTOMATION": {"instagram_automation"},
             "AI_ASSISTANT": {"ai_assistant", "knowledge_base"},
             "LEGACY_BUNDLE": {"instagram_automation", "ai_assistant", "knowledge_base"},
-        }[plan.product_family]
+        }[product_family]
         definitions = {
             item.code: item
             for item in self.session.scalars(
@@ -620,12 +669,12 @@ class CommerceService:
         for code in sorted(desired_codes):
             item = existing_modules.get(code)
             if item is None:
-                item = StoreModule(store_id=store_id, module_code=code, status="active", currency=plan.currency, source="subscription", limits_json=self._limits(plan))
+                item = StoreModule(store_id=store_id, module_code=code, status="active", currency=currency, source="subscription", limits_json=limits)
                 self.session.add(item)
             else:
                 item.status = "active"
                 item.source = "subscription"
-                item.limits_json = self._limits(plan)
+                item.limits_json = limits
 
     def _reconcile_subscription_modules(
         self,

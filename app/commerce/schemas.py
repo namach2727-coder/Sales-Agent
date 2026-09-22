@@ -179,6 +179,14 @@ class OrderRead(BaseModel):
     store_public_id: str
     plan_public_id: str
     plan_code: str
+    plan_name: str
+    product_family: str
+    duration_days: int | None
+    instagram_account_limit: int
+    automation_limit: int
+    ai_reply_limit: int
+    ai_request_limit: int | None
+    ai_token_limit: int | None
     status: str
     price_amount: int
     currency: str

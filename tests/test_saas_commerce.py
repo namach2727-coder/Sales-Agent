@@ -405,6 +405,70 @@ def test_plan_price_is_authoritative_and_order_idor_is_denied(commerce_api) -> N
     assert client.get(f"/api/v1/orders/{first['public_id']}", headers=second_headers).status_code == 404
 
 
+def test_order_snapshots_survive_plan_edits_and_drive_activation(commerce_api) -> None:
+    client, engine, _settings = commerce_api
+    register(client, "snapshot")
+    customer_headers = login(client, "snapshot")
+    order = create_paid_order(client, customer_headers)
+    assert order | {
+        "plan_code": "TEST_PAID",
+        "plan_name": "Test Paid",
+        "product_family": "AUTOMATION",
+        "duration_days": 30,
+        "instagram_account_limit": 1,
+        "automation_limit": 2,
+        "ai_reply_limit": 100,
+    } == order
+
+    with Session(engine) as db, db.begin():
+        plan = db.scalar(select(SaasPlan).where(SaasPlan.code == "TEST_PAID"))
+        assert plan is not None
+        plan.name = "Changed Later"
+        plan.product_family = "AI_ASSISTANT"
+        plan.duration_days = 3
+        plan.instagram_account_limit = 9
+        plan.automation_limit = 99
+        plan.reply_limit = 999
+        plan.ai_request_limit = 777
+        plan.ai_token_limit = 666
+        plan.module_codes = ["ai_assistant", "knowledge_base"]
+
+    persisted = client.get(f"/api/v1/orders/{order['public_id']}", headers=customer_headers)
+    assert persisted.status_code == 200
+    assert persisted.json()["plan_name"] == "Test Paid"
+    assert persisted.json()["product_family"] == "AUTOMATION"
+    assert persisted.json()["duration_days"] == 30
+    assert persisted.json()["automation_limit"] == 2
+
+    payment = create_payment(client, customer_headers, order)
+    submitted = client.post(
+        f"/api/v1/payments/{payment['public_id']}/receipt",
+        headers={**customer_headers, "Content-Type": "image/png"},
+        content=b"\x89PNG\r\n\x1a\nsnapshot",
+    )
+    assert submitted.status_code == 200
+    admin_headers = platform_admin_headers(client, engine, "snapshot")
+    approved = client.post(
+        f"/api/v1/admin/payments/{payment['public_id']}/approve",
+        headers=admin_headers,
+        json={"expected_revision": submitted.json()["revision"]},
+    )
+    assert approved.status_code == 200
+    with Session(engine) as db:
+        stored_order = db.scalar(select(SubscriptionOrder).where(SubscriptionOrder.public_id == order["public_id"]))
+        assert stored_order is not None
+        subscription = db.scalar(select(TenantSubscription).where(TenantSubscription.order_id == stored_order.id))
+        assert subscription is not None
+        assert subscription.product_family == "AUTOMATION"
+        assert subscription.limits_json == {
+            "reply_limit": 100,
+            "automation_limit": 2,
+            "instagram_account_limit": 1,
+            "duration_days": 30,
+        }
+        assert subscription.current_period_end - subscription.starts_at == timedelta(days=30)
+
+
 def test_manual_receipt_and_atomic_idempotent_approval(commerce_api) -> None:
     client, engine, settings = commerce_api
     register(client)

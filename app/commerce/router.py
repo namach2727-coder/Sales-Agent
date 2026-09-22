@@ -118,7 +118,21 @@ def plans(db: Session = Depends(get_db)) -> list[PlanRead]:
 def _order_read(db: Session, item: SubscriptionOrder) -> OrderRead:
     tenant, store, plan = db.get(Tenant, item.tenant_id), db.get(Store, item.store_id), db.get(SaasPlan, item.plan_id)
     assert tenant is not None and store is not None and plan is not None
-    return OrderRead(public_id=item.public_id, tenant_public_id=tenant.public_id, store_public_id=store.public_id, plan_public_id=plan.public_id, plan_code=plan.code, status=item.status, price_amount=item.price_amount, currency=item.currency, created_at=item.created_at)
+    return OrderRead(
+        public_id=item.public_id, tenant_public_id=tenant.public_id,
+        store_public_id=store.public_id, plan_public_id=plan.public_id,
+        plan_code=item.plan_code_snapshot or plan.code,
+        plan_name=item.plan_name_snapshot or plan.name,
+        product_family=item.product_family_snapshot or plan.product_family,
+        duration_days=item.duration_days_snapshot if item.duration_days_snapshot is not None else plan.duration_days,
+        instagram_account_limit=item.instagram_account_limit_snapshot if item.instagram_account_limit_snapshot is not None else plan.instagram_account_limit,
+        automation_limit=item.automation_limit_snapshot if item.automation_limit_snapshot is not None else plan.automation_limit,
+        ai_reply_limit=item.ai_reply_limit_snapshot if item.ai_reply_limit_snapshot is not None else plan.reply_limit,
+        ai_request_limit=item.ai_request_limit_snapshot if item.plan_code_snapshot is not None else plan.ai_request_limit,
+        ai_token_limit=item.ai_token_limit_snapshot if item.plan_code_snapshot is not None else plan.ai_token_limit,
+        status=item.status, price_amount=item.price_amount, currency=item.currency,
+        created_at=item.created_at,
+    )
 
 
 @router.post("/orders", response_model=OrderRead, status_code=201)
@@ -161,8 +175,8 @@ def _admin_payment_read(db: Session, item: ManualPayment) -> AdminPaymentRead:
         **_payment_read(db, item).model_dump(),
         tenant_name=tenant.name,
         store_name=store.name,
-        plan_code=plan.code,
-        product_family=plan.product_family,
+        plan_code=order.plan_code_snapshot or plan.code,
+        product_family=order.product_family_snapshot or plan.product_family,
         order_status=order.status,
         submitted_at=item.submitted_at,
     )
