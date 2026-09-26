@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,8 @@ from app.commerce.schemas import (
     AdminSubscriptionRead,
     CardTransferCreate,
     CardTransferInstructions,
+    KPayCreate,
+    KPayPaymentRead,
     OrderCreate,
     OrderRead,
     PaymentDecision,
@@ -44,6 +46,11 @@ from app.commerce.schemas import (
 from app.commerce.payment_provider import (
     ManualCardTransferProvider,
     PaymentProviderUnavailable,
+)
+from app.commerce.kpay_provider import (
+    KPayClient,
+    KPayConfigurationError,
+    KPayProviderError,
 )
 from app.commerce.service import CommerceConflict, CommerceError, CommerceForbidden, CommerceNotFound, CommerceService, RegistrationService
 from app.commerce.storage import LocalPrivateReceiptStorage, ReceiptValidationError
@@ -163,6 +170,18 @@ def _payment_read(db: Session, item: ManualPayment) -> PaymentRead:
     order = db.get(SubscriptionOrder, item.order_id)
     assert order is not None
     return PaymentRead(public_id=item.public_id, order_public_id=order.public_id, status=item.status, amount=item.amount, currency=item.currency, revision=item.revision, receipt_configured=bool(item.receipt_storage_key), created_at=item.created_at)
+
+
+def _kpay_read(db: Session, item: ManualPayment) -> KPayPaymentRead:
+    return KPayPaymentRead(
+        payment=_payment_read(db, item),
+        operation_state=item.provider_operation_state or "NOT_STARTED",
+        payment_url=item.provider_payment_url,
+    )
+
+
+def build_kpay_provider(settings: Settings) -> KPayClient:
+    return KPayClient(settings)
 
 
 def _admin_payment_read(db: Session, item: ManualPayment) -> AdminPaymentRead:
@@ -417,6 +436,98 @@ def card_transfer(payload: CardTransferCreate, principal: AuthenticatedPrincipal
         ) from exc
     except CommerceError as exc:
         _error(exc)
+
+
+@router.post("/payments/kpay", response_model=KPayPaymentRead, status_code=201)
+def create_kpay_payment(
+    payload: KPayCreate,
+    principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> KPayPaymentRead:
+    provider = None
+    try:
+        if not settings.kpay_callback_base_url.startswith("https://"):
+            raise KPayConfigurationError("KPay callback URL is not configured")
+        provider = build_kpay_provider(settings)
+        payment = CommerceService(db).create_kpay_payment(
+            principal,
+            payload.order_public_id,
+            provider=provider,
+            callback_base_url=settings.kpay_callback_base_url,
+        )
+        return _kpay_read(db, payment)
+    except KPayConfigurationError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "payment_provider_unavailable", "message": str(exc)},
+        ) from exc
+    except KPayProviderError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={"code": "payment_provider_error", "message": str(exc)},
+        ) from exc
+    except CommerceError as exc:
+        _error(exc)
+    finally:
+        if provider is not None:
+            provider.close()
+
+
+@router.get("/payments/kpay/{payment_public_id}", response_model=KPayPaymentRead)
+def kpay_payment_status(
+    payment_public_id: str,
+    principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
+    db: Session = Depends(get_db),
+) -> KPayPaymentRead:
+    try:
+        payment = CommerceService(db).get_owned_payment(principal, payment_public_id)
+        if payment.provider != "kpay":
+            raise CommerceNotFound("KPay payment not found")
+        return _kpay_read(db, payment)
+    except CommerceError as exc:
+        _error(exc)
+
+
+@router.get("/payments/kpay/callback/{payment_public_id}", include_in_schema=True)
+def kpay_callback(
+    payment_public_id: str,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> RedirectResponse:
+    provider = None
+    result = "pending"
+    try:
+        if not settings.kpay_callback_base_url.startswith("https://"):
+            raise KPayConfigurationError("KPay callback URL is not configured")
+        provider = build_kpay_provider(settings)
+        payment = CommerceService(db).verify_kpay_payment(
+            payment_public_id, provider=provider,
+        )
+        if payment.provider_operation_state == "PAID":
+            result = "success"
+        elif payment.provider_operation_state == "FAILED":
+            result = "failed"
+    except (KPayConfigurationError, KPayProviderError, CommerceError):
+        # Browser callback parameters and provider error bodies are never
+        # reflected. The authenticated result read remains authoritative.
+        db.rollback()
+        stored = db.scalar(
+            select(ManualPayment).where(ManualPayment.public_id == payment_public_id)
+        )
+        result = (
+            "failed"
+            if stored is not None and stored.provider_operation_state == "FAILED"
+            else "pending"
+        )
+    finally:
+        if provider is not None:
+            provider.close()
+    location = (
+        f"{settings.kpay_callback_base_url.rstrip('/')}/payment/result/"
+        f"{payment_public_id}?result={result}"
+    )
+    return RedirectResponse(location, status_code=303)
 
 
 @router.get("/payments/me", response_model=list[PaymentRead])

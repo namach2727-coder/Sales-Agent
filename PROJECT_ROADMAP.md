@@ -347,7 +347,9 @@ Manual receipt/card-transfer remains explicit fallback.
 
 Current local implementation status:
 
-`PARTIAL`
+`PASS`
+
+`KPAY_PROVIDER_CONTRACT_HARDENING = PASS`
 
 Important: these KPay changes are currently local development work and are **not yet the production baseline**.
 
@@ -357,6 +359,8 @@ Implemented locally:
 - migration:
   `alembic/versions/0019_kpay_payment_gateway.py`
 - isolated KPay provider adapter
+- documented transaction check adapter:
+  `GET /transactions/check/{authority}`
 - authenticated create endpoint:
   `POST /api/v1/payments/kpay`
 - callback endpoint:
@@ -368,11 +372,26 @@ Implemented locally:
 - ambiguous create state
 - no blind retry after ambiguous timeout
 - callback idempotency
+- `is_paid` is the authoritative provider paid discriminator
+- verify authority must match the persisted authority
+- verify amount must equal immutable `SubscriptionOrder.price_amount`
+- no dependency on `KPAY_PAID_STATUSES`
 - immutable snapshot-based activation
 - manual/KPay isolation
 - frontend KPay payment action/result page
 
 Migration 0019 has **not** been released/applied in production yet.
+
+Final local validation:
+
+- backend targeted: 46 passed
+- backend full regression: 818 passed, 7 skipped
+- frontend targeted: 6 passed
+- frontend full regression: 136 passed
+- frontend typecheck, lint, build, and backend/frontend diff checks: PASS
+- implementation: **NOT DEPLOYED**
+- real KPay secrets: **NOT CONFIGURED**
+- controlled Iran Insurance order: **UNCHANGED**
 
 ### Current KPay architecture
 
@@ -386,7 +405,8 @@ Published Plan
  -> persist authority/provider metadata
  -> browser redirects to provider payment_url
  -> KPay returns to DirectPilot callback
- -> DirectPilot verifies server-side
+ -> DirectPilot checks documented is_paid server-side
+ -> DirectPilot verifies authority and amount server-side
  -> validate authority + exact amount + local ownership/invariants
  -> atomic payment finalization
  -> subscription activation from immutable order snapshot
@@ -410,6 +430,7 @@ KPAY_CALLBACK_BASE_URL
 KPAY_FEE_SIDE
 KPAY_TIMEOUT_SECONDS
 KPAY_VERIFY_SEND_AUTH
+KPAY_CHECK_SEND_AUTH
 ```
 
 Do not place secrets in:
@@ -478,45 +499,14 @@ Subscription activation must be:
 
 The **next task** is:
 
-`KPAY_PROVIDER_CONTRACT_HARDENING`
+`KPAY_V1_RELEASE_AND_DEPLOY`
 
 Reason:
 
-The first KPay implementation still has provider-contract uncertainty.
-
-Required hardening:
-
-1. Implement provider method around documented:
-   `GET /transactions/check/{authority}`
-
-2. Use documented `is_paid: boolean` as provider paid evidence rather than depending only on an undocumented exact paid-status string.
-
-3. Successful local finalization should require all relevant server-side checks, including:
-   - local persisted authority exists,
-   - check result is paid,
-   - verify returns matching authority,
-   - verify amount exactly equals immutable `SubscriptionOrder.price_amount`,
-   - local order/payment/store invariants pass.
-
-4. Keep verify auth behavior isolated/configurable via:
-   `KPAY_VERIFY_SEND_AUTH`
-
-5. Preserve `CREATE_UNKNOWN` behavior exactly.
-
-6. Fix the one stale frontend test:
-   `tests/product-family-routing.test.mjs`
-   It expects an obsolete admin numeric-input source expression.
-   Update the stale assertion only; do not weaken product-family routing coverage.
-
-7. Run:
-   - targeted backend tests,
-   - full backend regression,
-   - targeted frontend test,
-   - full frontend tests,
-   - typecheck,
-   - lint,
-   - build,
-   - diff check.
+The provider contract hardening and all local validation gates have passed.
+The reviewed backend and frontend changes must now be committed and pushed,
+then migration 0019 and the exact revisions can be deployed and verified in a
+separate authorized release task.
 
 ### Gate
 
@@ -718,7 +708,7 @@ CURRENT_PHASE:
 Phase 1 — Commerce / KPay
 
 CURRENT_TASK:
-KPAY_PROVIDER_CONTRACT_HARDENING
+KPAY_V1_RELEASE_AND_DEPLOY
 
 PRODUCTION_BACKEND_BASELINE:
 62e499834f173bcde9197e81b642633066ba4d1b

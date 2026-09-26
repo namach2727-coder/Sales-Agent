@@ -1031,6 +1031,16 @@ class ManualPayment(Base):
             name="ck_manual_payments_status",
         ),
         CheckConstraint("amount >= 0", name="ck_manual_payments_amount"),
+        CheckConstraint(
+            "provider_operation_state IS NULL OR provider_operation_state IN "
+            "('NOT_STARTED', 'CREATE_IN_FLIGHT', 'CREATED', 'CREATE_UNKNOWN', "
+            "'VERIFY_PENDING', 'PAID', 'FAILED')",
+            name="ck_manual_payments_provider_operation_state",
+        ),
+        UniqueConstraint(
+            "provider", "provider_transaction_id",
+            name="uq_manual_payments_provider_transaction",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -1040,6 +1050,16 @@ class ManualPayment(Base):
     order_id: Mapped[int] = mapped_column(ForeignKey("subscription_orders.id"), index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user_identities.id"), index=True)
     provider: Mapped[str] = mapped_column(String(40), default="manual_card_transfer")
+    provider_transaction_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    provider_authority: Mapped[str | None] = mapped_column(String(200), nullable=True, unique=True, index=True)
+    provider_status: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    provider_operation_state: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
+    provider_payment_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    provider_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    provider_paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    provider_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    provider_final_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    provider_fee: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
     amount: Mapped[int] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String(3), default="IRR")

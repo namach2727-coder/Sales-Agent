@@ -14,10 +14,11 @@ from sqlalchemy.orm import Session
 
 from app.authentication import AuthenticationService, PasswordService
 from app.commerce.router import router
+from app.commerce.kpay_provider import KPayCheckResult, KPayCreateResult, KPayCreateUnknown, KPayProviderError, KPayVerifyResult
 from app.commerce.service import CommerceService
 from app.config import Settings, get_settings
 from app.database import get_db
-from app.models import AuthPlatformRoleAssignment, CommerceAdminAuditLog, SaasPlan, Store, StoreModule, SubscriptionOrder, Tenant, TenantSubscription
+from app.models import AuthPlatformRoleAssignment, CommerceAdminAuditLog, ManualPayment, SaasPlan, Store, StoreModule, SubscriptionOrder, Tenant, TenantSubscription
 from tools.seeding import SeedRunner, default_registry
 
 
@@ -60,6 +61,10 @@ def commerce_api(tmp_path: Path):
         card_transfer_bank_name="Test Bank",
         card_transfer_instructions="Upload the receipt for review.",
         receipt_storage_root=str(tmp_path / "receipts"),
+        kpay_access_token="fake-kpay-access-token",
+        kpay_shop_id="fake-shop-id",
+        kpay_card_id="fake-card-id",
+        kpay_callback_base_url="https://directpilot.example",
     )
     app = FastAPI()
     app.include_router(router)
@@ -151,6 +156,66 @@ def create_payment(client: TestClient, headers: dict[str, str], order: dict) -> 
     assert response.json()["bank_name"] == "Test Bank"
     assert response.json()["instructions"] == "Upload the receipt for review."
     return response.json()["payment"]
+
+
+class FakeKPayProvider:
+    def __init__(
+        self, *, create_unknown: bool = False, verify_status: str = "paid",
+        amount_delta: int = 0, check_paid: bool = True,
+        check_authority: str | None = None, verify_authority: str | None = None,
+        check_error: bool = False, verify_error: bool = False,
+    ) -> None:
+        self.create_unknown = create_unknown
+        self.verify_status = verify_status
+        self.amount_delta = amount_delta
+        self.check_paid = check_paid
+        self.check_authority = check_authority
+        self.verify_authority = verify_authority
+        self.check_error = check_error
+        self.verify_error = verify_error
+        self.create_calls: list[dict[str, object]] = []
+        self.check_calls: list[str] = []
+        self.verify_calls: list[str] = []
+
+    def create_transaction(self, **values) -> KPayCreateResult:
+        self.create_calls.append(values)
+        if self.create_unknown:
+            raise KPayCreateUnknown("safe unknown")
+        amount = int(values["amount"]) + self.amount_delta
+        return KPayCreateResult(
+            transaction_id="provider-transaction-1",
+            authority="provider-authority-1",
+            amount=amount,
+            final_amount=amount,
+            fee=0,
+            status="pending",
+            payment_url="https://kpay.example/pay/provider-authority-1",
+        )
+
+    def verify_transaction(self, *, authority: str) -> KPayVerifyResult:
+        self.verify_calls.append(authority)
+        if self.verify_error:
+            raise KPayProviderError("safe verify failure")
+        return KPayVerifyResult(
+            transaction_id="provider-transaction-1",
+            authority=self.verify_authority or authority,
+            status=self.verify_status,
+            amount=2_500_000 + self.amount_delta,
+            paid_at=datetime.now(UTC) if self.verify_status == "paid" else None,
+        )
+
+    def check_transaction(self, *, authority: str) -> KPayCheckResult:
+        self.check_calls.append(authority)
+        if self.check_error:
+            raise KPayProviderError("safe check failure")
+        return KPayCheckResult(
+            authority=self.check_authority or authority,
+            status="provider-status-is-not-authoritative",
+            is_paid=self.check_paid,
+        )
+
+    def close(self) -> None:
+        pass
 
 
 def test_approved_plan_catalog_is_backend_authoritative(commerce_api) -> None:
@@ -615,6 +680,263 @@ def test_paid_plan_requires_positive_price_before_becoming_purchasable(commerce_
     assert revoked.status_code == 200 and revoked.json()["status"] == "cancelled"
     audit = client.get("/api/v1/admin/commerce/audit", headers=headers).json()
     assert {"subscription.admin_granted", "subscription.admin_revoked"}.issubset({item["action"] for item in audit})
+
+
+def test_kpay_create_is_idempotent_and_uses_order_snapshot(
+    commerce_api, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, engine, _settings = commerce_api
+    register(client, "kpay-create")
+    headers = login(client, "kpay-create")
+    order = create_paid_order(client, headers)
+    fake = FakeKPayProvider(verify_status="not-a-documented-paid-string")
+    monkeypatch.setattr("app.commerce.router.build_kpay_provider", lambda _settings: fake)
+
+    first = client.post(
+        "/api/v1/payments/kpay", headers=headers,
+        json={"order_public_id": order["public_id"]},
+    )
+    second = client.post(
+        "/api/v1/payments/kpay", headers=headers,
+        json={"order_public_id": order["public_id"]},
+    )
+    assert first.status_code == second.status_code == 201
+    assert first.json() == second.json()
+    assert first.json()["operation_state"] == "CREATED"
+    assert len(fake.create_calls) == 1
+    assert fake.create_calls[0]["amount"] == order["price_amount"]
+    assert fake.create_calls[0]["factor_number"] == first.json()["payment"]["public_id"]
+    assert fake.create_calls[0]["callback_url"].endswith(
+        f"/api/v1/payments/kpay/callback/{first.json()['payment']['public_id']}"
+    )
+    with Session(engine) as db:
+        payments = list(db.scalars(select(ManualPayment)).all())
+        assert len(payments) == 1
+        assert payments[0].provider == "kpay"
+
+
+def test_kpay_ambiguous_create_never_retries(
+    commerce_api, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, _engine, _settings = commerce_api
+    register(client, "kpay-unknown")
+    headers = login(client, "kpay-unknown")
+    order = create_paid_order(client, headers)
+    fake = FakeKPayProvider(create_unknown=True)
+    monkeypatch.setattr("app.commerce.router.build_kpay_provider", lambda _settings: fake)
+    first = client.post("/api/v1/payments/kpay", headers=headers, json={"order_public_id": order["public_id"]})
+    second = client.post("/api/v1/payments/kpay", headers=headers, json={"order_public_id": order["public_id"]})
+    assert first.status_code == second.status_code == 201
+    assert first.json()["operation_state"] == second.json()["operation_state"] == "CREATE_UNKNOWN"
+    assert len(fake.create_calls) == 1
+
+
+def test_kpay_callback_verifies_and_activates_once_from_snapshot(
+    commerce_api, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, engine, _settings = commerce_api
+    register(client, "kpay-paid")
+    headers = login(client, "kpay-paid")
+    order = create_paid_order(client, headers)
+    fake = FakeKPayProvider()
+    monkeypatch.setattr("app.commerce.router.build_kpay_provider", lambda _settings: fake)
+    created = client.post("/api/v1/payments/kpay", headers=headers, json={"order_public_id": order["public_id"]}).json()
+    payment_id = created["payment"]["public_id"]
+
+    first = client.get(f"/api/v1/payments/kpay/callback/{payment_id}", follow_redirects=False)
+    second = client.get(f"/api/v1/payments/kpay/callback/{payment_id}", follow_redirects=False)
+    assert first.status_code == second.status_code == 303
+    assert first.headers["location"].endswith(f"/payment/result/{payment_id}?result=success")
+    assert len(fake.check_calls) == 1
+    assert len(fake.verify_calls) == 1
+    status = client.get(f"/api/v1/payments/kpay/{payment_id}", headers=headers)
+    assert status.status_code == 200
+    assert status.json()["operation_state"] == "PAID"
+    with Session(engine) as db:
+        stored_order = db.scalar(select(SubscriptionOrder).where(SubscriptionOrder.public_id == order["public_id"]))
+        assert stored_order is not None
+        subscriptions = list(db.scalars(select(TenantSubscription).where(TenantSubscription.order_id == stored_order.id)).all())
+        assert len(subscriptions) == 1
+        assert subscriptions[0].product_family == "AUTOMATION"
+        assert subscriptions[0].limits_json["automation_limit"] == 2
+
+
+def test_kpay_unpaid_or_mismatched_verify_never_activates(
+    commerce_api, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, engine, _settings = commerce_api
+    register(client, "kpay-unpaid")
+    headers = login(client, "kpay-unpaid")
+    order = create_paid_order(client, headers)
+    fake = FakeKPayProvider(check_paid=False, verify_status="paid")
+    monkeypatch.setattr("app.commerce.router.build_kpay_provider", lambda _settings: fake)
+    created = client.post("/api/v1/payments/kpay", headers=headers, json={"order_public_id": order["public_id"]}).json()
+    payment_id = created["payment"]["public_id"]
+    response = client.get(f"/api/v1/payments/kpay/callback/{payment_id}", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"].endswith(f"/payment/result/{payment_id}?result=pending")
+    assert fake.verify_calls == []
+    with Session(engine) as db:
+        stored_order = db.scalar(select(SubscriptionOrder).where(SubscriptionOrder.public_id == order["public_id"]))
+        assert stored_order is not None
+        assert db.scalar(select(TenantSubscription).where(TenantSubscription.order_id == stored_order.id)) is None
+
+
+def test_kpay_verify_amount_mismatch_fails_without_activation(
+    commerce_api, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, engine, _settings = commerce_api
+    register(client, "kpay-verify-mismatch")
+    headers = login(client, "kpay-verify-mismatch")
+    order = create_paid_order(client, headers)
+    fake = FakeKPayProvider()
+    monkeypatch.setattr("app.commerce.router.build_kpay_provider", lambda _settings: fake)
+    created = client.post(
+        "/api/v1/payments/kpay", headers=headers,
+        json={"order_public_id": order["public_id"]},
+    ).json()
+    payment_id = created["payment"]["public_id"]
+    fake.amount_delta = 1
+
+    response = client.get(
+        f"/api/v1/payments/kpay/callback/{payment_id}", follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert response.headers["location"].endswith(
+        f"/payment/result/{payment_id}?result=failed"
+    )
+    status = client.get(f"/api/v1/payments/kpay/{payment_id}", headers=headers)
+    assert status.status_code == 200
+    assert status.json()["operation_state"] == "FAILED"
+    with Session(engine) as db:
+        stored_order = db.scalar(
+            select(SubscriptionOrder).where(
+                SubscriptionOrder.public_id == order["public_id"]
+            )
+        )
+        assert stored_order is not None
+        assert stored_order.status == "pending"
+        assert db.scalar(
+            select(TenantSubscription).where(
+                TenantSubscription.order_id == stored_order.id
+            )
+        ) is None
+
+
+@pytest.mark.parametrize(
+    ("case_name", "fake", "expected_state"),
+    [
+        ("check-mismatch", FakeKPayProvider(check_authority="wrong-authority"), "FAILED"),
+        ("verify-mismatch", FakeKPayProvider(verify_authority="wrong-authority"), "FAILED"),
+        ("check-error", FakeKPayProvider(check_error=True), "VERIFY_PENDING"),
+        ("verify-error", FakeKPayProvider(verify_error=True), "VERIFY_PENDING"),
+    ],
+)
+def test_kpay_provider_mismatch_or_error_never_activates(
+    commerce_api, monkeypatch: pytest.MonkeyPatch,
+    case_name: str, fake: FakeKPayProvider, expected_state: str,
+) -> None:
+    client, engine, _settings = commerce_api
+    suffix = f"kpay-{case_name}"
+    register(client, suffix)
+    headers = login(client, suffix)
+    order = create_paid_order(client, headers)
+    monkeypatch.setattr("app.commerce.router.build_kpay_provider", lambda _settings: fake)
+    created = client.post(
+        "/api/v1/payments/kpay", headers=headers,
+        json={"order_public_id": order["public_id"]},
+    ).json()
+    payment_id = created["payment"]["public_id"]
+
+    callback = client.get(
+        f"/api/v1/payments/kpay/callback/{payment_id}", follow_redirects=False,
+    )
+    assert callback.status_code == 303
+    status = client.get(f"/api/v1/payments/kpay/{payment_id}", headers=headers)
+    assert status.status_code == 200
+    assert status.json()["operation_state"] == expected_state
+    with Session(engine) as db:
+        stored_order = db.scalar(
+            select(SubscriptionOrder).where(
+                SubscriptionOrder.public_id == order["public_id"]
+            )
+        )
+        assert stored_order is not None
+        assert stored_order.status == "pending"
+        assert db.scalar(
+            select(TenantSubscription).where(
+                TenantSubscription.order_id == stored_order.id
+            )
+        ) is None
+
+
+def test_kpay_provider_identity_collision_fails_closed(
+    commerce_api, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, engine, _settings = commerce_api
+    fake = FakeKPayProvider()
+    monkeypatch.setattr("app.commerce.router.build_kpay_provider", lambda _settings: fake)
+
+    register(client, "kpay-first-identity")
+    first_headers = login(client, "kpay-first-identity")
+    first_order = create_paid_order(client, first_headers)
+    first = client.post(
+        "/api/v1/payments/kpay", headers=first_headers,
+        json={"order_public_id": first_order["public_id"]},
+    )
+    assert first.status_code == 201
+
+    register(client, "kpay-second-identity")
+    second_headers = login(client, "kpay-second-identity")
+    second_order = create_paid_order(client, second_headers)
+    second = client.post(
+        "/api/v1/payments/kpay", headers=second_headers,
+        json={"order_public_id": second_order["public_id"]},
+    )
+    assert second.status_code == 409
+    with Session(engine) as db:
+        payments = list(db.scalars(select(ManualPayment).order_by(ManualPayment.id)).all())
+        assert len(payments) == 2
+        assert payments[0].provider_operation_state == "CREATED"
+        assert payments[1].provider_operation_state == "CREATE_UNKNOWN"
+        assert payments[1].provider_authority is None
+        assert payments[1].provider_transaction_id is None
+
+
+def test_kpay_is_isolated_from_manual_receipts_and_admin_queue(
+    commerce_api, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, engine, _settings = commerce_api
+    register(client, "kpay-isolation")
+    headers = login(client, "kpay-isolation")
+    order = create_paid_order(client, headers)
+    fake = FakeKPayProvider()
+    monkeypatch.setattr("app.commerce.router.build_kpay_provider", lambda _settings: fake)
+    payment = client.post("/api/v1/payments/kpay", headers=headers, json={"order_public_id": order["public_id"]}).json()["payment"]
+    receipt = client.post(
+        f"/api/v1/payments/{payment['public_id']}/receipt",
+        headers={**headers, "Content-Type": "image/png"}, content=b"\x89PNG\r\n\x1a\nreceipt",
+    )
+    assert receipt.status_code == 409
+    admin_headers = platform_admin_headers(client, engine, "kpay-isolation")
+    assert client.get("/api/v1/admin/payments", headers=admin_headers).json() == []
+
+
+def test_kpay_cross_tenant_create_is_hidden(
+    commerce_api, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, _engine, _settings = commerce_api
+    register(client, "kpay-owner")
+    order = create_paid_order(client, login(client, "kpay-owner"))
+    register(client, "kpay-other")
+    fake = FakeKPayProvider()
+    monkeypatch.setattr("app.commerce.router.build_kpay_provider", lambda _settings: fake)
+    response = client.post(
+        "/api/v1/payments/kpay", headers=login(client, "kpay-other"),
+        json={"order_public_id": order["public_id"]},
+    )
+    assert response.status_code == 404
+    assert fake.create_calls == []
 
 
 def test_zero_price_trial_is_an_explicit_sellable_exception(commerce_api) -> None:

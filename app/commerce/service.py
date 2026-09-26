@@ -31,6 +31,11 @@ from app.models import (
 )
 from app.tenant_management.domain import normalize_name, normalize_slug, normalize_subdomain
 from app.module_catalog import effective_product_subscriptions, effective_subscription
+from app.commerce.kpay_provider import (
+    KPayCreateUnknown,
+    KPayProvider,
+    KPayProviderError,
+)
 
 
 class CommerceError(Exception):
@@ -334,6 +339,8 @@ class CommerceService:
             raise CommerceConflict("order does not require payment")
         existing = self.session.scalar(select(ManualPayment).where(ManualPayment.order_id == order.id))
         if existing is not None:
+            if existing.provider != "manual_card_transfer":
+                raise CommerceConflict("order already uses another payment provider")
             return existing
         payment = ManualPayment(
             tenant_id=order.tenant_id,
@@ -342,6 +349,7 @@ class CommerceService:
             user_id=principal.user_id,
             amount=order.price_amount,
             currency=order.currency,
+            provider="manual_card_transfer",
             status="pending",
         )
         self.session.add(payment)
@@ -349,6 +357,234 @@ class CommerceService:
         self._audit(order.tenant_id, order.store_id, principal.user_id, "payment.created", "payment", payment.public_id, {"provider": "manual_card_transfer"})
         self.session.commit()
         self.session.refresh(payment)
+        return payment
+
+    def create_kpay_payment(
+        self,
+        principal: AuthenticatedPrincipal,
+        order_public_id: str,
+        *,
+        provider: KPayProvider,
+        callback_base_url: str,
+    ) -> ManualPayment:
+        tenant, store = self.customer_scope(principal)
+        order = self.session.scalar(
+            select(SubscriptionOrder).where(
+                SubscriptionOrder.public_id == order_public_id,
+                SubscriptionOrder.tenant_id == tenant.id,
+                SubscriptionOrder.store_id == store.id,
+                SubscriptionOrder.user_id == principal.user_id,
+            ).with_for_update()
+        )
+        if order is None:
+            raise CommerceNotFound("order not found")
+        if order.status != "pending" or order.price_amount <= 0:
+            raise CommerceConflict("order is not payable")
+        if order.plan_code_snapshot is None or order.currency != "IRR":
+            raise CommerceConflict("order commercial snapshot is invalid")
+        payment = self.session.scalar(
+            select(ManualPayment).where(ManualPayment.order_id == order.id).with_for_update()
+        )
+        if payment is not None:
+            if payment.provider != "kpay":
+                raise CommerceConflict("order already uses another payment provider")
+            return payment
+        payment = ManualPayment(
+            tenant_id=order.tenant_id,
+            store_id=order.store_id,
+            order_id=order.id,
+            user_id=principal.user_id,
+            provider="kpay",
+            status="pending",
+            amount=order.price_amount,
+            currency=order.currency,
+            provider_operation_state="CREATE_IN_FLIGHT",
+        )
+        self.session.add(payment)
+        try:
+            self.session.flush()
+            self._audit(
+                order.tenant_id, order.store_id, principal.user_id,
+                "payment.kpay_create_started", "payment", payment.public_id,
+                {"provider": "kpay"},
+            )
+            self.session.commit()
+        except IntegrityError:
+            self.session.rollback()
+            existing = self.session.scalar(
+                select(ManualPayment).where(ManualPayment.order_id == order.id)
+            )
+            if existing is None or existing.provider != "kpay":
+                raise CommerceConflict("payment creation conflict")
+            return existing
+
+        callback_url = (
+            f"{callback_base_url.rstrip('/')}/api/v1/payments/kpay/callback/"
+            f"{payment.public_id}"
+        )
+        try:
+            result = provider.create_transaction(
+                amount=order.price_amount,
+                callback_url=callback_url,
+                description=f"DirectPilot {order.plan_code_snapshot}",
+                factor_number=payment.public_id,
+            )
+        except KPayCreateUnknown:
+            locked = self._lock_payment(payment.public_id)
+            locked.provider_operation_state = "CREATE_UNKNOWN"
+            locked.revision += 1
+            self._audit(
+                locked.tenant_id, locked.store_id, principal.user_id,
+                "payment.kpay_create_unknown", "payment", locked.public_id, {},
+            )
+            self.session.commit()
+            self.session.refresh(locked)
+            return locked
+        except KPayProviderError:
+            locked = self._lock_payment(payment.public_id)
+            locked.provider_operation_state = "FAILED"
+            locked.revision += 1
+            self._audit(
+                locked.tenant_id, locked.store_id, principal.user_id,
+                "payment.kpay_create_failed", "payment", locked.public_id, {},
+            )
+            self.session.commit()
+            raise
+
+        locked = self._lock_payment(payment.public_id)
+        locked.provider_transaction_id = result.transaction_id
+        locked.provider_authority = result.authority
+        locked.provider_status = result.status
+        locked.provider_payment_url = result.payment_url
+        locked.provider_created_at = now_utc()
+        locked.provider_amount = result.amount
+        locked.provider_final_amount = result.final_amount
+        locked.provider_fee = result.fee
+        locked.provider_operation_state = (
+            "CREATED" if result.amount == order.price_amount else "FAILED"
+        )
+        locked.revision += 1
+        self._audit(
+            locked.tenant_id, locked.store_id, principal.user_id,
+            "payment.kpay_created", "payment", locked.public_id,
+            {"amount_matches": result.amount == order.price_amount},
+        )
+        try:
+            self.session.commit()
+        except IntegrityError as exc:
+            self.session.rollback()
+            conflicted = self._lock_payment(payment.public_id)
+            conflicted.provider_operation_state = "CREATE_UNKNOWN"
+            conflicted.revision += 1
+            self._audit(
+                conflicted.tenant_id, conflicted.store_id, principal.user_id,
+                "payment.kpay_provider_identity_conflict", "payment",
+                conflicted.public_id, {},
+            )
+            self.session.commit()
+            raise CommerceConflict("provider transaction association conflict") from exc
+        self.session.refresh(locked)
+        if locked.provider_operation_state == "FAILED":
+            raise CommerceConflict("provider amount does not match order")
+        return locked
+
+    def verify_kpay_payment(
+        self, payment_public_id: str, *, provider: KPayProvider,
+    ) -> ManualPayment:
+        payment = self._lock_payment(payment_public_id)
+        if payment.provider != "kpay":
+            raise CommerceNotFound("KPay payment not found")
+        if payment.status == "approved" and payment.provider_operation_state == "PAID":
+            return payment
+        if not payment.provider_authority:
+            raise CommerceConflict("KPay authority is unavailable")
+        authority = payment.provider_authority
+        payment.provider_operation_state = "VERIFY_PENDING"
+        payment.revision += 1
+        self.session.commit()
+        try:
+            checked = provider.check_transaction(authority=authority)
+            if checked.authority != authority:
+                payment = self._lock_payment(payment_public_id)
+                payment.provider_status = checked.status
+                payment.provider_operation_state = "FAILED"
+                payment.revision += 1
+                self._audit(
+                    payment.tenant_id, payment.store_id, None,
+                    "payment.kpay_check_mismatch", "payment", payment.public_id, {},
+                )
+                self.session.commit()
+                raise CommerceConflict("KPay payment check mismatch")
+            if not checked.is_paid:
+                payment = self._lock_payment(payment_public_id)
+                payment.provider_status = checked.status
+                payment.provider_operation_state = "VERIFY_PENDING"
+                payment.revision += 1
+                self.session.commit()
+                self.session.refresh(payment)
+                return payment
+            result = provider.verify_transaction(authority=authority)
+        except KPayProviderError:
+            # VERIFY_PENDING is intentionally durable and safe to retry; no
+            # entitlement has changed.
+            raise
+
+        payment = self._lock_payment(payment_public_id)
+        if payment.status == "approved" and payment.provider_operation_state == "PAID":
+            return payment
+        order = self.session.get(SubscriptionOrder, payment.order_id)
+        plan = self.session.get(SaasPlan, order.plan_id if order else None)
+        relationship_matches = (
+            order is not None
+            and plan is not None
+            and order.status == "pending"
+            and payment.status == "pending"
+            and payment.provider_authority == result.authority
+            and payment.provider_transaction_id == result.transaction_id
+            and payment.tenant_id == order.tenant_id
+            and payment.store_id == order.store_id
+        )
+        amount_matches = order is not None and result.amount == order.price_amount == payment.amount
+        payment.provider_status = result.status
+        payment.provider_amount = result.amount
+        payment.provider_paid_at = result.paid_at
+        if not relationship_matches or not amount_matches:
+            payment.provider_operation_state = "FAILED"
+            payment.revision += 1
+            self._audit(
+                payment.tenant_id, payment.store_id, None,
+                "payment.kpay_verify_mismatch", "payment", payment.public_id,
+                {
+                    "relationship_matches": relationship_matches,
+                    "amount_matches": amount_matches,
+                },
+            )
+            self.session.commit()
+            raise CommerceConflict("KPay verification mismatch")
+        assert order is not None and plan is not None
+        payment.status = "approved"
+        payment.provider_operation_state = "PAID"
+        payment.approved_at = now_utc()
+        payment.revision += 1
+        order.status = "paid"
+        self._activate_paid_subscription(order, plan, payment)
+        self._audit(
+            payment.tenant_id, payment.store_id, None,
+            "payment.kpay_verified_paid", "payment", payment.public_id,
+            {"order_public_id": order.public_id},
+        )
+        self.session.commit()
+        self.session.refresh(payment)
+        return payment
+
+    def _lock_payment(self, public_id: str) -> ManualPayment:
+        payment = self.session.scalar(
+            select(ManualPayment)
+            .where(ManualPayment.public_id == public_id)
+            .with_for_update()
+        )
+        if payment is None:
+            raise CommerceNotFound("payment not found")
         return payment
 
     def list_payments(self, principal: AuthenticatedPrincipal) -> list[ManualPayment]:
@@ -364,6 +600,8 @@ class CommerceService:
 
     def submit_receipt(self, principal: AuthenticatedPrincipal, payment_public_id: str, *, storage_key: str, content_type: str, size: int, sha256: str) -> ManualPayment:
         payment = self.get_owned_payment(principal, payment_public_id)
+        if payment.provider != "manual_card_transfer":
+            raise CommerceConflict("receipt upload is only available for manual payments")
         if payment.status not in {"pending", "rejected"}:
             raise CommerceConflict("payment cannot accept a receipt")
         payment.receipt_storage_key = storage_key
@@ -384,12 +622,16 @@ class CommerceService:
         return payment
 
     def admin_payments(self) -> list[ManualPayment]:
-        return list(self.session.scalars(select(ManualPayment).order_by(ManualPayment.id.desc())).all())
+        return list(self.session.scalars(select(ManualPayment).where(
+            ManualPayment.provider == "manual_card_transfer"
+        ).order_by(ManualPayment.id.desc())).all())
 
     def admin_payment(self, public_id: str) -> ManualPayment:
         payment = self.session.scalar(select(ManualPayment).where(ManualPayment.public_id == public_id))
         if payment is None:
             raise CommerceNotFound("payment not found")
+        if payment.provider != "manual_card_transfer":
+            raise CommerceNotFound("manual payment not found")
         return payment
 
     def approve(self, payment_public_id: str, *, expected_revision: int, actor_user_id: int) -> ManualPayment:
@@ -400,6 +642,8 @@ class CommerceService:
         )
         if payment is None:
             raise CommerceNotFound("payment not found")
+        if payment.provider != "manual_card_transfer":
+            raise CommerceConflict("KPay payments cannot be manually approved")
         if payment.status == "approved":
             return payment
         if payment.revision != expected_revision:
@@ -415,25 +659,7 @@ class CommerceService:
         payment.approved_by_user_id = actor_user_id
         payment.revision += 1
         order.status = "paid"
-        subscription = TenantSubscription(
-            tenant_id=order.tenant_id,
-            store_id=order.store_id,
-            plan_id=plan.id,
-            order_id=order.id,
-            payment_id=payment.id,
-            product_family=self._order_product_family(order, plan),
-            source="PURCHASED",
-            status="active",
-            limits_json=self._order_limits(order, plan),
-            starts_at=(started_at := now_utc()),
-            current_period_end=(
-                started_at + timedelta(days=self._order_duration_days(order, plan))
-                if self._order_duration_days(order, plan) is not None
-                else None
-            ),
-        )
-        self.session.add(subscription)
-        self._apply_order_modules(order.store_id, order, plan, subscription)
+        self._activate_paid_subscription(order, plan, payment)
         self._audit(payment.tenant_id, payment.store_id, actor_user_id, "payment.approved", "payment", payment.public_id, {"order_public_id": order.public_id})
         self.session.commit()
         self.session.refresh(payment)
@@ -443,6 +669,8 @@ class CommerceService:
         payment = self.session.scalar(select(ManualPayment).where(ManualPayment.public_id == payment_public_id))
         if payment is None:
             raise CommerceNotFound("payment not found")
+        if payment.provider != "manual_card_transfer":
+            raise CommerceConflict("KPay payments cannot be manually rejected")
         if payment.revision != expected_revision:
             raise CommerceConflict("revision conflict")
         if payment.status != "submitted":
@@ -458,6 +686,37 @@ class CommerceService:
         self.session.commit()
         self.session.refresh(payment)
         return payment
+
+    def _activate_paid_subscription(
+        self, order: SubscriptionOrder, plan: SaasPlan, payment: ManualPayment,
+    ) -> TenantSubscription:
+        existing = self.session.scalar(
+            select(TenantSubscription).where(TenantSubscription.order_id == order.id)
+        )
+        if existing is not None:
+            return existing
+        started_at = now_utc()
+        subscription = TenantSubscription(
+            tenant_id=order.tenant_id,
+            store_id=order.store_id,
+            plan_id=plan.id,
+            order_id=order.id,
+            payment_id=payment.id,
+            product_family=self._order_product_family(order, plan),
+            source="PURCHASED",
+            status="active",
+            limits_json=self._order_limits(order, plan),
+            starts_at=started_at,
+            current_period_end=(
+                started_at + timedelta(days=self._order_duration_days(order, plan))
+                if self._order_duration_days(order, plan) is not None
+                else None
+            ),
+        )
+        self.session.add(subscription)
+        self.session.flush()
+        self._apply_order_modules(order.store_id, order, plan, subscription)
+        return subscription
 
     def subscription(self, principal: AuthenticatedPrincipal) -> TenantSubscription | None:
         tenant, store = self.customer_scope(principal)

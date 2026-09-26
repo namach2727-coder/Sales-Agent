@@ -197,6 +197,10 @@ class CardTransferCreate(BaseModel):
     order_public_id: str = Field(min_length=36, max_length=36)
 
 
+class KPayCreate(BaseModel):
+    order_public_id: str = Field(min_length=36, max_length=36)
+
+
 class PaymentRead(BaseModel):
     public_id: str
     order_public_id: str
@@ -206,6 +210,12 @@ class PaymentRead(BaseModel):
     revision: int
     receipt_configured: bool
     created_at: datetime
+
+
+class KPayPaymentRead(BaseModel):
+    payment: PaymentRead
+    operation_state: str
+    payment_url: str | None = None
 
 
 class AdminPaymentRead(PaymentRead):

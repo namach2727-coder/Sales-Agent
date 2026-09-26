@@ -139,6 +139,19 @@ class Settings(BaseSettings):
     receipt_storage_root: str = "./private_receipts"
     receipt_max_bytes: int = Field(default=5 * 1024 * 1024, ge=1024, le=20 * 1024 * 1024)
 
+    # KPay is an optional backend-only payment provider. Empty credentials
+    # keep the integration disabled and fail closed without affecting manual
+    # card-transfer payments.
+    kpay_base_url: str = "https://kpay.website/api/v1"
+    kpay_access_token: SecretStr = SecretStr("")
+    kpay_shop_id: SecretStr = SecretStr("")
+    kpay_card_id: SecretStr = SecretStr("")
+    kpay_callback_base_url: str = ""
+    kpay_fee_side: Literal["customer", "merchant"] = "customer"
+    kpay_timeout_seconds: float = Field(default=15.0, ge=1.0, le=60.0)
+    kpay_verify_send_auth: bool = True
+    kpay_check_send_auth: bool = False
+
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 
     @model_validator(mode="before")
