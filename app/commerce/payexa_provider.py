@@ -2,12 +2,16 @@
 from dataclasses import dataclass, field
 from decimal import Decimal
 import json
+import logging
 import re
 from urllib.parse import urlencode, urlsplit
 
 import httpx
 
 from app.config import Settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class PayexaError(Exception):
@@ -65,6 +69,10 @@ class PayexaClient:
         except httpx.RequestError:
             raise PayexaCreateUnknown('Payexa creation outcome is unknown') from None
         if response.status_code != 201:
+            logger.warning(
+                "payexa_create_rejected status_code=%s",
+                response.status_code,
+            )
             if response.status_code >= 500 or response.status_code in (408, 429) or 200 <= response.status_code < 400:
                 raise PayexaCreateUnknown('Payexa creation outcome is unknown')
             raise PayexaError('Payexa rejected creation')
