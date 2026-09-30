@@ -1,5 +1,30 @@
 # DirectPilot Project Roadmap & Continuity Checkpoint
 
+## Payexa transition — 2026-09-29 (current override)
+
+CURRENT_TASK: `PAYEXA_V1_RELEASE_AND_DEPLOY`
+
+KPay was technically released (backend `0f68f9a6e322f64ffb7922007b83e858baf24570`, frontend `54c84adba7be5cf9c7fda7147a58be1b7c5f7319`, operator-provided release context), but abandoned as the primary provider before a real provider transaction because its credential lifecycle was unsuitable/unclear for DirectPilot's server integration. This is not a claim that KPay is defective. Historical KPay code/data and manual fallback remain supported.
+
+`PAYEXA_SANDBOX_CONTRACT_SPIKE`: PARTIAL, sufficient for local implementation against observed and official contracts. Observed: create HTTP 201; identical duplicate order_ref returned the same provider identity; status PENDING/SUCCESS; sandbox verify/replay success. GET/POST callback shapes were documented in Sandbox Lab; callback delivery to the temporary nonexistent route returned 404. Raw verify status codes were not captured. Official contract: 200 first success, 201 already verified, 409 not settled. `amount_unique` is a verification token, not the immutable purchase price.
+
+Local implementation adds Payexa create, private token persistence, GET/POST callback and authenticated result reads. Only valid verify 200 activates from immutable order snapshots. Locally unpaid verify 201 becomes `RECONCILIATION_REQUIRED`; 409/network failures remain `VERIFY_PENDING`; ambiguous creates remain `CREATE_UNKNOWN` without automatic retries. A row lock serializes callback verification/finalization. A lost verify-200 response requires reconciliation rather than unsafe activation on 201.
+
+Migration `0020_payexa_verification_token` is local only, adds a nullable String(128) token and operation state, and preserves historical rows. Downgrade refuses to remove Payexa evidence. Tokens, card data and credentials are excluded from public responses and logs. Frontend primary action is Payexa; historical KPay results use the shared result read. No polling or frontend proxy was introduced.
+
+Validation (2026-09-30): focused commerce/provider/migration regression 60 passed; final Payexa/API-contract regression 28 passed, including historical migration preservation and failed local finalization followed by provider replay. Full backend run: 838 passed, 7 skipped, 4 stale migration-head assertions failed; those assertions were updated for 0020 and all 35 tests in the affected migration/deployment/seeding modules passed on rerun. The full backend suite was not rerun after these corrections. Frontend final full suite 137 passed; focused payment tests 5 passed; typecheck, lint, configured build and native Next production build passed. Compileall and both repository diff checks passed. Fresh temporary SQLite databases were used for final validation; real PostgreSQL concurrency and new sandbox transactions were not exercised. A duplicate callback OpenAPI operation-ID warning was corrected and the API-contract regression rerun passed without warnings.
+
+Local implementation validation is complete; cloud/provider acceptance remains a separate release gate. No commit, push, deployment, production provider request, production DB change or controlled Iran Insurance order mutation was performed. Unrelated dirty work remains preserved.
+
+Final release gate (2026-09-30): complete backend suite rerun against the corrected tree: **843 passed, 7 skipped, 0 failures** (753.63 seconds). Frontend files are unchanged since the verified 137-pass full run; targeted 5-pass, typecheck, lint and build results remain valid. Intended diff, secret scan and additive migration review passed. Unrelated dirty files and temporary diagnostics are excluded from release commits.
+
+`PAYEXA_PAYMENT_GATEWAY_V1_IMPLEMENTATION`: COMPLETE — local regression verified.
+`PAYEXA_V1_RELEASE_CHECKPOINT`: COMPLETE — validation gate passed; source commit/push only, no manual deployment in this task.
+
+Exact Current Next Step: `PAYEXA_V1_RELEASE_AND_DEPLOY`. Release the exact reviewed backend/frontend commits, apply migration 0020 through normal Render startup, verify /live, /ready, OpenAPI Payexa routes and frontend deployment, then configure Payexa production credentials securely. Production Payexa is not yet configured or cloud verified. Frontend push may trigger existing Vercel auto-deployment; this is not cloud acceptance proof.
+
+The older KPay continuity sections below are historical context superseded by this entry.
+
 > **Purpose:** Canonical continuity document for DirectPilot. Read this before resuming work in a new chat/session.
 >
 > **Last updated:** 2026-09-26

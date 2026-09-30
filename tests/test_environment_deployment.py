@@ -99,7 +99,7 @@ def test_readiness_requires_database_at_single_head(tmp_path: Path) -> None:
     try:
         result = readiness(engine)
         assert result.ready is True
-        assert result.current_revision == "0019_kpay_payment_gateway"
+        assert result.current_revision == "0020_payexa_verification_token"
     finally:
         engine.dispose()
 

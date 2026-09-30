@@ -54,6 +54,9 @@ from app.commerce.kpay_provider import (
 )
 from app.commerce.service import CommerceConflict, CommerceError, CommerceForbidden, CommerceNotFound, CommerceService, RegistrationService
 from app.commerce.storage import LocalPrivateReceiptStorage, ReceiptValidationError
+from app.commerce.payexa_provider import PayexaClient, PayexaConfigurationError, PayexaError
+from app.commerce.payexa_service import PayexaService
+from urllib.parse import urlsplit, quote
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.models import CommerceAdminAuditLog, CommerceAuditLog, ManualPayment, SaasPlan, Store, SubscriptionOrder, Tenant, TenantSubscription, UserIdentity
@@ -182,6 +185,66 @@ def _kpay_read(db: Session, item: ManualPayment) -> KPayPaymentRead:
 
 def build_kpay_provider(settings: Settings) -> KPayClient:
     return KPayClient(settings)
+
+
+def build_payexa_provider(settings: Settings) -> PayexaClient:
+    return PayexaClient(settings)
+
+
+def _payexa_callback_base(settings: Settings) -> str:
+    base = settings.payexa_callback_base_url.rstrip('/')
+    parsed = urlsplit(base)
+    if parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path:
+        raise PayexaConfigurationError('Payexa callback is unavailable')
+    return base
+
+
+@router.post('/payments/payexa', response_model=KPayPaymentRead, status_code=201)
+def create_payexa_payment(payload: KPayCreate, principal: AuthenticatedPrincipal = Depends(require_authenticated_principal), db: Session = Depends(get_db), settings: Settings = Depends(get_settings)):
+    provider = None
+    try:
+        base = _payexa_callback_base(settings)
+        provider = build_payexa_provider(settings)
+        return _kpay_read(db, PayexaService(db).create(principal, payload.order_public_id, provider=provider, callback_base_url=base))
+    except PayexaError:
+        raise HTTPException(503, detail={'code':'payment_provider_unavailable','message':'Payment provider is unavailable'}) from None
+    except CommerceError as exc:
+        _error(exc)
+    finally:
+        if provider is not None:
+            provider.close()
+
+
+@router.get('/payments/automated/{payment_public_id}', response_model=KPayPaymentRead)
+@router.get('/payments/payexa/{payment_public_id}', response_model=KPayPaymentRead)
+def automated_payment_status(payment_public_id: str, principal: AuthenticatedPrincipal = Depends(require_authenticated_principal), db: Session = Depends(get_db)):
+    try:
+        payment = CommerceService(db).get_owned_payment(principal, payment_public_id)
+        if payment.provider not in ('payexa', 'kpay'):
+            raise CommerceNotFound('automated payment not found')
+        return _kpay_read(db, payment)
+    except CommerceError as exc:
+        _error(exc)
+
+
+@router.get('/payments/payexa/callback/{payment_public_id}')
+@router.post('/payments/payexa/callback/{payment_public_id}')
+def payexa_callback(payment_public_id: str, db: Session = Depends(get_db), settings: Settings = Depends(get_settings)):
+    provider = None
+    try:
+        base = _payexa_callback_base(settings)
+    except PayexaConfigurationError:
+        raise HTTPException(503, detail={'code':'payment_provider_unavailable'}) from None
+    try:
+        provider = build_payexa_provider(settings)
+        PayexaService(db).verify(payment_public_id, provider=provider)
+    except (PayexaError, CommerceError):
+        db.rollback()
+    finally:
+        if provider is not None:
+            provider.close()
+    # No callback payload/query data is consumed or reflected.
+    return RedirectResponse(f'{base}/payment/result/{quote(payment_public_id, safe="")}', status_code=303)
 
 
 def _admin_payment_read(db: Session, item: ManualPayment) -> AdminPaymentRead:

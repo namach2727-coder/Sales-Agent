@@ -151,6 +151,10 @@ class Settings(BaseSettings):
     kpay_timeout_seconds: float = Field(default=15.0, ge=1.0, le=60.0)
     kpay_verify_send_auth: bool = True
     kpay_check_send_auth: bool = False
+    payexa_base_url: str = "https://sandbox.pexn.ir"
+    payexa_api_key: SecretStr = SecretStr("")
+    payexa_callback_base_url: str = ""
+    payexa_timeout_seconds: float = Field(default=15.0, ge=1.0, le=60.0)
 
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 

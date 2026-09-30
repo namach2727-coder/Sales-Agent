@@ -1034,7 +1034,7 @@ class ManualPayment(Base):
         CheckConstraint(
             "provider_operation_state IS NULL OR provider_operation_state IN "
             "('NOT_STARTED', 'CREATE_IN_FLIGHT', 'CREATED', 'CREATE_UNKNOWN', "
-            "'VERIFY_PENDING', 'PAID', 'FAILED')",
+            "'VERIFY_PENDING', 'PAID', 'FAILED', 'RECONCILIATION_REQUIRED')",
             name="ck_manual_payments_provider_operation_state",
         ),
         UniqueConstraint(
@@ -1051,6 +1051,7 @@ class ManualPayment(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("user_identities.id"), index=True)
     provider: Mapped[str] = mapped_column(String(40), default="manual_card_transfer")
     provider_transaction_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    provider_verification_token: Mapped[str | None] = mapped_column(String(128), nullable=True)
     provider_authority: Mapped[str | None] = mapped_column(String(200), nullable=True, unique=True, index=True)
     provider_status: Mapped[str | None] = mapped_column(String(100), nullable=True)
     provider_operation_state: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
