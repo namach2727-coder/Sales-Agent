@@ -215,7 +215,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0022_durable_receipt_blob"]
+    assert scripts.get_heads() == ["0023_user_phone_number"]
     baseline = scripts.get_revision("0001_baseline_schema")
     seed_history = scripts.get_revision("0002_create_seed_history")
     rbac = scripts.get_revision("0003_authorization_rbac")
@@ -238,6 +238,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
     payexa = scripts.get_revision("0020_payexa_verification_token")
     payment_cards = scripts.get_revision("0021_admin_payment_cards")
     durable_receipt = scripts.get_revision("0022_durable_receipt_blob")
+    user_phone = scripts.get_revision("0023_user_phone_number")
     assert baseline is not None and baseline.down_revision is None
     assert seed_history is not None and seed_history.down_revision == "0001_baseline_schema"
     assert rbac is not None and rbac.down_revision == "0002_create_seed_history"
@@ -260,6 +261,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
     assert payexa is not None and payexa.down_revision == "0019_kpay_payment_gateway"
     assert payment_cards is not None and payment_cards.down_revision == "0020_payexa_verification_token"
     assert durable_receipt is not None and durable_receipt.down_revision == "0021_admin_payment_cards"
+    assert user_phone is not None and user_phone.down_revision == "0022_durable_receipt_blob"
 
 
 @requires_alembic
@@ -314,6 +316,7 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
+        "0023_user_phone_number",
         "0022_durable_receipt_blob",
         "0021_admin_payment_cards",
         "0020_payexa_verification_token",

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from tests.test_saas_commerce import commerce_api, register, login, create_paid_order
 from app.commerce.payexa_provider import PayexaCreateResult, PayexaVerifyResult, PayexaCreateUnknown, PayexaError
-from app.models import ManualPayment, PaymentCard, SubscriptionOrder, TenantSubscription, SaasPlan
+from app.models import ManualPayment, PaymentCard, SubscriptionOrder, TenantSubscription, SaasPlan, UserIdentity
 
 
 class Provider:
@@ -116,6 +116,9 @@ def test_new_nullable_column_and_existing_rows_survive_migration(commerce_api):
 
         for card in db.scalars(select(PaymentCard)).all():
             db.delete(card)
+
+        for identity in db.scalars(select(UserIdentity)).all():
+            identity.phone_number = None
 
     from alembic import command
     from alembic.config import Config

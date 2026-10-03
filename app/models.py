@@ -815,6 +815,7 @@ class UserIdentity(Base):
     email: Mapped[str] = mapped_column(String(320))
     normalized_email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     display_name: Mapped[str] = mapped_column(String(200))
+    phone_number: Mapped[str | None] = mapped_column(String(13), nullable=True)
     password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="active", index=True)
     is_service_account: Mapped[bool] = mapped_column(Boolean, default=False)

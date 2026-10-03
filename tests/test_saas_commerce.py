@@ -18,7 +18,7 @@ from app.commerce.kpay_provider import KPayCheckResult, KPayCreateResult, KPayCr
 from app.commerce.service import CommerceService
 from app.config import Settings, get_settings
 from app.database import get_db
-from app.models import AuthPlatformRoleAssignment, CommerceAdminAuditLog, ManualPayment, PaymentCard, SaasPlan, Store, StoreModule, SubscriptionOrder, Tenant, TenantSubscription
+from app.models import AuthPlatformRoleAssignment, CommerceAdminAuditLog, ManualPayment, PaymentCard, SaasPlan, Store, StoreModule, SubscriptionOrder, Tenant, TenantSubscription, UserIdentity
 from tools.seeding import SeedRunner, default_registry
 
 
@@ -98,6 +98,7 @@ def register(client: TestClient, suffix: str = "one") -> dict:
             "email": f"{suffix}@example.com",
             "password": PASSWORD,
             "display_name": f"Customer {suffix}",
+            "phone_number": "09123456789",
             "tenant_name": f"Tenant {suffix}",
             "tenant_slug": f"tenant-{suffix}",
             "store_name": f"Store {suffix}",
@@ -288,11 +289,64 @@ def test_registration_login_and_duplicate_are_public_only(commerce_api) -> None:
     assert all(item["code"] != "TRIAL" for item in client.get("/api/v1/plans").json())
     duplicate = client.post("/api/v1/auth/register", json={
         "email": "one@example.com", "password": PASSWORD, "display_name": "Duplicate",
+        "phone_number": "+989123456789",
         "tenant_name": "Other Tenant", "tenant_slug": "other-tenant", "store_name": "Other Store", "store_slug": "other-store",
     })
     assert duplicate.status_code == 409
     headers = login(client)
     assert client.get("/api/v1/auth/me", headers=headers).status_code == 200
+
+
+def test_registration_requires_valid_phone_and_persists_normalized_value(commerce_api) -> None:
+    client, engine, _settings = commerce_api
+
+    base = {
+        "email": "phone-check@example.com",
+        "password": PASSWORD,
+        "display_name": "Phone Check",
+        "tenant_name": "Phone Tenant",
+        "tenant_slug": "phone-tenant",
+        "store_name": "Phone Store",
+        "store_slug": "phone-store",
+    }
+
+    missing = client.post("/api/v1/auth/register", json=base)
+    assert missing.status_code == 422
+
+    invalid = client.post(
+        "/api/v1/auth/register",
+        json={**base, "phone_number": "02112345678"},
+    )
+    assert invalid.status_code == 422
+
+    created = client.post(
+        "/api/v1/auth/register",
+        json={**base, "phone_number": "09123456789"},
+    )
+    assert created.status_code == 201, created.text
+
+    with Session(engine) as db:
+        identity = db.scalar(
+            select(UserIdentity).where(
+                UserIdentity.normalized_email == "phone-check@example.com"
+            )
+        )
+        assert identity is not None
+        assert identity.phone_number == "+989123456789"
+
+    international = client.post(
+        "/api/v1/auth/register",
+        json={
+            **base,
+            "email": "phone-int@example.com",
+            "phone_number": "+989123456789",
+            "tenant_name": "Phone International",
+            "tenant_slug": "phone-int",
+            "store_name": "Phone International Store",
+            "store_slug": "phone-int-store",
+        },
+    )
+    assert international.status_code == 201, international.text
 
 
 def test_existing_trial_reconciliation_is_idempotent_and_reuse_preserves_commerce(commerce_api) -> None:

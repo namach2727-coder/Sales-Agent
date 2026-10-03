@@ -50,7 +50,8 @@ def rules_api(tmp_path: Path):
 def customer(client: TestClient, suffix: str) -> tuple[dict[str, str], dict]:
     created = client.post("/api/v1/auth/register", json={
         "email": f"rules-{suffix}@example.com", "password": PASSWORD,
-        "display_name": "Rule Owner", "tenant_name": f"Tenant {suffix}",
+        "display_name": "Rule Owner", "phone_number": "09123456789",
+        "tenant_name": f"Tenant {suffix}",
         "tenant_slug": f"rules-tenant-{suffix}", "store_name": f"Store {suffix}",
         "store_slug": f"rules-store-{suffix}",
     })

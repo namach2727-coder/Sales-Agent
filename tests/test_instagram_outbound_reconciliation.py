@@ -304,6 +304,7 @@ def _customer(client: TestClient, suffix: str):
             "email": f"reconcile-{suffix}@example.com",
             "password": PASSWORD,
             "display_name": "Reconciliation Owner",
+            "phone_number": "09123456789",
             "tenant_name": f"Tenant {suffix}",
             "tenant_slug": f"reconcile-tenant-{suffix}",
             "store_name": f"Store {suffix}",

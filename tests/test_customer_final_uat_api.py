@@ -69,6 +69,7 @@ def _register(client: TestClient, name: str) -> tuple[dict, dict[str, str]]:
             "email": f"{name}@example.com",
             "password": PASSWORD,
             "display_name": f"Customer {name}",
+            "phone_number": "09123456789",
             "tenant_name": f"Tenant {name}",
             "tenant_slug": f"tenant-{name}",
             "store_name": f"Store {name}",

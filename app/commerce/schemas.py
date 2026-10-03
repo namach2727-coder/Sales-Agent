@@ -9,6 +9,7 @@ class RegisterInput(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=1, max_length=4096)
     display_name: str = Field(min_length=2, max_length=200)
+    phone_number: str = Field(min_length=11, max_length=13)
     tenant_name: str = Field(min_length=2, max_length=200)
     tenant_slug: str = Field(min_length=2, max_length=63)
     store_name: str = Field(min_length=2, max_length=200)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+import re
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -63,6 +64,21 @@ def now_utc() -> datetime:
     return datetime.now(UTC)
 
 
+def normalize_phone_number(value: str) -> str:
+    """Normalize a supported Iranian mobile number to E.164."""
+    phone = value.strip()
+
+    if re.fullmatch(r"09[0-9]{9}", phone):
+        return "+98" + phone[1:]
+
+    if re.fullmatch(r"\+989[0-9]{9}", phone):
+        return phone
+
+    raise CommerceValidationError(
+        "phone number must be a valid Iranian mobile number"
+    )
+
+
 class RegistrationService:
     """Atomically creates identity, tenant, first store, and owner membership."""
 
@@ -76,6 +92,7 @@ class RegistrationService:
         email: str,
         password: str,
         display_name: str,
+        phone_number: str,
         tenant_name: str,
         tenant_slug: str,
         store_name: str,
@@ -85,6 +102,7 @@ class RegistrationService:
             raise CommerceConflict("registration requires a clean transaction")
         normalized_email = normalize_email(email)
         display_name = normalize_name(display_name)
+        phone_number = normalize_phone_number(phone_number)
         tenant_name = normalize_name(tenant_name)
         tenant_slug = normalize_slug(tenant_slug)
         store_name = normalize_name(store_name)
@@ -104,6 +122,7 @@ class RegistrationService:
                     email=email.strip(),
                     normalized_email=normalized_email,
                     display_name=display_name,
+                    phone_number=phone_number,
                     password_hash=password_hash,
                     status="active",
                     email_verified=False,
