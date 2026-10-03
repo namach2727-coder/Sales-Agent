@@ -101,6 +101,35 @@ def test_profile_examples_derive_from_the_canonical_template() -> None:
         assert _template_keys(ROOT / file_name) == canonical_keys
 
 
+def test_uat_and_production_templates_use_separate_public_boundaries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("APP_ENV", raising=False)
+    monkeypatch.delenv("TRUSTED_HOSTS", raising=False)
+    monkeypatch.delenv("CORS_ALLOWED_ORIGINS", raising=False)
+    monkeypatch.delenv("META_OAUTH_REDIRECT_URI", raising=False)
+
+    uat = Settings(_env_file=ROOT / ".env.uat.example")
+    production = Settings(_env_file=ROOT / ".env.production.example")
+
+    assert uat.app_env == "uat"
+    assert uat.trusted_hosts[0] == "directpilot-uat-api.onrender.com"
+    assert uat.meta_oauth_redirect_uri.startswith(
+        "https://directpilot-uat-api.onrender.com/"
+    )
+    assert uat.payexa_base_url == "https://sandbox.pexn.ir"
+    assert "replace-with-uat-frontend" in uat.payexa_callback_base_url
+    assert production.app_env == "production"
+    assert production.trusted_hosts == ["directpilot-api.onrender.com"]
+    assert production.cors_allowed_origins == [
+        "https://directpilot.ir",
+        "https://www.directpilot.ir",
+    ]
+    assert "directpilot-uat-api" not in production.meta_oauth_redirect_uri
+    assert production.payexa_base_url == "https://pay.pexn.ir"
+    assert production.payexa_callback_base_url == "https://directpilot.ir"
+
+
 @pytest.mark.parametrize("file_name", [".env.dev", ".env.uat", ".env.production"])
 def test_local_profile_files_are_gitignored(file_name: str) -> None:
     ignore_rules = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()

@@ -55,15 +55,18 @@ def test_receipt_upload_contract_is_raw_binary_not_multipart() -> None:
     assert "requestBody" not in operation
 
 
-def test_production_template_allows_only_directpilot_web_origin() -> None:
+def test_production_template_uses_the_production_backend_and_web_origins() -> None:
     values: dict[str, str] = {}
     for line in (ROOT / ".env.production.example").read_text(encoding="utf-8").splitlines():
         if line and not line.startswith("#") and "=" in line:
             key, value = line.split("=", 1)
             values[key] = value
 
-    assert values["TRUSTED_HOSTS"] == "api.directpilot.ir"
-    assert values["CORS_ALLOWED_ORIGINS"] == "https://directpilot.ir"
+    assert values["TRUSTED_HOSTS"] == "directpilot-api.onrender.com"
+    assert values["CORS_ALLOWED_ORIGINS"] == (
+        "https://directpilot.ir,https://www.directpilot.ir"
+    )
+    assert "directpilot-uat-api" not in values["TRUSTED_HOSTS"]
     assert "*" not in values["CORS_ALLOWED_ORIGINS"]
     assert values["FORCE_HTTPS"] == "true"
     assert values["SESSION_COOKIE_SECURE"] == "true"
