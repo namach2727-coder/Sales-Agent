@@ -21,6 +21,39 @@ class StoredReceipt:
     sha256: str
 
 
+def validate_receipt(
+    *,
+    content_type: str,
+    data: bytes,
+    max_bytes: int,
+) -> StoredReceipt:
+    """Validate receipt bytes without relying on local filesystem persistence."""
+
+    normalized = content_type.partition(";")[0].strip().casefold()
+    validator = LocalPrivateReceiptStorage.ALLOWED.get(normalized)
+
+    if validator is None or not validator(data):
+        raise ReceiptValidationError("unsupported or invalid receipt content")
+
+    if not data or len(data) > max_bytes:
+        raise ReceiptValidationError("receipt size is invalid")
+
+    suffix = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "application/pdf": ".pdf",
+    }[normalized]
+
+    key = f"db:{uuid.uuid4().hex}{suffix}"
+
+    return StoredReceipt(
+        key=key,
+        content_type=normalized,
+        size=len(data),
+        sha256=hashlib.sha256(data).hexdigest(),
+    )
+
+
 class LocalPrivateReceiptStorage:
     ALLOWED = {
         "image/jpeg": lambda value: value.startswith(b"\xff\xd8\xff"),

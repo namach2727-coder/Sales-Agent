@@ -68,6 +68,7 @@ POST_BASELINE_TABLES = {
     "tenant_subscriptions",
     "commerce_audit_logs",
     "commerce_admin_audit_logs",
+    "payment_cards",
     "instagram_oauth_states",
     "automation_rules",
 }
@@ -214,7 +215,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0020_payexa_verification_token"]
+    assert scripts.get_heads() == ["0022_durable_receipt_blob"]
     baseline = scripts.get_revision("0001_baseline_schema")
     seed_history = scripts.get_revision("0002_create_seed_history")
     rbac = scripts.get_revision("0003_authorization_rbac")
@@ -233,7 +234,10 @@ def test_alembic_loads_with_one_linear_head() -> None:
     product_commerce = scripts.get_revision("0016_product_family_commerce")
     ai_workspace = scripts.get_revision("0017_ai_assistant_workspace")
     order_snapshot = scripts.get_revision("0018_order_commercial_snapshot")
-    head = scripts.get_revision("0019_kpay_payment_gateway")
+    kpay = scripts.get_revision("0019_kpay_payment_gateway")
+    payexa = scripts.get_revision("0020_payexa_verification_token")
+    payment_cards = scripts.get_revision("0021_admin_payment_cards")
+    durable_receipt = scripts.get_revision("0022_durable_receipt_blob")
     assert baseline is not None and baseline.down_revision is None
     assert seed_history is not None and seed_history.down_revision == "0001_baseline_schema"
     assert rbac is not None and rbac.down_revision == "0002_create_seed_history"
@@ -252,7 +256,10 @@ def test_alembic_loads_with_one_linear_head() -> None:
     assert product_commerce is not None and product_commerce.down_revision == "0015_automation_rules"
     assert ai_workspace is not None and ai_workspace.down_revision == "0016_product_family_commerce"
     assert order_snapshot is not None and order_snapshot.down_revision == "0017_ai_assistant_workspace"
-    assert head is not None and head.down_revision == "0018_order_commercial_snapshot"
+    assert kpay is not None and kpay.down_revision == "0018_order_commercial_snapshot"
+    assert payexa is not None and payexa.down_revision == "0019_kpay_payment_gateway"
+    assert payment_cards is not None and payment_cards.down_revision == "0020_payexa_verification_token"
+    assert durable_receipt is not None and durable_receipt.down_revision == "0021_admin_payment_cards"
 
 
 @requires_alembic
@@ -307,6 +314,8 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
+        "0022_durable_receipt_blob",
+        "0021_admin_payment_cards",
         "0020_payexa_verification_token",
         "0019_kpay_payment_gateway",
         "0018_order_commercial_snapshot",

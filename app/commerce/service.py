@@ -632,7 +632,7 @@ class CommerceService:
             raise CommerceNotFound("payment not found")
         return item
 
-    def submit_receipt(self, principal: AuthenticatedPrincipal, payment_public_id: str, *, storage_key: str, content_type: str, size: int, sha256: str) -> ManualPayment:
+    def submit_receipt(self, principal: AuthenticatedPrincipal, payment_public_id: str, *, storage_key: str, content_type: str, size: int, sha256: str, data: bytes) -> ManualPayment:
         payment = self.get_owned_payment(principal, payment_public_id)
         if payment.provider != "manual_card_transfer":
             raise CommerceConflict("receipt upload is only available for manual payments")
@@ -642,6 +642,7 @@ class CommerceService:
         payment.receipt_content_type = content_type
         payment.receipt_size = size
         payment.receipt_sha256 = sha256
+        payment.receipt_data = data
         payment.status = "submitted"
         payment.submitted_at = now_utc()
         payment.rejected_at = None

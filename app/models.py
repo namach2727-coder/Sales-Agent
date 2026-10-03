@@ -9,6 +9,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    LargeBinary,
     Index,
     String,
     Text,
@@ -1050,7 +1051,7 @@ class PaymentCard(Base):
 
 
 class ManualPayment(Base):
-    """Manual card-transfer payment; receipt bytes live in private storage."""
+    """Manual card-transfer payment with durable receipt bytes in PostgreSQL."""
 
     __tablename__ = "manual_payments"
     __table_args__ = (
@@ -1104,6 +1105,9 @@ class ManualPayment(Base):
     receipt_content_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
     receipt_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     receipt_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    receipt_data: Mapped[bytes | None] = mapped_column(
+        LargeBinary, nullable=True, deferred=True
+    )
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     approved_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("user_identities.id"), nullable=True)

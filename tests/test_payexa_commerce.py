@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from tests.test_saas_commerce import commerce_api, register, login, create_paid_order
 from app.commerce.payexa_provider import PayexaCreateResult, PayexaVerifyResult, PayexaCreateUnknown, PayexaError
-from app.models import ManualPayment, SubscriptionOrder, TenantSubscription, SaasPlan
+from app.models import ManualPayment, PaymentCard, SubscriptionOrder, TenantSubscription, SaasPlan
 
 
 class Provider:
@@ -94,23 +94,36 @@ def test_manual_provider_isolation(commerce_api,monkeypatch):
 
 
 def test_new_nullable_column_and_existing_rows_survive_migration(commerce_api):
-    # Fixture migrates a fresh database through 0019 -> 0020 and seeds normal
-    # commerce rows. Historical providers do not require the new token.
-    client,engine,settings=commerce_api
+    # The fixture is at current head. Remove evidence owned by migrations
+    # newer than 0020 before exercising the historical 0020 -> 0019 boundary.
+    client,engine,_settings=commerce_api
     register(client,'historical')
     headers=login(client,'historical')
     order=create_paid_order(client,headers)
     client.post('/api/v1/payments/card-transfer',headers=headers,json={'order_public_id':order['public_id']})
-    with Session(engine) as db:
+
+    with Session(engine) as db, db.begin():
         payment=db.scalar(select(ManualPayment))
         assert payment.provider_verification_token is None
         assert payment.provider=='manual_card_transfer'
+
+        payment.payment_card_id = None
+        payment.card_number_snapshot = None
+        payment.account_number_snapshot = None
+        payment.account_name_snapshot = None
+        payment.bank_name_snapshot = None
+        db.flush()
+
+        for card in db.scalars(select(PaymentCard)).all():
+            db.delete(card)
+
     from alembic import command
     from alembic.config import Config
     config = Config('alembic.ini')
     config.attributes['database_url'] = str(engine.url)
     command.downgrade(config, '0019_kpay_payment_gateway')
     command.upgrade(config, 'head')
+
     with Session(engine) as db:
         payment=db.scalar(select(ManualPayment))
         assert payment.provider_verification_token is None

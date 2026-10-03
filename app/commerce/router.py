@@ -56,7 +56,7 @@ from app.commerce.kpay_provider import (
     KPayProviderError,
 )
 from app.commerce.service import CommerceConflict, CommerceError, CommerceForbidden, CommerceNotFound, CommerceService, RegistrationService
-from app.commerce.storage import LocalPrivateReceiptStorage, ReceiptValidationError
+from app.commerce.storage import ReceiptValidationError, validate_receipt
 from app.commerce.payexa_provider import PayexaClient, PayexaConfigurationError, PayexaError
 from app.commerce.payexa_service import PayexaService
 from urllib.parse import urlsplit, quote
@@ -625,29 +625,64 @@ def my_payments(principal: AuthenticatedPrincipal = Depends(require_authenticate
 
 
 @router.post("/payments/{payment_public_id}/receipt", response_model=PaymentRead)
-async def upload_receipt(payment_public_id: str, request: Request, principal: AuthenticatedPrincipal = Depends(require_authenticated_principal), db: Session = Depends(get_db), settings: Settings = Depends(get_settings)) -> PaymentRead:
+async def upload_receipt(
+    payment_public_id: str,
+    request: Request,
+    principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> PaymentRead:
     chunks, total = [], 0
+
     async for chunk in request.stream():
         total += len(chunk)
         if total > settings.receipt_max_bytes:
-            raise HTTPException(status_code=413, detail={"code": "receipt_too_large", "message": "Receipt is too large"})
+            raise HTTPException(
+                status_code=413,
+                detail={
+                    "code": "receipt_too_large",
+                    "message": "Receipt is too large",
+                },
+            )
         chunks.append(chunk)
+
+    data = b"".join(chunks)
     service = CommerceService(db)
-    stored = None
-    storage = LocalPrivateReceiptStorage(settings.receipt_storage_root, max_bytes=settings.receipt_max_bytes)
+
     try:
         payment = service.get_owned_payment(principal, payment_public_id)
         tenant = db.get(Tenant, payment.tenant_id)
         assert tenant is not None
-        stored = storage.store(tenant_public_id=tenant.public_id, payment_public_id=payment.public_id, content_type=request.headers.get("content-type", ""), data=b"".join(chunks))
-        return _payment_read(db, service.submit_receipt(principal, payment_public_id, storage_key=stored.key, content_type=stored.content_type, size=stored.size, sha256=stored.sha256))
-    except ReceiptValidationError as exc:
-        raise HTTPException(status_code=422, detail={"code": "invalid_receipt", "message": str(exc)}) from exc
-    except CommerceError as exc:
-        if stored is not None:
-            storage.delete(stored.key)
-        _error(exc)
 
+        stored = validate_receipt(
+            content_type=request.headers.get("content-type", ""),
+            data=data,
+            max_bytes=settings.receipt_max_bytes,
+        )
+
+        payment = service.submit_receipt(
+            principal,
+            payment_public_id,
+            storage_key=stored.key,
+            content_type=stored.content_type,
+            size=stored.size,
+            sha256=stored.sha256,
+            data=data,
+        )
+
+        return _payment_read(db, payment)
+
+    except ReceiptValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "invalid_receipt",
+                "message": str(exc),
+            },
+        ) from exc
+
+    except CommerceError as exc:
+        _error(exc)
 
 def _payment_card_read(item: PaymentCard) -> AdminPaymentCardRead:
     return AdminPaymentCardRead.model_validate(item, from_attributes=True)
@@ -738,20 +773,55 @@ def reject_payment(payment_public_id: str, payload: PaymentDecision, principal: 
         _error(exc)
 
 
-@router.get("/admin/payments/{payment_public_id}/receipt", response_class=FileResponse)
-def admin_receipt(payment_public_id: str, _principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.PAYMENT_READ)), db: Session = Depends(get_db), settings: Settings = Depends(get_settings)) -> FileResponse:
+@router.get("/admin/payments/{payment_public_id}/receipt")
+def admin_receipt(
+    payment_public_id: str,
+    _principal: AuthenticatedPrincipal = Depends(
+        require_platform_permission(PermissionCode.PAYMENT_READ)
+    ),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> Response:
     try:
         payment = CommerceService(db).admin_payment(payment_public_id)
+
         if not payment.receipt_storage_key:
             raise CommerceNotFound("receipt not found")
+
+        # New durable receipts are stored directly in PostgreSQL.
+        if payment.receipt_data is not None:
+            suffix = {
+                "image/jpeg": ".jpg",
+                "image/png": ".png",
+                "application/pdf": ".pdf",
+            }.get(payment.receipt_content_type or "", "")
+
+            return Response(
+                content=bytes(payment.receipt_data),
+                media_type=payment.receipt_content_type
+                or "application/octet-stream",
+                headers={
+                    "Content-Disposition": (
+                        f'attachment; filename="receipt-{payment.public_id}{suffix}"'
+                    )
+                },
+            )
+
+        # Backward compatibility for receipts created before durable storage.
         root = Path(settings.receipt_storage_root).resolve()
-        path = (root / payment.receipt_storage_key).resolve()
-        if root not in path.parents or not path.is_file():
+        receipt_path = (root / payment.receipt_storage_key).resolve()
+
+        if root not in receipt_path.parents or not receipt_path.is_file():
             raise CommerceNotFound("receipt not found")
-        return FileResponse(path, media_type=payment.receipt_content_type, filename=f"receipt-{payment.public_id}{path.suffix}")
+
+        return FileResponse(
+            receipt_path,
+            media_type=payment.receipt_content_type,
+            filename=f"receipt-{payment.public_id}{receipt_path.suffix}",
+        )
+
     except CommerceError as exc:
         _error(exc)
-
 
 @router.get("/subscription/me", response_model=SubscriptionRead | None)
 def my_subscription(principal: AuthenticatedPrincipal = Depends(require_authenticated_principal), db: Session = Depends(get_db)) -> SubscriptionRead | None:

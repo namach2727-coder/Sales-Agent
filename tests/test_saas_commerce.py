@@ -590,7 +590,16 @@ def test_manual_receipt_and_atomic_idempotent_approval(commerce_api) -> None:
     assert subscription.json()["current_period_end"] is not None
     receipt = client.get(f"/api/v1/admin/payments/{payment['public_id']}/receipt", headers=admin_headers)
     assert receipt.status_code == 200 and receipt.content.startswith(b"\x89PNG")
-    assert Path(settings.receipt_storage_root).is_dir()
+    with Session(engine) as db:
+        stored = db.scalar(
+            select(ManualPayment).where(
+                ManualPayment.public_id == payment["public_id"]
+            )
+        )
+        assert stored is not None
+        assert stored.receipt_storage_key is not None
+        assert stored.receipt_storage_key.startswith("db:")
+        assert bytes(stored.receipt_data or b"").startswith(b"\x89PNG")
 
 
 def test_admin_payment_cards_drive_manual_payment_snapshot_and_approval(commerce_api) -> None:
@@ -1152,3 +1161,52 @@ def test_admin_customer_listing_is_bounded_paginated_and_authorized(commerce_api
     assert normal["tenant_public_id"] not in {
         item["tenant_public_id"] for item in first.json()
     }
+
+def test_manual_receipt_is_persisted_in_database(commerce_api) -> None:
+    client, engine, _settings = commerce_api
+
+    register(client, "durable")
+    customer_headers = login(client, "durable")
+
+    order = create_paid_order(client, customer_headers)
+    payment = create_payment(client, customer_headers, order)
+
+    receipt = b"\x89PNG\r\n\x1a\ndurable-receipt"
+
+    submitted = client.post(
+        f"/api/v1/payments/{payment['public_id']}/receipt",
+        headers={
+            **customer_headers,
+            "Content-Type": "image/png",
+        },
+        content=receipt,
+    )
+
+    assert submitted.status_code == 200
+
+    with Session(engine) as db:
+        stored = db.scalar(
+            select(ManualPayment).where(
+                ManualPayment.public_id == payment["public_id"]
+            )
+        )
+
+        assert stored is not None
+        assert stored.receipt_storage_key is not None
+        assert stored.receipt_storage_key.startswith("db:")
+        assert bytes(stored.receipt_data or b"") == receipt
+
+    admin_headers = platform_admin_headers(
+        client,
+        engine,
+        "durable",
+    )
+
+    downloaded = client.get(
+        f"/api/v1/admin/payments/{payment['public_id']}/receipt",
+        headers=admin_headers,
+    )
+
+    assert downloaded.status_code == 200
+    assert downloaded.content == receipt
+    assert downloaded.headers["content-type"].startswith("image/png")
