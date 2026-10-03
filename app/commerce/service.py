@@ -19,6 +19,7 @@ from app.models import (
     IdentityAuditLog,
     ManualPayment,
     ModuleDefinition,
+    PaymentCard,
     SaasPlan,
     Store,
     StoreModule,
@@ -337,11 +338,27 @@ class CommerceService:
         order = self.get_order(principal, order_public_id)
         if order.price_amount == 0 or order.status == "paid":
             raise CommerceConflict("order does not require payment")
-        existing = self.session.scalar(select(ManualPayment).where(ManualPayment.order_id == order.id))
+
+        existing = self.session.scalar(
+            select(ManualPayment).where(ManualPayment.order_id == order.id)
+        )
         if existing is not None:
             if existing.provider != "manual_card_transfer":
                 raise CommerceConflict("order already uses another payment provider")
             return existing
+
+        card = self.session.scalar(
+            select(PaymentCard)
+            .where(
+                PaymentCard.is_active.is_(True),
+                PaymentCard.is_default.is_(True),
+            )
+            .order_by(PaymentCard.id)
+            .with_for_update()
+        )
+        if card is None:
+            raise CommerceConflict("no active default payment card is configured")
+
         payment = ManualPayment(
             tenant_id=order.tenant_id,
             store_id=order.store_id,
@@ -351,10 +368,27 @@ class CommerceService:
             currency=order.currency,
             provider="manual_card_transfer",
             status="pending",
+            payment_card_id=card.id,
+            card_number_snapshot=card.card_number,
+            account_number_snapshot=card.account_number,
+            account_name_snapshot=card.account_name,
+            bank_name_snapshot=card.bank_name,
         )
         self.session.add(payment)
         self.session.flush()
-        self._audit(order.tenant_id, order.store_id, principal.user_id, "payment.created", "payment", payment.public_id, {"provider": "manual_card_transfer"})
+        self._audit(
+            order.tenant_id,
+            order.store_id,
+            principal.user_id,
+            "payment.created",
+            "payment",
+            payment.public_id,
+            {
+                "provider": "manual_card_transfer",
+                "payment_card_public_id": card.public_id,
+                "card_last4": card.card_number[-4:],
+            },
+        )
         self.session.commit()
         self.session.refresh(payment)
         return payment
@@ -620,6 +654,193 @@ class CommerceService:
         self.session.commit()
         self.session.refresh(payment)
         return payment
+
+    def admin_payment_cards(self) -> list[PaymentCard]:
+        return list(
+            self.session.scalars(
+                select(PaymentCard).order_by(
+                    PaymentCard.is_default.desc(),
+                    PaymentCard.is_active.desc(),
+                    PaymentCard.id.desc(),
+                )
+            ).all()
+        )
+
+    def admin_create_payment_card(
+        self,
+        *,
+        actor_user_id: int,
+        card_number: str,
+        account_number: str | None,
+        account_name: str,
+        bank_name: str,
+        label: str | None,
+        is_active: bool,
+        is_default: bool,
+    ) -> PaymentCard:
+        card_number = card_number.strip()
+        account_number = (account_number or "").strip() or None
+        account_name = account_name.strip()
+        bank_name = bank_name.strip()
+        label = (label or "").strip() or None
+
+        if len(card_number) != 16 or not card_number.isascii() or not card_number.isdigit():
+            raise CommerceValidationError("card number must contain exactly 16 digits")
+        if not account_name or not bank_name:
+            raise CommerceValidationError("account name and bank name are required")
+
+        current_default = self.session.scalar(
+            select(PaymentCard)
+            .where(
+                PaymentCard.is_active.is_(True),
+                PaymentCard.is_default.is_(True),
+            )
+            .order_by(PaymentCard.id)
+            .with_for_update()
+        )
+
+        make_default = is_default or (current_default is None and is_active)
+        if make_default and not is_active:
+            raise CommerceValidationError("default payment card must be active")
+
+        if make_default:
+            for item in self.session.scalars(
+                select(PaymentCard)
+                .where(PaymentCard.is_default.is_(True))
+                .with_for_update()
+            ).all():
+                item.is_default = False
+                item.revision += 1
+
+        card = PaymentCard(
+            card_number=card_number,
+            account_number=account_number,
+            account_name=account_name,
+            bank_name=bank_name,
+            label=label,
+            is_active=is_active,
+            is_default=make_default,
+            revision=1,
+        )
+        self.session.add(card)
+
+        try:
+            self.session.flush()
+            self._admin_audit(
+                actor_user_id,
+                "payment_card.created",
+                "payment_card",
+                card.public_id,
+                {
+                    "bank_name": card.bank_name,
+                    "card_last4": card.card_number[-4:],
+                    "is_active": card.is_active,
+                    "is_default": card.is_default,
+                },
+            )
+            self.session.commit()
+        except IntegrityError as exc:
+            self.session.rollback()
+            raise CommerceConflict("payment card already exists") from exc
+
+        self.session.refresh(card)
+        return card
+
+    def admin_update_payment_card(
+        self,
+        public_id: str,
+        *,
+        actor_user_id: int,
+        expected_revision: int,
+        **changes: object,
+    ) -> PaymentCard:
+        card = self.session.scalar(
+            select(PaymentCard)
+            .where(PaymentCard.public_id == public_id)
+            .with_for_update()
+        )
+        if card is None:
+            raise CommerceNotFound("payment card not found")
+        if card.revision != expected_revision:
+            raise CommerceConflict("revision conflict")
+
+        applied = dict(changes)
+        if not applied:
+            raise CommerceValidationError("at least one change is required")
+
+        desired_active = bool(applied.get("is_active", card.is_active))
+        desired_default = bool(applied.get("is_default", card.is_default))
+
+        if desired_default and not desired_active:
+            raise CommerceValidationError("default payment card must be active")
+
+        if card.is_default and not desired_default:
+            another_default = self.session.scalar(
+                select(PaymentCard.id).where(
+                    PaymentCard.id != card.id,
+                    PaymentCard.is_active.is_(True),
+                    PaymentCard.is_default.is_(True),
+                )
+            )
+            if another_default is None:
+                raise CommerceConflict("set another active default payment card first")
+
+        if desired_default:
+            for item in self.session.scalars(
+                select(PaymentCard)
+                .where(
+                    PaymentCard.id != card.id,
+                    PaymentCard.is_default.is_(True),
+                )
+                .with_for_update()
+            ).all():
+                item.is_default = False
+                item.revision += 1
+
+        if "card_number" in applied:
+            value = str(applied["card_number"]).strip()
+            if len(value) != 16 or not value.isascii() or not value.isdigit():
+                raise CommerceValidationError("card number must contain exactly 16 digits")
+            applied["card_number"] = value
+
+        for key in ("account_name", "bank_name"):
+            if key in applied:
+                value = str(applied[key]).strip()
+                if not value:
+                    raise CommerceValidationError(f"{key} cannot be empty")
+                applied[key] = value
+
+        for key in ("account_number", "label"):
+            if key in applied:
+                value = applied[key]
+                applied[key] = str(value).strip() or None if value is not None else None
+
+        for key, value in applied.items():
+            setattr(card, key, value)
+
+        card.revision += 1
+
+        try:
+            self._admin_audit(
+                actor_user_id,
+                "payment_card.updated",
+                "payment_card",
+                card.public_id,
+                {
+                    "changed_fields": sorted(applied),
+                    "bank_name": card.bank_name,
+                    "card_last4": card.card_number[-4:],
+                    "is_active": card.is_active,
+                    "is_default": card.is_default,
+                },
+            )
+            self.session.commit()
+        except IntegrityError as exc:
+            self.session.rollback()
+            raise CommerceConflict("payment card conflicts with an existing card") from exc
+
+        self.session.refresh(card)
+        return card
 
     def admin_payments(self) -> list[ManualPayment]:
         return list(self.session.scalars(select(ManualPayment).where(

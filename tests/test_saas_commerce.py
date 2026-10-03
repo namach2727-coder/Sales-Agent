@@ -18,7 +18,7 @@ from app.commerce.kpay_provider import KPayCheckResult, KPayCreateResult, KPayCr
 from app.commerce.service import CommerceService
 from app.config import Settings, get_settings
 from app.database import get_db
-from app.models import AuthPlatformRoleAssignment, CommerceAdminAuditLog, ManualPayment, SaasPlan, Store, StoreModule, SubscriptionOrder, Tenant, TenantSubscription
+from app.models import AuthPlatformRoleAssignment, CommerceAdminAuditLog, ManualPayment, PaymentCard, SaasPlan, Store, StoreModule, SubscriptionOrder, Tenant, TenantSubscription
 from tools.seeding import SeedRunner, default_registry
 
 
@@ -50,6 +50,18 @@ def commerce_api(tmp_path: Path):
             product_family="AUTOMATION",
         )
         db.add(paid)
+        db.add(
+            PaymentCard(
+                card_number="0000000000000000",
+                account_number="0000000000000",
+                account_name="Test Account",
+                bank_name="Test Bank",
+                label="Default Test Card",
+                is_active=True,
+                is_default=True,
+                revision=1,
+            )
+        )
     settings = Settings(
         _env_file=None,
         database_url=str(engine.url),
@@ -579,6 +591,141 @@ def test_manual_receipt_and_atomic_idempotent_approval(commerce_api) -> None:
     receipt = client.get(f"/api/v1/admin/payments/{payment['public_id']}/receipt", headers=admin_headers)
     assert receipt.status_code == 200 and receipt.content.startswith(b"\x89PNG")
     assert Path(settings.receipt_storage_root).is_dir()
+
+
+def test_admin_payment_cards_drive_manual_payment_snapshot_and_approval(commerce_api) -> None:
+    client, engine, _settings = commerce_api
+
+    register(client, "payment-card-flow")
+    customer_headers = login(client, "payment-card-flow")
+    admin_headers = platform_admin_headers(client, engine, "payment-card-flow")
+
+    # Customer cannot manage platform payment cards.
+    denied = client.get(
+        "/api/v1/admin/payment-cards",
+        headers=customer_headers,
+    )
+    assert denied.status_code == 403
+
+    initial = client.get(
+        "/api/v1/admin/payment-cards",
+        headers=admin_headers,
+    )
+    assert initial.status_code == 200
+    assert len(initial.json()) == 1
+    assert initial.json()[0]["is_default"] is True
+
+    created = client.post(
+        "/api/v1/admin/payment-cards",
+        headers=admin_headers,
+        json={
+            "card_number": "1111222233334444",
+            "account_number": "1234567890",
+            "account_name": "DirectPilot Test Owner",
+            "bank_name": "Test Bank Two",
+            "label": "Primary Card",
+            "is_active": True,
+            "is_default": True,
+        },
+    )
+    assert created.status_code == 201, created.text
+    card = created.json()
+
+    assert card["card_number"] == "1111222233334444"
+    assert card["is_active"] is True
+    assert card["is_default"] is True
+
+    cards = client.get(
+        "/api/v1/admin/payment-cards",
+        headers=admin_headers,
+    )
+    assert cards.status_code == 200
+    defaults = [item for item in cards.json() if item["is_default"]]
+    assert len(defaults) == 1
+    assert defaults[0]["public_id"] == card["public_id"]
+
+    order = create_paid_order(client, customer_headers)
+
+    created_payment = client.post(
+        "/api/v1/payments/card-transfer",
+        headers=customer_headers,
+        json={"order_public_id": order["public_id"]},
+    )
+    assert created_payment.status_code == 201, created_payment.text
+
+    instructions = created_payment.json()
+    payment = instructions["payment"]
+
+    assert instructions["card_number"] == "1111222233334444"
+    assert instructions["account_number"] == "1234567890"
+    assert instructions["account_name"] == "DirectPilot Test Owner"
+    assert instructions["bank_name"] == "Test Bank Two"
+
+    # Change the live card after payment creation. Historical payment
+    # instructions must remain immutable through the stored snapshot.
+    changed = client.patch(
+        f"/api/v1/admin/payment-cards/{card['public_id']}",
+        headers=admin_headers,
+        json={
+            "expected_revision": card["revision"],
+            "card_number": "5555666677778888",
+            "account_name": "Changed Later",
+        },
+    )
+    assert changed.status_code == 200, changed.text
+
+    with Session(engine) as db:
+        stored = db.scalar(
+            select(ManualPayment).where(
+                ManualPayment.public_id == payment["public_id"]
+            )
+        )
+        assert stored is not None
+        assert stored.payment_card_id is not None
+        assert stored.card_number_snapshot == "1111222233334444"
+        assert stored.account_number_snapshot == "1234567890"
+        assert stored.account_name_snapshot == "DirectPilot Test Owner"
+        assert stored.bank_name_snapshot == "Test Bank Two"
+
+    submitted = client.post(
+        f"/api/v1/payments/{payment['public_id']}/receipt",
+        headers={
+            **customer_headers,
+            "Content-Type": "image/png",
+        },
+        content=b"\x89PNG\r\n\x1a\nmanual-card-transfer-receipt",
+    )
+    assert submitted.status_code == 200
+    assert submitted.json()["status"] == "submitted"
+
+    admin_detail = client.get(
+        f"/api/v1/admin/payments/{payment['public_id']}",
+        headers=admin_headers,
+    )
+    assert admin_detail.status_code == 200
+    detail = admin_detail.json()
+
+    # Admin sees the payment-time destination, not the later edited card.
+    assert detail["card_number"] == "1111222233334444"
+    assert detail["account_number"] == "1234567890"
+    assert detail["account_name"] == "DirectPilot Test Owner"
+    assert detail["bank_name"] == "Test Bank Two"
+
+    approved = client.post(
+        f"/api/v1/admin/payments/{payment['public_id']}/approve",
+        headers=admin_headers,
+        json={"expected_revision": submitted.json()["revision"]},
+    )
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "approved"
+    assert approved.json()["order_status"] == "paid"
+
+    subscription = client.get(
+        "/api/v1/subscription/me",
+        headers=customer_headers,
+    )
+    assert subscription.status_code == 200
+    assert subscription.json()["plan_code"] == "TEST_PAID"
 
 
 def test_payment_rejection_and_customer_cannot_use_admin_route(commerce_api) -> None:

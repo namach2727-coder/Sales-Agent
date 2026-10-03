@@ -197,6 +197,41 @@ class CardTransferCreate(BaseModel):
     order_public_id: str = Field(min_length=36, max_length=36)
 
 
+class AdminPaymentCardCreate(BaseModel):
+    card_number: str = Field(pattern=r"^[0-9]{16}$")
+    account_number: str | None = Field(default=None, max_length=64)
+    account_name: str = Field(min_length=2, max_length=200)
+    bank_name: str = Field(min_length=2, max_length=120)
+    label: str | None = Field(default=None, max_length=120)
+    is_active: bool = True
+    is_default: bool = False
+
+
+class AdminPaymentCardUpdate(BaseModel):
+    expected_revision: int = Field(ge=1)
+    card_number: str | None = Field(default=None, pattern=r"^[0-9]{16}$")
+    account_number: str | None = Field(default=None, max_length=64)
+    account_name: str | None = Field(default=None, min_length=2, max_length=200)
+    bank_name: str | None = Field(default=None, min_length=2, max_length=120)
+    label: str | None = Field(default=None, max_length=120)
+    is_active: bool | None = None
+    is_default: bool | None = None
+
+
+class AdminPaymentCardRead(BaseModel):
+    public_id: str
+    card_number: str
+    account_number: str | None
+    account_name: str
+    bank_name: str
+    label: str | None
+    is_active: bool
+    is_default: bool
+    revision: int
+    created_at: datetime
+    updated_at: datetime
+
+
 class KPayCreate(BaseModel):
     order_public_id: str = Field(min_length=36, max_length=36)
 
@@ -224,13 +259,17 @@ class AdminPaymentRead(PaymentRead):
     plan_code: str
     product_family: str
     order_status: str
+    card_number: str | None = None
+    account_number: str | None = None
+    account_name: str | None = None
+    bank_name: str | None = None
     submitted_at: datetime | None
 
 
 class CardTransferInstructions(BaseModel):
     payment: PaymentRead
     card_number: str
-    account_number: str
+    account_number: str | None
     account_name: str
     bank_name: str
     instructions: str

@@ -18,6 +18,9 @@ from app.authentication.schemas import LoginInput
 from app.authz.permissions import PermissionCode
 from app.commerce.schemas import (
     AdminPaymentRead,
+    AdminPaymentCardCreate,
+    AdminPaymentCardRead,
+    AdminPaymentCardUpdate,
     AdminGrantCreate,
     AdminCommerceAuditRead,
     AdminCustomerStoreRead,
@@ -59,7 +62,7 @@ from app.commerce.payexa_service import PayexaService
 from urllib.parse import urlsplit, quote
 from app.config import Settings, get_settings
 from app.database import get_db
-from app.models import CommerceAdminAuditLog, CommerceAuditLog, ManualPayment, SaasPlan, Store, SubscriptionOrder, Tenant, TenantSubscription, UserIdentity
+from app.models import CommerceAdminAuditLog, CommerceAuditLog, ManualPayment, PaymentCard, SaasPlan, Store, SubscriptionOrder, Tenant, TenantSubscription, UserIdentity
 from app.module_catalog import effective_capabilities, effective_capabilities_for_stores, effective_product_subscriptions
 from app.tenant_management.domain import TenantManagementError
 
@@ -260,6 +263,10 @@ def _admin_payment_read(db: Session, item: ManualPayment) -> AdminPaymentRead:
         plan_code=order.plan_code_snapshot or plan.code,
         product_family=order.product_family_snapshot or plan.product_family,
         order_status=order.status,
+        card_number=item.card_number_snapshot,
+        account_number=item.account_number_snapshot,
+        account_name=item.account_name_snapshot,
+        bank_name=item.bank_name_snapshot,
         submitted_at=item.submitted_at,
     )
 
@@ -479,8 +486,24 @@ def _subscription_read(db: Session, item: TenantSubscription) -> SubscriptionRea
 @router.post("/payments/card-transfer", response_model=CardTransferInstructions, status_code=201)
 def card_transfer(payload: CardTransferCreate, principal: AuthenticatedPrincipal = Depends(require_authenticated_principal), db: Session = Depends(get_db), settings: Settings = Depends(get_settings)) -> CardTransferInstructions:
     try:
-        instructions = ManualCardTransferProvider(settings).instructions()
         payment = CommerceService(db).create_payment(principal, payload.order_public_id)
+
+        if payment.card_number_snapshot:
+            return CardTransferInstructions(
+                payment=_payment_read(db, payment),
+                card_number=payment.card_number_snapshot,
+                account_number=payment.account_number_snapshot,
+                account_name=payment.account_name_snapshot or "",
+                bank_name=payment.bank_name_snapshot or "",
+                instructions=(
+                    settings.card_transfer_instructions.strip()
+                    or "Transfer the exact order amount, then upload the receipt for admin review."
+                ),
+            )
+
+        # Backward-compatible read for legacy manual payments created before
+        # payment-card snapshots existed.
+        instructions = ManualCardTransferProvider(settings).instructions()
         return CardTransferInstructions(
             payment=_payment_read(db, payment),
             card_number=instructions.card_number,
@@ -623,6 +646,66 @@ async def upload_receipt(payment_public_id: str, request: Request, principal: Au
     except CommerceError as exc:
         if stored is not None:
             storage.delete(stored.key)
+        _error(exc)
+
+
+def _payment_card_read(item: PaymentCard) -> AdminPaymentCardRead:
+    return AdminPaymentCardRead.model_validate(item, from_attributes=True)
+
+
+@router.get("/admin/payment-cards", response_model=list[AdminPaymentCardRead])
+def admin_payment_cards(
+    _principal: AuthenticatedPrincipal = Depends(
+        require_platform_permission(PermissionCode.PAYMENT_READ)
+    ),
+    db: Session = Depends(get_db),
+) -> list[AdminPaymentCardRead]:
+    return [
+        _payment_card_read(item)
+        for item in CommerceService(db).admin_payment_cards()
+    ]
+
+
+@router.post("/admin/payment-cards", response_model=AdminPaymentCardRead, status_code=201)
+def admin_create_payment_card(
+    payload: AdminPaymentCardCreate,
+    principal: AuthenticatedPrincipal = Depends(
+        require_platform_permission(PermissionCode.PAYMENT_MANAGE)
+    ),
+    db: Session = Depends(get_db),
+) -> AdminPaymentCardRead:
+    try:
+        item = CommerceService(db).admin_create_payment_card(
+            actor_user_id=principal.user_id,
+            **payload.model_dump(),
+        )
+        return _payment_card_read(item)
+    except CommerceError as exc:
+        _error(exc)
+
+
+@router.patch("/admin/payment-cards/{card_public_id}", response_model=AdminPaymentCardRead)
+def admin_update_payment_card(
+    card_public_id: str,
+    payload: AdminPaymentCardUpdate,
+    principal: AuthenticatedPrincipal = Depends(
+        require_platform_permission(PermissionCode.PAYMENT_MANAGE)
+    ),
+    db: Session = Depends(get_db),
+) -> AdminPaymentCardRead:
+    values = payload.model_dump(
+        exclude={"expected_revision"},
+        exclude_unset=True,
+    )
+    try:
+        item = CommerceService(db).admin_update_payment_card(
+            card_public_id,
+            actor_user_id=principal.user_id,
+            expected_revision=payload.expected_revision,
+            **values,
+        )
+        return _payment_card_read(item)
+    except CommerceError as exc:
         _error(exc)
 
 

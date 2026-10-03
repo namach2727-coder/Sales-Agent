@@ -1020,6 +1020,35 @@ class SubscriptionOrder(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
 
+class PaymentCard(Base):
+    """Admin-managed destination card for manual card-transfer payments."""
+
+    __tablename__ = "payment_cards"
+    __table_args__ = (
+        UniqueConstraint("card_number", name="uq_payment_cards_card_number"),
+        CheckConstraint("revision >= 1", name="ck_payment_cards_revision"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), default=new_public_id, unique=True, index=True
+    )
+    card_number: Mapped[str] = mapped_column(String(32))
+    account_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    account_name: Mapped[str] = mapped_column(String(200))
+    bank_name: Mapped[str] = mapped_column(String(120))
+    label: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
 class ManualPayment(Base):
     """Manual card-transfer payment; receipt bytes live in private storage."""
 
@@ -1050,6 +1079,13 @@ class ManualPayment(Base):
     order_id: Mapped[int] = mapped_column(ForeignKey("subscription_orders.id"), index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user_identities.id"), index=True)
     provider: Mapped[str] = mapped_column(String(40), default="manual_card_transfer")
+    payment_card_id: Mapped[int | None] = mapped_column(
+        ForeignKey("payment_cards.id"), nullable=True, index=True
+    )
+    card_number_snapshot: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    account_number_snapshot: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    account_name_snapshot: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    bank_name_snapshot: Mapped[str | None] = mapped_column(String(120), nullable=True)
     provider_transaction_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     provider_verification_token: Mapped[str | None] = mapped_column(String(128), nullable=True)
     provider_authority: Mapped[str | None] = mapped_column(String(200), nullable=True, unique=True, index=True)
