@@ -110,7 +110,8 @@ Current exact Vercel deployment/routing evidence has not yet been reverified in 
 ## Verification Limitations / Open Evidence
 
 - Production and UAT both run `8bce8ae...`; CI and startup acceptance passed with reset disabled.
-- Production/UAT data isolation needs observable re-verification.
+- Production/UAT data isolation: PASS from observable public-plan differences. Production exposes only `AUTOMATION_V1`; UAT exposes `AUTOMATION_V1` plus `AI_ASSISTANT_V1`, with different `AUTOMATION_V1` public IDs across environments.
+- UAT `AI_ASSISTANT_V1` is UAT-only test/stale catalog data; current Production commercial scope remains `AUTOMATION_V1` only.
 - Vercel Production/UAT deployment SHA and routing need authoritative re-verification.
 - Meta/OAuth, LLM, and payment-provider environment separation remain follow-up gates.
 - Real payment-provider transaction acceptance is separate from source/route presence.
