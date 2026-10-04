@@ -123,3 +123,17 @@ Current Vercel deployment/routing evidence is verified:
 - UAT `AI_ASSISTANT_V1` is UAT-only test/stale catalog data; current Production commercial scope remains `AUTOMATION_V1` only.
 - Meta/OAuth, LLM, and payment-provider environment separation remain follow-up gates.
 - Real payment-provider transaction acceptance is separate from source/route presence.
+
+
+## Meta / OAuth
+
+- Status: PARTIAL.
+- Pilot decision: reuse the same Meta App credentials for UAT and Production for now.
+- Production Meta environment variables were added without documenting secret values.
+- Production OAuth redirect URI is environment-specific:
+  `https://directpilot-api.onrender.com/api/v1/integrations/instagram/callback`.
+- UAT redirect URI remains:
+  `https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback`.
+- Production environment update deploy `dep-db15nrou01pc73cv9hf0` is LIVE; startup validation PASS.
+- Real Production OAuth callback acceptance and live webhook/DM acceptance are still OPEN.
+- If simultaneous independent live webhook delivery is required in both environments, use separate Meta Apps.
