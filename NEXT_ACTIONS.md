@@ -23,19 +23,15 @@ Status: **PARTIAL**
 - GitHub access to backend and frontend repositories: PASS.
 - One-shot Production Super Admin password reset/unlock: PASS; reset flag disabled and temporary values cleared.
 - Production Super Admin browser login and `/admin` access: PASS.
+- Production same-origin `/api/v1/plans`: PASS; current public response exposes only intended `AUTOMATION_V1` catalog.
 
 ### Next Exact Checks
 
-1. Verify live Production same-origin `https://directpilot.ir/api/v1/plans`.
-   - Confirm the response matches the current intended public catalog.
-   - Do not rely only on seed logs.
-   - Do not expose credentials in chat or Git.
-   - Do not create payment/subscription state just to prove auth.
-2. Verify Production same-origin API routes resolve to Production, not UAT.
-3. Verify observable Production data does not appear in UAT.
-4. Verify observable UAT data does not appear in Production.
-5. Reverify authoritative Vercel Production/UAT deployment SHAs and routing.
-6. Only after the above evidence is complete, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
+1. Verify Production same-origin API routes resolve to Production, not UAT.
+2. Verify observable Production data does not appear in UAT.
+3. Verify observable UAT data does not appear in Production.
+4. Reverify authoritative Vercel Production/UAT deployment SHAs and routing.
+5. Only after the above evidence is complete, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
 
 ## P1 — Integration Credential Separation
 
