@@ -126,6 +126,8 @@ Do not weaken the Production database IP allowlist merely to inspect SQL.
 ## Last Verified Action
 
 2026-10-04:
+- Continuity layer created and verified in GitHub: `AI_HANDOFF.md`, `DECISIONS.md`, `CURRENT_STATE.md`, `NEXT_ACTIONS.md`.
+- `PROJECT_ROADMAP.md` authority header updated so `AI_HANDOFF.md` is primary.
 - GitHub App installation detected for account `namach2727-coder`.
 - Repository selection is `all`.
 - Both `Sales-Agent` and `directpilot-web` report read/write repository access.
@@ -135,17 +137,16 @@ Do not weaken the Production database IP allowlist merely to inspect SQL.
 
 ## Next Exact Action
 
-1. Complete/create the continuity files and make this file the primary handoff authority.
-2. Reverify live Production same-origin `https://directpilot.ir/api/v1/plans`.
-3. Reverify an authenticated Production session non-destructively.
-4. Verify Production routes/data do not resolve to UAT and UAT does not expose Production data.
-5. Reverify current Vercel Production/UAT frontend deployment/routing evidence.
-6. Only after those checks, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
-7. Continue with:
+1. Reverify live Production same-origin `https://directpilot.ir/api/v1/plans`.
+2. Reverify an authenticated Production session non-destructively.
+3. Verify Production routes/data do not resolve to UAT and UAT does not expose Production data.
+4. Reverify current Vercel Production/UAT frontend deployment/routing evidence.
+5. Only after those checks, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
+6. Continue with:
    - `META_OAUTH_ENVIRONMENT_SPLIT`
    - `LLM_ENVIRONMENT_VERIFICATION`
    - `PAYMENT_PROVIDER_ENVIRONMENT_SPLIT`
-8. Before real customers, resolve Production database durability and backup/restore acceptance.
+7. Before real customers, resolve Production database durability and backup/restore acceptance.
 
 ## Important Constraints
 
@@ -212,7 +213,7 @@ FRONTEND_DEPLOYMENT_SHA:
 OPEN — REVERIFY AUTHORITATIVELY
 
 NEXT EXACT ACTION:
-Complete continuity files, then verify live Production same-origin plans,
-authenticated Production session, Production/UAT isolation, and Vercel routing.
+Verify live Production same-origin plans, authenticated Production session,
+Production/UAT isolation, and Vercel routing.
 Only then mark Production Regression PASS.
 ```
