@@ -18,7 +18,7 @@
 - Production branch: `main`
 - UAT branch: `UAT`
 - GitHub App access to repository: PASS
-- Exact current Vercel deployed SHA: OPEN / must be reverified authoritatively.
+- Current Vercel frontend SHA: `ede06b5822b499812cfe24464c737d67bf781014` for both accepted Production and UAT deployments.
 
 ## Production Backend
 
@@ -105,13 +105,21 @@ Known canonical domains:
 
 Expected architecture remains same-origin `/api/v1/*` with server-only `DIRECTPILOT_API_UPSTREAM`.
 
-Current exact Vercel deployment/routing evidence has not yet been reverified in this continuity checkpoint. Do not infer frontend deployment SHAs from old documentation.
+Current Vercel deployment/routing evidence is verified:
+- Production: `dpl_3yRwkKf5gFaR6wz5TTpM1FjCZjsR`, branch `main`, READY.
+- UAT: `dpl_CZFLfeqwKv8FWUUx5KCh8E2inM7R`, branch `UAT`, READY.
+- Both use frontend SHA `ede06b5822b499812cfe24464c737d67bf781014`.
+- `DIRECTPILOT_API_UPSTREAM` exists as separate encrypted variables scoped to Production and Preview; values were not decrypted.
+- Distinct live public catalogs confirm the two domains are not resolving to the same application data.
+
+## Production Regression Status
+
+`PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT`: PASS.
 
 ## Verification Limitations / Open Evidence
 
 - Production and UAT both run `8bce8ae...`; CI and startup acceptance passed with reset disabled.
 - Production/UAT data isolation: PASS from observable public-plan differences. Production exposes only `AUTOMATION_V1`; UAT exposes `AUTOMATION_V1` plus `AI_ASSISTANT_V1`, with different `AUTOMATION_V1` public IDs across environments.
 - UAT `AI_ASSISTANT_V1` is UAT-only test/stale catalog data; current Production commercial scope remains `AUTOMATION_V1` only.
-- Vercel Production/UAT deployment SHA and routing need authoritative re-verification.
 - Meta/OAuth, LLM, and payment-provider environment separation remain follow-up gates.
 - Real payment-provider transaction acceptance is separate from source/route presence.
