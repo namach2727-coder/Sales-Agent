@@ -40,10 +40,14 @@ P0 is complete. Do not repeat unless a related deployment/configuration change o
 
 After P0:
 
-- `META_OAUTH_ENVIRONMENT_SPLIT`
-  - verify Production vs UAT callback URLs,
-  - verify environment-specific Meta credentials/configuration without printing values,
-  - reaccept OAuth/webhook behavior only where environment changes can affect it.
+- `META_OAUTH_ENVIRONMENT_SPLIT` — PARTIAL
+  - shared Meta App for UAT + Production is the current pilot decision,
+  - Production Meta variables added; deploy `dep-db15nrou01pc73cv9hf0` LIVE,
+  - keep separate Production/UAT OAuth redirect URIs,
+  - configure Production as the active webhook callback for the shared app,
+  - run real Production OAuth connect/callback acceptance,
+  - run controlled Production webhook/DM acceptance,
+  - create separate Meta Apps later if simultaneous independent live UAT/Production webhooks are required.
 
 - `LLM_ENVIRONMENT_VERIFICATION`
   - verify selected provider/model configuration by environment,
