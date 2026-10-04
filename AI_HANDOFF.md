@@ -116,8 +116,8 @@ Environment separation itself is complete. Do not rebuild it.
 No GitHub repository-access blocker remains.
 
 Current verification dependencies:
-- authoritative Vercel deployment/routing inspection,
-- live same-origin Production API verification,
+- authoritative Vercel deployment/routing inspection (connector recheck: project lookup 404; deployment listing 403 — treat as inspection blocker, not application failure),
+- live same-origin Production API verification (current public fetch tool could not access the endpoint; no application failure inferred),
 - safe authenticated Production-session evidence,
 - observable Production/UAT isolation evidence.
 
