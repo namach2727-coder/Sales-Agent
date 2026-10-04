@@ -24,8 +24,9 @@
 
 - Render service: `directpilot-api`
 - Service ID: `srv-db0f3uc9v7es73b5k51g`
-- Latest LIVE deployment ID: `dep-db14i9vavr4c73a7vgs0`
-- Deployed SHA: `8bce8aee595c3b3f21bb69ecf47a082a19d11498`
+- Latest LIVE deployment ID: `dep-db159npsrm7s73a57usg`
+- Deployment Git SHA: `6183ec60fc7e50b8d80d16fe89fba7138de3f9e4` (documentation-only)
+- Effective runtime-code SHA: `8bce8aee595c3b3f21bb69ecf47a082a19d11498`
 - Status: LIVE
 - `APP_ENV=production`: VERIFIED
 - Database connectivity: PASS
@@ -83,8 +84,9 @@ Live same-origin Production `/api/v1/plans` response after the catalog change: P
 - Admin-login recovery fix deployed in `8bce8ae...`: server-derived `platform_role_codes` are serialized for the frontend, and a separate fail-closed one-shot password reset/unlock path exists.
 - Runtime log recorded: platform administrator created with `user_id=3`.
 - Credentials are intentionally not recorded.
-- Existing Super Admin password reset/unlock has NOT yet been executed.
-- Authenticated Production-session and `/admin` acceptance: OPEN.
+- Existing Super Admin password reset/unlock: PASS for `user_id=3`.
+- Reset cleanup: PASS — reset flag disabled, temporary reset values cleared, clean restart confirmed no rerun.
+- Authenticated Production-session and `/admin` acceptance: PASS (user-confirmed browser login and Admin access).
 
 ## Environment Separation
 
@@ -109,7 +111,6 @@ Current exact Vercel deployment/routing evidence has not yet been reverified in 
 
 - Production and UAT both run `8bce8ae...`; CI and startup acceptance passed with reset disabled.
 - Live same-origin Production plan JSON needs direct re-verification.
-- Existing authenticated Production session needs non-destructive re-verification.
 - Production/UAT data isolation needs observable re-verification.
 - Vercel Production/UAT deployment SHA and routing need authoritative re-verification.
 - Meta/OAuth, LLM, and payment-provider environment separation remain follow-up gates.
