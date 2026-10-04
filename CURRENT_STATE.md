@@ -76,7 +76,7 @@ Automation V1 source publication commit:
 
 Production startup seed evidence recorded creation of the new plan row after this release.
 
-Live same-origin Production `/api/v1/plans` response after the catalog change: PARTIAL / REVERIFY.
+Live same-origin Production `/api/v1/plans` response after the catalog change: PASS. Browser response contains only `AUTOMATION_V1` with intended public values: 4,900,000 IRR, 30 days, automation limit 20, Instagram account limit 1, AI reply limit 0.
 
 ## Production Administrator Bootstrap
 
@@ -110,7 +110,6 @@ Current exact Vercel deployment/routing evidence has not yet been reverified in 
 ## Verification Limitations / Open Evidence
 
 - Production and UAT both run `8bce8ae...`; CI and startup acceptance passed with reset disabled.
-- Live same-origin Production plan JSON needs direct re-verification.
 - Production/UAT data isolation needs observable re-verification.
 - Vercel Production/UAT deployment SHA and routing need authoritative re-verification.
 - Meta/OAuth, LLM, and payment-provider environment separation remain follow-up gates.
