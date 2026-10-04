@@ -1,10 +1,10 @@
 # DirectPilot Project Roadmap & Continuity Checkpoint
 
-> **Canonical handoff document.** Read this file first when a new ChatGPT/Codex session starts.
+> **Strategic roadmap / secondary continuity document.** Read `AI_HANDOFF.md` first in every new ChatGPT/Codex session; then read this file.
 >
 > **Last updated:** 2026-10-04
 >
-> **Current authority rule:** Runtime evidence > deployed commit > repository source > this document > old chat history. If reality conflicts with this file, verify reality first and then update this file.
+> **Current authority rule:** Runtime evidence > deployed commit > repository source > `AI_HANDOFF.md` > this document > old chat history. If reality conflicts with this file, verify reality first and then update this file.
 >
 > **Secret rule:** This document intentionally records credential **names, owners, locations and status**, but never credential values. Never paste API keys, database passwords/DSNs, Meta tokens, session tokens, encryption keys or payment-provider secrets into Git, chat, logs, screenshots or frontend variables.
 
