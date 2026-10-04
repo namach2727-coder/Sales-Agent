@@ -103,9 +103,9 @@ Environment separation itself is complete. Do not rebuild it.
 ## Open Issues
 
 - Live Production same-origin `/api/v1/plans` response still requires direct re-verification after the Automation V1 publication/seed change.
-- Production Super Admin login is still OPEN: bootstrap created `user_id=3`, but the prior browser login returned generic `Invalid credentials`.
-- Backend/frontend principal contract issue was fixed in `8bce8ae...`: `/auth/login` and `/auth/me` now expose server-derived `platform_role_codes` required by the Admin UI.
-- A fail-closed one-shot existing-Super-Admin password reset/unlock mechanism is deployed but has NOT been enabled or executed.
+- Production Super Admin login browser acceptance is still OPEN.
+- Backend/frontend principal contract issue was fixed in `8bce8ae...`: `/auth/login` and `/auth/me` expose server-derived `platform_role_codes` required by the Admin UI.
+- One-shot password reset/unlock executed successfully for the existing Super Admin (`user_id=3`) on Production. The reset flag was then set to `false`, temporary reset email/password values were cleared, and a clean restart confirmed neither reset nor bootstrap reran.
 - Production/UAT data isolation must be reverified from observable application behavior.
 - Exact current Vercel Production/UAT frontend deployment SHAs and routing evidence must be reverified.
 - Meta/OAuth credentials and callback separation require post-separation acceptance.
@@ -118,7 +118,7 @@ Environment separation itself is complete. Do not rebuild it.
 No GitHub repository-access blocker remains.
 
 Current verification dependencies:
-- complete the one-shot Production Super Admin password reset/unlock without exposing the password, then verify login and `/admin`,
+- verify browser login and `/admin` for the reset Production Super Admin (password remains user-held only),
 - authoritative Vercel deployment/routing inspection (connector recheck: project lookup 404; deployment listing 403 — treat as inspection blocker, not application failure),
 - live same-origin Production API verification (current public fetch tool could not access the endpoint; no application failure inferred),
 - safe authenticated Production-session evidence,
@@ -136,22 +136,23 @@ Do not weaken the Production database IP allowlist merely to inspect SQL.
 - Both `Sales-Agent` and `directpilot-web` report read/write repository access.
 - CI for `8bce8ae...` PASS: docker-build, postgres-smoke, and test; full suite `858 passed, 7 skipped`.
 - UAT deploy `dep-db14hck9v7es73dtgdlg` at `8bce8ae...` is LIVE; APP_ENV/database/migration/startup PASS; reset did not run.
-- Production deploy `dep-db14i9vavr4c73a7vgs0` at `8bce8ae...` is LIVE; APP_ENV/database/migration/startup PASS; bootstrap/reset did not run.
+- Production reset deploy `dep-db157gnavr4c73aatm1g` succeeded: `Platform administrator password reset: user_id=3`.
+- Reset cleanup was applied: flag `false`, temporary reset email/password values cleared.
+- Production cleanup deploy `dep-db159npsrm7s73a57usg` is LIVE; database/migration/startup PASS; neither reset nor bootstrap reran. This deploy points at docs-only repository HEAD `6183ec6...`; runtime application code remains the accepted `8bce8ae...` change set.
 - Production PostgreSQL remains AVAILABLE on Free plan with expiry 2026-11-02.
 
 ## Next Exact Action
 
-1. Set a new Production reset password only in Render as `DIRECTPILOT_RESET_ADMIN_PASSWORD` (never in chat/Git), then run the one-shot reset for the existing active Super Admin and immediately disable/clear the reset variables.
-2. Verify Production Super Admin login and `/admin` access; confirm `platform_role_codes` routes the principal correctly.
-3. Reverify live Production same-origin `https://directpilot.ir/api/v1/plans`.
-4. Verify Production routes/data do not resolve to UAT and UAT does not expose Production data.
-5. Reverify current Vercel Production/UAT frontend deployment/routing evidence.
-6. Only after those checks, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
-7. Continue with:
+1. Verify Production Super Admin browser login and `/admin` access using the newly reset password; confirm `platform_role_codes` routes the principal correctly.
+2. Reverify live Production same-origin `https://directpilot.ir/api/v1/plans`.
+3. Verify Production routes/data do not resolve to UAT and UAT does not expose Production data.
+4. Reverify current Vercel Production/UAT frontend deployment/routing evidence.
+5. Only after those checks, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
+6. Continue with:
    - `META_OAUTH_ENVIRONMENT_SPLIT`
    - `LLM_ENVIRONMENT_VERIFICATION`
    - `PAYMENT_PROVIDER_ENVIRONMENT_SPLIT`
-8. Before real customers, resolve Production database durability and backup/restore acceptance.
+7. Before real customers, resolve Production database durability and backup/restore acceptance.
 
 ## Important Constraints
 
@@ -218,7 +219,7 @@ FRONTEND_DEPLOYMENT_SHA:
 OPEN — REVERIFY AUTHORITATIVELY
 
 NEXT EXACT ACTION:
-Run the fail-closed one-shot Production Super Admin password reset/unlock,
-verify login + /admin, then continue same-origin plans, isolation, and Vercel routing.
+Verify Production Super Admin browser login + /admin using the reset password,
+then continue same-origin plans, isolation, and Vercel routing.
 Only then mark Production Regression PASS.
 ```
