@@ -1,0 +1,113 @@
+# DirectPilot Current State
+
+> Snapshot of verifiable current state. Read `AI_HANDOFF.md` first.
+> Last reconciled: 2026-10-04.
+
+## Repository State
+
+### Backend
+
+- Repository: `namach2727-coder/Sales-Agent`
+- Branch: `backend-main`
+- Latest runtime-code commit before continuity documentation: `67d7be01bd32118fee4e98118b2f9e60fc0c3048`
+- Continuity documentation commits are newer than the deployed runtime SHA and must not be described as deployed application code.
+
+### Frontend
+
+- Repository: `namach2727-coder/directpilot-web`
+- Production branch: `main`
+- UAT branch: `UAT`
+- GitHub App access to repository: PASS
+- Exact current Vercel deployed SHA: OPEN / must be reverified authoritatively.
+
+## Production Backend
+
+- Render service: `directpilot-api`
+- Service ID: `srv-db0f3uc9v7es73b5k51g`
+- Latest LIVE deployment ID: `dep-db13jm5g1s2s738d5bv0`
+- Deployed SHA: `67d7be01bd32118fee4e98118b2f9e60fc0c3048`
+- Status: LIVE
+- `APP_ENV=production`: VERIFIED
+- Database connectivity: PASS
+- Migration startup/current-head verification: PASS
+- Application startup: PASS
+- Auto deploy: OFF
+
+## UAT Backend
+
+- Render service: `directpilot-uat-api`
+- Service ID: `srv-dabsmo7qj5pc7397jqf0`
+- Latest LIVE deployment ID: `dep-db127cc9v7es73dj9am0`
+- Deployed SHA: `64be7ef8cfdcab7f75560a95baeb931071a35e62`
+- Status: LIVE
+- `APP_ENV=uat`: VERIFIED
+- Database connectivity/startup: PASS
+- Auto deploy: OFF
+
+## Production Database
+
+- Render database: `directpilot-production-db`
+- ID: `dpg-db0escm0tbcc73fhig2g-a`
+- PostgreSQL: 16
+- Status: AVAILABLE
+- Plan: FREE
+- Expires: `2026-11-02T11:59:46.610475Z`
+- High availability: disabled
+- Read replicas: none
+- External IP allowlist is empty.
+- Latest file-recorded migration head: `0023`.
+- Deployed startup verifies current migration head.
+- Do not weaken the database IP allowlist merely to inspect SQL.
+- This database is pilot infrastructure only; real-customer durability remains OPEN.
+
+## Commercial Catalog
+
+Current source decision:
+
+- `AUTOMATION_V1`: active + purchasable, 4,900,000 IRR, 30 days, automation limit 20, Instagram account limit 1, AI reply limit 0.
+- `AUTOMATION_TRIAL`: active trial, not purchasable.
+- `AI_ASSISTANT_TRIAL`: active trial, not purchasable.
+- Legacy FREE/TRIAL/START/PRO plans: not public purchasable plans.
+- No paid `AI_ASSISTANT_V1` is part of the current verified V1 sale scope.
+
+Automation V1 source publication commit:
+`391ef3f0d835099f3f71ace028b0e92eddb40a0d`
+
+Production startup seed evidence recorded creation of the new plan row after this release.
+
+Live same-origin Production `/api/v1/plans` response after the catalog change: PARTIAL / REVERIFY.
+
+## Production Administrator Bootstrap
+
+- One-shot bootstrap source deployed in `67d7be0...`.
+- Runtime log recorded: platform administrator created with `user_id=3`.
+- Credentials are intentionally not recorded.
+- Authenticated Production-session acceptance after this change: OPEN / non-destructive re-verification required.
+
+## Environment Separation
+
+Status: PASS.
+
+Do not repeat the separation implementation without regression evidence.
+
+Current work is post-separation Production regression and integration verification, not environment rebuilding.
+
+## Frontend / Vercel
+
+Known canonical domains:
+
+- Production: `https://directpilot.ir`
+- UAT: `https://uat.directpilot.ir`
+
+Expected architecture remains same-origin `/api/v1/*` with server-only `DIRECTPILOT_API_UPSTREAM`.
+
+Current exact Vercel deployment/routing evidence has not yet been reverified in this continuity checkpoint. Do not infer frontend deployment SHAs from old documentation.
+
+## Verification Limitations / Open Evidence
+
+- Live same-origin Production plan JSON needs direct re-verification.
+- Existing authenticated Production session needs non-destructive re-verification.
+- Production/UAT data isolation needs observable re-verification.
+- Vercel Production/UAT deployment SHA and routing need authoritative re-verification.
+- Meta/OAuth, LLM, and payment-provider environment separation remain follow-up gates.
+- Real payment-provider transaction acceptance is separate from source/route presence.
