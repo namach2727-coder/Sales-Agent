@@ -10,13 +10,13 @@ Status: **PARTIAL**
 ### Already Verified — Do Not Repeat Without Regression Evidence
 
 - Production Render backend: LIVE.
-- Production deployed runtime SHA: `67d7be01bd32118fee4e98118b2f9e60fc0c3048`.
+- Production deployed runtime SHA: `8bce8aee595c3b3f21bb69ecf47a082a19d11498`.
 - Production `APP_ENV=production`.
 - Production PostgreSQL connectivity.
 - Production migration startup/current-head verification.
 - Production application startup.
 - UAT Render backend: LIVE.
-- UAT deployed runtime SHA: `64be7ef8cfdcab7f75560a95baeb931071a35e62`.
+- UAT deployed runtime SHA: `8bce8aee595c3b3f21bb69ecf47a082a19d11498`.
 - UAT `APP_ENV=uat`.
 - UAT database connectivity/startup.
 - UAT/Production environment-separation milestone: PASS.
@@ -24,17 +24,18 @@ Status: **PARTIAL**
 
 ### Next Exact Checks
 
-1. Verify live Production same-origin `https://directpilot.ir/api/v1/plans`.
+1. Complete the fail-closed one-shot Production Super Admin password reset/unlock using a Render-only secret; immediately disable and clear reset variables after the successful reset.
+2. Verify Production Super Admin login and `/admin` access. Confirm the server-derived `platform_role_codes` contract works.
+3. Verify live Production same-origin `https://directpilot.ir/api/v1/plans`.
    - Confirm the response matches the current intended public catalog.
    - Do not rely only on seed logs.
-2. Verify an existing Production authenticated session non-destructively.
    - Do not expose credentials in chat or Git.
    - Do not create payment/subscription state just to prove auth.
-3. Verify Production same-origin API routes resolve to Production, not UAT.
-4. Verify observable Production data does not appear in UAT.
-5. Verify observable UAT data does not appear in Production.
-6. Reverify authoritative Vercel Production/UAT deployment SHAs and routing.
-7. Only after the above evidence is complete, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
+4. Verify Production same-origin API routes resolve to Production, not UAT.
+5. Verify observable Production data does not appear in UAT.
+6. Verify observable UAT data does not appear in Production.
+7. Reverify authoritative Vercel Production/UAT deployment SHAs and routing.
+8. Only after the above evidence is complete, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
 
 ## P1 — Integration Credential Separation
 

@@ -23,11 +23,11 @@
 
 - Repository: `namach2727-coder/Sales-Agent`
 - Branch: `backend-main`
-- Latest runtime-code repository commit before continuity-doc commits: `67d7be01bd32118fee4e98118b2f9e60fc0c3048`
+- Latest runtime-code repository commit: `8bce8aee595c3b3f21bb69ecf47a082a19d11498`
 - Production Render service: `directpilot-api`
 - Service ID: `srv-db0f3uc9v7es73b5k51g`
-- Deployment ID: `dep-db13jm5g1s2s738d5bv0`
-- Deployed commit: `67d7be01bd32118fee4e98118b2f9e60fc0c3048`
+- Deployment ID: `dep-db14i9vavr4c73a7vgs0`
+- Deployed commit: `8bce8aee595c3b3f21bb69ecf47a082a19d11498`
 - Deployment status: `LIVE`
 - `APP_ENV=production`: VERIFIED
 - PostgreSQL connectivity: PASS
@@ -64,8 +64,8 @@
 
 - Render service: `directpilot-uat-api`
 - Service ID: `srv-dabsmo7qj5pc7397jqf0`
-- Deployment ID: `dep-db127cc9v7es73dj9am0`
-- Deployed commit: `64be7ef8cfdcab7f75560a95baeb931071a35e62`
+- Deployment ID: `dep-db14hck9v7es73dtgdlg`
+- Deployed commit: `8bce8aee595c3b3f21bb69ecf47a082a19d11498`
 - Deployment status: `LIVE`
 - `APP_ENV=uat`: VERIFIED
 - Database connectivity/startup: PASS
@@ -97,13 +97,15 @@ Environment separation itself is complete. Do not rebuild it.
 - Production database connectivity and migration startup verification.
 - UAT database connectivity/startup verification.
 - GitHub App installation and repository access for both backend and frontend repositories.
-- Production backend deployed at `67d7be0...`.
-- UAT backend deployed at `64be7ef...`.
+- Production backend deployed at `8bce8ae...` with the admin-login recovery fix; startup PASS and reset flag remained disabled.
+- UAT backend deployed at `8bce8ae...`; startup PASS and reset flag remained disabled.
 
 ## Open Issues
 
 - Live Production same-origin `/api/v1/plans` response still requires direct re-verification after the Automation V1 publication/seed change.
-- Authenticated Production session must be reverified non-destructively.
+- Production Super Admin login is still OPEN: bootstrap created `user_id=3`, but the prior browser login returned generic `Invalid credentials`.
+- Backend/frontend principal contract issue was fixed in `8bce8ae...`: `/auth/login` and `/auth/me` now expose server-derived `platform_role_codes` required by the Admin UI.
+- A fail-closed one-shot existing-Super-Admin password reset/unlock mechanism is deployed but has NOT been enabled or executed.
 - Production/UAT data isolation must be reverified from observable application behavior.
 - Exact current Vercel Production/UAT frontend deployment SHAs and routing evidence must be reverified.
 - Meta/OAuth credentials and callback separation require post-separation acceptance.
@@ -116,6 +118,7 @@ Environment separation itself is complete. Do not rebuild it.
 No GitHub repository-access blocker remains.
 
 Current verification dependencies:
+- complete the one-shot Production Super Admin password reset/unlock without exposing the password, then verify login and `/admin`,
 - authoritative Vercel deployment/routing inspection (connector recheck: project lookup 404; deployment listing 403 — treat as inspection blocker, not application failure),
 - live same-origin Production API verification (current public fetch tool could not access the endpoint; no application failure inferred),
 - safe authenticated Production-session evidence,
@@ -131,22 +134,24 @@ Do not weaken the Production database IP allowlist merely to inspect SQL.
 - GitHub App installation detected for account `namach2727-coder`.
 - Repository selection is `all`.
 - Both `Sales-Agent` and `directpilot-web` report read/write repository access.
-- Production Render latest LIVE deployment remains `dep-db13jm5g1s2s738d5bv0` at `67d7be0...`.
-- UAT Render latest LIVE deployment remains `dep-db127cc9v7es73dj9am0` at `64be7ef...`.
+- CI for `8bce8ae...` PASS: docker-build, postgres-smoke, and test; full suite `858 passed, 7 skipped`.
+- UAT deploy `dep-db14hck9v7es73dtgdlg` at `8bce8ae...` is LIVE; APP_ENV/database/migration/startup PASS; reset did not run.
+- Production deploy `dep-db14i9vavr4c73a7vgs0` at `8bce8ae...` is LIVE; APP_ENV/database/migration/startup PASS; bootstrap/reset did not run.
 - Production PostgreSQL remains AVAILABLE on Free plan with expiry 2026-11-02.
 
 ## Next Exact Action
 
-1. Reverify live Production same-origin `https://directpilot.ir/api/v1/plans`.
-2. Reverify an authenticated Production session non-destructively.
-3. Verify Production routes/data do not resolve to UAT and UAT does not expose Production data.
-4. Reverify current Vercel Production/UAT frontend deployment/routing evidence.
-5. Only after those checks, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
-6. Continue with:
+1. Set a new Production reset password only in Render as `DIRECTPILOT_RESET_ADMIN_PASSWORD` (never in chat/Git), then run the one-shot reset for the existing active Super Admin and immediately disable/clear the reset variables.
+2. Verify Production Super Admin login and `/admin` access; confirm `platform_role_codes` routes the principal correctly.
+3. Reverify live Production same-origin `https://directpilot.ir/api/v1/plans`.
+4. Verify Production routes/data do not resolve to UAT and UAT does not expose Production data.
+5. Reverify current Vercel Production/UAT frontend deployment/routing evidence.
+6. Only after those checks, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
+7. Continue with:
    - `META_OAUTH_ENVIRONMENT_SPLIT`
    - `LLM_ENVIRONMENT_VERIFICATION`
    - `PAYMENT_PROVIDER_ENVIRONMENT_SPLIT`
-7. Before real customers, resolve Production database durability and backup/restore acceptance.
+8. Before real customers, resolve Production database durability and backup/restore acceptance.
 
 ## Important Constraints
 
@@ -188,13 +193,13 @@ PASS — DO NOT REPEAT
 
 PRODUCTION_BACKEND:
 LIVE / VERIFIED
-DEPLOYMENT: dep-db13jm5g1s2s738d5bv0
-DEPLOYED_SHA: 67d7be01bd32118fee4e98118b2f9e60fc0c3048
+DEPLOYMENT: dep-db14i9vavr4c73a7vgs0
+DEPLOYED_SHA: 8bce8aee595c3b3f21bb69ecf47a082a19d11498
 
 UAT_BACKEND:
 LIVE / VERIFIED
-DEPLOYMENT: dep-db127cc9v7es73dj9am0
-DEPLOYED_SHA: 64be7ef8cfdcab7f75560a95baeb931071a35e62
+DEPLOYMENT: dep-db14hck9v7es73dtgdlg
+DEPLOYED_SHA: 8bce8aee595c3b3f21bb69ecf47a082a19d11498
 
 MIGRATION:
 LATEST FILE-RECORDED HEAD: 0023
@@ -213,7 +218,7 @@ FRONTEND_DEPLOYMENT_SHA:
 OPEN — REVERIFY AUTHORITATIVELY
 
 NEXT EXACT ACTION:
-Verify live Production same-origin plans, authenticated Production session,
-Production/UAT isolation, and Vercel routing.
+Run the fail-closed one-shot Production Super Admin password reset/unlock,
+verify login + /admin, then continue same-origin plans, isolation, and Vercel routing.
 Only then mark Production Regression PASS.
 ```

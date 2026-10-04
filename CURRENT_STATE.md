@@ -9,7 +9,7 @@
 
 - Repository: `namach2727-coder/Sales-Agent`
 - Branch: `backend-main`
-- Latest runtime-code commit before continuity documentation: `67d7be01bd32118fee4e98118b2f9e60fc0c3048`
+- Latest runtime-code commit: `8bce8aee595c3b3f21bb69ecf47a082a19d11498`
 - Continuity documentation commits are newer than the deployed runtime SHA and must not be described as deployed application code.
 
 ### Frontend
@@ -24,8 +24,8 @@
 
 - Render service: `directpilot-api`
 - Service ID: `srv-db0f3uc9v7es73b5k51g`
-- Latest LIVE deployment ID: `dep-db13jm5g1s2s738d5bv0`
-- Deployed SHA: `67d7be01bd32118fee4e98118b2f9e60fc0c3048`
+- Latest LIVE deployment ID: `dep-db14i9vavr4c73a7vgs0`
+- Deployed SHA: `8bce8aee595c3b3f21bb69ecf47a082a19d11498`
 - Status: LIVE
 - `APP_ENV=production`: VERIFIED
 - Database connectivity: PASS
@@ -37,8 +37,8 @@
 
 - Render service: `directpilot-uat-api`
 - Service ID: `srv-dabsmo7qj5pc7397jqf0`
-- Latest LIVE deployment ID: `dep-db127cc9v7es73dj9am0`
-- Deployed SHA: `64be7ef8cfdcab7f75560a95baeb931071a35e62`
+- Latest LIVE deployment ID: `dep-db14hck9v7es73dtgdlg`
+- Deployed SHA: `8bce8aee595c3b3f21bb69ecf47a082a19d11498`
 - Status: LIVE
 - `APP_ENV=uat`: VERIFIED
 - Database connectivity/startup: PASS
@@ -79,10 +79,12 @@ Live same-origin Production `/api/v1/plans` response after the catalog change: P
 
 ## Production Administrator Bootstrap
 
-- One-shot bootstrap source deployed in `67d7be0...`.
+- One-shot bootstrap source remains deployed.
+- Admin-login recovery fix deployed in `8bce8ae...`: server-derived `platform_role_codes` are serialized for the frontend, and a separate fail-closed one-shot password reset/unlock path exists.
 - Runtime log recorded: platform administrator created with `user_id=3`.
 - Credentials are intentionally not recorded.
-- Authenticated Production-session acceptance after this change: OPEN / non-destructive re-verification required.
+- Existing Super Admin password reset/unlock has NOT yet been executed.
+- Authenticated Production-session and `/admin` acceptance: OPEN.
 
 ## Environment Separation
 
@@ -105,6 +107,7 @@ Current exact Vercel deployment/routing evidence has not yet been reverified in 
 
 ## Verification Limitations / Open Evidence
 
+- Production and UAT both run `8bce8ae...`; CI and startup acceptance passed with reset disabled.
 - Live same-origin Production plan JSON needs direct re-verification.
 - Existing authenticated Production session needs non-destructive re-verification.
 - Production/UAT data isolation needs observable re-verification.
