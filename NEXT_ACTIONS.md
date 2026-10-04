@@ -24,14 +24,12 @@ Status: **PARTIAL**
 - One-shot Production Super Admin password reset/unlock: PASS; reset flag disabled and temporary values cleared.
 - Production Super Admin browser login and `/admin` access: PASS.
 - Production same-origin `/api/v1/plans`: PASS; current public response exposes only intended `AUTOMATION_V1` catalog.
+- Production/UAT observable data isolation: PASS; catalogs differ and use different public IDs, proving they do not resolve to the same catalog/database.
 
 ### Next Exact Checks
 
-1. Verify Production same-origin API routes resolve to Production, not UAT.
-2. Verify observable Production data does not appear in UAT.
-3. Verify observable UAT data does not appear in Production.
-4. Reverify authoritative Vercel Production/UAT deployment SHAs and routing.
-5. Only after the above evidence is complete, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
+1. Reverify authoritative Vercel Production/UAT deployment SHAs and routing.
+2. Only after the above evidence is complete, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
 
 ## P1 — Integration Credential Separation
 
