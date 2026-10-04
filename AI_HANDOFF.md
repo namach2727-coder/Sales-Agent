@@ -111,7 +111,7 @@ Environment separation itself is complete. Do not rebuild it.
 - Production same-origin `/api/v1/plans`: PASS. Browser response exposed only `AUTOMATION_V1` with the intended public catalog values: 4,900,000 IRR, 30 days, automation limit 20, Instagram account limit 1, AI reply limit 0.
 - Production/UAT data isolation: PASS from observable public catalog behavior. Production exposes only `AUTOMATION_V1`; UAT exposes `AUTOMATION_V1` plus `AI_ASSISTANT_V1`, and the `AUTOMATION_V1` public IDs differ between environments. This proves the public routes are not resolving to the same data store/catalog.
 - UAT currently contains a public `AI_ASSISTANT_V1` test/stale catalog entry. This must remain UAT-only; Production commercial scope remains `AUTOMATION_V1` only.
-- Meta/OAuth credentials and callback separation require post-separation acceptance.
+- Meta/OAuth pilot configuration is PARTIAL: owner chose to reuse the same Meta App credentials for UAT and Production for now. Production Meta variables were added and Production redeployed successfully. Production uses its own OAuth redirect URI; live OAuth + webhook acceptance is still required.
 - LLM provider/environment configuration requires verification.
 - Payment-provider environment separation and real provider acceptance remain open.
 - Production PostgreSQL durability/backup/restore is not acceptable for real customers while using the expiring Free database.
@@ -141,6 +141,7 @@ Do not weaken the Production database IP allowlist merely to inspect SQL.
 - Production cleanup deploy `dep-db159npsrm7s73a57usg` is LIVE; database/migration/startup PASS; neither reset nor bootstrap reran. This deploy points at docs-only repository commit `6183ec6...`; runtime application code remains the accepted `8bce8ae...` change set.
 - Production Super Admin login succeeded in the browser and `/admin` opened successfully after the reset; admin auth acceptance is PASS.
 - Production PostgreSQL remains AVAILABLE on Free plan with expiry 2026-11-02.
+- Production environment change for Meta configuration triggered deploy `dep-db15nrou01pc73cv9hf0`, which is LIVE. APP_ENV=production, DB connectivity, migration current-head validation, and application startup all PASS.
 - Production public plans: PASS; only `AUTOMATION_V1` is exposed.
 - UAT public plans differ from Production (includes UAT-only `AI_ASSISTANT_V1` and distinct public IDs), confirming observable data isolation.
 - Vercel Production deployment `dpl_3yRwkKf5gFaR6wz5TTpM1FjCZjsR`: READY, branch `main`, frontend SHA `ede06b5822b499812cfe24464c737d67bf781014`.
@@ -149,7 +150,11 @@ Do not weaken the Production database IP allowlist merely to inspect SQL.
 
 ## Next Exact Action
 
-1. Start `META_OAUTH_ENVIRONMENT_SPLIT`.
+1. Complete `META_OAUTH_ENVIRONMENT_SPLIT` acceptance using the shared Meta App pilot decision:
+   - keep separate Production/UAT OAuth redirect URIs,
+   - make Production the active webhook destination for the shared app,
+   - run a real Production OAuth connect/callback test,
+   - run a controlled Production webhook/DM acceptance test.
 2. Then verify `LLM_ENVIRONMENT_VERIFICATION`.
 3. Then verify `PAYMENT_PROVIDER_ENVIRONMENT_SPLIT`.
 4. Before real customers, resolve Production database durability and backup/restore acceptance.
@@ -226,7 +231,7 @@ FRONTEND_SHA: ede06b5822b499812cfe24464c737d67bf781014
 ROUTING_SEPARATION: PASS
 
 NEXT EXACT ACTION:
-Begin META_OAUTH_ENVIRONMENT_SPLIT.
+Complete shared-Meta-App Production acceptance: register Production OAuth redirect URI in Meta, set Production as the active webhook callback for the shared app, then run Production OAuth + webhook E2E.
 P0 Production regression after environment split is PASS.
 Only then mark Production Regression PASS.
 ```
