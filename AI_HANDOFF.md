@@ -107,7 +107,8 @@ Environment separation itself is complete. Do not rebuild it.
 - One-shot password reset/unlock executed successfully for the existing Super Admin (`user_id=3`) on Production. The reset flag was then set to `false`, temporary reset email/password values were cleared, and a clean restart confirmed neither reset nor bootstrap reran.
 - Production Super Admin browser login and `/admin` access: PASS (user-confirmed after the Production-only password reset/unlock).
 - Production same-origin `/api/v1/plans`: PASS. Browser response exposed only `AUTOMATION_V1` with the intended public catalog values: 4,900,000 IRR, 30 days, automation limit 20, Instagram account limit 1, AI reply limit 0.
-- Production/UAT data isolation must be reverified from observable application behavior.
+- Production/UAT data isolation: PASS from observable public catalog behavior. Production exposes only `AUTOMATION_V1`; UAT exposes `AUTOMATION_V1` plus `AI_ASSISTANT_V1`, and the `AUTOMATION_V1` public IDs differ between environments. This proves the public routes are not resolving to the same data store/catalog.
+- UAT currently contains a public `AI_ASSISTANT_V1` test/stale catalog entry. This must remain UAT-only; Production commercial scope remains `AUTOMATION_V1` only.
 - Exact current Vercel Production/UAT frontend deployment SHAs and routing evidence must be reverified.
 - Meta/OAuth credentials and callback separation require post-separation acceptance.
 - LLM provider/environment configuration requires verification.
@@ -143,14 +144,13 @@ Do not weaken the Production database IP allowlist merely to inspect SQL.
 
 ## Next Exact Action
 
-1. Verify Production routes/data do not resolve to UAT and UAT does not expose Production data.
-2. Reverify current Vercel Production/UAT frontend deployment/routing evidence.
-3. Only after those checks, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
-4. Continue with:
+1. Reverify current Vercel Production/UAT frontend deployment/routing evidence.
+2. Only after that check, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
+3. Continue with:
    - `META_OAUTH_ENVIRONMENT_SPLIT`
    - `LLM_ENVIRONMENT_VERIFICATION`
    - `PAYMENT_PROVIDER_ENVIRONMENT_SPLIT`
-5. Before real customers, resolve Production database durability and backup/restore acceptance.
+4. Before real customers, resolve Production database durability and backup/restore acceptance.
 
 ## Important Constraints
 
@@ -221,6 +221,6 @@ FRONTEND_DEPLOYMENT_SHA:
 OPEN — REVERIFY AUTHORITATIVELY
 
 NEXT EXACT ACTION:
-Verify Production/UAT isolation from observable application behavior, then authoritative Vercel routing.
+Reverify authoritative Vercel Production/UAT deployment/routing evidence. Production/UAT observable data isolation is PASS.
 Only then mark Production Regression PASS.
 ```
