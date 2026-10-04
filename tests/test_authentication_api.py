@@ -15,6 +15,7 @@ from app.authentication import AuthenticationService, PasswordService
 from app.authentication.router import router
 from app.config import Settings, get_settings
 from app.database import get_db
+from app.models import AuthPlatformRoleAssignment
 from tools.seeding import SeedRunner, default_registry
 
 
@@ -72,6 +73,7 @@ def test_login_me_and_session_list_are_sanitized(api_context) -> None:
     token = payload["access_token"]
     assert payload["token_type"] == "bearer"
     assert payload["principal"]["user_id"] == user.id
+    assert payload["principal"]["platform_role_codes"] == []
     text = str(payload).casefold()
     assert "password_hash" not in text and PASSWORD not in text and "token_hash" not in text
     headers = {"Authorization": f"Bearer {token}"}
@@ -80,6 +82,28 @@ def test_login_me_and_session_list_are_sanitized(api_context) -> None:
     sessions = client.get("/auth/sessions", headers=headers)
     assert sessions.status_code == 200
     assert "token_hash" not in sessions.text and token not in sessions.text
+
+
+
+def test_login_and_me_expose_only_server_derived_platform_roles(api_context) -> None:
+    client, engine, user, _other = api_context
+    with Session(engine) as db, db.begin():
+        db.add(
+            AuthPlatformRoleAssignment(
+                principal_type="user",
+                principal_id=str(user.id),
+                role_code="platform_super_admin",
+                status="active",
+            )
+        )
+
+    payload = login(client)
+    assert payload["principal"]["platform_role_codes"] == ["platform_super_admin"]
+    token = payload["access_token"]
+    me = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.status_code == 200
+    assert me.json()["platform_role_codes"] == ["platform_super_admin"]
+
 
 
 def test_login_failure_is_generic_for_unknown_and_wrong_password(api_context) -> None:
@@ -141,4 +165,4 @@ def test_client_supplied_role_headers_do_not_grant_access(api_context) -> None:
         },
     )
     assert response.status_code == 200
-    assert "platform_super_admin" not in response.text
+    assert response.json()["platform_role_codes"] == []

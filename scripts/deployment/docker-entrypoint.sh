@@ -34,6 +34,18 @@ if [ "${DIRECTPILOT_BOOTSTRAP_ADMIN_ON_START:-false}" = "true" ]; then
     --password-env DIRECTPILOT_BOOTSTRAP_ADMIN_PASSWORD
 fi
 
+
+if [ "${DIRECTPILOT_RESET_ADMIN_PASSWORD_ON_START:-false}" = "true" ]; then
+  : "${DIRECTPILOT_RESET_ADMIN_EMAIL:?DIRECTPILOT_RESET_ADMIN_EMAIL is required}"
+  : "${DIRECTPILOT_RESET_ADMIN_PASSWORD:?DIRECTPILOT_RESET_ADMIN_PASSWORD is required}"
+
+  echo "Running one-shot platform administrator password reset..."
+  python -m tools.reset_admin_password \
+    --email "$DIRECTPILOT_RESET_ADMIN_EMAIL" \
+    --use-configured-database \
+    --password-env DIRECTPILOT_RESET_ADMIN_PASSWORD
+fi
+
 echo "Starting application..."
 exec uvicorn app.main:app \
   --host "${HOST:-0.0.0.0}" \

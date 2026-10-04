@@ -35,6 +35,7 @@ def _principal_read(principal: AuthenticatedPrincipal) -> PrincipalRead:
         display_name=principal.display_name,
         session_id=principal.session_id,
         authenticated_at=principal.authenticated_at,
+        platform_role_codes=list(principal.platform_role_codes),
         tenant_memberships=[
             MembershipRead(
                 tenant_id=item.tenant_id,

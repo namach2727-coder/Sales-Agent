@@ -24,6 +24,8 @@ def _run_entrypoint(
     seed_exit: int,
     bootstrap_flag: str | None = None,
     bootstrap_env: dict[str, str] | None = None,
+    reset_flag: str | None = None,
+    reset_env: dict[str, str] | None = None,
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     shell = shutil.which("sh") or shutil.which("sh.exe")
     if shell is None and os.name == "nt":
@@ -43,6 +45,7 @@ def _run_entrypoint(
         "case \"$*\" in\n"
         "  '-m tools.seed_data '* ) exit \"${SEED_EXIT:-0}\" ;;\n"
         "  '-m tools.bootstrap_admin '* ) exit 0 ;;\n"
+        "  '-m tools.reset_admin_password '* ) exit 0 ;;\n"
         "  '-m tools.check_database' ) exit 0 ;;\n"
         "  '-m tools.validate_environment'|'-m tools.run_migrations' ) exit 0 ;;\n"
         "esac\n"
@@ -81,6 +84,16 @@ def _run_entrypoint(
     ):
         env.pop(name, None)
     env.update(bootstrap_env or {})
+    if reset_flag is None:
+        env.pop("DIRECTPILOT_RESET_ADMIN_PASSWORD_ON_START", None)
+    else:
+        env["DIRECTPILOT_RESET_ADMIN_PASSWORD_ON_START"] = reset_flag
+    for name in (
+        "DIRECTPILOT_RESET_ADMIN_EMAIL",
+        "DIRECTPILOT_RESET_ADMIN_PASSWORD",
+    ):
+        env.pop(name, None)
+    env.update(reset_env or {})
 
     completed = subprocess.run(
         [shell, str(ENTRYPOINT)],
@@ -204,4 +217,78 @@ def test_admin_bootstrap_required_variables_fail_closed(
     assert completed.returncode != 0
     assert missing_name in completed.stderr
     assert not any("tools.bootstrap_admin" in line for line in trace)
+    assert not any(line.startswith("uvicorn ") for line in trace)
+
+
+@pytest.mark.parametrize("flag", [None, "false"])
+def test_admin_password_reset_disabled_by_default(
+    tmp_path: Path, flag: str | None
+) -> None:
+    completed, trace = _run_entrypoint(
+        tmp_path,
+        flag=None,
+        seed_exit=0,
+        reset_flag=flag,
+    )
+
+    assert completed.returncode == 0
+    assert not any("tools.reset_admin_password" in line for line in trace)
+    assert any(line.startswith("uvicorn ") for line in trace)
+
+
+def test_admin_password_reset_runs_only_when_enabled_without_exposing_password(
+    tmp_path: Path,
+) -> None:
+    password = "replacement-admin-password-must-not-appear"
+    completed, trace = _run_entrypoint(
+        tmp_path,
+        flag=None,
+        seed_exit=0,
+        reset_flag="true",
+        reset_env={
+            "DIRECTPILOT_RESET_ADMIN_EMAIL": "admin@example.invalid",
+            "DIRECTPILOT_RESET_ADMIN_PASSWORD": password,
+        },
+    )
+
+    assert completed.returncode == 0
+    reset = next(line for line in trace if "tools.reset_admin_password" in line)
+    assert "--email admin@example.invalid" in reset
+    assert "--use-configured-database" in reset
+    assert "--password-env DIRECTPILOT_RESET_ADMIN_PASSWORD" in reset
+    assert password not in reset
+    assert password not in completed.stdout
+    assert password not in completed.stderr
+    reset_index = trace.index(reset)
+    uvicorn_index = next(index for index, line in enumerate(trace) if line.startswith("uvicorn "))
+    assert reset_index < uvicorn_index
+
+
+@pytest.mark.parametrize(
+    "missing_name",
+    [
+        "DIRECTPILOT_RESET_ADMIN_EMAIL",
+        "DIRECTPILOT_RESET_ADMIN_PASSWORD",
+    ],
+)
+def test_admin_password_reset_required_variables_fail_closed(
+    tmp_path: Path, missing_name: str
+) -> None:
+    reset_env = {
+        "DIRECTPILOT_RESET_ADMIN_EMAIL": "admin@example.invalid",
+        "DIRECTPILOT_RESET_ADMIN_PASSWORD": "replacement-admin-password",
+    }
+    reset_env.pop(missing_name)
+
+    completed, trace = _run_entrypoint(
+        tmp_path,
+        flag=None,
+        seed_exit=0,
+        reset_flag="true",
+        reset_env=reset_env,
+    )
+
+    assert completed.returncode != 0
+    assert missing_name in completed.stderr
+    assert not any("tools.reset_admin_password" in line for line in trace)
     assert not any(line.startswith("uvicorn ") for line in trace)

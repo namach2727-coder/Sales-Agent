@@ -22,6 +22,7 @@ class PrincipalRead(BaseModel):
     display_name: str
     session_id: str
     authenticated_at: datetime
+    platform_role_codes: list[str] = Field(default_factory=list)
     tenant_memberships: list[MembershipRead]
 
 
