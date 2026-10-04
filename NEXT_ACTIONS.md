@@ -5,7 +5,7 @@
 
 ## P0 — Production Regression After Environment Split
 
-Status: **PARTIAL**
+Status: **PASS**
 
 ### Already Verified — Do Not Repeat Without Regression Evidence
 
@@ -26,10 +26,15 @@ Status: **PARTIAL**
 - Production same-origin `/api/v1/plans`: PASS; current public response exposes only intended `AUTOMATION_V1` catalog.
 - Production/UAT observable data isolation: PASS; catalogs differ and use different public IDs, proving they do not resolve to the same catalog/database.
 
-### Next Exact Checks
+### Completed Acceptance
 
-1. Reverify authoritative Vercel Production/UAT deployment SHAs and routing.
-2. Only after the above evidence is complete, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
+- Production Super Admin login and `/admin`: PASS.
+- Production same-origin public plans: PASS.
+- Production/UAT observable data isolation: PASS.
+- Vercel Production/UAT deployment branches and SHA: PASS.
+- Vercel environment-scoped upstream configuration: PASS without decrypting secret values.
+
+P0 is complete. Do not repeat unless a related deployment/configuration change or regression evidence requires it.
 
 ## P1 — Integration Credential Separation
 
