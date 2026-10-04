@@ -21,6 +21,19 @@ if [ "${DIRECTPILOT_SEED_ON_START:-false}" = "true" ]; then
   python -m tools.seed_data --profile production --use-configured-database
 fi
 
+if [ "${DIRECTPILOT_BOOTSTRAP_ADMIN_ON_START:-false}" = "true" ]; then
+  : "${DIRECTPILOT_BOOTSTRAP_ADMIN_EMAIL:?DIRECTPILOT_BOOTSTRAP_ADMIN_EMAIL is required}"
+  : "${DIRECTPILOT_BOOTSTRAP_ADMIN_DISPLAY_NAME:?DIRECTPILOT_BOOTSTRAP_ADMIN_DISPLAY_NAME is required}"
+  : "${DIRECTPILOT_BOOTSTRAP_ADMIN_PASSWORD:?DIRECTPILOT_BOOTSTRAP_ADMIN_PASSWORD is required}"
+
+  echo "Running one-shot platform administrator bootstrap..."
+  python -m tools.bootstrap_admin \
+    --email "$DIRECTPILOT_BOOTSTRAP_ADMIN_EMAIL" \
+    --display-name "$DIRECTPILOT_BOOTSTRAP_ADMIN_DISPLAY_NAME" \
+    --use-configured-database \
+    --password-env DIRECTPILOT_BOOTSTRAP_ADMIN_PASSWORD
+fi
+
 echo "Starting application..."
 exec uvicorn app.main:app \
   --host "${HOST:-0.0.0.0}" \
