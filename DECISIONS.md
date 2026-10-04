@@ -74,3 +74,15 @@ Human Takeover
 - Production administrator bootstrap credentials remain outside Git and logs.
 - Preserve unrelated local dirty work. Never reset, clean, auto-stash, force-push, rebase published history, or rewrite history automatically.
 - A Git push is not deployment acceptance; correlate each deployed runtime with its exact commit SHA and verify runtime evidence.
+
+
+## Shared Meta App Pilot Decision
+
+- For the current pilot, Production and UAT may use the same Meta App credentials.
+- Production must use its own environment-specific OAuth redirect URI:
+  `https://directpilot-api.onrender.com/api/v1/integrations/instagram/callback`.
+- UAT retains its own redirect URI:
+  `https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback`.
+- Secret values remain outside Git/chat and must not be copied into documentation.
+- Because Meta webhook callback configuration is app-level, treat the shared Meta App as having one active live webhook destination at a time for the Instagram object. For the current pilot, Production is the intended active webhook destination.
+- If simultaneous independent live webhook traffic is required for UAT and Production, create a separate Meta App for UAT (or Production) instead of trying to multiplex the same app-level webhook subscription.
