@@ -21,21 +21,21 @@ Status: **PARTIAL**
 - UAT database connectivity/startup.
 - UAT/Production environment-separation milestone: PASS.
 - GitHub access to backend and frontend repositories: PASS.
+- One-shot Production Super Admin password reset/unlock: PASS; reset flag disabled and temporary values cleared.
+- Production Super Admin browser login and `/admin` access: PASS.
 
 ### Next Exact Checks
 
-1. Complete the fail-closed one-shot Production Super Admin password reset/unlock using a Render-only secret; immediately disable and clear reset variables after the successful reset.
-2. Verify Production Super Admin login and `/admin` access. Confirm the server-derived `platform_role_codes` contract works.
-3. Verify live Production same-origin `https://directpilot.ir/api/v1/plans`.
+1. Verify live Production same-origin `https://directpilot.ir/api/v1/plans`.
    - Confirm the response matches the current intended public catalog.
    - Do not rely only on seed logs.
    - Do not expose credentials in chat or Git.
    - Do not create payment/subscription state just to prove auth.
-4. Verify Production same-origin API routes resolve to Production, not UAT.
-5. Verify observable Production data does not appear in UAT.
-6. Verify observable UAT data does not appear in Production.
-7. Reverify authoritative Vercel Production/UAT deployment SHAs and routing.
-8. Only after the above evidence is complete, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
+2. Verify Production same-origin API routes resolve to Production, not UAT.
+3. Verify observable Production data does not appear in UAT.
+4. Verify observable UAT data does not appear in Production.
+5. Reverify authoritative Vercel Production/UAT deployment SHAs and routing.
+6. Only after the above evidence is complete, mark `PRODUCTION_REGRESSION_AFTER_ENVIRONMENT_SPLIT` PASS.
 
 ## P1 — Integration Credential Separation
 
