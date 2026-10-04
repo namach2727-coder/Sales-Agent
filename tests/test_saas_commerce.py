@@ -264,6 +264,12 @@ def test_approved_plan_catalog_is_backend_authoritative(commerce_api) -> None:
     assert "FREE" not in public
     assert {"TRIAL", "START", "PRO"}.isdisjoint(public)
     assert public["TEST_PAID"]["product_family"] == "AUTOMATION"
+    assert public["AUTOMATION_V1"]["product_family"] == "AUTOMATION"
+    assert public["AUTOMATION_V1"]["price_amount"] == 4_900_000
+    assert public["AUTOMATION_V1"]["duration_days"] == 30
+    assert public["AUTOMATION_V1"]["automation_limit"] == 20
+    assert public["AUTOMATION_V1"]["instagram_account_limit"] == 1
+    assert public["AUTOMATION_V1"]["reply_limit"] == 0
 
 
 def test_registration_login_and_duplicate_are_public_only(commerce_api) -> None:

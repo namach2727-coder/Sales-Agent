@@ -120,6 +120,20 @@ def seed_saas_plans(context: SeedContext) -> SeedMutation:
             "is_purchasable": False,
         },
         {
+            "code": "AUTOMATION_V1",
+            "name": "Automation",
+            "price_amount": 4_900_000,
+            "reply_limit": 0,
+            "automation_limit": 20,
+            "instagram_account_limit": 1,
+            "duration_days": 30,
+            "module_codes": ["instagram_automation"],
+            "is_active": True,
+            "product_family": "AUTOMATION",
+            "is_purchasable": True,
+            "trial_eligible": False,
+        },
+        {
             "code": "AUTOMATION_TRIAL",
             "name": "Automation Trial",
             "price_amount": 0,
@@ -246,7 +260,7 @@ def register_system_seeds(registry: SeedRegistry) -> None:
     registry.register(
         SeedDefinition(
             name="system.saas_plans",
-            version="2",
+            version="3",
             scope=SeedScope.GLOBAL,
             compatible_profiles=ALL_PROFILES,
             production_safe=True,
@@ -254,7 +268,7 @@ def register_system_seeds(registry: SeedRegistry) -> None:
             handler=seed_saas_plans,
             dependencies=("system.module_definitions",),
             order=15,
-            description="Reconcile the provider-owned MVP Trial, Start, and Pro plan catalog.",
+            description="Reconcile the provider-owned MVP trial catalog and sellable Automation V1 plan.",
         )
     )
     registry.register(
