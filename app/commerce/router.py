@@ -12,9 +12,9 @@ from sqlalchemy.orm import Session
 
 from app.authentication.context import AuthenticatedPrincipal
 from app.authentication.dependencies import build_authentication_service, require_authenticated_principal, require_platform_permission
-from app.authentication.exceptions import AuthenticationError, AuthenticationValidationError
+from app.authentication.exceptions import AuthenticationError, AuthenticationValidationError, InvalidCredentials
 from app.authentication.passwords import PasswordService
-from app.authentication.schemas import LoginInput
+from app.authentication.schemas import LoginInput, OperationResponse, PasswordChangeInput, SessionRead
 from app.authz.permissions import PermissionCode
 from app.commerce.schemas import (
     AdminPaymentRead,
@@ -121,6 +121,64 @@ def api_logout(response: Response, principal: AuthenticatedPrincipal = Depends(r
 @router.get("/auth/me", response_model=PublicPrincipal)
 def api_me(principal: AuthenticatedPrincipal = Depends(require_authenticated_principal), db: Session = Depends(get_db)) -> PublicPrincipal:
     return _public_principal(db, principal)
+
+
+@router.get("/auth/sessions", response_model=list[SessionRead])
+def api_sessions(
+    principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> list[SessionRead]:
+    rows = build_authentication_service(db, settings).list_sessions(principal.user_id)
+    return [SessionRead.model_validate(item) for item in rows]
+
+
+@router.delete("/auth/sessions/{session_id}/revoke", response_model=OperationResponse)
+def api_revoke_session(
+    session_id: str,
+    principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> OperationResponse:
+    try:
+        changed = build_authentication_service(db, settings).revoke_session(
+            session_id=session_id,
+            actor_user_id=principal.user_id,
+        )
+    except InvalidCredentials as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "session_not_found", "message": "Session not found"},
+        ) from exc
+    return OperationResponse(status="revoked" if changed else "unchanged")
+
+
+@router.post("/auth/password/change", response_model=OperationResponse)
+def api_change_password(
+    payload: PasswordChangeInput,
+    response: Response,
+    principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> OperationResponse:
+    try:
+        build_authentication_service(db, settings).change_password(
+            user_id=principal.user_id,
+            current_password=payload.current_password,
+            new_password=payload.new_password,
+        )
+    except InvalidCredentials as exc:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "invalid_current_password", "message": "Current password is invalid"},
+        ) from exc
+    except AuthenticationValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "password_policy_violation", "message": "New password does not meet password policy"},
+        ) from exc
+    response.delete_cookie(settings.session_cookie_name, path="/", secure=settings.session_cookie_secure, httponly=True, samesite=settings.session_cookie_samesite)
+    return OperationResponse(status="revoked")
 
 
 @router.get("/plans", response_model=list[PlanRead])

@@ -134,6 +134,76 @@ def test_logout_revokes_current_session_and_clears_cookie(api_context) -> None:
     assert client.get("/auth/me", headers={"Authorization": f"Bearer {token}"}).status_code == 401
 
 
+def test_authenticated_password_change_revokes_every_session(api_context) -> None:
+    client, _engine, _user, _other = api_context
+    first = login(client)
+    client.cookies.clear()
+    second = login(client)
+
+    response = client.post(
+        "/auth/password/change",
+        headers={"Authorization": f"Bearer {second['access_token']}"},
+        json={
+            "current_password": PASSWORD,
+            "new_password": "a different secure password value",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "revoked"}
+    assert client.get(
+        "/auth/me", headers={"Authorization": f"Bearer {first['access_token']}"}
+    ).status_code == 401
+    assert client.get(
+        "/auth/me", headers={"Authorization": f"Bearer {second['access_token']}"}
+    ).status_code == 401
+    old_login = client.post(
+        "/auth/login", json={"email": "api@example.com", "password": PASSWORD}
+    )
+    new_login = client.post(
+        "/auth/login",
+        json={
+            "email": "api@example.com",
+            "password": "a different secure password value",
+        },
+    )
+    assert old_login.status_code == 401
+    assert new_login.status_code == 200
+    assert PASSWORD not in response.text
+
+
+def test_password_change_rejects_wrong_current_password_without_revoking(api_context) -> None:
+    client, *_ = api_context
+    session = login(client)
+    response = client.post(
+        "/auth/password/change",
+        headers={"Authorization": f"Bearer {session['access_token']}"},
+        json={
+            "current_password": "not the current password",
+            "new_password": "a different secure password value",
+        },
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "invalid_current_password"
+    assert client.get(
+        "/auth/me", headers={"Authorization": f"Bearer {session['access_token']}"}
+    ).status_code == 200
+
+
+def test_password_change_enforces_policy_without_exposing_passwords(api_context) -> None:
+    client, *_ = api_context
+    session = login(client)
+    response = client.post(
+        "/auth/password/change",
+        headers={"Authorization": f"Bearer {session['access_token']}"},
+        json={"current_password": PASSWORD, "new_password": "too-short"},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "password_policy_violation"
+    assert PASSWORD not in response.text
+    assert "too-short" not in response.text
+
+
 def test_user_can_revoke_own_session_but_not_another_users(api_context) -> None:
     client, _engine, _user, _other = api_context
     first = login(client)

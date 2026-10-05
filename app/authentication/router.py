@@ -11,12 +11,17 @@ from app.authentication.dependencies import (
     extract_session_token,
     require_authenticated_principal,
 )
-from app.authentication.exceptions import AuthenticationError, InvalidCredentials
+from app.authentication.exceptions import (
+    AuthenticationError,
+    AuthenticationValidationError,
+    InvalidCredentials,
+)
 from app.authentication.schemas import (
     LoginInput,
     LoginResponse,
     MembershipRead,
     OperationResponse,
+    PasswordChangeInput,
     PrincipalRead,
     SessionRead,
 )
@@ -123,6 +128,47 @@ def me(
     principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
 ) -> PrincipalRead:
     return _principal_read(principal)
+
+
+@router.post(
+    "/password/change",
+    response_model=OperationResponse,
+    responses={
+        401: {"description": "Current password is invalid"},
+        422: {"description": "New password violates policy"},
+    },
+)
+def change_password(
+    payload: PasswordChangeInput,
+    response: Response,
+    principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> OperationResponse:
+    try:
+        build_authentication_service(db, settings).change_password(
+            user_id=principal.user_id,
+            current_password=payload.current_password,
+            new_password=payload.new_password,
+        )
+    except InvalidCredentials as exc:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "invalid_current_password", "message": "Current password is invalid"},
+        ) from exc
+    except AuthenticationValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "password_policy_violation", "message": "New password does not meet password policy"},
+        ) from exc
+    response.delete_cookie(
+        settings.session_cookie_name,
+        path="/",
+        secure=settings.session_cookie_secure,
+        httponly=True,
+        samesite=settings.session_cookie_samesite,
+    )
+    return OperationResponse(status="revoked")
 
 
 @router.get("/sessions", response_model=list[SessionRead])

@@ -413,6 +413,53 @@ class AuthenticationService:
                 target_user_id=user.id,
             )
 
+    def change_password(
+        self, *, user_id: int, current_password: str, new_password: str
+    ) -> int:
+        """Verify the current credential, replace it, and revoke every session."""
+
+        self._require_clean_session()
+        password_hash = self.passwords.hash(new_password)
+        failure: Exception | None = None
+        revoked_count = 0
+        with self.session.begin():
+            user = self.session.get(UserIdentity, user_id)
+            if (
+                user is None
+                or user.status != "active"
+                or user.is_service_account
+                or not user.password_hash
+                or not self.passwords.verify(user.password_hash, current_password)
+            ):
+                self._audit(
+                    "identity.password_change_denied",
+                    actor_user_id=user_id,
+                    target_user_id=user_id,
+                    outcome="denied",
+                    reason_code="invalid_current_password",
+                )
+                failure = InvalidCredentials("invalid current password")
+            else:
+                user.password_hash = password_hash
+                user.password_changed_at = self.now()
+                user.failed_login_count = 0
+                user.locked_until = None
+                revoked_count = self._revoke_sessions_in_transaction(user.id)
+                self._audit(
+                    "identity.password_changed",
+                    actor_user_id=user.id,
+                    target_user_id=user.id,
+                )
+                self._audit(
+                    "auth.all_sessions_revoked",
+                    actor_user_id=user.id,
+                    target_user_id=user.id,
+                    outcome="succeeded" if revoked_count else "unchanged",
+                )
+        if failure is not None:
+            raise failure
+        return revoked_count
+
     def set_user_enabled(
         self, *, user_id: int, enabled: bool, actor_user_id: int | None = None
     ) -> None:

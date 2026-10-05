@@ -10,6 +10,11 @@ class LoginInput(BaseModel):
     password: str = Field(min_length=1, max_length=4096)
 
 
+class PasswordChangeInput(BaseModel):
+    current_password: str = Field(min_length=1, max_length=4096)
+    new_password: str = Field(min_length=1, max_length=4096)
+
+
 class MembershipRead(BaseModel):
     tenant_id: int
     tenant_slug: str

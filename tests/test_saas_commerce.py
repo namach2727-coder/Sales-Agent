@@ -117,6 +117,59 @@ def login(client: TestClient, suffix: str = "one") -> dict[str, str]:
     return {"Authorization": f"Bearer {payload['access_token']}"}
 
 
+def test_public_session_management_and_password_change(commerce_api) -> None:
+    client, _engine, _settings = commerce_api
+    register(client, "auth-security")
+    first = client.post(
+        "/api/v1/auth/login",
+        json={"email": "auth-security@example.com", "password": PASSWORD},
+    ).json()
+    client.cookies.clear()
+    second = client.post(
+        "/api/v1/auth/login",
+        json={"email": "auth-security@example.com", "password": PASSWORD},
+    ).json()
+    headers = {"Authorization": f"Bearer {second['access_token']}"}
+
+    sessions = client.get("/api/v1/auth/sessions", headers=headers)
+    assert sessions.status_code == 200
+    assert len(sessions.json()) == 2
+    assert second["access_token"] not in sessions.text
+    assert "token_hash" not in sessions.text
+
+    changed = client.post(
+        "/api/v1/auth/password/change",
+        headers=headers,
+        json={
+            "current_password": PASSWORD,
+            "new_password": "a different secure password value",
+        },
+    )
+    assert changed.status_code == 200
+    assert changed.json() == {"status": "revoked"}
+    for token in (first["access_token"], second["access_token"]):
+        assert client.get(
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}
+        ).status_code == 401
+
+
+def test_public_password_change_rejects_wrong_current_password(commerce_api) -> None:
+    client, _engine, _settings = commerce_api
+    register(client, "wrong-current")
+    headers = login(client, "wrong-current")
+    response = client.post(
+        "/api/v1/auth/password/change",
+        headers=headers,
+        json={
+            "current_password": "wrong current password",
+            "new_password": "a different secure password value",
+        },
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "invalid_current_password"
+    assert client.get("/api/v1/auth/me", headers=headers).status_code == 200
+
+
 def platform_admin_headers(client: TestClient, engine, suffix: str) -> dict[str, str]:
     fast = PasswordService(
         hasher=PasswordHasher(
