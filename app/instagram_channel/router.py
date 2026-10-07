@@ -8,7 +8,7 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, Response
 from sqlalchemy.orm import Session
 
 from app.authentication.context import AuthenticatedPrincipal
@@ -58,6 +58,10 @@ from app.instagram_channel.service import (
 from app.infrastructure.integrations import (
     build_instagram_ai_flow_coordinator,
     build_instagram_outbound_delivery,
+)
+from app.infrastructure.integrations.meta_relay import (
+    MetaRelayError,
+    relay_instagram_webhook,
 )
 from app.infrastructure.database.repositories import ConversationRepository, MessageRepository
 from app.application.services import ConversationService
@@ -237,7 +241,7 @@ async def receive_instagram_webhook(
     capability_checker: Callable[..., bool] = Depends(
         get_instagram_capability_checker
     ),
-) -> dict[str, object]:
+) -> dict[str, object] | Response:
     raw_body = await request.body()
     signature = request.headers.get("x-hub-signature-256")
     try:
@@ -255,6 +259,25 @@ async def receive_instagram_webhook(
                 "message": "Webhook signature validation failed",
             },
         ) from exc
+    try:
+        relayed = await relay_instagram_webhook(
+            settings,
+            raw_body=raw_body,
+            signature=signature or "",
+            content_type=request.headers.get("content-type"),
+            hub_delivery=request.headers.get("x-hub-delivery"),
+            meta_delivery_id=request.headers.get("x-meta-delivery-id"),
+        )
+    except MetaRelayError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": "webhook_relay_failed",
+                "message": "Webhook relay failed",
+            },
+        ) from exc
+    if relayed:
+        return Response(status_code=200)
     try:
         payload = json.loads(raw_body)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
