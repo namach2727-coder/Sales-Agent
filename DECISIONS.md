@@ -129,3 +129,6 @@ Human Takeover
 - OAuth relay is now the accepted pilot workaround when Meta Developer access is unavailable: Production creates the OAuth state, Meta returns to the already-registered UAT callback, and UAT relays only the Production-prefixed state to the Production callback.
 - Webhook relay activation is a separate gate and must not be enabled until Production OAuth connection is verified.
 - Production outbound remains fail-closed until the account allowlist is explicitly constrained and controlled E2E is ready.
+
+- Production OAuth through the relay bridge is accepted based on live provider evidence; do not require Meta Developer access for this pilot path unless the existing registered callback changes.
+- Webhook relay is now enabled UAT -> Production, but Production sending stays disabled until inbound routing and dedupe are verified.
