@@ -362,6 +362,14 @@ def validate_runtime_settings(settings: Settings) -> None:
         settings.meta_oauth_relay_target_url or settings.meta_webhook_relay_target_url
     ):
         errors.append("Meta relay targets must not be enabled in Production")
+    if (
+        settings.app_env == "production"
+        and settings.meta_send_enabled
+        and not settings.meta_send_allowed_account_ids
+    ):
+        errors.append(
+            "META_SEND_ALLOWED_ACCOUNT_IDS must be non-empty when META_SEND_ENABLED=true in Production"
+        )
     encryption_key = (
         settings.instagram_token_encryption_key.get_secret_value().strip()
     )
