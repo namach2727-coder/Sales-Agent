@@ -45,7 +45,7 @@ FORGOT_PASSWORD:
 BLOCKED — no verified recovery delivery provider
 
 META_E2E:
-PRODUCTION OAUTH PASS / WEBHOOK RELAY LIVE / INBOUND E2E OPEN
+PRODUCTION OAUTH PASS / INBOUND RELAY PASS / OUTBOUND E2E OPEN
 
 NEXT EXACT STEP:
 Trigger one safe inbound Instagram event and verify UAT relay -> Production routing/dedupe with Production sending disabled; then gate one controlled outbound test behind a restricted account allowlist.
@@ -556,3 +556,11 @@ Status: IN PROGRESS.
 - UAT webhook relay is now enabled to the Production webhook endpoint.
 - UAT webhook-relay deploy: `dep-db32pmvavr4c739je950` — LIVE.
 - Production sending remains disabled pending inbound-routing acceptance and allowlist verification.
+
+## Meta Production Inbound Acceptance
+
+- Production inbound relay accepted on 2026-10-07.
+- Evidence: UAT `instagram.webhook.relay_succeeded`; Production `instagram.inbound.received`, account resolution, conversation creation, message persistence, webhook accepted and processing completed.
+- Test message `قیمت` reached Production but no deterministic AutomationRule matched; AI fallback attempted and failed with `llm_provider_configuration_error`.
+- Production send remained disabled, so no outbound provider call was made.
+- Next gate: deterministic Production rule + restricted non-empty send allowlist + one controlled outbound E2E.
