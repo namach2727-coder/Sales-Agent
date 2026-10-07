@@ -132,3 +132,7 @@ Human Takeover
 
 - Production OAuth through the relay bridge is accepted based on live provider evidence; do not require Meta Developer access for this pilot path unless the existing registered callback changes.
 - Webhook relay is now enabled UAT -> Production, but Production sending stays disabled until inbound routing and dedupe are verified.
+
+- A live inbound event through the relay bridge is accepted as Production inbound PASS when relay, account resolution, persistence and webhook processing all complete without warning/error; this was satisfied on 2026-10-07.
+- For the first Production outbound E2E, use a deterministic AutomationRule rather than AI fallback. AI fallback remains blocked until Production LLM configuration is separately verified.
+- Never enable `META_SEND_ENABLED=true` with an empty send allowlist because the current sender treats an empty allowlist as unrestricted.
