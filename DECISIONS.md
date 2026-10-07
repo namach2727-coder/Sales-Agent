@@ -1,8 +1,8 @@
 # DirectPilot Decisions
 
 > Read after `AI_HANDOFF.md` and `PROJECT_ROADMAP.md`.
-> Last reconciled: 2026-10-04.
-> These decisions remain fixed unless new technical/product evidence justifies a change.
+> Last reconciled: 2026-10-07.
+> These decisions remain fixed unless new verified technical or product evidence justifies a change.
 
 ## Continuity and Evidence
 
@@ -14,20 +14,20 @@
   3. `DECISIONS.md`
   4. `CURRENT_STATE.md`
   5. `NEXT_ACTIONS.md`
-- Verifiable runtime/deployment evidence wins over stale documentation.
-- Correct continuity documents after verification when evidence changes.
+- Evidence precedence is: verified runtime/deployment evidence > deployed commit > repository source > continuity documents > old chat history.
 - Never mark PASS/DONE without evidence.
-- Do not repeat PASS/VERIFIED work unless a related change or regression evidence requires it.
-- Repository HEAD and deployed runtime commit are separate facts. Documentation-only commits do not imply deployment.
+- Repository HEAD and deployed runtime commit are separate facts.
+- Documentation-only commits must never be described as deployed runtime code.
+- After a meaningful Production release, update the five continuity files only after Production verification passes.
 
 ## Architecture
 
 - Backend: FastAPI + SQLAlchemy + Alembic + PostgreSQL.
 - Keep a Modular Monolith for MVP; do not introduce microservices opportunistically.
 - Official Meta APIs only.
-- Tenant isolation is mandatory and server-side.
+- Tenant/store isolation is mandatory and server-side.
 - Browser API traffic remains same-origin under `/api/v1/*`.
-- Cloud backend selection is server-side through `DIRECTPILOT_API_UPSTREAM`; never expose backend secrets through `NEXT_PUBLIC_*`.
+- Cloud backend selection remains server-side through `DIRECTPILOT_API_UPSTREAM`; never expose backend secrets through `NEXT_PUBLIC_*`.
 - Public UUID-style IDs remain API boundaries; internal numeric IDs are persistence details.
 - Migrations are additive/forward-only unless an explicit migration plan says otherwise.
 - Do not add unnecessary frontend catch-all proxies, serverless functions, or polling.
@@ -46,6 +46,27 @@ Human Takeover
 - AI execution requires entitlement.
 - Preserve deduplication, echo prevention, and loop protection.
 - Keep `GROQ_CONTEXT_LENGTH=4096` and `GROQ_MAX_OUTPUT_TOKENS=256` unless a separately justified change is approved.
+
+## Authentication and Session UX
+
+- Authentication state is server-authoritative.
+- Browser auth uses the existing HttpOnly session-cookie contract; do not move auth tokens into localStorage or sessionStorage.
+- A valid session must survive normal refresh/navigation and be restored through `/auth/me`; repeatedly asking for a password while the server session is valid is not an accepted UX.
+- Authenticated customer routing resolves to `/dashboard`; authenticated platform administrators resolve to `/admin`.
+- Unauthenticated protected customer/admin routes must redirect to `/login` without loops.
+- Login CTA must not remain visible after authentication.
+- Customer and platform-admin workspaces must expose a real backend logout action.
+- Authenticated password change requires the current password, enforces backend policy, and revokes all sessions.
+- Session-management UI must never expose raw session tokens.
+- Forgot-password/self-service recovery remains BLOCKED until a verified email/SMS recovery delivery provider and secure token lifecycle exist. Do not ship a fake or UI-only reset flow.
+
+## Frontend Release Discipline
+
+- UX/Auth changes are accepted in UAT before Production promotion.
+- Promotion should use the exact UAT-approved change set; do not insert unrelated feature changes between UAT acceptance and Production.
+- The accepted Frontend UX/Auth release is `1f82494f87fe39f0fb2e22043adfd75f7735668c`.
+- The accepted Backend Auth/Session release is `84b7df6196fe380fad21a3791e3160840c098602`.
+- UAT and Production smoke evidence must be kept distinct; an untested criterion is NOT_TESTED/BLOCKED, not FAIL.
 
 ## Commerce
 
@@ -66,23 +87,24 @@ Human Takeover
 - Render backend auto-deploy remains OFF.
 - No paid infrastructure/resource may be created without explicit owner approval.
 - Current Free Production PostgreSQL is pilot infrastructure only; real-customer durability requires replacement/upgrade plus backup/restore acceptance.
+- Production database external access controls must not be weakened merely for inspection.
 
 ## Security and Operations
 
 - Never write secret values to Git, chat, logs, screenshots, or frontend public variables.
 - Credential documentation records names, locations, and verification status only.
-- Production administrator bootstrap credentials remain outside Git and logs.
+- Production administrator bootstrap/reset credentials remain outside Git and logs.
 - Preserve unrelated local dirty work. Never reset, clean, auto-stash, force-push, rebase published history, or rewrite history automatically.
 - A Git push is not deployment acceptance; correlate each deployed runtime with its exact commit SHA and verify runtime evidence.
-
 
 ## Shared Meta App Pilot Decision
 
 - For the current pilot, Production and UAT may use the same Meta App credentials.
-- Production must use its own environment-specific OAuth redirect URI:
+- Production uses its own OAuth redirect URI:
   `https://directpilot-api.onrender.com/api/v1/integrations/instagram/callback`.
-- UAT retains its own redirect URI:
+- UAT uses:
   `https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback`.
 - Secret values remain outside Git/chat and must not be copied into documentation.
-- Because Meta webhook callback configuration is app-level, treat the shared Meta App as having one active live webhook destination at a time for the Instagram object. For the current pilot, Production is the intended active webhook destination.
-- If simultaneous independent live webhook traffic is required for UAT and Production, create a separate Meta App for UAT (or Production) instead of trying to multiplex the same app-level webhook subscription.
+- Because Meta webhook callback configuration is app-level, treat the shared Meta App as having one active live webhook destination at a time for the Instagram object.
+- Meta OAuth/webhook E2E is currently externally blocked/deferred by owner decision. Do not resume Meta work unless the owner explicitly returns to it.
+- If simultaneous independent live webhook delivery is required in both environments, use separate Meta Apps rather than multiplexing one app-level webhook subscription.
