@@ -55,6 +55,10 @@ def test_production_meta_send_requires_nonempty_allowlist() -> None:
     )
     with pytest.raises(ValueError, match="META_SEND_ALLOWED_ACCOUNT_IDS"):
         validate_runtime_settings(Settings(**base))
+    with pytest.raises(ValueError, match="META_SEND_ALLOWED_ACCOUNT_IDS"):
+        validate_runtime_settings(
+            Settings(**base, meta_send_allowed_account_ids=["pilot-a", "pilot-b"])
+        )
 
     validate_runtime_settings(
         Settings(**base, meta_send_allowed_account_ids=["pilot-instagram-account"])
