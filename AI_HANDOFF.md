@@ -41,13 +41,13 @@
 - Repository: `namach2727-coder/directpilot-web`
 - Production branch: `main`
 - UAT branch: `UAT`
-- Production SHA: `1f82494f87fe39f0fb2e22043adfd75f7735668c`
-- UAT SHA: `1f82494f87fe39f0fb2e22043adfd75f7735668c`
+- Production SHA: `da73f8055f676aaa1a07901fe351d20f4455ad5a`
+- UAT SHA: `da73f8055f676aaa1a07901fe351d20f4455ad5a`
 - Public Production domain: `https://directpilot.ir`
 - Public UAT domain: `https://uat.directpilot.ir`
 - Vercel Production status for current SHA: SUCCESS — Deployment has completed
-- Production deployment status target reference:
-  `https://vercel.com/mohcenp-9857s-projects/directpilot-web/8RuFd5sC7a7duo11dhVrZ2orYkDD`
+- Production SEO deployment status target reference:
+  `https://vercel.com/mohcenp-9857s-projects/directpilot-web/4WadnbNq9X79RjTx8fANyZWuwN8g`
 - Current canonical `dpl_...` Production deployment ID was not independently recovered in this checkpoint; do not invent one.
 - Owner-confirmed Production authenticated smoke: PASS
 
@@ -80,11 +80,35 @@
 
 ### Frontend
 
-- UAT branch SHA: `1f82494f87fe39f0fb2e22043adfd75f7735668c`
+- UAT branch SHA: `da73f8055f676aaa1a07901fe351d20f4455ad5a`
 - Vercel deployment for current UAT SHA completed successfully.
 - Owner-confirmed UAT functional acceptance: PASS.
 
-## Latest Release — Authenticated Workspace UX + Account Security
+## Latest Release — SEO Phase 1
+
+Status: **PRODUCTION DEPLOYED / VERCEL SUCCESS**
+
+Accepted frontend:
+`da73f8055f676aaa1a07901fe351d20f4455ad5a`
+
+Scope:
+- commercial title/description/H1 refinement,
+- stronger dedicated landing pages for direct automation, comment automation and comment-to-DM,
+- corrected trial messaging to the backend-authoritative 14-day / 3-automation Automation Trial,
+- Pricing structured data,
+- long-tail solution-page expansion,
+- smart-direct article refreshed against real Search Console queries,
+- Vercel Preview/UAT set to noindex with preview robots blocking and empty preview sitemap.
+
+Search Console baseline before the release, settled through 2026-10-04:
+- clicks: 14
+- impressions: 315
+- CTR: 4.44%
+- average position: 40.30
+
+Search Console priority URLs were already submitted/indexed and robots-allowed before release. The Production sitemap was resubmitted on 2026-10-07 and accepted by Search Console; indexing/ranking changes require a later Google recrawl and settled-data window.
+
+## Previous Release — Authenticated Workspace UX + Account Security
 
 Status: **PRODUCTION PASS**
 
@@ -92,7 +116,7 @@ Accepted backend:
 `84b7df6196fe380fad21a3791e3160840c098602`
 
 Accepted frontend:
-`1f82494f87fe39f0fb2e22043adfd75f7735668c`
+`da73f8055f676aaa1a07901fe351d20f4455ad5a`
 
 UAT acceptance PASS:
 
@@ -223,7 +247,7 @@ Important known frontend local state:
 
 - During release preparation, local-only commit `4733d9a7f8b942486ca221c1dba1564e6cb34d2b` was accidentally created on the old workstation's local `main`.
 - It was NOT pushed.
-- Remote `main` is authoritative at `1f82494f87fe39f0fb2e22043adfd75f7735668c`.
+- Remote `main` is authoritative at `da73f8055f676aaa1a07901fe351d20f4455ad5a`.
 - The old workstation may still contain unrelated dirty work.
 - Do not reset, clean, auto-stash, force-push, rebase or rewrite history automatically.
 - Reconcile/preserve local-only work explicitly before old-laptop handoff.
@@ -278,10 +302,10 @@ ACTIVE_WORKSTREAM:
 PRODUCTION_DATABASE_DURABILITY_AND_BACKUP_RESTORE
 
 LATEST_RELEASE:
-AUTHENTICATED_WORKSPACE_UX_AND_ACCOUNT_SECURITY
+SEO_PHASE_1
 
 LATEST_RELEASE_STATUS:
-PRODUCTION PASS
+PRODUCTION DEPLOYED / VERCEL SUCCESS
 
 PRODUCTION_BACKEND:
 SHA: 84b7df6196fe380fad21a3791e3160840c098602
@@ -293,7 +317,7 @@ MIGRATION: PASS
 STARTUP: PASS
 
 PRODUCTION_FRONTEND:
-SHA: 1f82494f87fe39f0fb2e22043adfd75f7735668c
+SHA: da73f8055f676aaa1a07901fe351d20f4455ad5a
 BRANCH: main
 VERCEL: SUCCESS
 OWNER_SMOKE: PASS
@@ -304,7 +328,7 @@ DEPLOYMENT: dep-db1mq5vavr4c73cmjgo0
 STATUS: LIVE
 
 UAT_FRONTEND:
-SHA: 1f82494f87fe39f0fb2e22043adfd75f7735668c
+SHA: da73f8055f676aaa1a07901fe351d20f4455ad5a
 BRANCH: UAT
 ACCEPTANCE: PASS
 
@@ -320,5 +344,5 @@ DURABILITY: OPEN
 BACKUP_RESTORE: OPEN
 
 NEXT EXACT ACTION:
-Resolve Production database durability + backup/restore before real-customer onboarding.
+Monitor the SEO Phase 1 release through the next settled Search Console window while keeping Production database durability + backup/restore as the blocking readiness gate before real-customer onboarding.
 ```
