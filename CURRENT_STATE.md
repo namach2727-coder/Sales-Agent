@@ -20,9 +20,9 @@
 - Production branch: `main`
 - UAT branch: `UAT`
 - Both remote branches currently point to the accepted Frontend release:
-  `da73f8055f676aaa1a07901fe351d20f4455ad5a`
-- Current frontend commit message: `seo: align homepage H1 with primary intent`
-- Current frontend includes the previously accepted Auth/UX release plus SEO Phase 1.
+  `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`
+- Current frontend commit message: `seo: complete article author organization schema`
+- Current frontend includes the previously accepted Auth/UX release plus SEO Phase 1 and SEO Phase 2.
 
 ## Production Backend
 
@@ -42,10 +42,10 @@
 
 - Public domain: `https://directpilot.ir`
 - Production branch: `main`
-- Deployed/accepted SHA: `da73f8055f676aaa1a07901fe351d20f4455ad5a`
+- Deployed/accepted SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`
 - Vercel GitHub status: SUCCESS — `Deployment has completed`
-- Current Production SEO deployment status target reference:
-  `https://vercel.com/mohcenp-9857s-projects/directpilot-web/4WadnbNq9X79RjTx8fANyZWuwN8g`
+- Current Production SEO Phase 2 deployment status target reference:
+  `https://vercel.com/mohcenp-9857s-projects/directpilot-web/9xEboR41X9yQmp6wz6Ux9XcPtWfD`
 - A canonical `dpl_...` deployment ID was not independently recovered in this checkpoint; do not invent one.
 - Auth/UX Production smoke from the previous release remains PASS. It was not repeated for this SEO-only promotion because no authentication/session behavior changed.
 
@@ -81,7 +81,7 @@
 ## UAT Frontend and Acceptance
 
 - Public domain: `https://uat.directpilot.ir`
-- UAT branch SHA: `da73f8055f676aaa1a07901fe351d20f4455ad5a`
+- UAT branch SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`
 - Vercel deployment status for this SHA: SUCCESS.
 - Prior Auth/UX UAT functional acceptance: PASS. SEO Phase 1 content/UAT review was accepted by the owner for Production promotion.
 
@@ -182,7 +182,7 @@ Status: PASS.
 
 - The old frontend workstation may still contain unrelated dirty work.
 - During promotion, a local-only commit `4733d9a7f8b942486ca221c1dba1564e6cb34d2b` was accidentally created on local `main` and was NOT pushed.
-- Remote `main` is authoritative at `da73f8055f676aaa1a07901fe351d20f4455ad5a`.
+- Remote `main` is authoritative at `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`.
 - Do not reset/clean/force the old local checkout; reconcile or preserve dirty work explicitly before laptop handoff/migration.
 
 ## SEO Phase 1
@@ -197,3 +197,11 @@ Status: PASS.
 - Production sitemap was resubmitted to Search Console on 2026-10-07; submission accepted with zero warnings/errors at submission time.
 - Search Console recrawl and ranking movement are pending by nature and must not be marked PASS immediately after deployment.
 - Preview/UAT indexing isolation is implemented: non-production metadata noindex/nofollow, preview robots disallow all, preview sitemap empty.
+
+## SEO Phase 2
+
+- Frontend SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8` on both Production and UAT.
+- Vercel Production and UAT exact-SHA deployments: SUCCESS.
+- Live Production audit on five priority SEO pages: 0 critical/high/medium/low issues.
+- All five pages return HTTP 200, are indexable and self-canonical, have one H1 and valid structured data.
+- Ranking/CTR impact remains OPEN until Google recrawls and later Search Console data settles.
