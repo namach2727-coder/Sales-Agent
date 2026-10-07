@@ -123,7 +123,7 @@ class InstagramOnboardingService:
             raise InstagramOnboardingForbidden(
                 "An active Instagram entitlement with available capacity is required"
             )
-        nonce = secrets.token_urlsafe(32)
+        nonce = f"{self.settings.meta_oauth_state_prefix}{secrets.token_urlsafe(32)}"
         authorization_url = provider.authorization_url(nonce)
         expires_at = datetime.now(UTC) + timedelta(
             minutes=self.settings.meta_oauth_state_ttl_minutes
