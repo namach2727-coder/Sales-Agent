@@ -820,3 +820,77 @@ def test_callback_rejects_caller_controlled_redirect_target(onboarding_api) -> N
     )
     assert result.status_code == 400
     assert result.json()["detail"]["code"] == "unsupported_redirect_target"
+
+
+def test_connect_can_prefix_oauth_state_for_cross_environment_relay(
+    onboarding_api,
+) -> None:
+    client, engine, fake = onboarding_api
+    settings = Settings(
+        _env_file=None,
+        database_url=str(engine.url),
+        session_cookie_secure=False,
+        meta_app_id="test-app-id",
+        meta_app_secret="test-app-secret",
+        meta_oauth_redirect_uri=(
+            "https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback"
+        ),
+        meta_oauth_state_prefix="production.",
+        instagram_token_encryption_key=Fernet.generate_key().decode("ascii"),
+        cors_allowed_origins=["https://directpilot.ir"],
+    )
+    client.app.dependency_overrides[get_settings] = lambda: settings
+    _register(client, "relay-prefix")
+    headers = _login(client, "relay-prefix")
+    _trial_entitlement(client, headers)
+
+    response = client.post(
+        "/api/v1/integrations/instagram/connect",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    authorization_url = response.json()["authorization_url"]
+    state = parse_qs(urlsplit(authorization_url).query)["state"][0]
+    assert state.startswith("production.")
+    assert fake.states[-1] == state
+
+
+def test_uat_callback_relays_production_state_without_consuming_local_db_state(
+    onboarding_api,
+) -> None:
+    client, engine, fake = onboarding_api
+    settings = Settings(
+        _env_file=None,
+        database_url=str(engine.url),
+        session_cookie_secure=False,
+        meta_app_id="test-app-id",
+        meta_app_secret="test-app-secret",
+        meta_oauth_redirect_uri=(
+            "https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback"
+        ),
+        meta_oauth_relay_target_url=(
+            "https://directpilot-api.onrender.com/api/v1/integrations/instagram/callback"
+        ),
+        meta_oauth_relay_state_prefix="production.",
+        instagram_token_encryption_key=Fernet.generate_key().decode("ascii"),
+        cors_allowed_origins=["https://uat.directpilot.ir"],
+    )
+    client.app.dependency_overrides[get_settings] = lambda: settings
+
+    response = client.get(
+        "/api/v1/integrations/instagram/callback",
+        params={"code": "provider-code", "state": "production.relay-state"},
+        follow_redirects=False,
+        headers={"accept": "text/html"},
+    )
+
+    assert response.status_code == 303
+    target = urlsplit(response.headers["location"])
+    assert target.scheme == "https"
+    assert target.netloc == "directpilot-api.onrender.com"
+    assert target.path == "/api/v1/integrations/instagram/callback"
+    query = parse_qs(target.query)
+    assert query["code"] == ["provider-code"]
+    assert query["state"] == ["production.relay-state"]
+    assert fake.codes == []
