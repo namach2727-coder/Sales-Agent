@@ -26,8 +26,8 @@ RELEASE_STATUS:
 PRODUCTION PASS — VERCEL SUCCESS / LIVE AUDIT CLEAN
 
 BACKEND_PRODUCTION:
-SHA: 84b7df6196fe380fad21a3791e3160840c098602
-RENDER_DEPLOYMENT: dep-db2ufns9v7es73aarbg0
+SHA: b8f945db18b45e8ac1f3a8fe0bfda790b12015ab
+RENDER_DEPLOYMENT: dep-db31vu60tbcc738ee1dg
 STATUS: LIVE
 
 FRONTEND_PRODUCTION:
@@ -36,8 +36,8 @@ VERCEL_STATUS: SUCCESS
 OWNER_PRODUCTION_SMOKE: PASS
 
 UAT:
-BACKEND SHA: 84b7df6196fe380fad21a3791e3160840c098602
-BACKEND DEPLOYMENT: dep-db1mq5vavr4c73cmjgo0
+BACKEND SHA: b8f945db18b45e8ac1f3a8fe0bfda790b12015ab
+BACKEND DEPLOYMENT: dep-db31uljncjis73e6gq90
 FRONTEND SHA: 4a1f8bb1812ce942e055c7f2c810f7d719939ab8
 FUNCTIONAL ACCEPTANCE: PASS
 
@@ -48,7 +48,7 @@ META_E2E:
 IN_PROGRESS / PRODUCTION E2E OPEN
 
 NEXT EXACT STEP:
-Complete Production Meta setup from the shared pilot Meta App: confirm shared app credentials without exposing them, connect the Instagram account through Production OAuth, move the app-level webhook destination to Production, then run controlled E2E. Keep Production database durability and backup/restore as the real-customer readiness blocker.
+Initiate Instagram OAuth from the Production dashboard. The provider returns to the existing UAT callback, UAT relays only the production-prefixed OAuth state to Production, and Production stores its own encrypted connection. After OAuth PASS, enable the UAT webhook relay to Production and run controlled E2E. Keep Production database durability and backup/restore as the real-customer readiness blocker.
 ```
 
 Do not restart completed environment-separation or UX/Auth promotion work without regression evidence.
@@ -105,8 +105,8 @@ GROQ_MAX_OUTPUT_TOKENS=256
 ```text
 Repository: namach2727-coder/Sales-Agent
 Branch: backend-main
-Accepted runtime-code SHA: 84b7df6196fe380fad21a3791e3160840c098602
-Continuity-document commits may be newer on backend-main; do not treat them as deployed runtime code.
+Accepted runtime-code SHA: b8f945db18b45e8ac1f3a8fe0bfda790b12015ab
+This release adds the owner-approved UAT-to-Production Meta relay bridge. Continuity-document commits may be newer on backend-main; do not treat later docs-only commits as deployed runtime code.
 ```
 
 Accepted backend release adds secure password/session management and remains the Production/UAT runtime candidate.
@@ -161,9 +161,9 @@ Environment separation is COMPLETE and PASS.
 
 - Service: `directpilot-api`
 - Service ID: `srv-db0f3uc9v7es73b5k51g`
-- Deployment: `dep-db317cm0tbcc738c4qlg`
-- Deployed Git SHA: `fa8316e71ec1ce7c32c4806f428c5bde0e26db16`
-- Accepted runtime-code SHA remains `84b7df6196fe380fad21a3791e3160840c098602`; compare shows only continuity Markdown files changed between these SHAs.
+- Deployment: `dep-db31vu60tbcc738ee1dg`
+- Deployed Git SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`
+- This is the accepted Meta relay runtime candidate.
 - Status: LIVE
 - `APP_ENV=production`: PASS
 - PostgreSQL connectivity: PASS
@@ -175,8 +175,8 @@ Environment separation is COMPLETE and PASS.
 
 - Service: `directpilot-uat-api`
 - Service ID: `srv-dabsmo7qj5pc7397jqf0`
-- Deployment: `dep-db1mq5vavr4c73cmjgo0`
-- SHA: `84b7df6196fe380fad21a3791e3160840c098602`
+- Deployment: `dep-db31uljncjis73e6gq90`
+- SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`
 - Status: LIVE
 - `APP_ENV=uat`: PASS
 - Database/migration/startup: PASS
@@ -200,6 +200,28 @@ UAT:
 A canonical current `dpl_...` Production deployment ID was not independently recovered in this checkpoint. Do not invent one.
 
 ---
+
+## 5C. Meta UAT-to-Production Relay Bridge
+
+Backend runtime SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`.
+
+Status: DEPLOYED TO UAT + PRODUCTION / CI PASS / E2E OPEN.
+
+Evidence:
+- full test suite: 871 passed / 7 skipped,
+- docker-build: PASS,
+- postgres-smoke: PASS,
+- UAT Render deploy `dep-db31uljncjis73e6gq90`: LIVE,
+- Production Render deploy `dep-db31vu60tbcc738ee1dg`: LIVE,
+- both deployments passed environment validation, PostgreSQL connectivity, migration current-head and application startup.
+
+Bridge behavior:
+- Production OAuth state is prefixed `production.`.
+- Meta provider redirect remains the currently registered UAT callback.
+- UAT relays only production-prefixed OAuth callbacks to Production.
+- Webhook relay preserves the exact Meta-signed body/signature and short-circuits UAT processing when enabled.
+- Webhook relay is currently DISABLED pending Production OAuth.
+- Production outbound is currently DISABLED.
 
 ## 5B. SEO Phase 2 Release
 
@@ -358,12 +380,20 @@ This is the next priority gate.
 
 ### Meta / OAuth
 
-Status: PARTIAL / BLOCKED_EXTERNAL / owner-deferred.
+Status: IN PROGRESS — RELAY BRIDGE DEPLOYED / PRODUCTION OAUTH NEXT.
 
-- Shared Meta App pilot decision remains.
-- Production and UAT have distinct OAuth redirect URIs.
-- Do not resume Meta work unless explicitly requested.
-- Real OAuth callback and controlled webhook/DM acceptance remain open.
+- Owner approved the UAT -> Production relay workaround because Meta Developer settings are currently inaccessible.
+- Shared Meta App credentials remain valid for the pilot.
+- Meta continues to know the existing UAT OAuth callback.
+- Production now deliberately sends that same provider redirect URI while prefixing its OAuth state with `production.`.
+- UAT relays only `production.` callback state to the Production callback; UAT does not consume that state.
+- Production consumes its own state and stores its own encrypted Instagram token/connection.
+- Webhook relay code is deployed to UAT but remains disabled until Production OAuth succeeds.
+- Production outbound remains fail-closed with `META_SEND_ENABLED=false`.
+- CI for relay runtime `b8f945d...`: 871 passed / 7 skipped; docker-build PASS; postgres-smoke PASS.
+- Production deploy `dep-db31vu60tbcc738ee1dg`: LIVE.
+- UAT deploy `dep-db31uljncjis73e6gq90`: LIVE.
+- Never copy UAT encrypted tokens/database rows or the UAT encryption key into Production.
 
 ### LLM
 
@@ -435,13 +465,13 @@ PAYMENT_PROVIDER_ENVIRONMENT_SPLIT
 LLM_ENVIRONMENT_VERIFICATION
 ```
 
-### Deferred
+### Meta — Active
 
 ```text
-META_OAUTH_ENVIRONMENT_SPLIT / E2E
+META_UAT_TO_PRODUCTION_RELAY_ACTIVATION
 ```
 
-Meta remains paused until explicit owner instruction.
+Next gate is Production OAuth from the Production dashboard. Webhook relay remains disabled until that succeeds.
 
 ### Blocked
 
