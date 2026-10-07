@@ -92,17 +92,18 @@ Status: **OPEN**
 
 ## P1 — Meta / OAuth
 
-Status: **IN PROGRESS — RELAY BRIDGE LIVE / PRODUCTION OAUTH USER ACTION NEXT**
+Status: **OAUTH RELAY LIVE — PRODUCTION OAUTH USER ACTION NEXT**
 
 Verified:
 - Owner approved the UAT -> Production relay workaround because Meta Developer settings are inaccessible.
-- Backend relay runtime SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`.
-- GitHub CI: 871 passed / 7 skipped; docker-build PASS; postgres-smoke PASS.
-- UAT deploy `dep-db31uljncjis73e6gq90`: LIVE; environment/database/migration/startup PASS.
-- Production deploy `dep-db31vu60tbcc738ee1dg`: LIVE; environment/database/migration/startup PASS.
-- Production OAuth state prefix: `production.`.
-- Provider-facing redirect for Production intentionally remains the existing UAT callback.
-- UAT OAuth relay is enabled only for `production.` state and forwards to the Production callback.
+- Backend relay runtime SHA currently deployed to both environments: `b6962c6701897ece4ee4fdda5ffcf7f2ec67da3a`.
+- GitHub CI for this SHA: PASS.
+- UAT deploy `dep-db32aebncjis73e7irl0`: LIVE; environment/database/migration/startup PASS.
+- Production deploy `dep-db32beom7kps73cpcf50`: LIVE; environment/database/migration/startup PASS.
+- Production OAuth state prefix: `prod.`.
+- Provider-facing redirect for Production intentionally uses the existing UAT callback:
+  `https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback`.
+- UAT OAuth relay is enabled only for `prod.` state and forwards to the Production callback.
 - UAT webhook relay is deployed but DISABLED pending Production OAuth.
 - Production relay targets are empty.
 - Production outbound remains fail-closed with `META_SEND_ENABLED=false`.
