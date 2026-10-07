@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 import base64
 import os
+import re
 from pathlib import Path
 from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
@@ -67,6 +68,11 @@ class Settings(BaseSettings):
     meta_oauth_authorize_url: str = "https://www.instagram.com/oauth/authorize"
     meta_oauth_token_url: str = "https://api.instagram.com/oauth/access_token"
     meta_oauth_redirect_uri: str = ""
+    meta_oauth_state_prefix: str = Field(default="", max_length=64)
+    meta_oauth_relay_target_url: str = ""
+    meta_oauth_relay_state_prefix: str = Field(default="", max_length=64)
+    meta_webhook_relay_target_url: str = ""
+    meta_relay_timeout_seconds: float = Field(default=8.0, ge=1.0, le=30.0)
     meta_oauth_state_ttl_minutes: int = Field(default=10, ge=2, le=30)
     meta_oauth_timeout_seconds: float = Field(default=20.0, ge=1.0, le=60.0)
     instagram_outbound_timeout_seconds: float = Field(
@@ -248,6 +254,32 @@ class Settings(BaseSettings):
             raise ValueError("GROQ_BASE_URL must be a plain HTTP(S) URL")
         return normalized
 
+    @field_validator("meta_oauth_state_prefix", "meta_oauth_relay_state_prefix")
+    @classmethod
+    def validate_meta_state_prefix(cls, value: str) -> str:
+        normalized = value.strip()
+        if normalized and not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", normalized):
+            raise ValueError("Meta OAuth state prefixes may contain only letters, digits, dot, underscore, and hyphen")
+        return normalized
+
+    @field_validator("meta_oauth_relay_target_url", "meta_webhook_relay_target_url")
+    @classmethod
+    def validate_meta_relay_target_url(cls, value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        if not normalized:
+            return ""
+        parsed = urlsplit(normalized)
+        if (
+            parsed.scheme != "https"
+            or not parsed.netloc
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("Meta relay target URL must be a plain HTTPS URL")
+        return normalized
+
     @field_validator("meta_graph_base_url")
     @classmethod
     def validate_meta_graph_base_url(cls, value: str) -> str:
@@ -324,6 +356,12 @@ def validate_runtime_settings(settings: Settings) -> None:
             errors.append("FORCE_HTTPS must be enabled")
         if settings.legacy_admin_adapter_enabled:
             errors.append("LEGACY_ADMIN_ADAPTER_ENABLED must be disabled")
+    if settings.meta_oauth_relay_target_url and not settings.meta_oauth_relay_state_prefix:
+        errors.append("META_OAUTH_RELAY_STATE_PREFIX is required when OAuth relay is enabled")
+    if settings.app_env == "production" and (
+        settings.meta_oauth_relay_target_url or settings.meta_webhook_relay_target_url
+    ):
+        errors.append("Meta relay targets must not be enabled in Production")
     encryption_key = (
         settings.instagram_token_encryption_key.get_secret_value().strip()
     )
