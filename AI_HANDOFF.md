@@ -24,11 +24,11 @@
 - Repository: `namach2727-coder/Sales-Agent`
 - Branch: `backend-main`
 - Accepted runtime-code SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`
-- Current deployed Git SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`.
+- Current deployed Git SHA: `b6962c6701897ece4ee4fdda5ffcf7f2ec67da3a`.
 - Production Render service: `directpilot-api`
 - Service ID: `srv-db0f3uc9v7es73b5k51g`
-- Verified LIVE deployment: `dep-db31vu60tbcc738ee1dg`
-- Deployment SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`
+- Verified LIVE deployment: `dep-db32beom7kps73cpcf50`
+- Deployment SHA: `b6962c6701897ece4ee4fdda5ffcf7f2ec67da3a`
 - `APP_ENV=production`: VERIFIED
 - PostgreSQL connectivity: PASS
 - Migration one-head/current-head verification: PASS
