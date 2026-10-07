@@ -92,26 +92,39 @@ Status: **OPEN**
 
 ## P1 — Meta / OAuth
 
-Status: **IN PROGRESS — PRODUCTION E2E OPEN**
+Status: **IN PROGRESS — RELAY BRIDGE LIVE / PRODUCTION OAUTH USER ACTION NEXT**
 
-Verified now:
-- Owner resumed Meta work on 2026-10-07.
-- UAT inbound webhook processing is live and at least one outbound delivery completed successfully on 2026-10-07.
-- Production non-secret Meta settings are normalized to the Production callback/provider endpoints.
-- Production signature verification is required.
-- Production outbound sending is explicitly fail-closed with `META_SEND_ENABLED=false`.
-- Production env update deployment `dep-db317cm0tbcc738c4qlg` is LIVE; environment/database/migration/startup checks passed.
+Verified:
+- Owner approved the UAT -> Production relay workaround because Meta Developer settings are inaccessible.
+- Backend relay runtime SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`.
+- GitHub CI: 871 passed / 7 skipped; docker-build PASS; postgres-smoke PASS.
+- UAT deploy `dep-db31uljncjis73e6gq90`: LIVE; environment/database/migration/startup PASS.
+- Production deploy `dep-db31vu60tbcc738ee1dg`: LIVE; environment/database/migration/startup PASS.
+- Production OAuth state prefix: `production.`.
+- Provider-facing redirect for Production intentionally remains the existing UAT callback.
+- UAT OAuth relay is enabled only for `production.` state and forwards to the Production callback.
+- UAT webhook relay is deployed but DISABLED pending Production OAuth.
+- Production relay targets are empty.
+- Production outbound remains fail-closed with `META_SEND_ENABLED=false`.
+- Production and UAT encryption keys/databases remain independent.
 
 Next exact steps:
-1. In Render, compare/copy shared Meta App values from UAT to Production without exposing them in chat: `META_APP_ID`, `META_APP_SECRET`, `META_VERIFY_TOKEN`, and any pilot account allowlist value.
-2. Keep the Production-specific `INSTAGRAM_TOKEN_ENCRYPTION_KEY`; do not copy the UAT encryption key.
-3. Ensure Meta App OAuth valid redirect URIs include the Production callback.
-4. Log into Production DirectPilot and connect the pilot Instagram account through Production OAuth so Production DB gets its own encrypted token/connection.
-5. Point the Meta App Instagram webhook callback to the Production webhook endpoint.
-6. Restrict `META_SEND_ALLOWED_ACCOUNT_IDS` to the pilot account, then enable `META_SEND_ENABLED=true` only for the controlled E2E.
-7. Verify inbound webhook, deterministic automation, outbound delivery, dedupe/echo protection and tenant routing before marking PASS.
+1. User signs in at `https://directpilot.ir`.
+2. Dashboard -> Instagram -> `اتصال رسمی اینستاگرام`.
+3. Complete the normal Instagram authorization.
+4. Verify UAT log evidence for OAuth relay and Production log evidence for successful provider exchange/profile lookup + Production connection.
+5. Only after OAuth PASS, set UAT `META_WEBHOOK_RELAY_TARGET_URL=https://directpilot-api.onrender.com/api/v1/integrations/instagram/webhook`.
+6. Trigger one safe inbound event from the pilot account and verify UAT relay + Production signature validation/routing/dedupe.
+7. Confirm `META_SEND_ALLOWED_ACCOUNT_IDS` is restricted to the pilot account before setting Production `META_SEND_ENABLED=true`.
+8. Run one controlled outbound deterministic E2E and verify delivery/echo protection.
+9. Mark Meta E2E PASS only with live evidence.
 
-Do not copy UAT database rows or encrypted tokens into Production.
+Do not:
+- copy UAT encrypted token/connection rows,
+- copy the UAT encryption key,
+- expose Meta secret values,
+- enable broad Production sending,
+- enable webhook relay before Production OAuth exists.
 
 ## P1 — Forgot Password / Recovery
 
