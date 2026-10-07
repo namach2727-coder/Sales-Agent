@@ -9,7 +9,8 @@
 
 - Repository: `namach2727-coder/Sales-Agent`
 - Branch: `backend-main`
-- Remote branch head and accepted runtime-code commit: `84b7df6196fe380fad21a3791e3160840c098602`
+- Latest accepted runtime-code commit: `84b7df6196fe380fad21a3791e3160840c098602`
+- Continuity-document commits are newer on `backend-main`; they must not be described as deployed application code.
 - Commit message: `feat(auth): add secure password and session management`
 - GitHub CI for this commit: `test` PASS, `docker-build` PASS, `postgres-smoke` PASS.
 
