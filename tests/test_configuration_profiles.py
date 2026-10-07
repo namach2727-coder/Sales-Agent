@@ -125,7 +125,17 @@ def test_uat_and_production_templates_use_separate_public_boundaries(
         "https://directpilot.ir",
         "https://www.directpilot.ir",
     ]
-    assert "directpilot-uat-api" not in production.meta_oauth_redirect_uri
+    assert production.meta_oauth_redirect_uri.startswith(
+        "https://directpilot-uat-api.onrender.com/"
+    )
+    assert production.meta_oauth_state_prefix == "production."
+    assert production.meta_oauth_relay_target_url == ""
+    assert production.meta_webhook_relay_target_url == ""
+    assert uat.meta_oauth_relay_target_url.startswith(
+        "https://directpilot-api.onrender.com/"
+    )
+    assert uat.meta_oauth_relay_state_prefix == "production."
+    assert uat.meta_webhook_relay_target_url == ""
     assert production.payexa_base_url == "https://pay.pexn.ir"
     assert production.payexa_callback_base_url == "https://directpilot.ir"
 
