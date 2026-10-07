@@ -365,10 +365,10 @@ def validate_runtime_settings(settings: Settings) -> None:
     if (
         settings.app_env == "production"
         and settings.meta_send_enabled
-        and not settings.meta_send_allowed_account_ids
+        and len(settings.meta_send_allowed_account_ids) != 1
     ):
         errors.append(
-            "META_SEND_ALLOWED_ACCOUNT_IDS must be non-empty when META_SEND_ENABLED=true in Production"
+            "META_SEND_ALLOWED_ACCOUNT_IDS must contain exactly one pilot account when META_SEND_ENABLED=true in Production"
         )
     encryption_key = (
         settings.instagram_token_encryption_key.get_secret_value().strip()
