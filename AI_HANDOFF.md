@@ -23,18 +23,18 @@
 
 - Repository: `namach2727-coder/Sales-Agent`
 - Branch: `backend-main`
-- Accepted runtime-code SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`
-- Current deployed Git SHA: `b6962c6701897ece4ee4fdda5ffcf7f2ec67da3a`.
+- Accepted runtime-code SHA: `91250140cccc7c9be9102c2d6e17e6775a836f24`
+- Current deployed Git SHA: `91250140cccc7c9be9102c2d6e17e6775a836f24`
 - Production Render service: `directpilot-api`
 - Service ID: `srv-db0f3uc9v7es73b5k51g`
-- Verified LIVE deployment: `dep-db32beom7kps73cpcf50`
-- Deployment SHA: `b6962c6701897ece4ee4fdda5ffcf7f2ec67da3a`
+- Verified LIVE deployment: `dep-db33funavr4c739lm9v0`
 - `APP_ENV=production`: VERIFIED
 - PostgreSQL connectivity: PASS
 - Migration one-head/current-head verification: PASS
 - Application startup: PASS
 - Render auto-deploy: OFF
-- GitHub CI for `b8f945d...`: test PASS — 871 passed / 7 skipped, docker-build PASS, postgres-smoke PASS
+- GitHub CI for `91250140...`: test PASS, docker-build PASS, postgres-smoke PASS
+- Production outbound safety guard is runtime-enforced: when `META_SEND_ENABLED=true`, `META_SEND_ALLOWED_ACCOUNT_IDS` must contain exactly one pilot account.
 
 ### Frontend
 
@@ -46,24 +46,7 @@
 - Public Production domain: `https://directpilot.ir`
 - Public UAT domain: `https://uat.directpilot.ir`
 - Vercel Production status for current SHA: SUCCESS — Deployment has completed
-- Production SEO Phase 2 deployment status target reference:
-  `https://vercel.com/mohcenp-9857s-projects/directpilot-web/9xEboR41X9yQmp6wz6Ux9XcPtWfD`
-- Current canonical `dpl_...` Production deployment ID was not independently recovered in this checkpoint; do not invent one.
-- Authenticated Production smoke from the prior Auth/UX release: PASS; not repeated for the SEO-only promotion because no auth/session behavior was changed.
-
-### Database
-
-- Production Render PostgreSQL: `directpilot-production-db`
-- Database ID: `dpg-db0escm0tbcc73fhig2g-a`
-- PostgreSQL: 16
-- Status: AVAILABLE
-- Plan: FREE
-- Expires: `2026-11-02T11:59:46.610475Z`
-- High availability: disabled
-- Read replicas: none
-- Latest file-recorded migration head: `0023`
-- Deployed startup current-head verification: PASS
-- Durability for real customers: OPEN
+- Authenticated Production smoke from the prior Auth/UX release: PASS.
 
 ## Current UAT State
 
@@ -71,8 +54,8 @@
 
 - Render service: `directpilot-uat-api`
 - Service ID: `srv-dabsmo7qj5pc7397jqf0`
-- Verified LIVE deployment: `dep-db31uljncjis73e6gq90`
-- Deployed SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`
+- Verified LIVE deployment: `dep-db33f1qd0e5s73f0bk00`
+- Deployed SHA: `91250140cccc7c9be9102c2d6e17e6775a836f24`
 - `APP_ENV=uat`: VERIFIED
 - Database connectivity: PASS
 - Migration/current-head verification: PASS
@@ -214,26 +197,21 @@ Status: **PASS — DO NOT REBUILD**
 
 ## Meta / OAuth
 
-Status: **IN PROGRESS — RELAY BRIDGE DEPLOYED / PRODUCTION OAUTH NEXT**
+Status: **PRODUCTION OAUTH PASS / INBOUND RELAY PASS / OUTBOUND E2E OPEN**
 
-- Owner explicitly approved the UAT -> Production Meta relay bridge because Meta Developer settings are currently inaccessible.
-- Shared Meta App pilot decision remains in force.
-- Bridge runtime SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`.
-- CI: 871 passed / 7 skipped; docker-build PASS; postgres-smoke PASS.
-- UAT deployment `dep-db31uljncjis73e6gq90`: LIVE, APP_ENV=uat, DB/migration/startup PASS.
-- Production deployment `dep-db31vu60tbcc738ee1dg`: LIVE, APP_ENV=production, DB/migration/startup PASS.
-- UAT OAuth callback remains the Meta-registered provider redirect:
-  `https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback`.
-- Production now deliberately uses that same provider redirect URI and prefixes new OAuth state with `production.`.
-- UAT relays only `production.` OAuth states to:
-  `https://directpilot-api.onrender.com/api/v1/integrations/instagram/callback`.
-- Production then consumes its own state and stores its own encrypted Instagram connection/token in the Production database.
-- UAT webhook relay code is deployed but `META_WEBHOOK_RELAY_TARGET_URL` remains intentionally empty until Production OAuth has created its connection.
+- Owner-approved UAT -> Production Meta relay remains the pilot workaround while Meta Developer settings are inaccessible.
+- Production OAuth through the relay: PASS.
+- UAT webhook relay -> Production: PASS.
+- Production inbound routing, account resolution, conversation creation, message persistence and webhook processing: PASS.
+- The live test message `قیمت` reached Production but matched no deterministic AutomationRule; AI fallback then failed with `llm_provider_configuration_error`.
+- This is not a Meta transport failure. Production LLM verification remains a separate gate.
+- Current accepted backend runtime is `91250140...` in both UAT and Production.
+- Production deployment `dep-db33funavr4c739lm9v0`: LIVE; APP_ENV/DB/migration/startup PASS.
+- UAT deployment `dep-db33f1qd0e5s73f0bk00`: LIVE; APP_ENV/DB/migration/startup PASS.
 - Production outbound remains fail-closed with `META_SEND_ENABLED=false`.
-- Production relay-target settings remain empty; Production can never relay onward under the validated deployment profile.
-- Owner confirmed shared Meta App values were copied from UAT to Production without exposing them in chat. Connector readback of secret values is not available, so runtime OAuth is the verification gate.
+- Runtime now refuses Production startup with send enabled unless `META_SEND_ALLOWED_ACCOUNT_IDS` contains exactly one pilot Instagram account.
 - Do not copy UAT encrypted token rows or the UAT encryption key into Production.
-- Next gate: owner initiates Production Instagram OAuth from the Production dashboard. After PASS, enable UAT webhook relay to Production and run controlled inbound/outbound E2E with account allowlisting.
+- Next gate: create/enable one deterministic `DM_KEYWORD` exact-match rule for `قیمت`, identify and configure exactly the connected pilot account in the send allowlist, then enable Production send only for one controlled outbound E2E.
 
 ## Current Priority / Blocker
 
@@ -266,16 +244,18 @@ Important known frontend local state:
 
 ## Next Exact Action
 
-1. Address `PRODUCTION_DATABASE_DURABILITY` and `BACKUP_RESTORE_ACCEPTANCE` before real customers:
-   - choose durable target,
-   - obtain explicit owner approval for any paid infrastructure,
-   - plan cutover,
-   - establish backups,
-   - verify restore.
-2. Then/alongside, verify `PAYMENT_PROVIDER_ENVIRONMENT_SPLIT`.
-3. Verify `LLM_ENVIRONMENT_VERIFICATION`.
-4. Meta relay bridge is deployed. Next, initiate Production Instagram OAuth from the Production dashboard; only after OAuth PASS enable UAT webhook relay to Production and then perform the restricted outbound E2E.
-5. Keep Forgot Password blocked until a verified recovery provider exists.
+1. In Production, create/enable one deterministic AutomationRule:
+   - trigger: `DM_KEYWORD`
+   - match: `EXACT`
+   - keyword: `قیمت`
+   - action: `SEND_MESSAGE`
+   - harmless fixed reply
+2. Resolve the connected Production pilot Instagram account ID through an authenticated tenant/store connection read; do not weaken the Production DB external allowlist.
+3. Set `META_SEND_ALLOWED_ACCOUNT_IDS` to exactly that one account while keeping `META_SEND_ENABLED=false`.
+4. Verify Production starts cleanly with the restricted allowlist.
+5. Set `META_SEND_ENABLED=true`, send `قیمت` once from the second Instagram account, and verify deterministic match, one provider delivery, dedupe and no own-message echo loop.
+6. Immediately return `META_SEND_ENABLED=false` if routing, allowlist or echo behavior is not exactly as expected.
+7. Separately address `PRODUCTION_DATABASE_DURABILITY` / `BACKUP_RESTORE_ACCEPTANCE` before onboarding real customers.
 
 ## Important Constraints
 
@@ -311,26 +291,27 @@ PROJECT: DirectPilot
 DATE: 2026-10-07
 
 ACTIVE_WORKSTREAM:
-META_UAT_TO_PRODUCTION_RELAY_ACTIVATION
+META_PRODUCTION_OUTBOUND_E2E
 
 READINESS_BLOCKER:
 PRODUCTION_DATABASE_DURABILITY_AND_BACKUP_RESTORE
 
-LATEST_RELEASE:
-META_UAT_PROD_RELAY_BRIDGE
+LATEST_BACKEND_SAFETY_RELEASE:
+PRODUCTION_SINGLE_PILOT_SEND_ALLOWLIST_GUARD
 
 LATEST_RELEASE_STATUS:
-DEPLOYED UAT + PRODUCTION / CI PASS / E2E OPEN
+UAT PASS / PRODUCTION LIVE / CI PASS / OUTBOUND E2E OPEN
 
 PRODUCTION_BACKEND:
-SHA: b8f945db18b45e8ac1f3a8fe0bfda790b12015ab
-DEPLOYMENT: dep-db31vu60tbcc738ee1dg
+SHA: 91250140cccc7c9be9102c2d6e17e6775a836f24
+DEPLOYMENT: dep-db33funavr4c739lm9v0
 STATUS: LIVE
 APP_ENV: production
 DB: PASS
 MIGRATION: PASS
 STARTUP: PASS
 META_SEND_ENABLED: false
+SEND_GUARD: EXACTLY_ONE_PILOT_REQUIRED_WHEN_ENABLED
 
 PRODUCTION_FRONTEND:
 SHA: 4a1f8bb1812ce942e055c7f2c810f7d719939ab8
@@ -339,22 +320,23 @@ VERCEL: SUCCESS
 OWNER_SMOKE: PASS
 
 UAT_BACKEND:
-SHA: b8f945db18b45e8ac1f3a8fe0bfda790b12015ab
-DEPLOYMENT: dep-db31uljncjis73e6gq90
+SHA: 91250140cccc7c9be9102c2d6e17e6775a836f24
+DEPLOYMENT: dep-db33f1qd0e5s73f0bk00
 STATUS: LIVE
-OAUTH_RELAY_TO_PRODUCTION: ENABLED_FOR production. STATE
-WEBHOOK_RELAY_TO_PRODUCTION: DISABLED_PENDING_PROD_OAUTH
 
 UAT_FRONTEND:
 SHA: 4a1f8bb1812ce942e055c7f2c810f7d719939ab8
 BRANCH: UAT
 ACCEPTANCE: PASS
 
-FORGOT_PASSWORD:
-BLOCKED
-
 META_E2E:
-IN_PROGRESS — PRODUCTION OAUTH USER ACTION NEXT
+PRODUCTION OAUTH PASS
+INBOUND RELAY PASS
+OUTBOUND E2E OPEN
+
+OBSERVED_OUTBOUND_BLOCKER:
+NO DETERMINISTIC RULE FOR قیمت
+LLM FALLBACK CONFIGURATION ERROR
 
 PRODUCTION_DB:
 FREE / EXPIRES 2026-11-02
@@ -362,5 +344,6 @@ DURABILITY: OPEN
 BACKUP_RESTORE: OPEN
 
 NEXT EXACT ACTION:
-From https://directpilot.ir, sign in as the pilot customer and use Dashboard -> Instagram -> اتصال رسمی اینستاگرام. Verify the UAT relay and Production callback complete successfully. Then enable UAT webhook relay to Production, keep Production send restricted, and run controlled Meta E2E.
+Create/enable the Production DM_KEYWORD EXACT rule for قیمت with a harmless fixed reply. Then resolve the connected pilot instagram_account_id through the authenticated tenant/store API, configure exactly that one ID in META_SEND_ALLOWED_ACCOUNT_IDS while send stays disabled, and only then run one controlled outbound E2E.
 ```
+

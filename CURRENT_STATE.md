@@ -9,35 +9,32 @@
 
 - Repository: `namach2727-coder/Sales-Agent`
 - Branch: `backend-main`
-- Latest accepted runtime-code commit: `84b7df6196fe380fad21a3791e3160840c098602`
-- Continuity-document commits are newer on `backend-main`; they must not be described as deployed application code.
-- Commit message: `feat(auth): add secure password and session management`
-- GitHub CI for this commit: `test` PASS, `docker-build` PASS, `postgres-smoke` PASS.
+- Latest accepted deployed runtime-code commit: `91250140cccc7c9be9102c2d6e17e6775a836f24`.
+- This runtime includes the Meta relay bridge and Production single-pilot send-allowlist guard.
+- GitHub CI: test PASS, docker-build PASS, postgres-smoke PASS.
+- Later docs-only commits must not be described as deployed application code unless Render evidence matches them.
 
 ### Frontend
 
 - Repository: `namach2727-coder/directpilot-web`
 - Production branch: `main`
 - UAT branch: `UAT`
-- Both remote branches currently point to the accepted Frontend release:
-  `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`
-- Current frontend commit message: `seo: complete article author organization schema`
-- Current frontend includes the previously accepted Auth/UX release plus SEO Phase 1 and SEO Phase 2.
+- Both remote branches point to `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`.
 
 ## Production Backend
 
 - Render service: `directpilot-api`
 - Service ID: `srv-db0f3uc9v7es73b5k51g`
-- Latest verified LIVE deployment ID: `dep-db32beom7kps73cpcf50`
-- Deployed Git SHA: `b6962c6701897ece4ee4fdda5ffcf7f2ec67da3a`
-- Accepted runtime-code SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`.
+- Latest verified LIVE deployment ID: `dep-db33funavr4c739lm9v0`
+- Deployed Git SHA: `91250140cccc7c9be9102c2d6e17e6775a836f24`
 - Status: LIVE
 - `APP_ENV=production`: VERIFIED
 - PostgreSQL connectivity: PASS
 - Migration one-head/current-head verification: PASS
 - Application startup: PASS
 - Render auto-deploy: OFF
-- No Meta/payment/database/environment-variable changes were made as part of this Production promotion.
+- `META_SEND_ENABLED=false` remains in force.
+- Runtime now requires exactly one `META_SEND_ALLOWED_ACCOUNT_IDS` entry if Production send is enabled.
 
 ## Production Frontend
 
@@ -70,8 +67,8 @@
 
 - Render service: `directpilot-uat-api`
 - Service ID: `srv-dabsmo7qj5pc7397jqf0`
-- Verified LIVE deployment ID: `dep-db31uljncjis73e6gq90`
-- Deployed SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`
+- Verified LIVE deployment ID: `dep-db33f1qd0e5s73f0bk00`
+- Deployed SHA: `91250140cccc7c9be9102c2d6e17e6775a836f24`
 - Status: LIVE
 - `APP_ENV=uat`: VERIFIED
 - PostgreSQL connectivity: PASS
@@ -166,20 +163,18 @@ Status: PASS.
 
 ## Meta / OAuth
 
-- Status: IN PROGRESS — RELAY BRIDGE DEPLOYED / PRODUCTION OAUTH NEXT.
-- Owner approved the relay workaround because Meta Developer configuration is inaccessible.
-- Shared Meta App values were copied by the owner from UAT to Production without exposing values in chat; secret readback is not available through the connector.
-- Relay runtime SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`.
-- CI: 871 passed / 7 skipped; docker-build PASS; postgres-smoke PASS.
-- UAT deployment `dep-db31uljncjis73e6gq90`: LIVE; APP_ENV/DB/migration/startup PASS.
-- Production deployment `dep-db31vu60tbcc738ee1dg`: LIVE; APP_ENV/DB/migration/startup PASS.
-- Production uses the already-registered UAT provider redirect URI and prefixes OAuth state with `production.`.
-- UAT OAuth relay target points to the Production callback and accepts only `production.` state.
-- UAT webhook relay code is deployed, but its target is empty; existing UAT webhook processing continues until Production OAuth succeeds.
-- Production relay targets are empty, preventing relay loops.
-- Production outbound remains `META_SEND_ENABLED=false`.
-- Production DB external allowlist remains untouched/empty.
-- Next user action: Production dashboard -> Instagram -> official connection. After success, enable UAT webhook relay and verify inbound routing before any controlled outbound send.
+- Status: **PRODUCTION OAUTH PASS / INBOUND RELAY PASS / OUTBOUND E2E OPEN**.
+- Production OAuth through the owner-approved UAT relay bridge: PASS.
+- UAT webhook relay to Production: PASS.
+- Production inbound account routing, conversation creation, inbound persistence and webhook processing: PASS.
+- Live message `قیمت` did not match a deterministic rule; AI fallback failed with `llm_provider_configuration_error`.
+- Production outbound remained disabled; this was not a Meta transport failure.
+- Current backend runtime in UAT and Production: `91250140...`.
+- Production: `dep-db33funavr4c739lm9v0` LIVE with APP_ENV/DB/migration/startup PASS.
+- UAT: `dep-db33f1qd0e5s73f0bk00` LIVE with APP_ENV/DB/migration/startup PASS.
+- Production send safety is fail-closed: enabling send requires exactly one pilot account in `META_SEND_ALLOWED_ACCOUNT_IDS`.
+- Do not weaken Production database networking to discover the account ID; use the authenticated tenant/store Instagram connection API.
+- Next exact gate: deterministic `DM_KEYWORD` exact-match `قیمت` rule + exactly one pilot allowlist entry + one controlled outbound E2E.
 
 ## LLM / Payment Verification
 

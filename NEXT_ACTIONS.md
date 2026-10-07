@@ -96,32 +96,39 @@ Status: **PRODUCTION OAUTH PASS / INBOUND RELAY PASS — OUTBOUND E2E OPEN**
 
 Verified:
 - Production OAuth through the UAT relay: PASS.
-- Live UAT webhook relay: PASS.
-- Production inbound event received: PASS.
-- Production account/store scope resolved: PASS.
-- Conversation creation: PASS.
-- Inbound message persistence: PASS.
-- Webhook accepted and processing completed: PASS.
-- Warning/Error in the live inbound processing window: none.
-- Production outbound remained disabled; no provider send occurred.
+- UAT webhook relay: PASS.
+- Production inbound account/store resolution, conversation creation, persistence and processing: PASS.
+- Backend safety runtime `91250140...` is LIVE in UAT (`dep-db33f1qd0e5s73f0bk00`) and Production (`dep-db33funavr4c739lm9v0`).
+- GitHub CI for this runtime: test PASS, docker-build PASS, postgres-smoke PASS.
+- Production `META_SEND_ENABLED=false`.
+- Production environment validation now requires exactly one `META_SEND_ALLOWED_ACCOUNT_IDS` entry whenever send is enabled.
 
 Observed blocker:
-- Test message `قیمت` did not match a deterministic Production AutomationRule.
-- AI fallback started and failed with `llm_provider_configuration_error`.
-- This does not invalidate inbound relay acceptance; it blocks reply generation for unmatched messages.
+- `قیمت` matched no deterministic Production AutomationRule.
+- AI fallback failed with `llm_provider_configuration_error`.
+- This does not invalidate Meta transport/inbound acceptance.
 
 Next exact steps:
-1. In Production, create/enable a `DM_KEYWORD` deterministic AutomationRule for keyword `قیمت` with a harmless fixed reply.
-2. Confirm `META_SEND_ALLOWED_ACCOUNT_IDS` is non-empty and contains only the connected pilot Instagram account before enabling send.
-3. Only then set Production `META_SEND_ENABLED=true`.
-4. From the second Instagram account, send `قیمت` once.
-5. Verify deterministic rule match, provider delivery, and no duplicate/own-message echo loop.
-6. Return `META_SEND_ENABLED=false` immediately if routing, allowlist, or echo behavior is not exactly as expected.
-7. Configure/verify Production LLM separately before testing AI fallback.
+1. In Production, create/enable a harmless deterministic rule:
+   - `trigger_type=DM_KEYWORD`
+   - `match_type=EXACT`
+   - keyword `قیمت`
+   - `action_type=SEND_MESSAGE`
+   - fixed non-sensitive reply
+2. Resolve the connected pilot `instagram_account_id` through the authenticated tenant/store Instagram connection read API. Do not open the Production DB external allowlist.
+3. Set `META_SEND_ALLOWED_ACCOUNT_IDS` to exactly that one ID while `META_SEND_ENABLED=false`.
+4. Verify the resulting Production deployment remains healthy.
+5. Set `META_SEND_ENABLED=true`.
+6. From the second Instagram account, send `قیمت` exactly once.
+7. Verify deterministic match, exactly one provider delivery, dedupe and no own-message echo loop.
+8. Return `META_SEND_ENABLED=false` immediately if routing, account restriction or echo behavior differs from expectation.
+9. Verify Production LLM separately before any AI-fallback acceptance test.
 
 Do not:
-- enable Production send with an empty allowlist,
+- enable Production send before the deterministic rule and one-account allowlist are ready,
+- configure zero or multiple Production allowlist entries,
 - copy UAT encrypted token rows or encryption key,
+- weaken Production DB networking for inspection,
 - treat the current LLM configuration error as a Meta transport failure.
 
 ## P1 — Forgot Password / Recovery

@@ -19,41 +19,52 @@ DATE: 2026-10-07
 CURRENT_PHASE:
 Pilot / market-validation with separated UAT and Production
 
-LATEST_RELEASE:
-SEO_PHASE_2
+LATEST_BACKEND_SAFETY_RELEASE:
+PRODUCTION_SINGLE_PILOT_SEND_ALLOWLIST_GUARD
 
 RELEASE_STATUS:
-PRODUCTION PASS — VERCEL SUCCESS / LIVE AUDIT CLEAN
+UAT PASS / PRODUCTION LIVE / CI PASS
 
 BACKEND_PRODUCTION:
-SHA: b6962c6701897ece4ee4fdda5ffcf7f2ec67da3a
-RENDER_DEPLOYMENT: dep-db32beom7kps73cpcf50
+SHA: 91250140cccc7c9be9102c2d6e17e6775a836f24
+RENDER_DEPLOYMENT: dep-db33funavr4c739lm9v0
 STATUS: LIVE
+APP_ENV: production
+DB: PASS
+MIGRATION: PASS
+STARTUP: PASS
+
+BACKEND_UAT:
+SHA: 91250140cccc7c9be9102c2d6e17e6775a836f24
+RENDER_DEPLOYMENT: dep-db33f1qd0e5s73f0bk00
+STATUS: LIVE
+APP_ENV: uat
+DB: PASS
+MIGRATION: PASS
+STARTUP: PASS
 
 FRONTEND_PRODUCTION:
 SHA: 4a1f8bb1812ce942e055c7f2c810f7d719939ab8
 VERCEL_STATUS: SUCCESS
 OWNER_PRODUCTION_SMOKE: PASS
 
-UAT:
-BACKEND SHA: b6962c6701897ece4ee4fdda5ffcf7f2ec67da3a
-BACKEND DEPLOYMENT: dep-db32aebncjis73e7irl0
-FRONTEND SHA: 4a1f8bb1812ce942e055c7f2c810f7d719939ab8
-FUNCTIONAL ACCEPTANCE: PASS
-
-FORGOT_PASSWORD:
-BLOCKED — no verified recovery delivery provider
-
 META_E2E:
 PRODUCTION OAUTH PASS / INBOUND RELAY PASS / OUTBOUND E2E OPEN
 
+OUTBOUND_SAFETY:
+META_SEND_ENABLED=false
+PRODUCTION STARTUP REQUIRES EXACTLY ONE META_SEND_ALLOWED_ACCOUNT_IDS ENTRY WHEN SEND IS ENABLED
+
+PRODUCTION_DB:
+FREE / EXPIRES 2026-11-02
+DURABILITY: OPEN
+BACKUP_RESTORE: OPEN
+
 NEXT EXACT STEP:
-Trigger one safe inbound Instagram event and verify UAT relay -> Production routing/dedupe with Production sending disabled; then gate one controlled outbound test behind a restricted account allowlist.
+Create/enable one Production DM_KEYWORD + EXACT rule for قیمت with a harmless fixed response. Resolve the connected pilot instagram_account_id through the authenticated tenant/store API without opening database networking, set exactly that account in META_SEND_ALLOWED_ACCOUNT_IDS while send remains disabled, then enable send only for one controlled outbound E2E and verify deterministic match, one delivery, dedupe and no echo loop.
 ```
 
-Do not restart completed environment-separation or UX/Auth promotion work without regression evidence.
-
----
+Do not restart completed environment-separation, Auth/UX, SEO, Production OAuth or inbound-relay work without regression evidence.
 
 ## 1. Product Direction and Non-Negotiable Invariants
 
@@ -105,11 +116,15 @@ GROQ_MAX_OUTPUT_TOKENS=256
 ```text
 Repository: namach2727-coder/Sales-Agent
 Branch: backend-main
-Accepted runtime-code SHA: b8f945db18b45e8ac1f3a8fe0bfda790b12015ab
-This release adds the owner-approved UAT-to-Production Meta relay bridge. Continuity-document commits may be newer on backend-main; do not treat later docs-only commits as deployed runtime code.
+Accepted deployed runtime-code SHA: 91250140cccc7c9be9102c2d6e17e6775a836f24
+Runtime includes the Meta relay bridge plus the Production single-pilot outbound allowlist guard.
+Later continuity-document commits, if any, must not be described as deployed runtime code unless Render evidence matches them.
 ```
 
-Accepted backend release adds secure password/session management and remains the Production/UAT runtime candidate.
+GitHub CI for `91250140...`:
+- test: PASS
+- docker-build: PASS
+- postgres-smoke: PASS
 
 ### Frontend
 
@@ -120,10 +135,6 @@ UAT branch: UAT
 main SHA: 4a1f8bb1812ce942e055c7f2c810f7d719939ab8
 UAT SHA: 4a1f8bb1812ce942e055c7f2c810f7d719939ab8
 ```
-
-The Production frontend was promoted by fast-forward from the UAT-accepted release.
-
----
 
 ## 3. Environment Topology
 
@@ -161,9 +172,8 @@ Environment separation is COMPLETE and PASS.
 
 - Service: `directpilot-api`
 - Service ID: `srv-db0f3uc9v7es73b5k51g`
-- Deployment: `dep-db31vu60tbcc738ee1dg`
-- Deployed Git SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`
-- This is the accepted Meta relay runtime candidate.
+- Deployment: `dep-db33funavr4c739lm9v0`
+- Deployed Git SHA: `91250140cccc7c9be9102c2d6e17e6775a836f24`
 - Status: LIVE
 - `APP_ENV=production`: PASS
 - PostgreSQL connectivity: PASS
@@ -175,8 +185,8 @@ Environment separation is COMPLETE and PASS.
 
 - Service: `directpilot-uat-api`
 - Service ID: `srv-dabsmo7qj5pc7397jqf0`
-- Deployment: `dep-db31uljncjis73e6gq90`
-- SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`
+- Deployment: `dep-db33f1qd0e5s73f0bk00`
+- SHA: `91250140cccc7c9be9102c2d6e17e6775a836f24`
 - Status: LIVE
 - `APP_ENV=uat`: PASS
 - Database/migration/startup: PASS
@@ -184,44 +194,46 @@ Environment separation is COMPLETE and PASS.
 ### Frontend / Vercel
 
 Production:
-
 - Branch: `main`
 - SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`
-- Vercel GitHub status: SUCCESS / Deployment completed
-- Deployment status target reference:
-  `https://vercel.com/mohcenp-9857s-projects/directpilot-web/9xEboR41X9yQmp6wz6Ux9XcPtWfD`
+- Vercel status: SUCCESS
 
 UAT:
-
 - Branch: `UAT`
 - SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`
-- Vercel deployment completed successfully before Production promotion.
-
-A canonical current `dpl_...` Production deployment ID was not independently recovered in this checkpoint. Do not invent one.
-
----
+- Vercel deployment: SUCCESS
 
 ## 5C. Meta UAT-to-Production Relay Bridge
 
-Backend runtime SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`.
+Accepted backend runtime SHA: `91250140cccc7c9be9102c2d6e17e6775a836f24`.
 
-Status: DEPLOYED TO UAT + PRODUCTION / CI PASS / E2E OPEN.
+Status: **OAUTH PASS / INBOUND PASS / OUTBOUND E2E OPEN**.
 
 Evidence:
-- full test suite: 871 passed / 7 skipped,
-- docker-build: PASS,
-- postgres-smoke: PASS,
-- UAT Render deploy `dep-db31uljncjis73e6gq90`: LIVE,
-- Production Render deploy `dep-db31vu60tbcc738ee1dg`: LIVE,
-- both deployments passed environment validation, PostgreSQL connectivity, migration current-head and application startup.
+- GitHub CI: test PASS, docker-build PASS, postgres-smoke PASS,
+- UAT Render deploy `dep-db33f1qd0e5s73f0bk00`: LIVE; APP_ENV/DB/migration/startup PASS,
+- Production Render deploy `dep-db33funavr4c739lm9v0`: LIVE; APP_ENV/DB/migration/startup PASS,
+- Production OAuth through the UAT callback relay: PASS,
+- UAT webhook relay to Production: PASS,
+- Production inbound routing/account resolution/persistence/processing: PASS.
 
-Bridge behavior:
-- Production OAuth state is prefixed `production.`.
-- Meta provider redirect remains the currently registered UAT callback.
-- UAT relays only production-prefixed OAuth callbacks to Production.
-- Webhook relay preserves the exact Meta-signed body/signature and short-circuits UAT processing when enabled.
-- Webhook relay is currently DISABLED pending Production OAuth.
-- Production outbound is currently DISABLED.
+Observed live behavior:
+- inbound `قیمت` reached Production,
+- no deterministic AutomationRule matched,
+- AI fallback failed with `llm_provider_configuration_error`,
+- Production send remained disabled, so no provider send occurred.
+
+Outbound safety release:
+- `META_SEND_ENABLED=false` remains the current Production state,
+- when Production send is enabled, runtime validation now requires exactly one entry in `META_SEND_ALLOWED_ACCOUNT_IDS`,
+- zero or multiple allowed accounts fail Production environment validation,
+- the sender still enforces sender-account membership in the allowlist.
+
+Next gate:
+- deterministic `DM_KEYWORD` + `EXACT` rule for `قیمت`,
+- exactly one connected Production pilot account in the allowlist,
+- one controlled outbound E2E,
+- verify one provider delivery, dedupe and no own-message echo loop.
 
 ## 5B. SEO Phase 2 Release
 
