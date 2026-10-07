@@ -118,3 +118,4 @@ Human Takeover
 - Keep one primary commercial owner per important keyword cluster to reduce cannibalization.
 - Search Console deployment acceptance and ranking acceptance are separate: successful deployment does not imply immediate recrawl or ranking improvement.
 - The baseline for SEO Phase 1 is the settled 28-day period through 2026-10-04: 14 clicks, 315 impressions, 4.44% CTR, average position 40.30.
+- SEO Phase 2 accepted SHA is `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`; live Production audit is clean on the five priority SEO pages.
