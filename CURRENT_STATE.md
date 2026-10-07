@@ -28,9 +28,9 @@
 
 - Render service: `directpilot-api`
 - Service ID: `srv-db0f3uc9v7es73b5k51g`
-- Latest verified LIVE deployment ID: `dep-db317cm0tbcc738c4qlg`
-- Deployed Git SHA: `fa8316e71ec1ce7c32c4806f428c5bde0e26db16`
-- Accepted runtime-code SHA remains `84b7df6196fe380fad21a3791e3160840c098602`; verified diff to deployed SHA contains only the five continuity Markdown files.
+- Latest verified LIVE deployment ID: `dep-db31vu60tbcc738ee1dg`
+- Deployed Git SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`
+- Accepted runtime-code SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`.
 - Status: LIVE
 - `APP_ENV=production`: VERIFIED
 - PostgreSQL connectivity: PASS
@@ -70,8 +70,8 @@
 
 - Render service: `directpilot-uat-api`
 - Service ID: `srv-dabsmo7qj5pc7397jqf0`
-- Verified LIVE deployment ID: `dep-db1mq5vavr4c73cmjgo0`
-- Deployed SHA: `84b7df6196fe380fad21a3791e3160840c098602`
+- Verified LIVE deployment ID: `dep-db31uljncjis73e6gq90`
+- Deployed SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`
 - Status: LIVE
 - `APP_ENV=uat`: VERIFIED
 - PostgreSQL connectivity: PASS
@@ -166,17 +166,20 @@ Status: PASS.
 
 ## Meta / OAuth
 
-- Status: IN PROGRESS / PRODUCTION E2E OPEN.
-- Shared Meta App pilot decision remains in force.
-- Production and UAT use environment-specific OAuth redirect URIs.
-- Production Meta variables were previously configured without documenting secret values.
-- Owner explicitly resumed Meta work on 2026-10-07.
-- UAT live logs on 2026-10-07 show inbound webhook acceptance and successful outbound delivery.
-- Production non-secret Meta env settings were normalized on 2026-10-07. Outbound remains disabled (`META_SEND_ENABLED=false`) and signature verification remains required.
-- The env update triggered Production deploy `dep-db317cm0tbcc738c4qlg`, which is LIVE with environment validation, database connectivity, migration current-head and application startup PASS.
-- Secret/shared Meta env values were not displayed or overwritten; Render connector cannot read them back safely.
-- Production DB could not be externally queried because its IP allowlist is intentionally empty; access controls were not weakened.
-- Production OAuth + webhook/DM E2E remains OPEN.
+- Status: IN PROGRESS — RELAY BRIDGE DEPLOYED / PRODUCTION OAUTH NEXT.
+- Owner approved the relay workaround because Meta Developer configuration is inaccessible.
+- Shared Meta App values were copied by the owner from UAT to Production without exposing values in chat; secret readback is not available through the connector.
+- Relay runtime SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`.
+- CI: 871 passed / 7 skipped; docker-build PASS; postgres-smoke PASS.
+- UAT deployment `dep-db31uljncjis73e6gq90`: LIVE; APP_ENV/DB/migration/startup PASS.
+- Production deployment `dep-db31vu60tbcc738ee1dg`: LIVE; APP_ENV/DB/migration/startup PASS.
+- Production uses the already-registered UAT provider redirect URI and prefixes OAuth state with `production.`.
+- UAT OAuth relay target points to the Production callback and accepts only `production.` state.
+- UAT webhook relay code is deployed, but its target is empty; existing UAT webhook processing continues until Production OAuth succeeds.
+- Production relay targets are empty, preventing relay loops.
+- Production outbound remains `META_SEND_ENABLED=false`.
+- Production DB external allowlist remains untouched/empty.
+- Next user action: Production dashboard -> Instagram -> official connection. After success, enable UAT webhook relay and verify inbound routing before any controlled outbound send.
 
 ## LLM / Payment Verification
 
