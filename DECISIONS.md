@@ -100,16 +100,20 @@ Human Takeover
 ## Shared Meta App Pilot Decision
 
 - For the current pilot, Production and UAT may use the same Meta App credentials.
-- Production uses its own OAuth redirect URI:
-  `https://directpilot-api.onrender.com/api/v1/integrations/instagram/callback`.
-- UAT uses:
+- Meta Developer settings are currently inaccessible to the owner; therefore the approved pilot workaround is a guarded UAT -> Production relay bridge.
+- The provider-facing OAuth redirect intentionally remains the already-registered UAT callback:
   `https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback`.
-- Secret values remain outside Git/chat and must not be copied into documentation.
-- Because Meta webhook callback configuration is app-level, treat the shared Meta App as having one active live webhook destination at a time for the Instagram object.
-- Owner explicitly resumed Meta work on 2026-10-07. Production activation may proceed under the shared Meta App pilot decision.
-- If simultaneous independent live webhook delivery is required in both environments, use separate Meta Apps rather than multiplexing one app-level webhook subscription.
-- Production Meta activation remains fail-closed until Production OAuth creates its own connection/token record, the Production webhook route is active, and the outbound account allowlist is explicitly restricted.
-- Never copy encrypted Instagram token rows from UAT to Production; encryption keys and databases remain environment-specific.
+- Production OAuth requests use that same provider redirect but prefix newly generated state with `production.`.
+- UAT may relay only callbacks whose state matches the configured `production.` prefix to:
+  `https://directpilot-api.onrender.com/api/v1/integrations/instagram/callback`.
+- Production owns and consumes its own OAuth state and stores its own encrypted token/connection; UAT must never consume/copy Production OAuth state or encrypted connection rows.
+- UAT webhook relay may be enabled only after Production OAuth has established the matching Production connection.
+- Webhook relay must validate the original Meta HMAC signature before forwarding, preserve exact raw bytes/signature/delivery identifiers, avoid internal retries, and fail closed so Meta can retry.
+- Production must not have relay targets configured; validated Production settings reject that topology to prevent relay loops.
+- Production `META_SEND_ENABLED` remains false until inbound routing is proven and the pilot account allowlist is explicitly restricted.
+- Secret values stay outside Git/chat/logs/docs. Production and UAT retain independent `INSTAGRAM_TOKEN_ENCRYPTION_KEY` values.
+- If the owner later regains Meta Developer access, the preferred steady-state design is direct Production callback/webhook registration; the relay is a controlled pilot bridge, not a permanent architectural requirement.
+- If simultaneous independent live webhook delivery is required in both environments, use separate Meta Apps rather than broad relay/multiplexing.
 
 ## SEO and Search Indexing
 
