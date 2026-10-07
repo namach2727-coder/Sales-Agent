@@ -45,10 +45,10 @@ FORGOT_PASSWORD:
 BLOCKED — no verified recovery delivery provider
 
 META_E2E:
-OAUTH RELAY LIVE / PRODUCTION OAUTH E2E OPEN
+PRODUCTION OAUTH PASS / WEBHOOK RELAY LIVE / INBOUND E2E OPEN
 
 NEXT EXACT STEP:
-Run the Production Instagram OAuth flow and verify relay + Production DB connection; then move live webhook handling through the UAT-to-Production relay and run controlled E2E.
+Trigger one safe inbound Instagram event and verify UAT relay -> Production routing/dedupe with Production sending disabled; then gate one controlled outbound test behind a restricted account allowlist.
 ```
 
 Do not restart completed environment-separation or UX/Auth promotion work without regression evidence.
@@ -547,3 +547,12 @@ Status: IN PROGRESS.
 - UAT callback relays only matching `prod.` states to the Production callback.
 - Webhook relay remains disabled until Production OAuth connection is accepted.
 - Production sending remains disabled until restricted-account E2E.
+
+## Meta Production OAuth Acceptance
+
+- Production OAuth accepted on 2026-10-07 through the UAT relay bridge.
+- UAT callback relay evidence: `instagram.oauth.relayed`.
+- Production provider evidence: short-token exchange 200, requested permissions complete, BUSINESS profile probes PASS, long-lived-token exchange 200, profile lookup 200.
+- UAT webhook relay is now enabled to the Production webhook endpoint.
+- UAT webhook-relay deploy: `dep-db32pmvavr4c739je950` — LIVE.
+- Production sending remains disabled pending inbound-routing acceptance and allowlist verification.
