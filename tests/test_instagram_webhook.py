@@ -30,6 +30,7 @@ from app.instagram_channel.models import (
 )
 from app.instagram_channel.router import public_router
 from app.instagram_channel.service import InstagramWebhookIngestionService
+from app.infrastructure.integrations.meta_relay import MetaRelayError
 from app.models import Store, Tenant, utc_now
 
 
@@ -494,3 +495,71 @@ def test_public_verification_and_signature_contract(webhook_engine) -> None:
     assert valid.json()["status"] == "accepted"
     assert invalid.status_code == 401
     assert bad_json.status_code == 400
+
+
+def test_public_webhook_relay_short_circuits_uat_ingestion(
+    webhook_engine,
+    monkeypatch,
+) -> None:
+    async def relay_enabled(*_args, **_kwargs) -> bool:
+        return True
+
+    monkeypatch.setattr(
+        "app.instagram_channel.router.relay_instagram_webhook",
+        relay_enabled,
+    )
+    settings = Settings(
+        meta_app_secret="app-secret",
+        meta_webhook_relay_target_url=(
+            "https://directpilot-api.onrender.com/api/v1/integrations/instagram/webhook"
+        ),
+    )
+    client = public_client(webhook_engine, settings)
+    payload = messaging_payload("relay-account", f"relay-{uuid.uuid4().hex}")
+    body = body_for(payload)
+
+    with Session(webhook_engine) as db:
+        before = db.scalar(select(func.count()).select_from(InstagramWebhookDelivery))
+
+    response = client.post(
+        "/api/v1/integrations/instagram/webhook",
+        content=body,
+        headers={"x-hub-signature-256": signature(body, "app-secret")},
+    )
+
+    with Session(webhook_engine) as db:
+        after = db.scalar(select(func.count()).select_from(InstagramWebhookDelivery))
+
+    assert response.status_code == 200
+    assert before == after
+
+
+def test_public_webhook_relay_failure_is_fail_closed(
+    webhook_engine,
+    monkeypatch,
+) -> None:
+    async def relay_failed(*_args, **_kwargs) -> bool:
+        raise MetaRelayError("relay failed")
+
+    monkeypatch.setattr(
+        "app.instagram_channel.router.relay_instagram_webhook",
+        relay_failed,
+    )
+    settings = Settings(
+        meta_app_secret="app-secret",
+        meta_webhook_relay_target_url=(
+            "https://directpilot-api.onrender.com/api/v1/integrations/instagram/webhook"
+        ),
+    )
+    client = public_client(webhook_engine, settings)
+    payload = messaging_payload("relay-account", f"relay-fail-{uuid.uuid4().hex}")
+    body = body_for(payload)
+
+    response = client.post(
+        "/api/v1/integrations/instagram/webhook",
+        content=body,
+        headers={"x-hub-signature-256": signature(body, "app-secret")},
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"]["code"] == "webhook_relay_failed"
