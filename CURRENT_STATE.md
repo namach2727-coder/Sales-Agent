@@ -28,8 +28,9 @@
 
 - Render service: `directpilot-api`
 - Service ID: `srv-db0f3uc9v7es73b5k51g`
-- Latest verified LIVE deployment ID: `dep-db2ufns9v7es73aarbg0`
-- Deployed Git SHA: `84b7df6196fe380fad21a3791e3160840c098602`
+- Latest verified LIVE deployment ID: `dep-db317cm0tbcc738c4qlg`
+- Deployed Git SHA: `fa8316e71ec1ce7c32c4806f428c5bde0e26db16`
+- Accepted runtime-code SHA remains `84b7df6196fe380fad21a3791e3160840c098602`; verified diff to deployed SHA contains only the five continuity Markdown files.
 - Status: LIVE
 - `APP_ENV=production`: VERIFIED
 - PostgreSQL connectivity: PASS
@@ -165,12 +166,17 @@ Status: PASS.
 
 ## Meta / OAuth
 
-- Status: PARTIAL / BLOCKED_EXTERNAL.
+- Status: IN PROGRESS / PRODUCTION E2E OPEN.
 - Shared Meta App pilot decision remains in force.
 - Production and UAT use environment-specific OAuth redirect URIs.
 - Production Meta variables were previously configured without documenting secret values.
-- Real OAuth callback + webhook/DM E2E remains OPEN externally.
-- Owner explicitly paused Meta work. Do not resume unless explicitly requested.
+- Owner explicitly resumed Meta work on 2026-10-07.
+- UAT live logs on 2026-10-07 show inbound webhook acceptance and successful outbound delivery.
+- Production non-secret Meta env settings were normalized on 2026-10-07. Outbound remains disabled (`META_SEND_ENABLED=false`) and signature verification remains required.
+- The env update triggered Production deploy `dep-db317cm0tbcc738c4qlg`, which is LIVE with environment validation, database connectivity, migration current-head and application startup PASS.
+- Secret/shared Meta env values were not displayed or overwritten; Render connector cannot read them back safely.
+- Production DB could not be externally queried because its IP allowlist is intentionally empty; access controls were not weakened.
+- Production OAuth + webhook/DM E2E remains OPEN.
 
 ## LLM / Payment Verification
 
