@@ -106,8 +106,10 @@ Human Takeover
   `https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback`.
 - Secret values remain outside Git/chat and must not be copied into documentation.
 - Because Meta webhook callback configuration is app-level, treat the shared Meta App as having one active live webhook destination at a time for the Instagram object.
-- Meta OAuth/webhook E2E is currently externally blocked/deferred by owner decision. Do not resume Meta work unless the owner explicitly returns to it.
+- Owner explicitly resumed Meta work on 2026-10-07. Production activation may proceed under the shared Meta App pilot decision.
 - If simultaneous independent live webhook delivery is required in both environments, use separate Meta Apps rather than multiplexing one app-level webhook subscription.
+- Production Meta activation remains fail-closed until Production OAuth creates its own connection/token record, the Production webhook route is active, and the outbound account allowlist is explicitly restricted.
+- Never copy encrypted Instagram token rows from UAT to Production; encryption keys and databases remain environment-specific.
 
 ## SEO and Search Indexing
 
