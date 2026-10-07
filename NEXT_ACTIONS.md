@@ -92,13 +92,26 @@ Status: **OPEN**
 
 ## P1 — Meta / OAuth
 
-Status: **BLOCKED_EXTERNAL / OWNER-DEFERRED**
+Status: **IN PROGRESS — PRODUCTION E2E OPEN**
 
-- Do not resume Meta work unless the owner explicitly requests it.
-- Preserve the shared-Meta-App pilot decision.
-- Keep distinct Production and UAT OAuth redirect URIs.
-- Do not change webhook destination, send flags, credentials or callbacks opportunistically.
-- When resumed, real OAuth callback and controlled webhook/DM E2E acceptance are still required before PASS.
+Verified now:
+- Owner resumed Meta work on 2026-10-07.
+- UAT inbound webhook processing is live and at least one outbound delivery completed successfully on 2026-10-07.
+- Production non-secret Meta settings are normalized to the Production callback/provider endpoints.
+- Production signature verification is required.
+- Production outbound sending is explicitly fail-closed with `META_SEND_ENABLED=false`.
+- Production env update deployment `dep-db317cm0tbcc738c4qlg` is LIVE; environment/database/migration/startup checks passed.
+
+Next exact steps:
+1. In Render, compare/copy shared Meta App values from UAT to Production without exposing them in chat: `META_APP_ID`, `META_APP_SECRET`, `META_VERIFY_TOKEN`, and any pilot account allowlist value.
+2. Keep the Production-specific `INSTAGRAM_TOKEN_ENCRYPTION_KEY`; do not copy the UAT encryption key.
+3. Ensure Meta App OAuth valid redirect URIs include the Production callback.
+4. Log into Production DirectPilot and connect the pilot Instagram account through Production OAuth so Production DB gets its own encrypted token/connection.
+5. Point the Meta App Instagram webhook callback to the Production webhook endpoint.
+6. Restrict `META_SEND_ALLOWED_ACCOUNT_IDS` to the pilot account, then enable `META_SEND_ENABLED=true` only for the controlled E2E.
+7. Verify inbound webhook, deterministic automation, outbound delivery, dedupe/echo protection and tenant routing before marking PASS.
+
+Do not copy UAT database rows or encrypted tokens into Production.
 
 ## P1 — Forgot Password / Recovery
 
