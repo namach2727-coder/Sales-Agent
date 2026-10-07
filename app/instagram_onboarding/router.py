@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from urllib.parse import urlencode, urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -30,6 +31,9 @@ from app.instagram_onboarding.service import (
     InstagramOnboardingInvalidState,
     InstagramOnboardingService,
 )
+
+
+logger = logging.getLogger("sales_assistant.instagram_oauth_relay")
 
 
 router = APIRouter(prefix="/api/v1/integrations/instagram", tags=["instagram-onboarding"])
@@ -100,6 +104,29 @@ def _oauth_redirect(
     return RedirectResponse(f"{target}?{urlencode(query)}", status_code=303)
 
 
+def _oauth_relay_redirect(
+    settings: Settings,
+    *,
+    code: str,
+    state: str,
+) -> RedirectResponse | None:
+    target = settings.meta_oauth_relay_target_url.strip()
+    prefix = settings.meta_oauth_relay_state_prefix.strip()
+    if not target or not prefix or not state.startswith(prefix):
+        return None
+    logger.info(
+        "Instagram OAuth callback relayed",
+        extra={
+            "event_code": "instagram.oauth.relayed",
+            "target_host": urlsplit(target).hostname or "unknown",
+        },
+    )
+    return RedirectResponse(
+        f"{target}?{urlencode({'code': code, 'state': state})}",
+        status_code=303,
+    )
+
+
 @router.post("/connect", response_model=InstagramConnectResponse)
 def connect(
     principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
@@ -134,6 +161,9 @@ def callback(
                 "message": "OAuth redirect target is server-controlled",
             },
         )
+    relay = _oauth_relay_redirect(settings, code=code, state=state)
+    if relay is not None:
+        return relay
     try:
         connection, tenant, store = InstagramOnboardingService(db, settings).complete(
             state=state, code=code, provider=provider
