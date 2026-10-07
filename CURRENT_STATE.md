@@ -214,3 +214,12 @@ Status: PASS.
 - Live Production audit on five priority SEO pages: 0 critical/high/medium/low issues.
 - All five pages return HTTP 200, are indexable and self-canonical, have one H1 and valid structured data.
 - Ranking/CTR impact remains OPEN until Google recrawls and later Search Console data settles.
+
+### Meta live inbound evidence
+
+- Live inbound test at 2026-10-07T11:31Z: PASS through UAT -> Production relay.
+- Production account scope resolved, conversation created, inbound message persisted, webhook accepted and processing completed.
+- No warning/error in the processing window.
+- Deterministic automation did not match `قیمت`; AI fallback failed with `llm_provider_configuration_error`.
+- No outbound provider delivery occurred; Production sending remains disabled.
+- Dedupe/echo protection still requires a controlled outbound/retry observation before full Meta E2E PASS.
