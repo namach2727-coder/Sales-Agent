@@ -23,7 +23,8 @@
 
 - Repository: `namach2727-coder/Sales-Agent`
 - Branch: `backend-main`
-- Remote head / accepted runtime-code SHA: `84b7df6196fe380fad21a3791e3160840c098602`
+- Accepted runtime-code SHA: `84b7df6196fe380fad21a3791e3160840c098602`
+- Continuity-document commits are newer on `backend-main`; they are documentation only and must not be described as deployed runtime code.
 - Production Render service: `directpilot-api`
 - Service ID: `srv-db0f3uc9v7es73b5k51g`
 - Verified LIVE deployment: `dep-db2ufns9v7es73aarbg0`
