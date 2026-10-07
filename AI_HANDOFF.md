@@ -49,7 +49,7 @@
 - Production SEO deployment status target reference:
   `https://vercel.com/mohcenp-9857s-projects/directpilot-web/4WadnbNq9X79RjTx8fANyZWuwN8g`
 - Current canonical `dpl_...` Production deployment ID was not independently recovered in this checkpoint; do not invent one.
-- Owner-confirmed Production authenticated smoke: PASS
+- Authenticated Production smoke from the prior Auth/UX release: PASS; not repeated for the SEO-only promotion because no auth/session behavior was changed.
 
 ### Database
 
@@ -116,7 +116,7 @@ Accepted backend:
 `84b7df6196fe380fad21a3791e3160840c098602`
 
 Accepted frontend:
-`da73f8055f676aaa1a07901fe351d20f4455ad5a`
+`1f82494f87fe39f0fb2e22043adfd75f7735668c`
 
 UAT acceptance PASS:
 
