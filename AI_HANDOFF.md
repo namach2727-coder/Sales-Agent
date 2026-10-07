@@ -23,19 +23,18 @@
 
 - Repository: `namach2727-coder/Sales-Agent`
 - Branch: `backend-main`
-- Accepted runtime-code SHA: `84b7df6196fe380fad21a3791e3160840c098602`
-- Current deployed Git SHA: `fa8316e71ec1ce7c32c4806f428c5bde0e26db16`.
-- Verified compare from `84b7df6...` to `fa8316e...`: only the five continuity Markdown files changed; deployed application code is unchanged from the accepted runtime-code SHA.
+- Accepted runtime-code SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`
+- Current deployed Git SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`.
 - Production Render service: `directpilot-api`
 - Service ID: `srv-db0f3uc9v7es73b5k51g`
-- Verified LIVE deployment: `dep-db317cm0tbcc738c4qlg`
-- Deployment SHA: `fa8316e71ec1ce7c32c4806f428c5bde0e26db16`
+- Verified LIVE deployment: `dep-db31vu60tbcc738ee1dg`
+- Deployment SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`
 - `APP_ENV=production`: VERIFIED
 - PostgreSQL connectivity: PASS
 - Migration one-head/current-head verification: PASS
 - Application startup: PASS
 - Render auto-deploy: OFF
-- GitHub CI for `84b7df6...`: test PASS, docker-build PASS, postgres-smoke PASS
+- GitHub CI for `b8f945d...`: test PASS — 871 passed / 7 skipped, docker-build PASS, postgres-smoke PASS
 
 ### Frontend
 
@@ -72,8 +71,8 @@
 
 - Render service: `directpilot-uat-api`
 - Service ID: `srv-dabsmo7qj5pc7397jqf0`
-- Verified LIVE deployment: `dep-db1mq5vavr4c73cmjgo0`
-- Deployed SHA: `84b7df6196fe380fad21a3791e3160840c098602`
+- Verified LIVE deployment: `dep-db31uljncjis73e6gq90`
+- Deployed SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`
 - `APP_ENV=uat`: VERIFIED
 - Database connectivity: PASS
 - Migration/current-head verification: PASS
@@ -215,20 +214,26 @@ Status: **PASS — DO NOT REBUILD**
 
 ## Meta / OAuth
 
-Status: **IN PROGRESS / PARTIAL**
+Status: **IN PROGRESS — RELAY BRIDGE DEPLOYED / PRODUCTION OAUTH NEXT**
 
-- Shared Meta App pilot decision remains.
-- Production OAuth redirect URI:
-  `https://directpilot-api.onrender.com/api/v1/integrations/instagram/callback`
-- UAT OAuth redirect URI:
-  `https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback`
-- Production Meta variables were previously added without storing secret values in Git/docs.
-- Owner explicitly resumed Meta work on 2026-10-07.
-- UAT live runtime evidence on 2026-10-07 shows Instagram inbound events accepted and at least one outbound delivery completed.
-- Production Meta non-secret runtime settings were normalized on 2026-10-07 with `META_SEND_ENABLED=false`, `META_SIGNATURE_REQUIRED=true`, Production OAuth redirect URI, official Graph/OAuth endpoints and Production media base URL. This env update triggered Production deploy `dep-db317cm0tbcc738c4qlg`, which is LIVE.
-- Render connector does not expose existing secret env values for safe readback. `META_APP_ID`, `META_APP_SECRET`, `META_VERIFY_TOKEN` and any account allowlist/shared app values therefore remain to be confirmed/copy-verified without exposing values.
-- Production OAuth connection must populate the Production database independently; do not copy encrypted UAT connection rows or tokens between databases.
-- Real Production OAuth callback + controlled webhook/DM E2E acceptance remains OPEN.
+- Owner explicitly approved the UAT -> Production Meta relay bridge because Meta Developer settings are currently inaccessible.
+- Shared Meta App pilot decision remains in force.
+- Bridge runtime SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`.
+- CI: 871 passed / 7 skipped; docker-build PASS; postgres-smoke PASS.
+- UAT deployment `dep-db31uljncjis73e6gq90`: LIVE, APP_ENV=uat, DB/migration/startup PASS.
+- Production deployment `dep-db31vu60tbcc738ee1dg`: LIVE, APP_ENV=production, DB/migration/startup PASS.
+- UAT OAuth callback remains the Meta-registered provider redirect:
+  `https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback`.
+- Production now deliberately uses that same provider redirect URI and prefixes new OAuth state with `production.`.
+- UAT relays only `production.` OAuth states to:
+  `https://directpilot-api.onrender.com/api/v1/integrations/instagram/callback`.
+- Production then consumes its own state and stores its own encrypted Instagram connection/token in the Production database.
+- UAT webhook relay code is deployed but `META_WEBHOOK_RELAY_TARGET_URL` remains intentionally empty until Production OAuth has created its connection.
+- Production outbound remains fail-closed with `META_SEND_ENABLED=false`.
+- Production relay-target settings remain empty; Production can never relay onward under the validated deployment profile.
+- Owner confirmed shared Meta App values were copied from UAT to Production without exposing them in chat. Connector readback of secret values is not available, so runtime OAuth is the verification gate.
+- Do not copy UAT encrypted token rows or the UAT encryption key into Production.
+- Next gate: owner initiates Production Instagram OAuth from the Production dashboard. After PASS, enable UAT webhook relay to Production and run controlled inbound/outbound E2E with account allowlisting.
 
 ## Current Priority / Blocker
 
@@ -269,7 +274,7 @@ Important known frontend local state:
    - verify restore.
 2. Then/alongside, verify `PAYMENT_PROVIDER_ENVIRONMENT_SPLIT`.
 3. Verify `LLM_ENVIRONMENT_VERIFICATION`.
-4. Continue the explicitly resumed Meta Production setup with send fail-closed until Production OAuth connection, webhook routing, account allowlist and controlled E2E are verified.
+4. Meta relay bridge is deployed. Next, initiate Production Instagram OAuth from the Production dashboard; only after OAuth PASS enable UAT webhook relay to Production and then perform the restricted outbound E2E.
 5. Keep Forgot Password blocked until a verified recovery provider exists.
 
 ## Important Constraints
@@ -306,25 +311,26 @@ PROJECT: DirectPilot
 DATE: 2026-10-07
 
 ACTIVE_WORKSTREAM:
-SEO_ORGANIC_ACQUISITION_AND_MEASUREMENT
+META_UAT_TO_PRODUCTION_RELAY_ACTIVATION
 
 READINESS_BLOCKER:
 PRODUCTION_DATABASE_DURABILITY_AND_BACKUP_RESTORE
 
 LATEST_RELEASE:
-SEO_PHASE_2
+META_UAT_PROD_RELAY_BRIDGE
 
 LATEST_RELEASE_STATUS:
-PRODUCTION PASS — VERCEL SUCCESS / LIVE AUDIT CLEAN
+DEPLOYED UAT + PRODUCTION / CI PASS / E2E OPEN
 
 PRODUCTION_BACKEND:
-SHA: 84b7df6196fe380fad21a3791e3160840c098602
-DEPLOYMENT: dep-db2ufns9v7es73aarbg0
+SHA: b8f945db18b45e8ac1f3a8fe0bfda790b12015ab
+DEPLOYMENT: dep-db31vu60tbcc738ee1dg
 STATUS: LIVE
 APP_ENV: production
 DB: PASS
 MIGRATION: PASS
 STARTUP: PASS
+META_SEND_ENABLED: false
 
 PRODUCTION_FRONTEND:
 SHA: 4a1f8bb1812ce942e055c7f2c810f7d719939ab8
@@ -333,9 +339,11 @@ VERCEL: SUCCESS
 OWNER_SMOKE: PASS
 
 UAT_BACKEND:
-SHA: 84b7df6196fe380fad21a3791e3160840c098602
-DEPLOYMENT: dep-db1mq5vavr4c73cmjgo0
+SHA: b8f945db18b45e8ac1f3a8fe0bfda790b12015ab
+DEPLOYMENT: dep-db31uljncjis73e6gq90
 STATUS: LIVE
+OAUTH_RELAY_TO_PRODUCTION: ENABLED_FOR production. STATE
+WEBHOOK_RELAY_TO_PRODUCTION: DISABLED_PENDING_PROD_OAUTH
 
 UAT_FRONTEND:
 SHA: 4a1f8bb1812ce942e055c7f2c810f7d719939ab8
@@ -346,7 +354,7 @@ FORGOT_PASSWORD:
 BLOCKED
 
 META_E2E:
-IN_PROGRESS / PRODUCTION E2E OPEN
+IN_PROGRESS — PRODUCTION OAUTH USER ACTION NEXT
 
 PRODUCTION_DB:
 FREE / EXPIRES 2026-11-02
@@ -354,5 +362,5 @@ DURABILITY: OPEN
 BACKUP_RESTORE: OPEN
 
 NEXT EXACT ACTION:
-Confirm/copy shared Meta App values from UAT to Production without exposing secrets, register the Production OAuth redirect in Meta, complete Production OAuth connection, then point the app-level Instagram webhook to Production and run a controlled inbound/outbound E2E with the send allowlist still restricted; Production database durability + backup/restore remains the blocking readiness gate before real-customer onboarding.
+From https://directpilot.ir, sign in as the pilot customer and use Dashboard -> Instagram -> اتصال رسمی اینستاگرام. Verify the UAT relay and Production callback complete successfully. Then enable UAT webhook relay to Production, keep Production send restricted, and run controlled Meta E2E.
 ```
