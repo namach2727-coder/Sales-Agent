@@ -21,8 +21,8 @@
 - UAT branch: `UAT`
 - Both remote branches currently point to the accepted Frontend release:
   `da73f8055f676aaa1a07901fe351d20f4455ad5a`
-- Commit message: `fix: stabilize UAT release candidate`
-- This release contains the accepted authenticated-workspace redesign plus the two-file stabilization fix.
+- Current frontend commit message: `seo: align homepage H1 with primary intent`
+- Current frontend includes the previously accepted Auth/UX release plus SEO Phase 1.
 
 ## Production Backend
 
@@ -47,7 +47,7 @@
 - Current Production SEO deployment status target reference:
   `https://vercel.com/mohcenp-9857s-projects/directpilot-web/4WadnbNq9X79RjTx8fANyZWuwN8g`
 - A canonical `dpl_...` deployment ID was not independently recovered in this checkpoint; do not invent one.
-- Owner-confirmed Production smoke after deployment: PASS.
+- Auth/UX Production smoke from the previous release remains PASS. It was not repeated for this SEO-only promotion because no authentication/session behavior changed.
 
 ### Production Auth/UX Smoke — Owner Confirmed
 
@@ -83,7 +83,7 @@
 - Public domain: `https://uat.directpilot.ir`
 - UAT branch SHA: `da73f8055f676aaa1a07901fe351d20f4455ad5a`
 - Vercel deployment status for this SHA: SUCCESS.
-- Owner-confirmed UAT functional acceptance: PASS.
+- Prior Auth/UX UAT functional acceptance: PASS. SEO Phase 1 content/UAT review was accepted by the owner for Production promotion.
 
 Accepted UAT criteria:
 
