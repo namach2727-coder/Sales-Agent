@@ -20,10 +20,10 @@ CURRENT_PHASE:
 Pilot / market-validation with separated UAT and Production
 
 LATEST_RELEASE:
-AUTHENTICATED_WORKSPACE_UX_AND_ACCOUNT_SECURITY
+SEO_PHASE_1
 
 RELEASE_STATUS:
-PRODUCTION PASS
+PRODUCTION DEPLOYED / VERCEL SUCCESS
 
 BACKEND_PRODUCTION:
 SHA: 84b7df6196fe380fad21a3791e3160840c098602
@@ -31,14 +31,14 @@ RENDER_DEPLOYMENT: dep-db2ufns9v7es73aarbg0
 STATUS: LIVE
 
 FRONTEND_PRODUCTION:
-SHA: 1f82494f87fe39f0fb2e22043adfd75f7735668c
+SHA: da73f8055f676aaa1a07901fe351d20f4455ad5a
 VERCEL_STATUS: SUCCESS
 OWNER_PRODUCTION_SMOKE: PASS
 
 UAT:
 BACKEND SHA: 84b7df6196fe380fad21a3791e3160840c098602
 BACKEND DEPLOYMENT: dep-db1mq5vavr4c73cmjgo0
-FRONTEND SHA: 1f82494f87fe39f0fb2e22043adfd75f7735668c
+FRONTEND SHA: da73f8055f676aaa1a07901fe351d20f4455ad5a
 FUNCTIONAL ACCEPTANCE: PASS
 
 FORGOT_PASSWORD:
@@ -117,8 +117,8 @@ Accepted backend release adds secure password/session management and remains the
 Repository: namach2727-coder/directpilot-web
 Production branch: main
 UAT branch: UAT
-main SHA: 1f82494f87fe39f0fb2e22043adfd75f7735668c
-UAT SHA: 1f82494f87fe39f0fb2e22043adfd75f7735668c
+main SHA: da73f8055f676aaa1a07901fe351d20f4455ad5a
+UAT SHA: da73f8055f676aaa1a07901fe351d20f4455ad5a
 ```
 
 The Production frontend was promoted by fast-forward from the UAT-accepted release.
@@ -185,20 +185,37 @@ Environment separation is COMPLETE and PASS.
 Production:
 
 - Branch: `main`
-- SHA: `1f82494f87fe39f0fb2e22043adfd75f7735668c`
+- SHA: `da73f8055f676aaa1a07901fe351d20f4455ad5a`
 - Vercel GitHub status: SUCCESS / Deployment completed
 - Deployment status target reference:
-  `https://vercel.com/mohcenp-9857s-projects/directpilot-web/8RuFd5sC7a7duo11dhVrZ2orYkDD`
+  `https://vercel.com/mohcenp-9857s-projects/directpilot-web/4WadnbNq9X79RjTx8fANyZWuwN8g`
 
 UAT:
 
 - Branch: `UAT`
-- SHA: `1f82494f87fe39f0fb2e22043adfd75f7735668c`
+- SHA: `da73f8055f676aaa1a07901fe351d20f4455ad5a`
 - Vercel deployment completed successfully before Production promotion.
 
 A canonical current `dpl_...` Production deployment ID was not independently recovered in this checkpoint. Do not invent one.
 
 ---
+
+## 5A. SEO Phase 1 Release
+
+Production frontend SHA: `da73f8055f676aaa1a07901fe351d20f4455ad5a`.
+
+Status: Production deployment completed successfully in Vercel.
+
+Changes:
+- aligned commercial metadata and homepage H1 with actual search intent,
+- strengthened direct/comment/comment-to-DM landing pages,
+- expanded long-tail solution pages,
+- corrected stale “free forever” claims to the backend-authoritative Automation Trial: 14 days, one Instagram account, up to 3 automations,
+- added Pricing structured data,
+- refreshed the smart-direct guide around observed queries including “آموزش دایرکت هوشمند” and “ربات دایرکت هوشمند اینستاگرام”,
+- prevented Vercel Preview/UAT indexing.
+
+Google Search Console baseline through 2026-10-04: 14 clicks, 315 impressions, 4.44% CTR, average position 40.30. Sitemap `https://directpilot.ir/sitemap.xml` was resubmitted on 2026-10-07 and accepted; Google recrawl/ranking movement remains asynchronous.
 
 ## 5. Authenticated UX / Account Security Release
 
@@ -348,7 +365,7 @@ The old workstation can still contain local-only dirty work.
 Important known item:
 
 - Local frontend commit `4733d9a7f8b942486ca221c1dba1564e6cb34d2b` was created accidentally on local `main` during promotion and was never pushed.
-- Remote `main` is authoritative at `1f82494f87fe39f0fb2e22043adfd75f7735668c`.
+- Remote `main` is authoritative at `da73f8055f676aaa1a07901fe351d20f4455ad5a`.
 
 Do not use destructive reset/clean/force operations. Preserve or reconcile local-only work explicitly before device migration/handoff.
 
