@@ -40,6 +40,27 @@ def test_deployed_settings_fail_closed_and_accept_explicit_uat() -> None:
     validate_runtime_settings(settings)
 
 
+def test_production_meta_send_requires_nonempty_allowlist() -> None:
+    base = dict(
+        app_env="production",
+        database_url="postgresql+psycopg://user:password@database/app",
+        application_secret="a" * 40,
+        trusted_hosts=["api.example.com"],
+        cors_allowed_origins=["https://example.com"],
+        force_https=True,
+        session_cookie_secure=True,
+        legacy_admin_adapter_enabled=False,
+        instagram_token_encryption_key=VALID_ENCRYPTION_KEY,
+        meta_send_enabled=True,
+    )
+    with pytest.raises(ValueError, match="META_SEND_ALLOWED_ACCOUNT_IDS"):
+        validate_runtime_settings(Settings(**base))
+
+    validate_runtime_settings(
+        Settings(**base, meta_send_allowed_account_ids=["pilot-instagram-account"])
+    )
+
+
 def test_wildcard_cors_and_weak_secret_are_rejected() -> None:
     settings = Settings(
         app_env="integration",
