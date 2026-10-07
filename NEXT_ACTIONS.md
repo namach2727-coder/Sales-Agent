@@ -27,18 +27,19 @@ Status: **PASS**
 
 P0 is closed.
 
-## P1 — SEO Phase 1 Measurement
+## P1 — SEO Phase 2 Measurement & Authority
 
-Status: **DEPLOYED — MEASUREMENT OPEN**
+Status: **PRODUCTION PASS — MEASUREMENT OPEN**
 
-- Production frontend SHA: `da73f8055f676aaa1a07901fe351d20f4455ad5a`.
+- Production/UAT frontend SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`.
 - Vercel Production deployment: SUCCESS.
-- Search Console sitemap resubmission: ACCEPTED on 2026-10-07.
+- Live Production audit: five priority pages, 0 critical/high/medium/low issues.
+- Keep Preview/UAT non-indexable.
 - Do not make daily SEO rewrites based on immature data.
 - Re-check after Google has recrawled changed pages and a meaningful settled window exists.
 - Compare against baseline: 14 clicks / 315 impressions / 4.44% CTR / avg position 40.30.
-- Focus first on pages already earning impressions and on CTR/ranking movement for pricing, smart-direct article, direct automation, comment automation and comment-to-DM.
-- Keep Preview/UAT non-indexable.
+- Priority query themes: ربات دایرکت هوشمند اینستاگرام، قیمت دایرکت هوشمند اینستاگرام، آموزش دایرکت هوشمند، پاسخ خودکار به کامنت اینستاگرام، اتوماسیون دایرکت اینستاگرام.
+- Next growth action: earn relevant editorial links and publish supporting content that links internally to the commercial owner pages.
 
 ## P1 — Production Database Durability Before Real Customers
 
@@ -115,7 +116,7 @@ Before old-laptop handoff:
 
 - Preserve all unrelated dirty frontend/backend work.
 - Do not use `git reset --hard`, `git clean`, force push, auto-stash or history rewrite.
-- Reconcile the old frontend local-only `4733d9a...` commit against authoritative remote `main=da73f805...`.
+- Reconcile the old frontend local-only `4733d9a...` commit against authoritative remote `main=4a1f8bb...`.
 - Confirm all required local-only environment files/data are securely migrated or reproducible without exposing secret values.
 - Prefer fresh SSH credentials on the replacement machine; revoke old-device credentials after successful migration.
 
