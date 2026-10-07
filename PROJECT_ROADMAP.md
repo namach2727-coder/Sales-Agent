@@ -45,10 +45,10 @@ FORGOT_PASSWORD:
 BLOCKED — no verified recovery delivery provider
 
 META_E2E:
-BLOCKED_EXTERNAL / OWNER-DEFERRED
+IN_PROGRESS / PRODUCTION E2E OPEN
 
 NEXT EXACT STEP:
-Monitor SEO Phase 2 after recrawl, build authority/backlinks and supporting content, while keeping Production database durability and backup/restore as the real-customer readiness blocker.
+Complete Production Meta setup from the shared pilot Meta App: confirm shared app credentials without exposing them, connect the Instagram account through Production OAuth, move the app-level webhook destination to Production, then run controlled E2E. Keep Production database durability and backup/restore as the real-customer readiness blocker.
 ```
 
 Do not restart completed environment-separation or UX/Auth promotion work without regression evidence.
@@ -161,8 +161,9 @@ Environment separation is COMPLETE and PASS.
 
 - Service: `directpilot-api`
 - Service ID: `srv-db0f3uc9v7es73b5k51g`
-- Deployment: `dep-db2ufns9v7es73aarbg0`
-- SHA: `84b7df6196fe380fad21a3791e3160840c098602`
+- Deployment: `dep-db317cm0tbcc738c4qlg`
+- Deployed Git SHA: `fa8316e71ec1ce7c32c4806f428c5bde0e26db16`
+- Accepted runtime-code SHA remains `84b7df6196fe380fad21a3791e3160840c098602`; compare shows only continuity Markdown files changed between these SHAs.
 - Status: LIVE
 - `APP_ENV=production`: PASS
 - PostgreSQL connectivity: PASS
@@ -491,3 +492,17 @@ On a new session:
 5. Preserve local dirty work.
 6. Resume from `Exact Next Work Queue`.
 7. If runtime evidence conflicts with docs, runtime wins and docs must be corrected.
+
+## 9A. Meta Production Activation
+
+Status: IN PROGRESS.
+
+- Owner explicitly resumed Meta work on 2026-10-07.
+- UAT live evidence shows inbound webhook events accepted and outbound delivery completed on 2026-10-07.
+- Shared Meta App pilot decision remains valid.
+- Production non-secret Meta settings were normalized with Production OAuth callback, official provider endpoints, signature verification enabled, content publishing disabled, and outbound sending fail-closed.
+- The env update triggered Production deployment `dep-db317cm0tbcc738c4qlg`; it is LIVE.
+- Production deployment checked out Git SHA `fa8316e71ec1ce7c32c4806f428c5bde0e26db16`; compare against accepted runtime code `84b7df6...` contains only continuity Markdown files.
+- Render connector cannot safely read secret env values, so shared app credentials must be confirmed/copied in the Render dashboard without pasting them into chat.
+- Production OAuth must create its own encrypted connection/token rows in the Production database. Do not copy UAT encrypted token rows across environments.
+- Keep `META_SEND_ENABLED=false` until Production OAuth, webhook routing and restricted account allowlist are verified.
