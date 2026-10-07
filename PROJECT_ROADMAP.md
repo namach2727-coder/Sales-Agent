@@ -105,7 +105,8 @@ GROQ_MAX_OUTPUT_TOKENS=256
 ```text
 Repository: namach2727-coder/Sales-Agent
 Branch: backend-main
-Remote head: 84b7df6196fe380fad21a3791e3160840c098602
+Accepted runtime-code SHA: 84b7df6196fe380fad21a3791e3160840c098602
+Continuity-document commits may be newer on backend-main; do not treat them as deployed runtime code.
 ```
 
 Accepted backend release adds secure password/session management and remains the Production/UAT runtime candidate.
