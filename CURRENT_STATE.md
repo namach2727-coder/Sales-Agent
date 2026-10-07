@@ -28,8 +28,8 @@
 
 - Render service: `directpilot-api`
 - Service ID: `srv-db0f3uc9v7es73b5k51g`
-- Latest verified LIVE deployment ID: `dep-db31vu60tbcc738ee1dg`
-- Deployed Git SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`
+- Latest verified LIVE deployment ID: `dep-db32beom7kps73cpcf50`
+- Deployed Git SHA: `b6962c6701897ece4ee4fdda5ffcf7f2ec67da3a`
 - Accepted runtime-code SHA: `b8f945db18b45e8ac1f3a8fe0bfda790b12015ab`.
 - Status: LIVE
 - `APP_ENV=production`: VERIFIED
