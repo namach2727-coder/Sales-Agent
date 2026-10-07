@@ -27,6 +27,19 @@ Status: **PASS**
 
 P0 is closed.
 
+## P1 — SEO Phase 1 Measurement
+
+Status: **DEPLOYED — MEASUREMENT OPEN**
+
+- Production frontend SHA: `da73f8055f676aaa1a07901fe351d20f4455ad5a`.
+- Vercel Production deployment: SUCCESS.
+- Search Console sitemap resubmission: ACCEPTED on 2026-10-07.
+- Do not make daily SEO rewrites based on immature data.
+- Re-check after Google has recrawled changed pages and a meaningful settled window exists.
+- Compare against baseline: 14 clicks / 315 impressions / 4.44% CTR / avg position 40.30.
+- Focus first on pages already earning impressions and on CTR/ranking movement for pricing, smart-direct article, direct automation, comment automation and comment-to-DM.
+- Keep Preview/UAT non-indexable.
+
 ## P1 — Production Database Durability Before Real Customers
 
 Status: **OPEN — PRIORITY**
@@ -102,7 +115,7 @@ Before old-laptop handoff:
 
 - Preserve all unrelated dirty frontend/backend work.
 - Do not use `git reset --hard`, `git clean`, force push, auto-stash or history rewrite.
-- Reconcile the old frontend local-only `4733d9a...` commit against authoritative remote `main=1f82494...`.
+- Reconcile the old frontend local-only `4733d9a...` commit against authoritative remote `main=da73f805...`.
 - Confirm all required local-only environment files/data are securely migrated or reproducible without exposing secret values.
 - Prefer fresh SSH credentials on the replacement machine; revoke old-device credentials after successful migration.
 
