@@ -1,86 +1,119 @@
 # DirectPilot Next Actions
 
 > Execution queue. Read `AI_HANDOFF.md` first.
-> Last reconciled: 2026-10-04.
+> Last reconciled: 2026-10-07.
 
-## P0 — Production Regression After Environment Split
+## P0 — UX/Auth Production Promotion
 
 Status: **PASS**
 
-### Already Verified — Do Not Repeat Without Regression Evidence
+### Verified — Do Not Repeat Without Regression Evidence
 
-- Production Render backend: LIVE.
-- Production deployed runtime SHA: `8bce8aee595c3b3f21bb69ecf47a082a19d11498`.
-- Production `APP_ENV=production`.
-- Production PostgreSQL connectivity.
-- Production migration startup/current-head verification.
-- Production application startup.
-- UAT Render backend: LIVE.
-- UAT deployed runtime SHA: `8bce8aee595c3b3f21bb69ecf47a082a19d11498`.
-- UAT `APP_ENV=uat`.
-- UAT database connectivity/startup.
-- UAT/Production environment-separation milestone: PASS.
-- GitHub access to backend and frontend repositories: PASS.
-- One-shot Production Super Admin password reset/unlock: PASS; reset flag disabled and temporary values cleared.
-- Production Super Admin browser login and `/admin` access: PASS.
-- Production same-origin `/api/v1/plans`: PASS; current public response exposes only intended `AUTOMATION_V1` catalog.
-- Production/UAT observable data isolation: PASS; catalogs differ and use different public IDs, proving they do not resolve to the same catalog/database.
+- Production backend deployed to `84b7df6196fe380fad21a3791e3160840c098602`.
+- Production Render deployment `dep-db2ufns9v7es73aarbg0`: LIVE.
+- `APP_ENV=production`: PASS.
+- Production PostgreSQL connectivity: PASS.
+- Migration current-head verification: PASS.
+- Application startup: PASS.
+- Production frontend `main` advanced by fast-forward to `1f82494f87fe39f0fb2e22043adfd75f7735668c`.
+- Vercel status for the Production SHA: SUCCESS / Deployment completed.
+- Owner-confirmed Production customer and admin smoke: PASS.
+- UAT acceptance for the same release: PASS.
+- Frontend exact-candidate validation: 156/156 tests PASS, type-check PASS, lint PASS, build PASS, diff check PASS, secret scan PASS.
+- Backend GitHub CI: test PASS, docker-build PASS, postgres-smoke PASS.
+- Forgot Password remains BLOCKED.
+- Meta E2E remains BLOCKED_EXTERNAL / deferred.
+- No Production Meta/payment/database/environment-variable configuration was changed during the promotion.
 
-### Completed Acceptance
+P0 is closed.
 
-- Production Super Admin login and `/admin`: PASS.
-- Production same-origin public plans: PASS.
-- Production/UAT observable data isolation: PASS.
-- Vercel Production/UAT deployment branches and SHA: PASS.
-- Vercel environment-scoped upstream configuration: PASS without decrypting secret values.
+## P1 — Production Database Durability Before Real Customers
 
-P0 is complete. Do not repeat unless a related deployment/configuration change or regression evidence requires it.
+Status: **OPEN — PRIORITY**
 
-## P1 — Integration Credential Separation
+Current Production PostgreSQL:
 
-After P0:
+- Database: `directpilot-production-db`
+- ID: `dpg-db0escm0tbcc73fhig2g-a`
+- Plan: FREE
+- Expiry: `2026-11-02T11:59:46.610475Z`
+- HA: disabled
+- Read replicas: none
 
-- `META_OAUTH_ENVIRONMENT_SPLIT` — PARTIAL
-  - shared Meta App for UAT + Production is the current pilot decision,
-  - Production Meta variables added; deploy `dep-db15nrou01pc73cv9hf0` LIVE,
-  - keep separate Production/UAT OAuth redirect URIs,
-  - configure Production as the active webhook callback for the shared app,
-  - run real Production OAuth connect/callback acceptance,
-  - run controlled Production webhook/DM acceptance,
-  - create separate Meta Apps later if simultaneous independent live UAT/Production webhooks are required.
+Required before real-customer onboarding:
 
-- `LLM_ENVIRONMENT_VERIFICATION`
-  - verify selected provider/model configuration by environment,
-  - verify keys remain backend-only,
-  - preserve AI guardrails.
+1. Choose a durable Production database plan/target.
+2. Obtain explicit owner approval before any paid infrastructure change.
+3. Define migration/cutover procedure.
+4. Establish backup policy.
+5. Execute and verify a restore test.
+6. Record RPO/RTO expectations appropriate for the pilot.
+7. Keep Production/UAT databases isolated.
+8. Do not weaken external access controls merely for inspection.
 
-- `PAYMENT_PROVIDER_ENVIRONMENT_SPLIT`
-  - verify UAT sandbox vs Production provider base URLs,
-  - verify callback bases,
-  - verify provider credentials/configuration without printing values,
-  - keep real provider transaction acceptance as a separate gate.
+Do not mark `PRODUCTION_DATABASE_DURABILITY` or `BACKUP_RESTORE_ACCEPTANCE` PASS until runtime evidence exists.
 
-## P1 — Production Durability Before Real Customers
+## P1 — Payment Provider Environment Verification
 
-- `PRODUCTION_DATABASE_DURABILITY`
-- `BACKUP_RESTORE_ACCEPTANCE`
+Status: **OPEN**
 
-Constraints:
+- Verify UAT sandbox vs Production provider base URLs.
+- Verify callback bases by environment.
+- Verify provider credentials/configuration without printing secret values.
+- Preserve backend-authoritative payment/subscription activation.
+- Never blindly retry ambiguous provider writes.
+- Keep real provider transaction acceptance as a separate gate from route/source presence.
+- Do not alter Production commercial scope: only `AUTOMATION_V1` is currently verified as purchasable.
 
-- Current Free Render Production PostgreSQL expires 2026-11-02.
-- Do not onboard real customers before durability is solved.
-- Do not create/upgrade paid infrastructure without explicit owner approval.
-- Establish backup/restore acceptance before durable customer use.
+## P1 — LLM Environment Verification
+
+Status: **OPEN**
+
+- Verify provider/model configuration independently by environment.
+- Verify keys remain backend-only.
+- Preserve:
+  - `GROQ_CONTEXT_LENGTH=4096`
+  - `GROQ_MAX_OUTPUT_TOKENS=256`
+- Confirm deterministic exact-match automation still performs ZERO AI work.
+
+## P1 — Meta / OAuth
+
+Status: **BLOCKED_EXTERNAL / OWNER-DEFERRED**
+
+- Do not resume Meta work unless the owner explicitly requests it.
+- Preserve the shared-Meta-App pilot decision.
+- Keep distinct Production and UAT OAuth redirect URIs.
+- Do not change webhook destination, send flags, credentials or callbacks opportunistically.
+- When resumed, real OAuth callback and controlled webhook/DM E2E acceptance are still required before PASS.
+
+## P1 — Forgot Password / Recovery
+
+Status: **BLOCKED**
+
+- No verified recovery delivery provider exists.
+- Do not ship a fake or frontend-only recovery flow.
+- Before implementation, select and verify an email/SMS delivery provider, secure single-use recovery token lifecycle, expiry, replay prevention, audit behavior and session-revocation policy.
+
+## P1 — Local Workstation Reconciliation
+
+Status: **OPEN**
+
+Before old-laptop handoff:
+
+- Preserve all unrelated dirty frontend/backend work.
+- Do not use `git reset --hard`, `git clean`, force push, auto-stash or history rewrite.
+- Reconcile the old frontend local-only `4733d9a...` commit against authoritative remote `main=1f82494...`.
+- Confirm all required local-only environment files/data are securely migrated or reproducible without exposing secret values.
+- Prefer fresh SSH credentials on the replacement machine; revoke old-device credentials after successful migration.
 
 ## P2 — Payment Acceptance
 
-- Run controlled provider acceptance only after environment configuration is verified.
-- Source route presence is not provider acceptance.
-- Never blindly retry ambiguous external-provider writes.
+- Run a controlled real provider acceptance only after environment configuration is verified.
+- Validate callback authenticity, idempotency, duplicate-callback behavior and ambiguous-result handling.
 - Review high-risk card/payment data handling before real-customer launch.
 
 ## P2 — Future Product Work
 
-Story Product Automation remains deferred until the current Production/integration/payment readiness gates are closed.
+Story Product Automation remains deferred until Production durability and current integration/payment readiness gates are closed.
 
 Do not implement Story Product Automation opportunistically during readiness work.
