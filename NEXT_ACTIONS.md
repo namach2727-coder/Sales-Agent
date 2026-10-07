@@ -92,40 +92,36 @@ Status: **OPEN**
 
 ## P1 — Meta / OAuth
 
-Status: **OAUTH RELAY LIVE — PRODUCTION OAUTH USER ACTION NEXT**
+Status: **PRODUCTION OAUTH PASS — WEBHOOK RELAY LIVE / INBOUND E2E OPEN**
 
 Verified:
-- Owner approved the UAT -> Production relay workaround because Meta Developer settings are inaccessible.
-- Backend relay runtime SHA currently deployed to both environments: `b6962c6701897ece4ee4fdda5ffcf7f2ec67da3a`.
-- GitHub CI for this SHA: PASS.
-- UAT deploy `dep-db32aebncjis73e7irl0`: LIVE; environment/database/migration/startup PASS.
-- Production deploy `dep-db32beom7kps73cpcf50`: LIVE; environment/database/migration/startup PASS.
-- Production OAuth state prefix: `prod.`.
-- Provider-facing redirect for Production intentionally uses the existing UAT callback:
-  `https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback`.
-- UAT OAuth relay is enabled only for `prod.` state and forwards to the Production callback.
-- UAT webhook relay is deployed but DISABLED pending Production OAuth.
-- Production relay targets are empty.
-- Production outbound remains fail-closed with `META_SEND_ENABLED=false`.
-- Production and UAT encryption keys/databases remain independent.
+- Production OAuth completed successfully through the UAT relay bridge.
+- UAT logged OAuth callback relay.
+- Production OAuth token exchange: HTTP 200.
+- Requested Instagram permissions: all present.
+- Instagram account type: BUSINESS.
+- Long-lived token exchange: HTTP 200.
+- Instagram profile lookup: HTTP 200.
+- No warning/error was logged during the successful callback window.
+- UAT webhook relay is enabled to the Production webhook endpoint.
+- UAT relay deploy `dep-db32pmvavr4c739je950`: LIVE.
+- Production `META_SEND_ENABLED=false`; no Production automatic reply should be sent during inbound acceptance.
 
 Next exact steps:
-1. User signs in at `https://directpilot.ir`.
-2. Dashboard -> Instagram -> `اتصال رسمی اینستاگرام`.
-3. Complete the normal Instagram authorization.
-4. Verify UAT log evidence for OAuth relay and Production log evidence for successful provider exchange/profile lookup + Production connection.
-5. Only after OAuth PASS, set UAT `META_WEBHOOK_RELAY_TARGET_URL=https://directpilot-api.onrender.com/api/v1/integrations/instagram/webhook`.
-6. Trigger one safe inbound event from the pilot account and verify UAT relay + Production signature validation/routing/dedupe.
-7. Confirm `META_SEND_ALLOWED_ACCOUNT_IDS` is restricted to the pilot account before setting Production `META_SEND_ENABLED=true`.
-8. Run one controlled outbound deterministic E2E and verify delivery/echo protection.
-9. Mark Meta E2E PASS only with live evidence.
+1. From a second Instagram account, send one safe DM to the connected pilot account, preferably `قیمت`.
+2. Verify UAT `instagram.webhook.relay_succeeded`.
+3. Verify Production signature validation, registered-account routing, ingestion and dedupe.
+4. Confirm there is no unintended outbound send while `META_SEND_ENABLED=false`.
+5. Before enabling outbound, enforce/verify a non-empty `META_SEND_ALLOWED_ACCOUNT_IDS` for the pilot account.
+6. Enable Production sending only for one controlled deterministic E2E.
+7. Verify provider delivery and own-message echo protection.
+8. Mark Meta E2E PASS only after this live evidence.
 
 Do not:
 - copy UAT encrypted token/connection rows,
 - copy the UAT encryption key,
 - expose Meta secret values,
-- enable broad Production sending,
-- enable webhook relay before Production OAuth exists.
+- enable broad Production sending.
 
 ## P1 — Forgot Password / Recovery
 
