@@ -24,11 +24,12 @@
 - Repository: `namach2727-coder/Sales-Agent`
 - Branch: `backend-main`
 - Accepted runtime-code SHA: `84b7df6196fe380fad21a3791e3160840c098602`
-- Continuity-document commits are newer on `backend-main`; they are documentation only and must not be described as deployed runtime code.
+- Current deployed Git SHA: `fa8316e71ec1ce7c32c4806f428c5bde0e26db16`.
+- Verified compare from `84b7df6...` to `fa8316e...`: only the five continuity Markdown files changed; deployed application code is unchanged from the accepted runtime-code SHA.
 - Production Render service: `directpilot-api`
 - Service ID: `srv-db0f3uc9v7es73b5k51g`
-- Verified LIVE deployment: `dep-db2ufns9v7es73aarbg0`
-- Deployment SHA: `84b7df6196fe380fad21a3791e3160840c098602`
+- Verified LIVE deployment: `dep-db317cm0tbcc738c4qlg`
+- Deployment SHA: `fa8316e71ec1ce7c32c4806f428c5bde0e26db16`
 - `APP_ENV=production`: VERIFIED
 - PostgreSQL connectivity: PASS
 - Migration one-head/current-head verification: PASS
@@ -214,7 +215,7 @@ Status: **PASS — DO NOT REBUILD**
 
 ## Meta / OAuth
 
-Status: **PARTIAL / BLOCKED_EXTERNAL / OWNER-DEFERRED**
+Status: **IN PROGRESS / PARTIAL**
 
 - Shared Meta App pilot decision remains.
 - Production OAuth redirect URI:
@@ -222,8 +223,12 @@ Status: **PARTIAL / BLOCKED_EXTERNAL / OWNER-DEFERRED**
 - UAT OAuth redirect URI:
   `https://directpilot-uat-api.onrender.com/api/v1/integrations/instagram/callback`
 - Production Meta variables were previously added without storing secret values in Git/docs.
-- Real OAuth callback + live webhook/DM E2E acceptance remains OPEN.
-- Owner explicitly paused Meta work. Do not resume unless explicitly requested.
+- Owner explicitly resumed Meta work on 2026-10-07.
+- UAT live runtime evidence on 2026-10-07 shows Instagram inbound events accepted and at least one outbound delivery completed.
+- Production Meta non-secret runtime settings were normalized on 2026-10-07 with `META_SEND_ENABLED=false`, `META_SIGNATURE_REQUIRED=true`, Production OAuth redirect URI, official Graph/OAuth endpoints and Production media base URL. This env update triggered Production deploy `dep-db317cm0tbcc738c4qlg`, which is LIVE.
+- Render connector does not expose existing secret env values for safe readback. `META_APP_ID`, `META_APP_SECRET`, `META_VERIFY_TOKEN` and any account allowlist/shared app values therefore remain to be confirmed/copy-verified without exposing values.
+- Production OAuth connection must populate the Production database independently; do not copy encrypted UAT connection rows or tokens between databases.
+- Real Production OAuth callback + controlled webhook/DM E2E acceptance remains OPEN.
 
 ## Current Priority / Blocker
 
@@ -264,7 +269,7 @@ Important known frontend local state:
    - verify restore.
 2. Then/alongside, verify `PAYMENT_PROVIDER_ENVIRONMENT_SPLIT`.
 3. Verify `LLM_ENVIRONMENT_VERIFICATION`.
-4. Keep Meta work paused until explicit owner instruction.
+4. Continue the explicitly resumed Meta Production setup with send fail-closed until Production OAuth connection, webhook routing, account allowlist and controlled E2E are verified.
 5. Keep Forgot Password blocked until a verified recovery provider exists.
 
 ## Important Constraints
@@ -341,7 +346,7 @@ FORGOT_PASSWORD:
 BLOCKED
 
 META_E2E:
-BLOCKED_EXTERNAL / DEFERRED
+IN_PROGRESS / PRODUCTION E2E OPEN
 
 PRODUCTION_DB:
 FREE / EXPIRES 2026-11-02
@@ -349,5 +354,5 @@ DURABILITY: OPEN
 BACKUP_RESTORE: OPEN
 
 NEXT EXACT ACTION:
-Monitor SEO Phase 2 after Google recrawl, then continue authority/backlink and supporting-content work; Production database durability + backup/restore remains the blocking readiness gate before real-customer onboarding.
+Confirm/copy shared Meta App values from UAT to Production without exposing secrets, register the Production OAuth redirect in Meta, complete Production OAuth connection, then point the app-level Instagram webhook to Production and run a controlled inbound/outbound E2E with the send allowlist still restricted; Production database durability + backup/restore remains the blocking readiness gate before real-customer onboarding.
 ```
