@@ -20,7 +20,7 @@
 - Production branch: `main`
 - UAT branch: `UAT`
 - Both remote branches currently point to the accepted Frontend release:
-  `1f82494f87fe39f0fb2e22043adfd75f7735668c`
+  `da73f8055f676aaa1a07901fe351d20f4455ad5a`
 - Commit message: `fix: stabilize UAT release candidate`
 - This release contains the accepted authenticated-workspace redesign plus the two-file stabilization fix.
 
@@ -42,10 +42,10 @@
 
 - Public domain: `https://directpilot.ir`
 - Production branch: `main`
-- Deployed/accepted SHA: `1f82494f87fe39f0fb2e22043adfd75f7735668c`
+- Deployed/accepted SHA: `da73f8055f676aaa1a07901fe351d20f4455ad5a`
 - Vercel GitHub status: SUCCESS — `Deployment has completed`
-- Current Production deployment status target reference:
-  `https://vercel.com/mohcenp-9857s-projects/directpilot-web/8RuFd5sC7a7duo11dhVrZ2orYkDD`
+- Current Production SEO deployment status target reference:
+  `https://vercel.com/mohcenp-9857s-projects/directpilot-web/4WadnbNq9X79RjTx8fANyZWuwN8g`
 - A canonical `dpl_...` deployment ID was not independently recovered in this checkpoint; do not invent one.
 - Owner-confirmed Production smoke after deployment: PASS.
 
@@ -81,7 +81,7 @@
 ## UAT Frontend and Acceptance
 
 - Public domain: `https://uat.directpilot.ir`
-- UAT branch SHA: `1f82494f87fe39f0fb2e22043adfd75f7735668c`
+- UAT branch SHA: `da73f8055f676aaa1a07901fe351d20f4455ad5a`
 - Vercel deployment status for this SHA: SUCCESS.
 - Owner-confirmed UAT functional acceptance: PASS.
 
@@ -182,5 +182,18 @@ Status: PASS.
 
 - The old frontend workstation may still contain unrelated dirty work.
 - During promotion, a local-only commit `4733d9a7f8b942486ca221c1dba1564e6cb34d2b` was accidentally created on local `main` and was NOT pushed.
-- Remote `main` is authoritative at `1f82494f87fe39f0fb2e22043adfd75f7735668c`.
+- Remote `main` is authoritative at `da73f8055f676aaa1a07901fe351d20f4455ad5a`.
 - Do not reset/clean/force the old local checkout; reconcile or preserve dirty work explicitly before laptop handoff/migration.
+
+## SEO Phase 1
+
+- Frontend candidate/deployed SHA: `da73f8055f676aaa1a07901fe351d20f4455ad5a`.
+- UAT Vercel deployment: SUCCESS.
+- Production Vercel deployment after fast-forwarding `main`: SUCCESS.
+- Production Search Console property: `sc-domain:directpilot.ir`.
+- Baseline settled through 2026-10-04: 14 clicks, 315 impressions, CTR 4.44%, average position 40.30.
+- Priority observed opportunities include `/blog/instagram-smart-direct`, `/pricing`, `/instagram-comment-automation`, `/instagram-direct-automation`, `/free-instagram-automation`, and `/comment-to-direct`.
+- Priority URLs inspected before release were submitted/indexed, robots allowed, fetch successful.
+- Production sitemap was resubmitted to Search Console on 2026-10-07; submission accepted with zero warnings/errors at submission time.
+- Search Console recrawl and ranking movement are pending by nature and must not be marked PASS immediately after deployment.
+- Preview/UAT indexing isolation is implemented: non-production metadata noindex/nofollow, preview robots disallow all, preview sitemap empty.
