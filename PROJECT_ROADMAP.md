@@ -26,8 +26,8 @@ RELEASE_STATUS:
 PRODUCTION PASS — VERCEL SUCCESS / LIVE AUDIT CLEAN
 
 BACKEND_PRODUCTION:
-SHA: b8f945db18b45e8ac1f3a8fe0bfda790b12015ab
-RENDER_DEPLOYMENT: dep-db31vu60tbcc738ee1dg
+SHA: b6962c6701897ece4ee4fdda5ffcf7f2ec67da3a
+RENDER_DEPLOYMENT: dep-db32beom7kps73cpcf50
 STATUS: LIVE
 
 FRONTEND_PRODUCTION:
@@ -36,8 +36,8 @@ VERCEL_STATUS: SUCCESS
 OWNER_PRODUCTION_SMOKE: PASS
 
 UAT:
-BACKEND SHA: b8f945db18b45e8ac1f3a8fe0bfda790b12015ab
-BACKEND DEPLOYMENT: dep-db31uljncjis73e6gq90
+BACKEND SHA: b6962c6701897ece4ee4fdda5ffcf7f2ec67da3a
+BACKEND DEPLOYMENT: dep-db32aebncjis73e7irl0
 FRONTEND SHA: 4a1f8bb1812ce942e055c7f2c810f7d719939ab8
 FUNCTIONAL ACCEPTANCE: PASS
 
@@ -45,10 +45,10 @@ FORGOT_PASSWORD:
 BLOCKED — no verified recovery delivery provider
 
 META_E2E:
-IN_PROGRESS / PRODUCTION E2E OPEN
+OAUTH RELAY LIVE / PRODUCTION OAUTH E2E OPEN
 
 NEXT EXACT STEP:
-Initiate Instagram OAuth from the Production dashboard. The provider returns to the existing UAT callback, UAT relays only the production-prefixed OAuth state to Production, and Production stores its own encrypted connection. After OAuth PASS, enable the UAT webhook relay to Production and run controlled E2E. Keep Production database durability and backup/restore as the real-customer readiness blocker.
+Run the Production Instagram OAuth flow and verify relay + Production DB connection; then move live webhook handling through the UAT-to-Production relay and run controlled E2E.
 ```
 
 Do not restart completed environment-separation or UX/Auth promotion work without regression evidence.
@@ -536,3 +536,14 @@ Status: IN PROGRESS.
 - Render connector cannot safely read secret env values, so shared app credentials must be confirmed/copied in the Render dashboard without pasting them into chat.
 - Production OAuth must create its own encrypted connection/token rows in the Production database. Do not copy UAT encrypted token rows across environments.
 - Keep `META_SEND_ENABLED=false` until Production OAuth, webhook routing and restricted account allowlist are verified.
+
+## Meta OAuth Relay Runtime
+
+- OAuth relay deployment is live in both environments at `b6962c6701897ece4ee4fdda5ffcf7f2ec67da3a`.
+- UAT deploy: `dep-db32aebncjis73e7irl0` — LIVE.
+- Production deploy: `dep-db32beom7kps73cpcf50` — LIVE.
+- Production OAuth redirect intentionally uses the existing UAT callback registered with Meta.
+- Production OAuth state prefix: `prod.`.
+- UAT callback relays only matching `prod.` states to the Production callback.
+- Webhook relay remains disabled until Production OAuth connection is accepted.
+- Production sending remains disabled until restricted-account E2E.
