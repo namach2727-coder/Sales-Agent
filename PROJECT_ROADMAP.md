@@ -2,7 +2,7 @@
 
 > **Strategic roadmap / secondary continuity document.** Read `AI_HANDOFF.md` first in every new DirectPilot session; then read this file.
 >
-> **Last updated:** 2026-10-07
+> **Last updated:** 2026-10-10
 >
 > **Authority rule:** verified runtime/deployment evidence > deployed commit > repository source > `AI_HANDOFF.md` > this document > old chat history.
 >
@@ -14,7 +14,7 @@
 
 ```text
 PROJECT: DirectPilot
-DATE: 2026-10-07
+DATE: 2026-10-10
 
 CURRENT_PHASE:
 Pilot / market-validation with separated UAT and Production
@@ -44,9 +44,10 @@ MIGRATION: PASS
 STARTUP: PASS
 
 FRONTEND_PRODUCTION:
-SHA: 4a1f8bb1812ce942e055c7f2c810f7d719939ab8
+SHA: 197186a996581caf43d053ea433ae2a5cfdc88ac
 VERCEL_STATUS: SUCCESS
-OWNER_PRODUCTION_SMOKE: PASS
+OWNER_PRODUCTION_SMOKE: PASS FOR PRIOR RELEASE
+ADMIN_PLAN_SCROLL/VALIDATION FIX: DEPLOYED / OWNER RETEST PENDING
 
 META_E2E:
 PRODUCTION OAUTH PASS / INBOUND RELAY PASS / OUTBOUND E2E OPEN
@@ -132,8 +133,8 @@ GitHub CI for `91250140...`:
 Repository: namach2727-coder/directpilot-web
 Production branch: main
 UAT branch: UAT
-main SHA: 4a1f8bb1812ce942e055c7f2c810f7d719939ab8
-UAT SHA: 4a1f8bb1812ce942e055c7f2c810f7d719939ab8
+main SHA: 197186a996581caf43d053ea433ae2a5cfdc88ac
+UAT SHA: 197186a996581caf43d053ea433ae2a5cfdc88ac
 ```
 
 ## 3. Environment Topology
@@ -195,13 +196,15 @@ Environment separation is COMPLETE and PASS.
 
 Production:
 - Branch: `main`
-- SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`
+- SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`
 - Vercel status: SUCCESS
+- Admin plan UX fixes deployed: scroll preservation before paint, inline validation without native scroll-to-invalid, and automatic uppercase normalization for internal plan codes.
+- Owner retest for the plan-creation UX fix: PENDING.
 
 UAT:
 - Branch: `UAT`
-- SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`
-- Vercel deployment: SUCCESS
+- SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`
+- Vercel deployment: SUCCESS / branch aligned with Production source.
 
 ## 5C. Meta UAT-to-Production Relay Bridge
 
@@ -237,7 +240,7 @@ Next gate:
 
 ## 5B. SEO Phase 2 Release
 
-Production/UAT frontend SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`.
+Production/UAT SEO Phase 2 accepted SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8` (later frontend UX fixes are deployed at `197186a996581caf43d053ea433ae2a5cfdc88ac`).
 
 Status: Production PASS.
 
@@ -522,6 +525,18 @@ Rules:
 - Human Takeover retains highest precedence.
 
 ---
+
+## 13A. Future Telegram Bot Builder
+
+Status: **IDEA PARKED / NOT IN CURRENT EXECUTION SCOPE**
+
+Concept:
+- No-code AI Telegram Bot Builder / bot-builder SaaS.
+- Prefer Telegram Managed Bots capability where suitable.
+- One manager/builder experience can provision and manage tenant bots.
+- Multi-tenant shared runtime; do not deploy a separate application per customer.
+- Candidate modules: deterministic rules, AI assistant, menus, lead capture, human handoff, knowledge, analytics, later commerce/payment/CRM.
+- Keep this as a future product track only. Do not divert DirectPilot readiness work until current Production gates are closed.
 
 ## 14. Resume Instructions
 

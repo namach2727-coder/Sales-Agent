@@ -15,7 +15,7 @@
 > Evidence rule: verified runtime/deployment state > deployed commit > repository source > continuity documents > old chat history.
 > If evidence conflicts with a document, verify reality first and then correct the document.
 >
-> Last reconciled: 2026-10-07
+> Last reconciled: 2026-10-10
 
 ## Current Production State
 
@@ -41,8 +41,11 @@
 - Repository: `namach2727-coder/directpilot-web`
 - Production branch: `main`
 - UAT branch: `UAT`
-- Production SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`
-- UAT SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`
+- Production SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`
+- UAT SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`
+- Vercel Production: SUCCESS for current SHA.
+- Recent admin-plan UX fixes: preserve scroll across create/remount, prevent native validation scroll jumps, normalize internal plan code input to uppercase.
+- Owner retest of the final plan-creation UX behavior: PENDING.
 - Public Production domain: `https://directpilot.ir`
 - Public UAT domain: `https://uat.directpilot.ir`
 - Vercel Production status for current SHA: SUCCESS — Deployment has completed
@@ -347,3 +350,10 @@ NEXT EXACT ACTION:
 Create/enable the Production DM_KEYWORD EXACT rule for قیمت with a harmless fixed reply. Then resolve the connected pilot instagram_account_id through the authenticated tenant/store API, configure exactly that one ID in META_SEND_ALLOWED_ACCOUNT_IDS while send stays disabled, and only then run one controlled outbound E2E.
 ```
 
+
+
+## Future Product Track — Telegram Bot Builder
+
+- Parked idea: No-code AI Telegram Bot Builder / Managed Bots-based SaaS.
+- Not part of current DirectPilot execution scope.
+- Resume only after current Production readiness / Meta / durability gates are addressed.

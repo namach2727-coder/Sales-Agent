@@ -1,7 +1,7 @@
 # DirectPilot Current State
 
 > Snapshot of verifiable current state. Read `AI_HANDOFF.md` first.
-> Last reconciled: 2026-10-07.
+> Last reconciled: 2026-10-10.
 
 ## Repository State
 
@@ -19,7 +19,7 @@
 - Repository: `namach2727-coder/directpilot-web`
 - Production branch: `main`
 - UAT branch: `UAT`
-- Both remote branches point to `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`.
+- Both remote branches point to `197186a996581caf43d053ea433ae2a5cfdc88ac`.
 
 ## Production Backend
 
@@ -40,7 +40,7 @@
 
 - Public domain: `https://directpilot.ir`
 - Production branch: `main`
-- Deployed/accepted SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`
+- Deployed/accepted SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`
 - Vercel GitHub status: SUCCESS — `Deployment has completed`
 - Current Production SEO Phase 2 deployment status target reference:
   `https://vercel.com/mohcenp-9857s-projects/directpilot-web/9xEboR41X9yQmp6wz6Ux9XcPtWfD`
@@ -79,7 +79,7 @@
 ## UAT Frontend and Acceptance
 
 - Public domain: `https://uat.directpilot.ir`
-- UAT branch SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`
+- UAT branch SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`
 - Vercel deployment status for this SHA: SUCCESS.
 - Prior Auth/UX UAT functional acceptance: PASS. SEO Phase 1 content/UAT review was accepted by the owner for Production promotion.
 
@@ -186,7 +186,7 @@ Status: PASS.
 
 - The old frontend workstation may still contain unrelated dirty work.
 - During promotion, a local-only commit `4733d9a7f8b942486ca221c1dba1564e6cb34d2b` was accidentally created on local `main` and was NOT pushed.
-- Remote `main` is authoritative at `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`.
+- Remote `main` is authoritative at `197186a996581caf43d053ea433ae2a5cfdc88ac`.
 - Do not reset/clean/force the old local checkout; reconcile or preserve dirty work explicitly before laptop handoff/migration.
 
 ## SEO Phase 1
@@ -204,7 +204,7 @@ Status: PASS.
 
 ## SEO Phase 2
 
-- Frontend SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8` on both Production and UAT.
+- Frontend SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac` on both Production and UAT.
 - Vercel Production and UAT exact-SHA deployments: SUCCESS.
 - Live Production audit on five priority SEO pages: 0 critical/high/medium/low issues.
 - All five pages return HTTP 200, are indexable and self-canonical, have one H1 and valid structured data.
@@ -218,3 +218,13 @@ Status: PASS.
 - Deterministic automation did not match `قیمت`; AI fallback failed with `llm_provider_configuration_error`.
 - No outbound provider delivery occurred; Production sending remains disabled.
 - Dedupe/echo protection still requires a controlled outbound/retry observation before full Meta E2E PASS.
+
+
+## Frontend Admin Plan UX — 2026-10-10
+
+- Production/UAT source SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`.
+- Vercel Production: SUCCESS.
+- Fixed plan-creation scroll preservation across form remount.
+- Native browser scroll-to-invalid behavior disabled for plan creation; validation errors stay inline.
+- Internal plan codes are normalized to uppercase while typing and again in the payload.
+- Owner retest: PENDING.

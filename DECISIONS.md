@@ -1,7 +1,7 @@
 # DirectPilot Decisions
 
 > Read after `AI_HANDOFF.md` and `PROJECT_ROADMAP.md`.
-> Last reconciled: 2026-10-07.
+> Last reconciled: 2026-10-10.
 > These decisions remain fixed unless new verified technical or product evidence justifies a change.
 
 ## Continuity and Evidence
@@ -137,3 +137,10 @@ Human Takeover
 - A live inbound event through the relay bridge is accepted as Production inbound PASS when relay, account resolution, persistence and webhook processing all complete without warning/error; this was satisfied on 2026-10-07.
 - For the first Production outbound E2E, use a deterministic AutomationRule rather than AI fallback. AI fallback remains blocked until Production LLM configuration is separately verified.
 - Never enable `META_SEND_ENABLED=true` with an empty send allowlist because the current sender treats an empty allowlist as unrestricted.
+
+
+## Future Product Scope
+
+- Telegram No-Code AI Bot Builder / Managed Bots is an accepted future exploration track.
+- It is explicitly outside the current DirectPilot execution scope.
+- Do not divert current Production readiness, Meta outbound E2E, database durability, payment or LLM verification work to implement it opportunistically.

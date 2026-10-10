@@ -1,7 +1,7 @@
 # DirectPilot Next Actions
 
 > Execution queue. Read `AI_HANDOFF.md` first.
-> Last reconciled: 2026-10-07.
+> Last reconciled: 2026-10-10.
 
 ## P0 — UX/Auth Production Promotion
 
@@ -40,6 +40,18 @@ Status: **PRODUCTION PASS — MEASUREMENT OPEN**
 - Compare against baseline: 14 clicks / 315 impressions / 4.44% CTR / avg position 40.30.
 - Priority query themes: ربات دایرکت هوشمند اینستاگرام، قیمت دایرکت هوشمند اینستاگرام، آموزش دایرکت هوشمند، پاسخ خودکار به کامنت اینستاگرام، اتوماسیون دایرکت اینستاگرام.
 - Next growth action: earn relevant editorial links and publish supporting content that links internally to the commercial owner pages.
+
+## P0 — Frontend Admin Plan UX Retest
+
+Status: **DEPLOYED / OWNER RETEST PENDING**
+
+- Production and UAT source SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`.
+- Vercel Production deployment: SUCCESS.
+- Verify on Production that:
+  - clicking `ساخت پلن` does not jump the page,
+  - invalid input stays inline without browser scroll-to-invalid,
+  - typing `Test_1` normalizes to `TEST_1`.
+- Do not mark PASS until owner confirms the live behavior.
 
 ## P1 — Production Database Durability Before Real Customers
 
@@ -162,3 +174,14 @@ Before old-laptop handoff:
 Story Product Automation remains deferred until Production durability and current integration/payment readiness gates are closed.
 
 Do not implement Story Product Automation opportunistically during readiness work.
+
+
+## P3 — Future Product Track
+
+### Telegram No-Code AI Bot Builder
+
+Status: **PARKED**
+
+- Preserve as a future product concept.
+- Candidate foundation: Telegram Managed Bots + shared multi-tenant runtime.
+- Do not implement during current DirectPilot Production readiness work.
