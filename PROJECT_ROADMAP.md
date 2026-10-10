@@ -44,10 +44,11 @@ MIGRATION: PASS
 STARTUP: PASS
 
 FRONTEND_PRODUCTION:
-SHA: 197186a996581caf43d053ea433ae2a5cfdc88ac
+SHA: 4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159
 VERCEL_STATUS: SUCCESS
 OWNER_PRODUCTION_SMOKE: PASS FOR PRIOR RELEASE
 ADMIN_PLAN_SCROLL/VALIDATION FIX: DEPLOYED / OWNER RETEST PENDING
+ADMIN_CUSTOMER_AUTOMATION_MANAGEMENT: DEPLOYED / OWNER RETEST PENDING
 
 META_E2E:
 PRODUCTION OAUTH PASS / INBOUND RELAY PASS / OUTBOUND E2E OPEN
@@ -62,7 +63,7 @@ DURABILITY: OPEN
 BACKUP_RESTORE: OPEN
 
 NEXT EXACT STEP:
-Create/enable one Production DM_KEYWORD + EXACT rule for قیمت with a harmless fixed response. Resolve the connected pilot instagram_account_id through the authenticated tenant/store API without opening database networking, set exactly that account in META_SEND_ALLOWED_ACCOUNT_IDS while send remains disabled, then enable send only for one controlled outbound E2E and verify deterministic match, one delivery, dedupe and no echo loop.
+In Production Admin -> Customers & Stores, select the pilot customer/store and use Manage Automation to create/enable one DM_KEYWORD + EXACT rule for قیمت with a harmless fixed response. Then resolve the connected pilot instagram_account_id through the authenticated tenant/store API without opening database networking, set exactly that account in META_SEND_ALLOWED_ACCOUNT_IDS while send remains disabled, enable send only for one controlled outbound E2E, and verify deterministic match, one delivery, dedupe and no echo loop.
 ```
 
 Do not restart completed environment-separation, Auth/UX, SEO, Production OAuth or inbound-relay work without regression evidence.
@@ -133,8 +134,8 @@ GitHub CI for `91250140...`:
 Repository: namach2727-coder/directpilot-web
 Production branch: main
 UAT branch: UAT
-main SHA: 197186a996581caf43d053ea433ae2a5cfdc88ac
-UAT SHA: 197186a996581caf43d053ea433ae2a5cfdc88ac
+main SHA: 4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159
+UAT SHA: 4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159
 ```
 
 ## 3. Environment Topology
@@ -196,15 +197,33 @@ Environment separation is COMPLETE and PASS.
 
 Production:
 - Branch: `main`
-- SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`
+- SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`
 - Vercel status: SUCCESS
 - Admin plan UX fixes deployed: scroll preservation before paint, inline validation without native scroll-to-invalid, and automatic uppercase normalization for internal plan codes.
 - Owner retest for the plan-creation UX fix: PENDING.
 
 UAT:
 - Branch: `UAT`
-- SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`
+- SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`
 - Vercel deployment: SUCCESS / branch aligned with Production source.
+
+## 5D. Admin Customer Automation Management
+
+Frontend SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`.
+
+Status: **DEPLOYED TO UAT AND PRODUCTION / OWNER FUNCTIONAL ACCEPTANCE PENDING**.
+
+Changes:
+- Admin -> Customers & Stores now exposes **Manage Automation** only for stores with the `instagram_automation` capability.
+- The selected customer/store opens the existing Automation Rule Builder with phrase/keyword, match type, response text, priority and enabled state.
+- The frontend reuses the existing tenant/store-scoped AutomationRule API.
+- Platform Super Admin access is authorized through the existing backend platform permission path; no impersonation or tenant-isolation bypass was added.
+- Backend capability and automation-limit checks remain authoritative.
+- UAT Vercel: SUCCESS.
+- Production Vercel: SUCCESS.
+- Owner live functional acceptance: PENDING.
+
+This UI is the preferred path for creating the Production pilot deterministic rule when testing from the Platform Admin account.
 
 ## 5C. Meta UAT-to-Production Relay Bridge
 
@@ -240,7 +259,7 @@ Next gate:
 
 ## 5B. SEO Phase 2 Release
 
-Production/UAT SEO Phase 2 accepted SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8` (later frontend UX fixes are deployed at `197186a996581caf43d053ea433ae2a5cfdc88ac`).
+Production/UAT SEO Phase 2 accepted SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8` (later frontend UX fixes are deployed at `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`).
 
 Status: Production PASS.
 

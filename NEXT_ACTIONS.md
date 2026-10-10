@@ -41,11 +41,26 @@ Status: **PRODUCTION PASS — MEASUREMENT OPEN**
 - Priority query themes: ربات دایرکت هوشمند اینستاگرام، قیمت دایرکت هوشمند اینستاگرام، آموزش دایرکت هوشمند، پاسخ خودکار به کامنت اینستاگرام، اتوماسیون دایرکت اینستاگرام.
 - Next growth action: earn relevant editorial links and publish supporting content that links internally to the commercial owner pages.
 
+## P0 — Admin Customer Automation Acceptance
+
+Status: **DEPLOYED / OWNER RETEST PENDING**
+
+- Production/UAT frontend SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`.
+- UAT Vercel: SUCCESS.
+- Production Vercel: SUCCESS.
+- In Production Admin -> Customers & Stores:
+  1. select the pilot customer/store,
+  2. click **Manage Automation**,
+  3. verify fields for trigger location, match type, phrase/keyword, response, priority and enabled state,
+  4. create the deterministic rule for `قیمت`,
+  5. verify it appears in the selected store's rule list.
+- Do not mark PASS until owner confirms the live Production behavior.
+
 ## P0 — Frontend Admin Plan UX Retest
 
 Status: **DEPLOYED / OWNER RETEST PENDING**
 
-- Production and UAT source SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`.
+- Production and UAT source SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`.
 - Vercel Production deployment: SUCCESS.
 - Verify on Production that:
   - clicking `ساخت پلن` does not jump the page,
@@ -121,7 +136,7 @@ Observed blocker:
 - This does not invalidate Meta transport/inbound acceptance.
 
 Next exact steps:
-1. In Production, create/enable a harmless deterministic rule:
+1. In Production Admin -> Customers & Stores, select the pilot customer/store and use **Manage Automation** to create/enable a harmless deterministic rule:
    - `trigger_type=DM_KEYWORD`
    - `match_type=EXACT`
    - keyword `قیمت`

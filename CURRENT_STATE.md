@@ -19,7 +19,7 @@
 - Repository: `namach2727-coder/directpilot-web`
 - Production branch: `main`
 - UAT branch: `UAT`
-- Both remote branches point to `197186a996581caf43d053ea433ae2a5cfdc88ac`.
+- Both remote branches point to `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`.
 
 ## Production Backend
 
@@ -40,7 +40,7 @@
 
 - Public domain: `https://directpilot.ir`
 - Production branch: `main`
-- Deployed/accepted SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`
+- Deployed/accepted SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`
 - Vercel GitHub status: SUCCESS — `Deployment has completed`
 - Current Production SEO Phase 2 deployment status target reference:
   `https://vercel.com/mohcenp-9857s-projects/directpilot-web/9xEboR41X9yQmp6wz6Ux9XcPtWfD`
@@ -79,7 +79,7 @@
 ## UAT Frontend and Acceptance
 
 - Public domain: `https://uat.directpilot.ir`
-- UAT branch SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`
+- UAT branch SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`
 - Vercel deployment status for this SHA: SUCCESS.
 - Prior Auth/UX UAT functional acceptance: PASS. SEO Phase 1 content/UAT review was accepted by the owner for Production promotion.
 
@@ -186,7 +186,7 @@ Status: PASS.
 
 - The old frontend workstation may still contain unrelated dirty work.
 - During promotion, a local-only commit `4733d9a7f8b942486ca221c1dba1564e6cb34d2b` was accidentally created on local `main` and was NOT pushed.
-- Remote `main` is authoritative at `197186a996581caf43d053ea433ae2a5cfdc88ac`.
+- Remote `main` is authoritative at `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`.
 - Do not reset/clean/force the old local checkout; reconcile or preserve dirty work explicitly before laptop handoff/migration.
 
 ## SEO Phase 1
@@ -204,7 +204,7 @@ Status: PASS.
 
 ## SEO Phase 2
 
-- Frontend SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac` on both Production and UAT.
+- Frontend SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159` on both Production and UAT.
 - Vercel Production and UAT exact-SHA deployments: SUCCESS.
 - Live Production audit on five priority SEO pages: 0 critical/high/medium/low issues.
 - All five pages return HTTP 200, are indexable and self-canonical, have one H1 and valid structured data.
@@ -222,9 +222,21 @@ Status: PASS.
 
 ## Frontend Admin Plan UX — 2026-10-10
 
-- Production/UAT source SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`.
+- Production/UAT source SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`.
 - Vercel Production: SUCCESS.
 - Fixed plan-creation scroll preservation across form remount.
 - Native browser scroll-to-invalid behavior disabled for plan creation; validation errors stay inline.
 - Internal plan codes are normalized to uppercase while typing and again in the payload.
 - Owner retest: PENDING.
+
+
+## Admin Customer Automation Management — 2026-10-10
+
+- Frontend Production/UAT SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`.
+- UAT Vercel build: SUCCESS.
+- Production Vercel build: SUCCESS.
+- Admin -> Customers & Stores now allows Platform Super Admin to select an automation-capable store and open **Manage Automation**.
+- The panel manages the real tenant/store AutomationRules: trigger, match type, phrases/keywords, response, priority and enabled state.
+- Existing scoped backend authorization is reused; no new backend runtime deployment was required.
+- Backend remains authoritative for entitlement and rule-count limits.
+- Production owner functional retest: PENDING.

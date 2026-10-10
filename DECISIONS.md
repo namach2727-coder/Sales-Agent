@@ -144,3 +144,12 @@ Human Takeover
 - Telegram No-Code AI Bot Builder / Managed Bots is an accepted future exploration track.
 - It is explicitly outside the current DirectPilot execution scope.
 - Do not divert current Production readiness, Meta outbound E2E, database durability, payment or LLM verification work to implement it opportunistically.
+
+
+## Platform Admin Customer Automation
+
+- Platform Admin customer automation management belongs under **Admin -> Customers & Stores**, scoped to the selected tenant/store.
+- Reuse the same AutomationRule domain/service/API used by the customer workspace; do not create a second provider-only rule model or duplicate runtime.
+- Platform access must use the existing explicit platform permission path in `resolve_authorized_context`; do not use impersonation or weaken tenant/store isolation.
+- The Admin UI may expose the rule builder only when the selected store has the `instagram_automation` effective capability.
+- Backend capability and automation-limit checks remain authoritative even when the Platform Admin UI displays an estimated/current limit.

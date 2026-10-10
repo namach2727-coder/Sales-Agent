@@ -41,8 +41,8 @@
 - Repository: `namach2727-coder/directpilot-web`
 - Production branch: `main`
 - UAT branch: `UAT`
-- Production SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`
-- UAT SHA: `197186a996581caf43d053ea433ae2a5cfdc88ac`
+- Production SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`
+- UAT SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`
 - Vercel Production: SUCCESS for current SHA.
 - Recent admin-plan UX fixes: preserve scroll across create/remount, prevent native validation scroll jumps, normalize internal plan code input to uppercase.
 - Owner retest of the final plan-creation UX behavior: PENDING.
@@ -357,3 +357,17 @@ Create/enable the Production DM_KEYWORD EXACT rule for قیمت with a harmless 
 - Parked idea: No-code AI Telegram Bot Builder / Managed Bots-based SaaS.
 - Not part of current DirectPilot execution scope.
 - Resume only after current Production readiness / Meta / durability gates are addressed.
+
+
+## Admin Customer Automation Management — 2026-10-10
+
+- Frontend Production/UAT SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`.
+- UAT Vercel build: SUCCESS.
+- Production Vercel build: SUCCESS.
+- Platform Admin can now open **Customers & Stores -> Manage Automation** for a store that has `instagram_automation`.
+- The UI reuses the existing tenant/store-scoped AutomationRule API; no impersonation, cross-tenant bypass, or separate admin rule store was introduced.
+- Platform authorization continues through the backend's existing `tenant.update` platform permission path.
+- Admin can configure the actual customer/store rule fields: trigger location, match type, keywords/phrases, response text, priority and enabled state.
+- Backend remains authoritative for capability and automation-limit enforcement.
+- Owner Production functional acceptance: PENDING.
+- Next functional action: use the Production pilot store under Admin -> Customers & Stores to create the deterministic `قیمت` rule before enabling Meta outbound.
