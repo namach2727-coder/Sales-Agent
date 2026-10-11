@@ -744,3 +744,23 @@ Production LLM is no longer an open blocker.
 - Never copy UAT credentials into Production, expose provider secrets in chat/logs, or blindly retry ambiguous create operations.
 
 - Next payment gate: securely provision the Production Payexa credential, verify the callback site/domain in the Payexa panel, then enable a controlled checkout/test path before any real-provider acceptance claim.
+
+
+## Authoritative Payment Flow Correction — 2026-10-11
+
+- Current DirectPilot payment architecture is **manual card transfer with admin approval**, not Payexa.
+- Customer selects a paid plan and receives the configured payment-card details from DirectPilot.
+- Customer transfers the exact amount using any banking method outside DirectPilot.
+- Customer uploads a JPEG/PNG/PDF receipt from the customer panel.
+- Backend validates the receipt and persists the receipt bytes plus metadata in PostgreSQL (`receipt_data`, content type, size, SHA-256), then changes payment status to `submitted` and order status to `payment_submitted`.
+- Platform Admin reviews submitted payments in Admin -> Payments, can securely view the receipt, and chooses Approve or Reject.
+- Approve is backend-authoritative: it row-locks/checks optimistic revision, marks payment `approved`, marks order `paid`, creates/activates the subscription, applies plan/module entitlements and writes an audit record atomically.
+- Reject returns the order to `pending` and records the rejection reason without deleting the payment.
+- UAT frontend currently contains this complete customer + admin flow and its Vercel deployment is SUCCESS at frontend UAT SHA `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`.
+- Backend manual flow is present and deployed from `backend-main`; current CI remains PASS.
+- Payexa/KPay routes are preserved only as non-primary/deferred integration code. They are **not** part of the current customer checkout path and are **not** a Production-readiness gate for the current payment process.
+- Do not request or provision Payexa credentials unless the owner explicitly decides to re-open automated payment-gateway work.
+- Current payment readiness should be evaluated against manual-card-transfer E2E and admin approval, not Payexa acceptance.
+
+- Current payment gate: verify/promote the manual card-transfer flow in Production, including configured payment card, customer receipt upload, Admin receipt review, approval/rejection and subscription activation.
+- Automated Payexa acceptance is deferred/out of current scope.
