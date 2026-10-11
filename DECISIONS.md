@@ -220,3 +220,13 @@ Human Takeover
 - Restricted Meta-send test deployment `dep-db5ji6ss728c73823a50`: LIVE.
 - Meta send is enabled only under the existing single-pilot account allowlist for one controlled AI fallback E2E.
 - Next: send one deliberately unmatched pilot message and verify Groq request completion, assistant persistence, exactly one outbound delivery, quota accounting, dedupe and no echo loop.
+
+
+## Production AI Fallback Acceptance — 2026-10-11
+
+- Accept Production Groq AI fallback E2E as PASS.
+- Approved Production runtime: `LLM_PROVIDER=groq`, model `qwen/qwen3.8-27b`, context 4096, max output 256, reasoning effort none.
+- Keep provider credentials environment-specific and secret; never copy UAT credentials into Production or expose keys in logs/chat.
+- Controlled acceptance requires one provider request, assistant persistence, exactly one Meta delivery, no provider/outbound failure, and no duplicate/echo loop; all were satisfied.
+- Keep `META_SEND_ENABLED=false` outside explicitly controlled pilot tests until broader Production-send policy is approved.
+- Server-authoritative quota guard remains part of the AI path; do not weaken it for testing.
