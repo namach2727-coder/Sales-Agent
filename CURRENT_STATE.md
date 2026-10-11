@@ -487,3 +487,23 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 - UAT frontend SHA `eccb29022e81141bd90b9abf77c019f018889d8c`: Vercel SUCCESS.
 - Production frontend SHA `cd9d3e5f10a97fd2edc9b6fb2d8ee34e87575030`: Vercel SUCCESS.
 - Existing billing logic, order creation, checkout, manual card-transfer payment and receipt upload routes were unchanged.
+
+## Production Manual Payment E2E — PASS (2026-10-11)
+
+- Production manual card-transfer checkout is now end-to-end accepted.
+- Customer completed card display/copy and receipt upload.
+- Backend-authoritative approval completed with:
+  - payment `approved`
+  - order `paid`
+  - subscription `active`
+  - source `PURCHASED`
+  - `AUTOMATION_V1`
+  - automation limit 20
+  - Instagram account limit 1
+  - duration 30 days
+- Production UI confirmation by owner: PASS.
+- Production frontend Trial/Billing fix: Vercel READY at `2e9122f2632972c118e98ad16a43d1c957ec446d`.
+- Guarded approval runtime commit: `421d157fc85549ae238c72f553d68ac8e3bd85ae`.
+- Cleanup deployment `dep-db5p0nng0jfs73bign50`: LIVE with the approval flag disabled.
+- Manual Payment Production E2E is no longer an open blocker.
+
