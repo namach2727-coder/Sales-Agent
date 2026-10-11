@@ -17,6 +17,16 @@
 >
 > Last SEO/frontend reconciliation: 2026-10-11. Other integration/runtime items retain their own separately verified checkpoints.
 
+## UI / Branding Production Release — 2026-10-11 (LATEST FRONTEND CHECKPOINT)
+
+- Release: frontend PR #9 (UAT humanized UI / SVG motion glyphs / animated vector D favicon / dashboard and admin presentation / sidebar nowrap). Merged to `main`; exact commit `f5f6a5399f938969b9307475eeed208f0e10988b`.
+- Vercel Production deployment: `dpl_Ghi3KVJrDwpW1a1nABBDk2wztyBJ` — **READY**; `https://directpilot.ir` and `https://www.directpilot.ir` resolve to this deployment (www redirects to apex; aliases have no error). [Vercel inspector](https://vercel.com/mohcenp-9857s-projects/directpilot-web/Ghi3KVJrDwpW1a1nABBDk2wztyBJ).
+- GitHub `main` is identical to `f5f6a5399f938969b9307475eeed208f0e10988b` (ahead/behind 0/0); `UAT` remains separately at `dd9dee1f573151cd7507877aa9a868db467c95ba` with previously verified READY deployment `dpl_J3foazh8ogYg7suDPUuEzCr37mJJ`.
+- **Owner visual acceptance: PASS** on the live Production site after hard refresh, including tab favicon animation and dashboard layout (owner confirmed on 2026-10-11). This is not a new authenticated functional E2E, payment E2E, browser-matrix, or GA4 `sign_up` E2E acceptance.
+- Scope discipline: Production GA4/SEO changes and `sign_up` / `signup_intent` instrumentation, 14-day trial copy and existing manual payment/card formatting were preserved while reconciling divergent UAT and `main`. No backend deploy, payment configuration, Meta, database, DNS or Vercel Authentication setting was changed for this release.
+- Historical Vercel `api-deployments-free-per-day` limit and intermediate release-branch `module_not_found` previews did not affect the final READY Production deployment. Do not redeploy an intermediate `release/humanized-ui-uat-20261011` commit.
+- Still open independently: GA4 `sign_up` genuine-registration delivery, post-recrawl SEO effects, Production database durability/backup-restore acceptance and any separately marked admin-plan feature retest. Do not claim those PASS from visual acceptance.
+
 ## Current Production State
 
 ### Backend
@@ -41,14 +51,14 @@
 - Repository: `namach2727-coder/directpilot-web`
 - Production branch: `main`
 - UAT branch: `UAT`
-- Production SHA (verified Vercel READY 2026-10-11): `d9a1a53a6171f3d417637d12cec66eed1832a07b`
-- UAT SHA (last separately recorded; not re-verified during this SEO-only checkpoint): `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`
+- Production SHA (verified Vercel READY and owner visual PASS 2026-10-11): `f5f6a5399f938969b9307475eeed208f0e10988b`
+- UAT branch SHA (verified current 2026-10-11; separate preview environment): `dd9dee1f573151cd7507877aa9a868db467c95ba`
 - Vercel Production: READY for the currently verified frontend SHA.
 - Recent admin-plan UX fixes: preserve scroll across create/remount, prevent native validation scroll jumps, normalize internal plan code input to uppercase.
 - Owner retest of the final plan-creation UX behavior: PENDING.
 - Public Production domain: `https://directpilot.ir`
 - Public UAT domain: `https://uat.directpilot.ir`
-- Vercel Production status for current SHA: READY — `dpl_EnejDGuCcotpf4kQrSQk7pnPsyRw`
+- Vercel Production status for current SHA: READY — `dpl_Ghi3KVJrDwpW1a1nABBDk2wztyBJ`
 - Authenticated Production smoke from the prior Auth/UX release: PASS.
 
 ## Current UAT State
@@ -66,8 +76,8 @@
 
 ### Frontend
 
-- UAT branch SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`
-- Vercel deployment for current UAT SHA completed successfully.
+- UAT branch SHA: `dd9dee1f573151cd7507877aa9a868db467c95ba`
+- UAT Vercel deployment `dpl_J3foazh8ogYg7suDPUuEzCr37mJJ`: READY for this SHA.
 - Owner-confirmed UAT functional acceptance: PASS.
 
 ## Latest GA4 + SEO Continuity Checkpoint — 2026-10-11
@@ -78,7 +88,7 @@
 - PR #7 — frontend `31c348ab51c7dc6ae1d4c407c32da1c08a5b5c03`: corrected GA4 collection endpoint allowlists in Production CSP (no `unsafe-eval` and no ad tagging).
 - PR #8 — frontend `d9a1a53a6171f3d417637d12cec66eed1832a07b`: repaired gtag.js queue compatibility by pushing JavaScript `arguments`, not spread Arrays, into `dataLayer`; shipped through tested PR with a narrowly justified lint exception.
 
-- Latest verified frontend Production `main`: `d9a1a53a6171f3d417637d12cec66eed1832a07b`; Vercel deployment `dpl_EnejDGuCcotpf4kQrSQk7pnPsyRw` = **READY** (https://vercel.com/mohcenp-9857s-projects/directpilot-web/EnejDGuCcotpf4kQrSQk7pnPsyRw). This supersedes the earlier SEO PR #5 release `e527c8f7e47a3259457f4efd72ded588eb3e26b9` / `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2`; those older SHAs remain valid **historical** checkpoints only.
+- Historical GA4 PR #8 Production checkpoint (superseded by UI PR #9 above): `d9a1a53a6171f3d417637d12cec66eed1832a07b`; Vercel deployment `dpl_EnejDGuCcotpf4kQrSQk7pnPsyRw` = **READY** (https://vercel.com/mohcenp-9857s-projects/directpilot-web/EnejDGuCcotpf4kQrSQk7pnPsyRw). This supersedes the earlier SEO PR #5 release `e527c8f7e47a3259457f4efd72ded588eb3e26b9` / `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2`; those older SHAs remain valid **historical** checkpoints only.
 - GA4 Web Stream: `https://directpilot.ir`, `DirectPilot - Production Web`, Measurement ID `G-9D1Z7HDYVZ`, GA4 Property ID `558426868`, GA4 reporting timezone `Asia/Dubai`. Vercel `NEXT_PUBLIC_GA_ID` is set for **Production only**; a fresh Production build is READY.
 - Browser verification on 2026-10-11 **after PR #8**: granted consent; gtag.js loaded; `dataLayer` contains `page_view`; request to `https://region1.google-analytics.com/g/collect` returned HTTP **204** with `en=page_view`. GA4 Realtime showed **one active user**, and `first_visit`, `session_start`, `page_view` each observed once. This establishes end-to-end **page-view event delivery and Realtime ingestion**, not all-event/real-signup acceptance.
 - In GA4, `sign_up` is defined as a **Key Event** (code-based, no default monetary value, once per event). **The actual `sign_up` delivery after a successful backend registration has NOT been tested**; do not mark conversion E2E PASS or equate `signup_intent` with completed registration.
