@@ -27,25 +27,34 @@ Status: **PASS**
 
 P0 is closed.
 
-## P1 — SEO Phases 3-5 Complete / Measurement Gate OPEN
+## P1 — SEO / GA4 Phases 3-8 Complete — Conversion E2E & Measurement OPEN
 
-Status: **ALL FIVE INCREMENTAL PRS MERGED, PRODUCTION READY, SIX LIVE SEO AUDITS PASS. RANKING IMPACT UNVERIFIED.**
+Status: **SEO PR #1-#5 MERGED / GA4 PR #6-#8 MERGED / FRONTEND PRODUCTION READY / GA4 PAGE_VIEW DELIVERY + REALTIME PASS / sign_up E2E UNVERIFIED / SEO RANKING EFFECT OPEN.**
 
-- Release ledger: PR #1 `a0d663a` (auto-comment article), #2 `cbb7f74` (blog hub), #3 `3afdd4a` (14-day-trial truthfulness), #4 `d3227c9` (About), #5 `e527c8f` (smart-direct service and clickable article links).
-- Current frontend Production SHA: `e527c8f7e47a3259457f4efd72ded588eb3e26b9`; Vercel `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2` = READY.
-- Live six-page audit (2026-10-11): HTTP 200, indexable, canonical self, 0 technical SEO issues. No Auth/Payment/Meta validation implied.
-- Reference Search Console snapshot for 2026-09-11—2026-10-08: smart-direct article 88 impressions / 2 clicks, direct-service landing 12 / 1, comment landing 22 / 1. This is **pre-change** context, not proof of impact.
-- Preserve the older whole-property Phase 1 settled baseline through 2026-10-04: 14 clicks / 315 impressions / 4.44% CTR / average position 40.30. These date windows are not identical; never compare them as before/after evidence without aligning dates.
-- Relevant query themes: «ربات دایرکت هوشمند اینستاگرام», «قیمت دایرکت هوشمند اینستاگرام», «آموزش دایرکت هوشمند», «پاسخ خودکار به کامنت اینستاگرام», «اتوماسیون دایرکت اینستاگرام».
+- PR #6 — frontend `ae077e06915e5e280fbb5ff226ac5dd4d529891e`: consent-first GA4 tag, event bridge, limited sanitized marketing `page_view`, `signup_intent`, `pricing_plan_click`, `demo_start`, `blog_cta_click`, and `sign_up` after the backend register call succeeds; Production-only `NEXT_PUBLIC_GA_ID`, strict Preview/UAT isolation, privacy disclosure, CI tests and mobile Lighthouse workflow.
+- PR #7 — frontend `31c348ab51c7dc6ae1d4c407c32da1c08a5b5c03`: corrected GA4 collection endpoint allowlists in Production CSP (no `unsafe-eval` and no ad tagging).
+- PR #8 — frontend `d9a1a53a6171f3d417637d12cec66eed1832a07b`: repaired gtag.js queue compatibility by pushing JavaScript `arguments`, not spread Arrays, into `dataLayer`; shipped through tested PR with a narrowly justified lint exception.
 
-Next exact SEO steps (no further copy edits until measurement warrants them):
-1. Wait for Google recrawl / a meaningful settled post-change window; inspect the modified URLs via Google URL Inspection when appropriate and distinguish “submitted” from “crawled/indexed”.
-2. Query Search Console by page + query, comparing aligned 28-day windows for `/blog/instagram-smart-direct`, `/instagram-direct-automation`, `/instagram-comment-automation`, `/blog`, and `/about`.
-3. Report impressions, clicks, CTR, average position and query-to-page ownership separately; track «دایرکت هوشمند» / «دایرکت اتوماتیک» and informational vs commercial intent.
-4. Verify that blog-to-service links remain clickable in rendered HTML and that Production canonical/indexability is maintained; Preview/UAT must remain noindex.
-5. Prioritize qualified editorial links and supporting content only if performance data justifies the next release; avoid keyword stuffing and unsupported ranking promises.
+- Latest verified frontend Production `main`: `d9a1a53a6171f3d417637d12cec66eed1832a07b`; Vercel deployment `dpl_EnejDGuCcotpf4kQrSQk7pnPsyRw` = **READY** (https://vercel.com/mohcenp-9857s-projects/directpilot-web/EnejDGuCcotpf4kQrSQk7pnPsyRw). This supersedes the earlier SEO PR #5 release `e527c8f7e47a3259457f4efd72ded588eb3e26b9` / `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2`; those older SHAs remain valid **historical** checkpoints only.
+- GA4 Web Stream: `https://directpilot.ir`, `DirectPilot - Production Web`, Measurement ID `G-9D1Z7HDYVZ`, GA4 Property ID `558426868`, GA4 reporting timezone `Asia/Dubai`. Vercel `NEXT_PUBLIC_GA_ID` is set for **Production only**; a fresh Production build is READY.
+- Browser verification on 2026-10-11 **after PR #8**: granted consent; gtag.js loaded; `dataLayer` contains `page_view`; request to `https://region1.google-analytics.com/g/collect` returned HTTP **204** with `en=page_view`. GA4 Realtime showed **one active user**, and `first_visit`, `session_start`, `page_view` each observed once. This establishes end-to-end **page-view event delivery and Realtime ingestion**, not all-event/real-signup acceptance.
+- In GA4, `sign_up` is defined as a **Key Event** (code-based, no default monetary value, once per event). **The actual `sign_up` delivery after a successful backend registration has NOT been tested**; do not mark conversion E2E PASS or equate `signup_intent` with completed registration.
+- GA4 is natively linked to Search Console Domain Property `directpilot.ir`, and GSC Wizard's GA4 connection is separately verified: `sc-domain:directpilot.ir` ↔ `properties/558426868` under `DirectPilot - Production`. GA4 reports and blended GSC+GA4 sections are visible.
+- GSC Wizard reports through 2026-10-10 initially showed GA4 zeros because collection was first accepted on 2026-10-11. Respect settled-data lag (~1-3 days), the GA4 launch boundary, site/session definitions, user consent and small samples; **do not** read historical zero as malfunction or claim ranking/conversion uplift. Google Search Console clicks and GA4 sessions are not interchangeable.
 
-Separate release/readiness priorities persist: Production database durability and backup/restore (owner-deferred paid upgrade), manual card-transfer payment acceptance, secure recovery-provider work; deferred Payexa must not be mistaken for the current checkout path.
+- Existing weekly automation **«پایش هفتگی SEO و GA4 DirectPilot»** updated (ID `6acb649a476c8191895050914165ee85`), **enabled**, next intended run Monday 2026-10-12 at approximately 09:00 **Asia/Dubai**, `flexible_schedule`. It now checks settled 28-day SEO windows, 10 indexed URLs, queries/landing pages/cannibalization/sitemap, and GA4 sessions, landing pages, engagement, `signup_intent`, `sign_up` / Key Events, with post-activation/date-alignment safeguards. This is an automation-instructions update; it does not change site code or GA4 settings.
+- This scheduled task's automation record currently reports `notifications_enabled=false` and `email_enabled=false`; delivery/notification permissions should be reviewed by the owner separately if push or email alerts are expected. Do not falsely claim notification delivery is enabled.
+
+### Exact next SEO / Analytics actions
+
+1. **First settled GA4 reports (after 2026-10-11):** inspect GSC Wizard Analytics Overview / Channels / Landing Pages / Events for Sessions, Active Users, Page Views, Engagement and Organic Search; if first data is missing because of a 1-3 day reporting delay, check on a later settled day instead of calling the setup broken.
+2. **Controlled conversion E2E:** after obtaining a safe test account/registration path, complete one genuine successful backend registration and confirm `sign_up` appears once in GA4 Realtime/Events/Key Events. Do not generate real customers or trigger paid billing solely to inflate conversions; report BLOCKED if no safe test path exists.
+3. **Organic search attribution:** for `/`, `/blog/instagram-smart-direct`, `/instagram-direct-automation`, `/instagram-comment-automation`, `/pricing`, `/about`, compare separate GSC clicks/impressions/CTR/position with GA4 landings/sessions only in correctly defined comparable ranges. Watch cannibalization for Direct/Comment query clusters and indexing status for 10 tracked URLs.
+4. **Post-release SEO effect:** do not claim improvement until Google has recrawled the modified pages and two comparable settled windows exist. Historical property-wide settled GSC baseline through 2026-10-04 was 14 clicks / 315 impressions / CTR 4.44% / average position 40.30; historical 2026-09-11—2026-10-08 page query snapshots: smart-direct article 88 impressions / 2 clicks, service 12 / 1, comment service 22 / 1. Windows are not interchangeable.
+5. **Performance follow-up:** investigate homepage mobile Lighthouse lab bottleneck (Performance 74, LCP 2.74s, TBT 974ms) with profiler and a fresh controlled run before optimization; maintain separate CrUX field assessment. Avoid repeated SEO copy changes without evidence.
+6. **Reporting automation:** weekly SEO+GA4 schedule now Monday 09:00 Asia/Dubai; notifications/email flags currently disabled in automation metadata and may require account-level enabling. Existing other legacy SEO schedules were not modified in this update.
+
+No changes to payment settlement, manual card-transfer acceptance, Meta sending, backend readiness or database durability arise from GA4 measurement; these remain distinct workstreams.
 
 ## P0 — Admin Customer Automation Acceptance
 
