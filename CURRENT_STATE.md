@@ -1,7 +1,7 @@
 # DirectPilot Current State
 
 > Snapshot of verifiable current state. Read `AI_HANDOFF.md` first.
-> Last reconciled: 2026-10-10.
+> Last SEO/frontend reconciliation: 2026-10-11; other system states have independent verification dates.
 
 ## Repository State
 
@@ -19,7 +19,8 @@
 - Repository: `namach2727-coder/directpilot-web`
 - Production branch: `main`
 - UAT branch: `UAT`
-- Both remote branches point to `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`.
+- Production `main` deployed and verified at `e527c8f7e47a3259457f4efd72ded588eb3e26b9` for the SEO release.
+- UAT last separately verified at `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`; current UAT head is not claimed as checked by this SEO audit.
 
 ## Production Backend
 
@@ -40,11 +41,10 @@
 
 - Public domain: `https://directpilot.ir`
 - Production branch: `main`
-- Deployed/accepted SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`
-- Vercel GitHub status: SUCCESS — `Deployment has completed`
-- Current Production SEO Phase 2 deployment status target reference:
-  `https://vercel.com/mohcenp-9857s-projects/directpilot-web/9xEboR41X9yQmp6wz6Ux9XcPtWfD`
-- A canonical `dpl_...` deployment ID was not independently recovered in this checkpoint; do not invent one.
+- Deployed/accepted SEO SHA: `e527c8f7e47a3259457f4efd72ded588eb3e26b9`.
+- Vercel Production: READY; deployment ID `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2`.
+- Vercel inspector: `https://vercel.com/mohcenp-9857s-projects/directpilot-web/Btry5s2bBzHpW6n618fNB9ZihWn2`.
+- Historical SEO Phase 2 production evidence remains recorded below; the current deployment above supersedes it.
 - Auth/UX Production smoke from the previous release remains PASS. It was not repeated for this SEO-only promotion because no authentication/session behavior changed.
 
 ### Production Auth/UX Smoke — Owner Confirmed
@@ -210,7 +210,21 @@ Status: PASS.
 - All five pages return HTTP 200, are indexable and self-canonical, have one H1 and valid structured data.
 - Ranking/CTR impact remains OPEN until Google recrawls and later Search Console data settles.
 
-### Meta live inbound evidence
+## SEO Incremental Phases 3-5 — Verified Production 2026-10-11
+
+- PR #1 `a0d663a59421de0f96789dc2dcd5e51d981430f8`: auto-comment article content, `dateModified` / Open Graph / sitemap last-modified support.
+- PR #2 `cbb7f74b9f21e9e61f78eaad11c89b9510631ad1`: blog hub guidance, FAQ and contextual navigation.
+- PR #3 `3afdd4af2d75ab15abc975ba699c6f7b8fa4575a`: corrected shared trust copy from an inaccurate permanent-free-plan claim to the 14-day trial.
+- PR #4 `d3227c949bd051713b6abede9c44499d898e187e`: expanded `/about` with genuine product approach, human handoff, trial transparency, security and links.
+- PR #5 `e527c8f7e47a3259457f4efd72ded588eb3e26b9`: added commercial-intent guidance, FAQ and contextual links to `/instagram-direct-automation`, fixed bold-wrapped Markdown links in `/blog/instagram-smart-direct`, and added a clear article-to-service/demo CTA.
+
+Verified Production deployment: frontend `main` SHA `e527c8f7e47a3259457f4efd72ded588eb3e26b9`, Vercel `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2` = READY. A live GSC Wizard on-page crawl on 2026-10-11 returned HTTP 200 / indexable / self-canonical / 0 issues for six pages: `/`, `/blog`, `/blog/instagram-auto-comment-reply`, `/about`, `/instagram-direct-automation`, `/blog/instagram-smart-direct`. Word/link changes: `/blog` 244->426 words, 39->44 internal links; `/about` 139->464 words, 30->36 links; service page 437->680 words, 39->40 links; smart-direct article 30->39 internal links. This proves live publishing and a clean technical audit, **not** a Google recrawl, new indexing event, or ranking/traffic uplift.
+
+Pre-change Search Console context (2026-09-11 to 2026-10-08; not a post-change performance comparison): `/blog/instagram-smart-direct` 88 impressions / 2 clicks; `/instagram-direct-automation` 12 impressions / 1 click; `/instagram-comment-automation` 22 impressions / 1 click. Educational intent belongs with the blog article, commercial/product intent with the direct-automation landing page; pricing intent with `/pricing`.
+
+Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable settled Search Console window. Only marketing SEO and internal-link rendering were changed by PRs #1-#5; authenticated product flows were not reaccepted by this crawl.
+
+## Meta live inbound evidence
 
 - Live inbound test at 2026-10-07T11:31Z: PASS through UAT -> Production relay.
 - Production account scope resolved, conversation created, inbound message persisted, webhook accepted and processing completed.
