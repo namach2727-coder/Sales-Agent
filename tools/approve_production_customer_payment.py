@@ -24,7 +24,7 @@ def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
         description="Approve exactly one recent submitted manual Production payment for a customer"
     )
-    result.add_argument("--email", required=True)
+    result.add_argument("--email")
     result.add_argument("--plan-code", required=True)
     result.add_argument("--max-age-minutes", type=int, default=120)
     result.add_argument("--use-configured-database", action="store_true")
@@ -48,34 +48,39 @@ def main(argv: list[str] | None = None) -> int:
     try:
         engine = create_engine(settings.database_url, pool_pre_ping=True)
         _assert_schema_ready(engine)
-        normalized = normalize_email(args.email)
         cutoff = now_utc() - timedelta(minutes=args.max_age_minutes)
 
         with Session(engine) as session:
-            user = session.scalar(
-                select(UserIdentity).where(UserIdentity.normalized_email == normalized)
+            statement = (
+                select(ManualPayment, SubscriptionOrder, SaasPlan)
+                .join(SubscriptionOrder, SubscriptionOrder.id == ManualPayment.order_id)
+                .join(SaasPlan, SaasPlan.id == SubscriptionOrder.plan_id)
+                .where(
+                    ManualPayment.provider == "manual_card_transfer",
+                    ManualPayment.status == "submitted",
+                    ManualPayment.receipt_storage_key.is_not(None),
+                    ManualPayment.receipt_data.is_not(None),
+                    ManualPayment.submitted_at.is_not(None),
+                    ManualPayment.submitted_at >= cutoff,
+                    SubscriptionOrder.status == "payment_submitted",
+                    SaasPlan.code == args.plan_code,
+                    SaasPlan.is_active.is_(True),
+                )
             )
-            if user is None:
-                raise ValueError("target identity not found")
+            if args.email:
+                normalized = normalize_email(args.email)
+                user = session.scalar(
+                    select(UserIdentity).where(UserIdentity.normalized_email == normalized)
+                )
+                if user is None:
+                    raise ValueError("target identity not found")
+                statement = statement.where(ManualPayment.user_id == user.id)
 
             rows = list(
                 session.execute(
-                    select(ManualPayment, SubscriptionOrder, SaasPlan)
-                    .join(SubscriptionOrder, SubscriptionOrder.id == ManualPayment.order_id)
-                    .join(SaasPlan, SaasPlan.id == SubscriptionOrder.plan_id)
-                    .where(
-                        ManualPayment.user_id == user.id,
-                        ManualPayment.provider == "manual_card_transfer",
-                        ManualPayment.status == "submitted",
-                        ManualPayment.receipt_storage_key.is_not(None),
-                        ManualPayment.receipt_data.is_not(None),
-                        ManualPayment.submitted_at.is_not(None),
-                        ManualPayment.submitted_at >= cutoff,
-                        SubscriptionOrder.status == "payment_submitted",
-                        SaasPlan.code == args.plan_code,
-                        SaasPlan.is_active.is_(True),
+                    statement.order_by(
+                        ManualPayment.submitted_at.desc(), ManualPayment.id.desc()
                     )
-                    .order_by(ManualPayment.submitted_at.desc(), ManualPayment.id.desc())
                 ).all()
             )
             if len(rows) != 1:
