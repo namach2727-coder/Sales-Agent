@@ -46,6 +46,17 @@ if [ "${DIRECTPILOT_RESET_ADMIN_PASSWORD_ON_START:-false}" = "true" ]; then
     --password-env DIRECTPILOT_RESET_ADMIN_PASSWORD
 fi
 
+if [ "${DIRECTPILOT_RESET_UAT_CUSTOMER_PLAN_ON_START:-false}" = "true" ]; then
+  : "${DIRECTPILOT_RESET_UAT_CUSTOMER_EMAIL:?DIRECTPILOT_RESET_UAT_CUSTOMER_EMAIL is required}"
+  : "${DIRECTPILOT_RESET_UAT_CUSTOMER_PLAN_CODE:?DIRECTPILOT_RESET_UAT_CUSTOMER_PLAN_CODE is required}"
+
+  echo "Running one-shot UAT customer plan reset..."
+  python -m tools.reset_uat_customer_plan \
+    --email "$DIRECTPILOT_RESET_UAT_CUSTOMER_EMAIL" \
+    --plan-code "$DIRECTPILOT_RESET_UAT_CUSTOMER_PLAN_CODE" \
+    --use-configured-database
+fi
+
 echo "Starting application..."
 exec uvicorn app.main:app \
   --host "${HOST:-0.0.0.0}" \
