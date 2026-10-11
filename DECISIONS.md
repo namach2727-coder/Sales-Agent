@@ -164,3 +164,11 @@ Human Takeover
 ## Controlled Outbound Retest Rule
 - If a pilot message produces no inbound webhook at either relay or Production, do not classify automation/outbound as failed.
 - After relay health is restored, perform exactly one clean retest before changing rule logic or outbound configuration.
+
+
+## Meta Controlled E2E Acceptance — 2026-10-11
+- Accept Production deterministic Meta outbound E2E as PASS based on runtime evidence.
+- Acceptance requires one inbound event, one deterministic response delivery, no AI fallback, no duplicate second send, and no echo loop; all were satisfied in the clean retest.
+- Production send is returned to disabled after the test.
+- Do not reopen Meta transport work without regression evidence.
+- Production database durability/backup-restore is the next highest-priority real-customer readiness gate.
