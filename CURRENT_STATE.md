@@ -289,3 +289,18 @@ Status: PASS.
 - Do not change the current Free Production database plan or incur paid infrastructure cost without a new explicit approval.
 - Current risk remains accepted temporarily: Free Production Postgres expires 2026-11-02 and does not satisfy durability/backup-restore acceptance.
 - Real-customer onboarding remains blocked by Production database durability until this decision is revisited.
+
+
+## Production LLM State — 2026-10-11
+
+- Diagnosis: PASS.
+- Production AI execution readiness: BLOCKED.
+- Backend runtime SHA: `398d6dc52e436f4db25f21b19e7dbca4bef10f3c`.
+- UAT deployment: `dep-db5j4ebbc2fs73934e7g` LIVE.
+- Production deployment: `dep-db5j5c7lk1mc73a6ofkg` LIVE.
+- UAT: provider=Groq; configured credential/model present.
+- Production: provider=OpenAI; model=`gpt-5.6-sol`; OpenAI credential absent.
+- Production alternative readiness: Groq credential absent and Groq model absent.
+- Prior `llm_provider_configuration_error` is therefore explained by missing Production selected-provider credentials before any provider request.
+- Production environment/DB/migration/application startup remain PASS.
+- Meta send remains disabled after the completed Meta E2E.
