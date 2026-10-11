@@ -794,3 +794,13 @@ Production LLM is no longer an open blocker.
 - Production DB remains externally closed; no banking details were queried, logged or exposed.
 
 - Payment E2E next step: reload Production Admin Payments, confirm the card is present/active/default, then continue customer order -> card display -> receipt upload -> Admin approval -> subscription activation.
+
+
+## Payment Card Display Readability Fix — 2026-10-11
+
+- Admin payment-card rows previously rendered bank name, account holder and card number as adjacent inline text, producing unreadable output such as `بانکنام صاحب حساب5859...`.
+- Frontend now renders bank/label, account holder and card number on separate lines.
+- Card numbers are formatted visually in four-digit groups and rendered LTR for readability; stored card data is unchanged.
+- UAT frontend SHA `61ef804dba0c03e14eb6e26308a05e63e2ed2ae2`: Vercel SUCCESS.
+- Production frontend SHA `b5b7d1e5fbeef6622dcbe8c105caeb17b41df0fb`: Vercel SUCCESS.
+- Regression coverage added for separated metadata layout and grouped card-number rendering.
