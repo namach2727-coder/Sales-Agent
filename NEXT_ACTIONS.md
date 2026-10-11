@@ -240,3 +240,10 @@ Status: **PASS**
 - Paid Render Postgres enables PITR; on a Hobby workspace the recovery window is 3 days. On-demand logical exports are available for paid instances and retained for 7 days.
 - Compute-plan change requires brief database downtime.
 - Paid infrastructure change remains blocked until explicit owner approval.
+
+
+## Production DB Upgrade Decision — 2026-10-11
+- Owner explicitly deferred the paid Production Postgres upgrade for now.
+- Do not change the current Free Production database plan or incur paid infrastructure cost without a new explicit approval.
+- Current risk remains accepted temporarily: Free Production Postgres expires 2026-11-02 and does not satisfy durability/backup-restore acceptance.
+- Real-customer onboarding remains blocked by Production database durability until this decision is revisited.
