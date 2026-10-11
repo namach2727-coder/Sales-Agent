@@ -779,3 +779,18 @@ Production LLM is no longer an open blocker.
 - Once a real Production destination card is configured by an authorized Admin, run controlled E2E: paid-plan order -> show card -> upload test receipt -> Admin reviews receipt -> Admin approves -> verify payment approved, order paid, subscription active and module entitlements applied.
 
 - Immediate payment blocker: Production payment-card configuration only. Code/deployment path is otherwise ready.
+
+
+## Production Payment Card Form Reset Incident — FIXED (2026-10-11)
+
+- User hit frontend error while creating the first Production payment card: `Cannot read properties of null (reading 'reset')`.
+- Root cause was frontend-only: `createCard()` called `event.currentTarget.reset()` after an awaited API request. The React form event's `currentTarget` was no longer reliable at that point.
+- Fix: capture the HTML form element before the async boundary, build `FormData` from that stable reference, and call `formElement.reset()` after the successful request.
+- A regression test now requires the stable form reference and forbids async use of `event.currentTarget.reset()`.
+- UAT fix SHA `910bd2b0add605ab926e08ab18be444431c0a134`: Vercel SUCCESS.
+- Production runtime fix SHA `2f0ba54287e04ad8d7f5d747d2adcefdfd25bbbf`: Vercel SUCCESS.
+- Production test-only follow-up SHA `a8e90d3aa1112dd2e577ee82c452ecb421668618` adds the regression test; runtime behavior is unchanged from the successful runtime-fix commit.
+- Because the failing `reset()` statement executes only after `await adminPaymentsApi.createCard(...)` resolves, the backend card-create request had already succeeded before this UI exception. Do not ask the user to re-enter the same card blindly; first refresh/reload the Admin Payments view and confirm the created card is present.
+- Production DB remains externally closed; no banking details were queried, logged or exposed.
+
+- Payment E2E next step: reload Production Admin Payments, confirm the card is present/active/default, then continue customer order -> card display -> receipt upload -> Admin approval -> subscription activation.
