@@ -48,10 +48,10 @@ SHA: 4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159
 VERCEL_STATUS: SUCCESS
 OWNER_PRODUCTION_SMOKE: PASS FOR PRIOR RELEASE
 ADMIN_PLAN_SCROLL/VALIDATION FIX: DEPLOYED / OWNER RETEST PENDING
-ADMIN_CUSTOMER_AUTOMATION_MANAGEMENT: DEPLOYED / OWNER RETEST PENDING
+ADMIN_CUSTOMER_AUTOMATION_MANAGEMENT: DEPLOYED / OWNER CONFIRMED
 
 META_E2E:
-PRODUCTION OAUTH PASS / INBOUND RELAY PASS / OUTBOUND E2E OPEN
+PRODUCTION OAUTH PASS / INBOUND RELAY PASS / OUTBOUND E2E PASS
 
 OUTBOUND_SAFETY:
 META_SEND_ENABLED=false
@@ -63,7 +63,7 @@ DURABILITY: OPEN
 BACKUP_RESTORE: OPEN
 
 NEXT EXACT STEP:
-In Production Admin -> Customers & Stores, select the pilot customer/store and use Manage Automation to create/enable one DM_KEYWORD + EXACT rule for قیمت with a harmless fixed response. Then resolve the connected pilot instagram_account_id through the authenticated tenant/store API without opening database networking, set exactly that account in META_SEND_ALLOWED_ACCOUNT_IDS while send remains disabled, enable send only for one controlled outbound E2E, and verify deterministic match, one delivery, dedupe and no echo loop.
+Resolve Production database durability and backup/restore acceptance before real-customer onboarding. Keep Meta send disabled by default after the successful controlled E2E. Verify Production LLM configuration as a separate gate.
 ```
 
 Do not restart completed environment-separation, Auth/UX, SEO, Production OAuth or inbound-relay work without regression evidence.
@@ -613,16 +613,33 @@ Status: IN PROGRESS.
 
 
 ## Controlled Production Outbound Gate — 2026-10-11
-Status: **READY FOR ONE CONTROLLED PILOT MESSAGE**
+Status: **CONTROLLED PILOT E2E PASS**
 - Deterministic pilot rule: owner confirmed.
 - Single-account Production restriction: configured.
-- Restricted Production send: enabled.
+- Restricted Production send: enabled only for the controlled test; returned to disabled afterward.
 - Deployment `dep-db5ihrg473hc73ba3be0`: LIVE.
 - Environment, DB, migration and startup checks: PASS.
-- Next exact step: send `قیمت` exactly once from the second Instagram account and verify deterministic response, one delivery, dedupe and no self-echo.
+- Controlled retest passed: deterministic response, one provider delivery, no AI fallback, and no self-echo loop.
 
 
 ## Controlled Outbound Attempt 1 — Inconclusive
 - First pilot message coincided with UAT relay redeployment.
 - No inbound webhook reached UAT or Production, so there is no automation/outbound verdict.
 - Relay is healthy again; repeat one controlled message after relay readiness.
+
+
+## Meta Production Controlled E2E — PASS (2026-10-11)
+
+Acceptance evidence:
+- UAT webhook relay delivered the clean retest to Production.
+- Production inbound routing/persistence: PASS.
+- Deterministic rule evaluation: PASS.
+- Exactly one `instagram_outbound_started`: PASS.
+- Exactly one `instagram_outbound_delivered`: PASS.
+- No `instagram_outbound_failed`: PASS.
+- No AI start/failure for the deterministic flow: PASS.
+- Provider/self follow-up event was ignored; no second outbound was started: PASS.
+- Post-test rollback: `META_SEND_ENABLED=false`.
+- Rollback deployment `dep-db5illid0e5s73fju470`: LIVE.
+
+Meta transport is no longer the current Production-readiness blocker. Production database durability and backup/restore remain the highest-priority blocker before real customers; LLM verification remains a separate open gate.
