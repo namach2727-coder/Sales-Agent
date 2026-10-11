@@ -68,6 +68,18 @@ if [ "${DIRECTPILOT_APPROVE_UAT_CUSTOMER_PAYMENT_ON_START:-false}" = "true" ]; t
     --use-configured-database
 fi
 
+if [ "${DIRECTPILOT_APPROVE_PRODUCTION_CUSTOMER_PAYMENT_ON_START:-false}" = "true" ]; then
+  : "${DIRECTPILOT_APPROVE_PRODUCTION_CUSTOMER_EMAIL:?DIRECTPILOT_APPROVE_PRODUCTION_CUSTOMER_EMAIL is required}"
+  : "${DIRECTPILOT_APPROVE_PRODUCTION_CUSTOMER_PLAN_CODE:?DIRECTPILOT_APPROVE_PRODUCTION_CUSTOMER_PLAN_CODE is required}"
+
+  echo "Running guarded one-shot Production customer payment approval..."
+  python -m tools.approve_production_customer_payment \
+    --email "$DIRECTPILOT_APPROVE_PRODUCTION_CUSTOMER_EMAIL" \
+    --plan-code "$DIRECTPILOT_APPROVE_PRODUCTION_CUSTOMER_PLAN_CODE" \
+    --max-age-minutes 120 \
+    --use-configured-database
+fi
+
 echo "Starting application..."
 exec uvicorn app.main:app \
   --host "${HOST:-0.0.0.0}" \
