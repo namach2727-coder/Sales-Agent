@@ -199,3 +199,12 @@ Human Takeover
 - Production currently selects OpenAI but has no OpenAI credential; Groq credential/model are also absent.
 - Before selecting Groq for Production, use a currently supported Groq model rather than blindly mirroring UAT configuration.
 - Preserve deterministic-first execution: a matched AutomationRule performs zero LLM work.
+
+
+## Groq Model Support Check — 2026-10-11
+- UAT currently selects `qwen/qwen3.6-27b`.
+- Official Groq deprecation guidance says `qwen/qwen3.6-27b` was deprecated for Free/Developer usage on 2026-09-14.
+- Direct replacement: `qwen/qwen3.8-27b`.
+- Do not copy the deprecated UAT model into Production.
+- If Production Groq is approved, target `qwen/qwen3.8-27b` with existing guardrails `GROQ_CONTEXT_LENGTH=4096`, `GROQ_MAX_OUTPUT_TOKENS=256`, and `GROQ_REASONING_EFFORT=none`.
+- Production still requires its own securely provisioned `GROQ_API_KEY`; never copy or expose the UAT credential.
