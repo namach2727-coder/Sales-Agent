@@ -448,3 +448,11 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 - UAT frontend SHA `1e33cda4e572d1eac44608e1b57a6674a99ca18f`: Vercel SUCCESS.
 - Production frontend SHA `cc924aa651069682e903ae236fd061e002288bbb`: Vercel SUCCESS.
 - Regression coverage added for Clipboard API, mobile fallback, normalized card value, button feedback and mobile layout.
+
+
+## Production Manual Payment Card Readiness — PASS (2026-10-11)
+
+- Production backend deployment `dep-db5m7m7lot8c73fesnug`: LIVE.
+- Safe startup readiness reports `active_cards=1 active_default_cards=1`.
+- Production manual-payment destination card configuration is therefore READY.
+- Customer manual-payment flow can now proceed to controlled E2E: paid plan order -> display destination card -> test card-copy action -> upload test receipt -> Admin review -> Approve -> verify payment approved, order paid, subscription active and entitlements updated.
