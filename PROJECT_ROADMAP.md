@@ -620,3 +620,9 @@ Status: **READY FOR ONE CONTROLLED PILOT MESSAGE**
 - Deployment `dep-db5ihrg473hc73ba3be0`: LIVE.
 - Environment, DB, migration and startup checks: PASS.
 - Next exact step: send `قیمت` exactly once from the second Instagram account and verify deterministic response, one delivery, dedupe and no self-echo.
+
+
+## Controlled Outbound Attempt 1 — Inconclusive
+- First pilot message coincided with UAT relay redeployment.
+- No inbound webhook reached UAT or Production, so there is no automation/outbound verdict.
+- Relay is healthy again; repeat one controlled message after relay readiness.
