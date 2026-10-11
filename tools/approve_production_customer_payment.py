@@ -7,7 +7,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from app.authentication.service import normalize_email
-from app.commerce.service import CommerceService
+from app.commerce.service import CommerceService, now_utc
 from app.config import get_settings
 from app.models import (
     AuthPlatformRoleAssignment,
@@ -17,7 +17,6 @@ from app.models import (
     TenantSubscription,
     UserIdentity,
 )
-from app.time import now_utc
 from tools.seed_data import _assert_schema_ready
 
 
