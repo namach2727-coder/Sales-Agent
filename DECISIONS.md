@@ -313,3 +313,15 @@ Human Takeover
 - UAT frontend SHA `61ef804dba0c03e14eb6e26308a05e63e2ed2ae2`: Vercel SUCCESS.
 - Production frontend SHA `b5b7d1e5fbeef6622dcbe8c105caeb17b41df0fb`: Vercel SUCCESS.
 - Regression coverage added for separated metadata layout and grouped card-number rendering.
+
+
+## Customer Card Copy Action — 2026-10-11
+
+- Customer manual-payment page now exposes a dedicated **Copy card number** action beside the destination card.
+- Copy behavior first uses the modern Clipboard API and falls back to a temporary readonly textarea + `execCommand("copy")` for broader mobile-browser compatibility.
+- The copied value is normalized to digits/no spaces before being written to the clipboard.
+- Successful copy changes the button label to `کپی شد ✓` and shows the status message `شماره کارت در کلیپ‌بورد کپی شد.`.
+- Mobile layout makes the copy button full-width below the card row for easier tapping.
+- UAT frontend SHA `1e33cda4e572d1eac44608e1b57a6674a99ca18f`: Vercel SUCCESS.
+- Production frontend SHA `cc924aa651069682e903ae236fd061e002288bbb`: Vercel SUCCESS.
+- Regression coverage added for Clipboard API, mobile fallback, normalized card value, button feedback and mobile layout.
