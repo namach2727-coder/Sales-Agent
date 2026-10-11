@@ -70,7 +70,8 @@ def main(argv: list[str] | None = None) -> int:
                 ).all()
             )
             if not subscriptions:
-                raise ValueError("no active purchased subscription matched the target plan")
+                print("UAT customer plan reset completed: cancelled=0 already_reset=true")
+                return 0
 
             for subscription in subscriptions:
                 subscription.status = "cancelled"
