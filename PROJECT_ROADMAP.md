@@ -2,7 +2,7 @@
 
 > **Strategic roadmap / secondary continuity document.** Read `AI_HANDOFF.md` first in every new DirectPilot session; then read this file.
 >
-> **Last updated:** 2026-10-10
+> **Last SEO/frontend reconciliation:** 2026-10-11 (integration sections retain their own checkpoint dates)
 >
 > **Authority rule:** verified runtime/deployment evidence > deployed commit > repository source > `AI_HANDOFF.md` > this document > old chat history.
 >
@@ -10,7 +10,22 @@
 
 ---
 
-## 0. Current Resume Marker
+## 0A. Latest SEO Resume Marker — 2026-10-11
+
+```text
+WORKSTREAM: SEO_SEARCH_INTENT_AND_INTERNAL_LINKING
+PRODUCTION_FRONTEND_SHA: e527c8f7e47a3259457f4efd72ded588eb3e26b9
+VERCEL_DEPLOYMENT: dpl_Btry5s2bBzHpW6n618fNB9ZihWn2
+VERCEL_STATUS: READY
+LIVE_SEO_AUDIT: PASS / 6 URLS / 0 ISSUES
+SEO_RELEASES: PRS #1-#5 MERGED
+SEARCH_RANKING_IMPACT: NOT YET VERIFIED
+NEXT_SEO_GATE: GOOGLE_RECRAWL_AND_SETTLED_GSC_COMPARISON
+```
+
+This marker records the latest SEO evidence only. The older integration snapshot below is historical and should not overwrite this frontend release status.
+
+## 0. Historical Integration Resume Marker (2026-10-10)
 
 ```text
 PROJECT: DirectPilot
@@ -134,8 +149,8 @@ GitHub CI for `91250140...`:
 Repository: namach2727-coder/directpilot-web
 Production branch: main
 UAT branch: UAT
-main SHA: 4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159
-UAT SHA: 4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159
+main deployed SEO SHA: e527c8f7e47a3259457f4efd72ded588eb3e26b9
+UAT SHA (last separately verified; SEO changes not asserted deployed to UAT): 4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159
 ```
 
 ## 3. Environment Topology
@@ -206,6 +221,22 @@ UAT:
 - Branch: `UAT`
 - SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`
 - Vercel deployment: SUCCESS / branch aligned with Production source.
+
+## 5E. SEO Incremental Releases / 2026-10-11
+
+- PR #1 `a0d663a59421de0f96789dc2dcd5e51d981430f8`: auto-comment article content, `dateModified` / Open Graph / sitemap last-modified support.
+- PR #2 `cbb7f74b9f21e9e61f78eaad11c89b9510631ad1`: blog hub guidance, FAQ and contextual navigation.
+- PR #3 `3afdd4af2d75ab15abc975ba699c6f7b8fa4575a`: corrected shared trust copy from an inaccurate permanent-free-plan claim to the 14-day trial.
+- PR #4 `d3227c949bd051713b6abede9c44499d898e187e`: expanded `/about` with genuine product approach, human handoff, trial transparency, security and links.
+- PR #5 `e527c8f7e47a3259457f4efd72ded588eb3e26b9`: added commercial-intent guidance, FAQ and contextual links to `/instagram-direct-automation`, fixed bold-wrapped Markdown links in `/blog/instagram-smart-direct`, and added a clear article-to-service/demo CTA.
+
+Verified Production deployment: frontend `main` SHA `e527c8f7e47a3259457f4efd72ded588eb3e26b9`, Vercel `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2` = READY. A live GSC Wizard on-page crawl on 2026-10-11 returned HTTP 200 / indexable / self-canonical / 0 issues for six pages: `/`, `/blog`, `/blog/instagram-auto-comment-reply`, `/about`, `/instagram-direct-automation`, `/blog/instagram-smart-direct`. Word/link changes: `/blog` 244->426 words, 39->44 internal links; `/about` 139->464 words, 30->36 links; service page 437->680 words, 39->40 links; smart-direct article 30->39 internal links. This proves live publishing and a clean technical audit, **not** a Google recrawl, new indexing event, or ranking/traffic uplift.
+
+Pre-change Search Console context (2026-09-11 to 2026-10-08; not a post-change performance comparison): `/blog/instagram-smart-direct` 88 impressions / 2 clicks; `/instagram-direct-automation` 12 impressions / 1 click; `/instagram-comment-automation` 22 impressions / 1 click. Educational intent belongs with the blog article, commercial/product intent with the direct-automation landing page; pricing intent with `/pricing`.
+
+Next SEO gate: let Google recrawl the changed URLs and accumulate a meaningful settled Search Console window; compare page+query impressions, clicks, CTR and average position against a date-aligned baseline. Check article -> service internal-link visibility and keep service/blog keyword ownership separate. Do not claim rank growth or repeat copy rewrites based only on immediate deployment data. Preserve Production-only indexing and UAT/Preview noindex.
+
+SEO release PR and Vercel evidence lives in the frontend repository `namach2727-coder/directpilot-web`; this roadmap is a documentation checkpoint in `Sales-Agent`. Backend product/payment rollout gates have not been closed by SEO publishing.
 
 ## 5D. Admin Customer Automation Management
 
