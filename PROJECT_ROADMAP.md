@@ -892,3 +892,32 @@ Production LLM is no longer an open blocker.
 - UAT frontend SHA `eccb29022e81141bd90b9abf77c019f018889d8c`: Vercel SUCCESS.
 - Production frontend SHA `cd9d3e5f10a97fd2edc9b6fb2d8ee34e87575030`: Vercel SUCCESS.
 - Existing billing logic, order creation, checkout, manual card-transfer payment and receipt upload routes were unchanged.
+
+## Latest Commercial Resume Marker — Production Manual Payment E2E PASS (2026-10-11)
+
+CURRENT_TASK: `CONTROLLED_PRODUCTION_MANUAL_PAYMENT_E2E` -> **PASS / CLOSED**
+
+Acceptance completed:
+- Production Trial/Billing purchase visibility: PASS.
+- `AUTOMATION_V1` selection: PASS.
+- Destination payment-card display: PASS.
+- Customer card-number copy/use: PASS.
+- Receipt upload: PASS.
+- Backend/Admin approval path: PASS.
+- Payment state: `approved`.
+- Order state: `paid`.
+- Subscription state: `active`, source `PURCHASED`.
+- Entitlements: automation limit 20, Instagram account limit 1, duration 30 days.
+- Owner visually confirmed the approved Production payment in the UI.
+
+Runtime/deployment evidence:
+- Production frontend final commit: `2e9122f2632972c118e98ad16a43d1c957ec446d`, Vercel READY on `directpilot.ir`.
+- Guarded Production approval runtime commit: `421d157fc85549ae238c72f553d68ac8e3bd85ae`.
+- Cleanup deployment after disabling the one-shot: `dep-db5p0nng0jfs73bign50` LIVE.
+- Manual payment readiness remains `active_cards=1 active_default_cards=1`.
+
+NEXT:
+1. Do not reopen manual-payment readiness unless a regression is reported.
+2. Keep Payexa/KPay deferred unless explicitly reopened by the owner.
+3. Continue with the next unresolved Production-readiness item; DB durability remains owner-deferred and should not incur paid changes without explicit approval.
+
