@@ -208,3 +208,9 @@ Status: **PARKED**
 3. Inspect Production logs for deterministic rule handling and provider delivery.
 4. Verify exactly one outbound response, no AI fallback, no duplicate send and no own-message echo loop.
 5. If any invariant fails, disable Production send before further diagnosis.
+
+
+## Immediate Retest
+1. Send the configured pilot keyword exactly once now that the UAT relay is fully started.
+2. Do not manually retry again after that message.
+3. Inspect UAT relay and Production logs for inbound, deterministic match, outbound delivery, dedupe and echo suppression.
