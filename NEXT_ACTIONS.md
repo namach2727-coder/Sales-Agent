@@ -119,7 +119,7 @@ Status: **OPEN**
 
 ## P1 — Meta / OAuth
 
-Status: **PRODUCTION OAUTH PASS / INBOUND RELAY PASS — OUTBOUND E2E OPEN**
+Status: **PRODUCTION OAUTH PASS / INBOUND RELAY PASS / OUTBOUND E2E PASS**
 
 Verified:
 - Production OAuth through the UAT relay: PASS.
@@ -214,3 +214,19 @@ Status: **PARKED**
 1. Send the configured pilot keyword exactly once now that the UAT relay is fully started.
 2. Do not manually retry again after that message.
 3. Inspect UAT relay and Production logs for inbound, deterministic match, outbound delivery, dedupe and echo suppression.
+
+
+## Meta Controlled E2E — COMPLETED
+Status: **PASS**
+- Deterministic Meta path passed end-to-end in Production.
+- Exactly one outbound delivery observed.
+- AI fallback did not run.
+- No duplicate second send or echo loop observed.
+- Production send was returned to disabled after acceptance.
+- Do not repeat this milestone unless regression evidence appears.
+
+## Current Highest Priority
+1. Production database durability and backup/restore acceptance before real-customer onboarding.
+2. Production LLM provider/model verification.
+3. Payment-provider environment verification and real-provider acceptance.
+4. Forgot-password recovery provider selection/verification.
