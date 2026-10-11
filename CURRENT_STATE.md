@@ -456,3 +456,13 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 - Safe startup readiness reports `active_cards=1 active_default_cards=1`.
 - Production manual-payment destination card configuration is therefore READY.
 - Customer manual-payment flow can now proceed to controlled E2E: paid plan order -> display destination card -> test card-copy action -> upload test receipt -> Admin review -> Approve -> verify payment approved, order paid, subscription active and entitlements updated.
+
+
+## Customer Billing Discoverability Fix — 2026-10-11
+
+- Verified the customer billing flow exists in Production source and is rendered by AuthenticatedShell on both desktop and mobile as `اشتراک و پرداخت`.
+- Root UX gap: the customer Overview page had no direct CTA into billing, making the payment flow easy to miss even though the section and routes existed.
+- Added a prominent primary action `مشاهده پلن‌ها و پرداخت` to the customer Overview quick-actions card, linking directly to `/dashboard?section=billing`.
+- UAT frontend SHA `eccb29022e81141bd90b9abf77c019f018889d8c`: Vercel SUCCESS.
+- Production frontend SHA `cd9d3e5f10a97fd2edc9b6fb2d8ee34e87575030`: Vercel SUCCESS.
+- Existing billing logic, order creation, checkout, manual card-transfer payment and receipt upload routes were unchanged.
