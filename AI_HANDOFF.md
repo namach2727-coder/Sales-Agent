@@ -15,7 +15,7 @@
 > Evidence rule: verified runtime/deployment state > deployed commit > repository source > continuity documents > old chat history.
 > If evidence conflicts with a document, verify reality first and then correct the document.
 >
-> Last reconciled: 2026-10-10
+> Last SEO/frontend reconciliation: 2026-10-11. Other integration/runtime items retain their own separately verified checkpoints.
 
 ## Current Production State
 
@@ -41,14 +41,14 @@
 - Repository: `namach2727-coder/directpilot-web`
 - Production branch: `main`
 - UAT branch: `UAT`
-- Production SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`
-- UAT SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`
+- Production SHA (verified Vercel READY): `e527c8f7e47a3259457f4efd72ded588eb3e26b9`
+- UAT SHA (last separately recorded; not re-verified during this SEO-only checkpoint): `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`
 - Vercel Production: SUCCESS for current SHA.
 - Recent admin-plan UX fixes: preserve scroll across create/remount, prevent native validation scroll jumps, normalize internal plan code input to uppercase.
 - Owner retest of the final plan-creation UX behavior: PENDING.
 - Public Production domain: `https://directpilot.ir`
 - Public UAT domain: `https://uat.directpilot.ir`
-- Vercel Production status for current SHA: SUCCESS — Deployment has completed
+- Vercel Production status for current SHA: READY — `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2`
 - Authenticated Production smoke from the prior Auth/UX release: PASS.
 
 ## Current UAT State
@@ -70,7 +70,25 @@
 - Vercel deployment for current UAT SHA completed successfully.
 - Owner-confirmed UAT functional acceptance: PASS.
 
-## Latest Release — SEO Phase 2
+## Latest Verified SEO Releases — Phases 3-5 / 2026-10-11
+
+Status: **PRODUCTION READY / LIVE ON-PAGE AUDIT PASS; SEARCH RANKING IMPACT OPEN**.
+
+- PR #1 `a0d663a59421de0f96789dc2dcd5e51d981430f8`: auto-comment article content, `dateModified` / Open Graph / sitemap last-modified support.
+- PR #2 `cbb7f74b9f21e9e61f78eaad11c89b9510631ad1`: blog hub guidance, FAQ and contextual navigation.
+- PR #3 `3afdd4af2d75ab15abc975ba699c6f7b8fa4575a`: corrected shared trust copy from an inaccurate permanent-free-plan claim to the 14-day trial.
+- PR #4 `d3227c949bd051713b6abede9c44499d898e187e`: expanded `/about` with genuine product approach, human handoff, trial transparency, security and links.
+- PR #5 `e527c8f7e47a3259457f4efd72ded588eb3e26b9`: added commercial-intent guidance, FAQ and contextual links to `/instagram-direct-automation`, fixed bold-wrapped Markdown links in `/blog/instagram-smart-direct`, and added a clear article-to-service/demo CTA.
+
+Verified Production deployment: frontend `main` SHA `e527c8f7e47a3259457f4efd72ded588eb3e26b9`, Vercel `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2` = READY. A live GSC Wizard on-page crawl on 2026-10-11 returned HTTP 200 / indexable / self-canonical / 0 issues for six pages: `/`, `/blog`, `/blog/instagram-auto-comment-reply`, `/about`, `/instagram-direct-automation`, `/blog/instagram-smart-direct`. Word/link changes: `/blog` 244->426 words, 39->44 internal links; `/about` 139->464 words, 30->36 links; service page 437->680 words, 39->40 links; smart-direct article 30->39 internal links. This proves live publishing and a clean technical audit, **not** a Google recrawl, new indexing event, or ranking/traffic uplift.
+
+Pre-change Search Console context (2026-09-11 to 2026-10-08; not a post-change performance comparison): `/blog/instagram-smart-direct` 88 impressions / 2 clicks; `/instagram-direct-automation` 12 impressions / 1 click; `/instagram-comment-automation` 22 impressions / 1 click. Educational intent belongs with the blog article, commercial/product intent with the direct-automation landing page; pricing intent with `/pricing`.
+
+Next SEO gate: let Google recrawl the changed URLs and accumulate a meaningful settled Search Console window; compare page+query impressions, clicks, CTR and average position against a date-aligned baseline. Check article -> service internal-link visibility and keep service/blog keyword ownership separate. Do not claim rank growth or repeat copy rewrites based only on immediate deployment data. Preserve Production-only indexing and UAT/Preview noindex.
+
+Integration and payment readiness are separate from these public marketing-page changes. Do not equate a documentation-only commit in `Sales-Agent` with an application deployment.
+
+## Previous SEO Foundation — Phase 2
 
 Status: **PRODUCTION PASS — VERCEL SUCCESS / LIVE ON-PAGE AUDIT CLEAN**
 
@@ -287,7 +305,7 @@ Important known frontend local state:
 - Current V1 sale scope is Automation V1.
 - Production Free PostgreSQL is pilot infrastructure only.
 
-## Current Resume Marker
+## Historical Integration Resume Marker (2026-10-07)
 
 ```text
 PROJECT: DirectPilot
