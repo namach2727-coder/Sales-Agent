@@ -624,3 +624,19 @@ Prioritize Production database durability + backup/restore acceptance before rea
 - UAT frontend SHA `eccb29022e81141bd90b9abf77c019f018889d8c`: Vercel SUCCESS.
 - Production frontend SHA `cd9d3e5f10a97fd2edc9b6fb2d8ee34e87575030`: Vercel SUCCESS.
 - Existing billing logic, order creation, checkout, manual card-transfer payment and receipt upload routes were unchanged.
+
+## Production Manual Payment E2E — PASS / CLOSED (2026-10-11)
+
+- Authoritative MVP payment path remains manual card transfer -> receipt upload -> Admin approval.
+- UAT controlled E2E: PASS.
+- Production frontend Trial/Billing visibility fix is live on `directpilot.ir`; final Production frontend commit `2e9122f2632972c118e98ad16a43d1c957ec446d` reached Vercel READY and owns the Production aliases.
+- Controlled Production customer flow completed: paid plan selection -> destination card display/copy -> receipt upload -> guarded backend-authoritative approval.
+- Runtime approval result: `payment_status=approved`, `order_status=paid`, `subscription_status=active`, `source=PURCHASED`.
+- Activated entitlement snapshot: `AUTOMATION_V1`, `automation_limit=20`, `instagram_account_limit=1`, `duration_days=30`.
+- Owner visually confirmed in Production UI that the payment is approved.
+- First guarded Production approval attempt failed safely because the UAT email did not exist in Production; no commercial state changed in that failed attempt.
+- Final approval used a strict unique-recent-receipt guard for `AUTOMATION_V1`; it aborts unless exactly one recent submitted manual payment matches.
+- Approval one-shot flags were disabled after success.
+- Production cleanup deployment `dep-db5p0nng0jfs73bign50`: LIVE; application startup complete; approval did not rerun.
+- Production Manual Payment E2E gate is CLOSED/PASS. Do not reopen Payexa/KPay for this gate unless the owner explicitly changes payment strategy.
+
