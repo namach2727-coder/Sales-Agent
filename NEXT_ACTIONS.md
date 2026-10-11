@@ -247,3 +247,23 @@ Status: **PASS**
 - Do not change the current Free Production database plan or incur paid infrastructure cost without a new explicit approval.
 - Current risk remains accepted temporarily: Free Production Postgres expires 2026-11-02 and does not satisfy durability/backup-restore acceptance.
 - Real-customer onboarding remains blocked by Production database durability until this decision is revisited.
+
+
+## Production LLM — Next Action
+
+Status: **BLOCKED ON SECURE PRODUCTION CREDENTIAL**
+
+Verified:
+- Runtime/provider diagnosis: PASS.
+- UAT LLM config presence: PASS.
+- Production selected-provider credential: MISSING.
+- Production Groq credential/model: MISSING.
+- Backend health: PASS.
+- No secret exposure: PASS.
+
+Next:
+1. Add a Production-specific LLM API credential securely in Render; do not paste it into chat.
+2. After credential provisioning, configure the selected provider/model using non-secret environment settings.
+3. Verify startup metadata and provider connectivity.
+4. Run one controlled unmatched Instagram message so AI fallback executes once.
+5. Verify AI completion, one outbound delivery, no duplicate/echo loop, quota accounting, and no secret/prompt leakage in logs.
