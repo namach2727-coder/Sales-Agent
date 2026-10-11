@@ -1206,3 +1206,17 @@ class CommerceService:
 
     def _admin_audit(self, actor_user_id: int, action: str, target_type: str, target_public_id: str, changes: dict[str, object]) -> None:
         self.session.add(CommerceAdminAuditLog(actor_user_id=actor_user_id, action=action, target_type=target_type, target_public_id=target_public_id, changes_json=changes))
+
+
+def manual_payment_runtime_summary(session: Session) -> tuple[int, int]:
+    """Return safe manual-payment card readiness counts."""
+
+    active_cards = list(
+        session.scalars(
+            select(PaymentCard).where(PaymentCard.is_active.is_(True))
+        ).all()
+    )
+    active_default_cards = [
+        item for item in active_cards if item.is_default
+    ]
+    return len(active_cards), len(active_default_cards)

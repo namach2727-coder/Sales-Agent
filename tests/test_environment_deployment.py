@@ -11,6 +11,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings, llm_provider_readiness, llm_runtime_summary, payexa_runtime_summary, validate_runtime_settings
+from app.commerce.service import manual_payment_runtime_summary
 from app.database import build_engine
 from app.main import app
 from app.models import AuthPlatformRoleAssignment, IdentityAuditLog, UserIdentity
@@ -223,3 +224,40 @@ def test_payexa_runtime_summary_is_secret_safe() -> None:
         True,
     )
     assert "secret-payexa-key" not in repr(summary)
+
+
+def test_manual_payment_runtime_summary_is_safe(tmp_path: Path) -> None:
+    path = tmp_path / "payment-runtime.db"
+    config = Config(str(ROOT / "alembic.ini"))
+    config.attributes["database_url"] = f"sqlite:///{path.as_posix()}"
+    command.upgrade(config, "head")
+    engine = create_engine(f"sqlite:///{path.as_posix()}")
+    try:
+        from app.models import PaymentCard
+        with Session(engine) as session:
+            session.add_all([
+                PaymentCard(
+                    card_number="6037991234567890",
+                    account_number=None,
+                    account_name="A",
+                    bank_name="Bank",
+                    label=None,
+                    is_active=True,
+                    is_default=True,
+                    revision=1,
+                ),
+                PaymentCard(
+                    card_number="5892101234567890",
+                    account_number=None,
+                    account_name="B",
+                    bank_name="Bank",
+                    label=None,
+                    is_active=True,
+                    is_default=False,
+                    revision=1,
+                ),
+            ])
+            session.commit()
+            assert manual_payment_runtime_summary(session) == (2, 1)
+    finally:
+        engine.dispose()

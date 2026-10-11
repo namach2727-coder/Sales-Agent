@@ -23,9 +23,10 @@ from app.automation.router import router as automation_router
 from app.automation_rules.router import router as automation_rules_router
 from app.ai_assistant.router import router as ai_assistant_router
 from app.commerce.router import router as commerce_router
+from app.commerce.service import manual_payment_runtime_summary
 from app.conversation_core.router import router as conversation_core_router
 from app.config import (get_settings, llm_provider_readiness, llm_runtime_summary, payexa_runtime_summary, validate_runtime_settings)
-from app.database import Base, check_database_connection, engine, get_db
+from app.database import Base, SessionLocal, check_database_connection, engine, get_db
 from app.instagram import router as instagram_router
 from app.instagram_channel.router import (
     public_router as instagram_channel_public_router,
@@ -96,6 +97,16 @@ async def lifespan(_: FastAPI):
         try:
             check_database_connection(engine)
             require_database_at_head(engine)
+            with SessionLocal() as payment_runtime_db:
+                active_cards, active_default_cards = manual_payment_runtime_summary(
+                    payment_runtime_db
+                )
+            logger.info(
+                "manual payment readiness active_cards=%s active_default_cards=%s",
+                active_cards,
+                active_default_cards,
+                extra={"event_code": "payment.manual_runtime_config"},
+            )
         except Exception as exc:
             logger.error(
                 "deployment database validation failed",
