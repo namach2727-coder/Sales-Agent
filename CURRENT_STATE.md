@@ -163,7 +163,7 @@ Status: PASS.
 
 ## Meta / OAuth
 
-- Status: **PRODUCTION OAUTH PASS / INBOUND RELAY PASS / OUTBOUND E2E OPEN**.
+- Status: **PRODUCTION OAUTH PASS / INBOUND RELAY PASS / OUTBOUND E2E PASS**.
 - Production OAuth through the owner-approved UAT relay bridge: PASS.
 - UAT webhook relay to Production: PASS.
 - Production inbound account routing, conversation creation, inbound persistence and webhook processing: PASS.
@@ -259,3 +259,16 @@ Status: PASS.
 - The attempt overlapped UAT relay redeployment and is INCONCLUSIVE.
 - UAT relay startup subsequently completed successfully.
 - Restricted Production outbound remains ready for one clean retest.
+
+
+## Controlled Meta Outbound E2E — PASS (2026-10-11)
+- Clean retest reached Production through the UAT relay.
+- Inbound routing and persistence: PASS.
+- Deterministic automation handling: PASS.
+- One outbound delivery observed: PASS.
+- AI fallback did not start: PASS.
+- No second outbound was observed after the provider/self follow-up event: PASS.
+- Production send was disabled again after acceptance.
+- Post-test safety deployment `dep-db5illid0e5s73fju470`: LIVE.
+- Current top readiness blocker: Production database durability + backup/restore.
+- Production LLM environment verification remains OPEN separately.
