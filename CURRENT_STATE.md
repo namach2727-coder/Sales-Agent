@@ -381,3 +381,18 @@ Status: PASS.
 - UAT manual payment flow: SOURCE/DEPLOYMENT VERIFIED.
 - Production manual-payment acceptance: requires current Production configuration/receipt/admin approval E2E verification.
 - Payexa: DEFERRED / NOT CURRENT CHECKOUT.
+
+
+## Production Manual Payment E2E Readiness — 2026-10-11
+
+- Authoritative payment path remains manual card transfer + customer receipt upload + Admin approval.
+- Frontend Production `main` is one commit ahead of UAT but has no payment/checkout/admin-payment differences from UAT. Production Vercel status is SUCCESS.
+- Safe manual-payment readiness probe SHA: `c05669d3448ea3f6f151bb73a22db5dcfffcf7b7`.
+- CI: test PASS / docker-build PASS / postgres-smoke PASS.
+- UAT deployment `dep-db5kjhnlot8c73f9ueb0`: LIVE; runtime readiness `active_cards=1 active_default_cards=1` => PASS.
+- Production deployment `dep-db5kkhid0e5s73fq7h90`: LIVE; runtime readiness `active_cards=0 active_default_cards=0` => BLOCKED.
+- Production cannot create a manual payment until an Admin configures at least one active default payment card.
+- No card number/account data was logged or copied from UAT. Do not fabricate, infer, or transfer banking details across environments.
+- Once a real Production destination card is configured by an authorized Admin, run controlled E2E: paid-plan order -> show card -> upload test receipt -> Admin reviews receipt -> Admin approves -> verify payment approved, order paid, subscription active and module entitlements applied.
+
+- Manual payment Production E2E: BLOCKED only on missing active/default Production payment card.
