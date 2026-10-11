@@ -1,7 +1,7 @@
 # DirectPilot Next Actions
 
 > Execution queue. Read `AI_HANDOFF.md` first.
-> Last reconciled: 2026-10-10.
+> Last SEO action reconciliation: 2026-10-11; other workstreams retain separately tracked readiness gates.
 
 ## P0 — UX/Auth Production Promotion
 
@@ -27,19 +27,25 @@ Status: **PASS**
 
 P0 is closed.
 
-## P1 — SEO Phase 2 Measurement & Authority
+## P1 — SEO Phases 3-5 Complete / Measurement Gate OPEN
 
-Status: **PRODUCTION PASS — MEASUREMENT OPEN**
+Status: **ALL FIVE INCREMENTAL PRS MERGED, PRODUCTION READY, SIX LIVE SEO AUDITS PASS. RANKING IMPACT UNVERIFIED.**
 
-- Production/UAT frontend SHA: `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`.
-- Vercel Production deployment: SUCCESS.
-- Live Production audit: five priority pages, 0 critical/high/medium/low issues.
-- Keep Preview/UAT non-indexable.
-- Do not make daily SEO rewrites based on immature data.
-- Re-check after Google has recrawled changed pages and a meaningful settled window exists.
-- Compare against baseline: 14 clicks / 315 impressions / 4.44% CTR / avg position 40.30.
-- Priority query themes: ربات دایرکت هوشمند اینستاگرام، قیمت دایرکت هوشمند اینستاگرام، آموزش دایرکت هوشمند، پاسخ خودکار به کامنت اینستاگرام، اتوماسیون دایرکت اینستاگرام.
-- Next growth action: earn relevant editorial links and publish supporting content that links internally to the commercial owner pages.
+- Release ledger: PR #1 `a0d663a` (auto-comment article), #2 `cbb7f74` (blog hub), #3 `3afdd4a` (14-day-trial truthfulness), #4 `d3227c9` (About), #5 `e527c8f` (smart-direct service and clickable article links).
+- Current frontend Production SHA: `e527c8f7e47a3259457f4efd72ded588eb3e26b9`; Vercel `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2` = READY.
+- Live six-page audit (2026-10-11): HTTP 200, indexable, canonical self, 0 technical SEO issues. No Auth/Payment/Meta validation implied.
+- Reference Search Console snapshot for 2026-09-11—2026-10-08: smart-direct article 88 impressions / 2 clicks, direct-service landing 12 / 1, comment landing 22 / 1. This is **pre-change** context, not proof of impact.
+- Preserve the older whole-property Phase 1 settled baseline through 2026-10-04: 14 clicks / 315 impressions / 4.44% CTR / average position 40.30. These date windows are not identical; never compare them as before/after evidence without aligning dates.
+- Relevant query themes: «ربات دایرکت هوشمند اینستاگرام», «قیمت دایرکت هوشمند اینستاگرام», «آموزش دایرکت هوشمند», «پاسخ خودکار به کامنت اینستاگرام», «اتوماسیون دایرکت اینستاگرام».
+
+Next exact SEO steps (no further copy edits until measurement warrants them):
+1. Wait for Google recrawl / a meaningful settled post-change window; inspect the modified URLs via Google URL Inspection when appropriate and distinguish “submitted” from “crawled/indexed”.
+2. Query Search Console by page + query, comparing aligned 28-day windows for `/blog/instagram-smart-direct`, `/instagram-direct-automation`, `/instagram-comment-automation`, `/blog`, and `/about`.
+3. Report impressions, clicks, CTR, average position and query-to-page ownership separately; track «دایرکت هوشمند» / «دایرکت اتوماتیک» and informational vs commercial intent.
+4. Verify that blog-to-service links remain clickable in rendered HTML and that Production canonical/indexability is maintained; Preview/UAT must remain noindex.
+5. Prioritize qualified editorial links and supporting content only if performance data justifies the next release; avoid keyword stuffing and unsupported ranking promises.
+
+Separate release/readiness priorities persist: Production database durability and backup/restore (owner-deferred paid upgrade), manual card-transfer payment acceptance, secure recovery-provider work; deferred Payexa must not be mistaken for the current checkout path.
 
 ## P0 — Admin Customer Automation Acceptance
 
