@@ -3,6 +3,16 @@
 > Execution queue. Read `AI_HANDOFF.md` first.
 > Last SEO action reconciliation: 2026-10-11; other workstreams retain separately tracked readiness gates.
 
+## P0 — Humanized UI / Motion Branding Production Release — CLOSED (2026-10-11)
+
+**Status: PASS for deployment and owner-confirmed visual scope.** Frontend PR #9 merged to `main` SHA `f5f6a5399f938969b9307475eeed208f0e10988b`; Vercel Production `dpl_Ghi3KVJrDwpW1a1nABBDk2wztyBJ` READY, both `directpilot.ir` and `www.directpilot.ir` correctly aliased, no alias error. GitHub `main` commit matched the deployment. The owner checked the live Production favicon motion and dashboard layout after hard refresh and approved both.
+
+- Scope released: UAT-origin humanized product/marketing/admin UI, SVG motion glyphs, crisp animated D favicon, sidebar label-nowrap fix; Production GA4/SEO and signup events, 14-day trial messaging and manual card-transfer fixes preserved.
+- No additional Redeploy or intermediate `release/humanized-ui-uat-20261011`-branch build is needed. Older preview `module_not_found` and Vercel free build quota issues are not failures of final `main` READY.
+- No backend, DB, Meta, DNS, production payment settings or Vercel Authentication changes were made in this release.
+- Remaining **separate verification**: full fresh authenticated customer/admin flows if changed or regression suspected; real GA4 `sign_up` E2E; post-recrawl SEO effects; specifically open admin-plan flow retest; Production DB durability and backup/restore before real customers. Owner visual PASS does not close those.
+- UAT SHA `dd9dee1f573151cd7507877aa9a868db467c95ba` remains separate with READY deployment `dpl_J3foazh8ogYg7suDPUuEzCr37mJJ`.
+
 ## P0 — UX/Auth Production Promotion
 
 Status: **PASS**
@@ -35,7 +45,7 @@ Status: **SEO PR #1-#5 MERGED / GA4 PR #6-#8 MERGED / FRONTEND PRODUCTION READY 
 - PR #7 — frontend `31c348ab51c7dc6ae1d4c407c32da1c08a5b5c03`: corrected GA4 collection endpoint allowlists in Production CSP (no `unsafe-eval` and no ad tagging).
 - PR #8 — frontend `d9a1a53a6171f3d417637d12cec66eed1832a07b`: repaired gtag.js queue compatibility by pushing JavaScript `arguments`, not spread Arrays, into `dataLayer`; shipped through tested PR with a narrowly justified lint exception.
 
-- Latest verified frontend Production `main`: `d9a1a53a6171f3d417637d12cec66eed1832a07b`; Vercel deployment `dpl_EnejDGuCcotpf4kQrSQk7pnPsyRw` = **READY** (https://vercel.com/mohcenp-9857s-projects/directpilot-web/EnejDGuCcotpf4kQrSQk7pnPsyRw). This supersedes the earlier SEO PR #5 release `e527c8f7e47a3259457f4efd72ded588eb3e26b9` / `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2`; those older SHAs remain valid **historical** checkpoints only.
+- Historical GA4 PR #8 Production checkpoint (current UI release is PR #9 above): `d9a1a53a6171f3d417637d12cec66eed1832a07b`; Vercel deployment `dpl_EnejDGuCcotpf4kQrSQk7pnPsyRw` = **READY** (https://vercel.com/mohcenp-9857s-projects/directpilot-web/EnejDGuCcotpf4kQrSQk7pnPsyRw). This supersedes the earlier SEO PR #5 release `e527c8f7e47a3259457f4efd72ded588eb3e26b9` / `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2`; those older SHAs remain valid **historical** checkpoints only.
 - GA4 Web Stream: `https://directpilot.ir`, `DirectPilot - Production Web`, Measurement ID `G-9D1Z7HDYVZ`, GA4 Property ID `558426868`, GA4 reporting timezone `Asia/Dubai`. Vercel `NEXT_PUBLIC_GA_ID` is set for **Production only**; a fresh Production build is READY.
 - Browser verification on 2026-10-11 **after PR #8**: granted consent; gtag.js loaded; `dataLayer` contains `page_view`; request to `https://region1.google-analytics.com/g/collect` returned HTTP **204** with `en=page_view`. GA4 Realtime showed **one active user**, and `first_visit`, `session_start`, `page_view` each observed once. This establishes end-to-end **page-view event delivery and Realtime ingestion**, not all-event/real-signup acceptance.
 - In GA4, `sign_up` is defined as a **Key Event** (code-based, no default monetary value, once per event). **The actual `sign_up` delivery after a successful backend registration has NOT been tested**; do not mark conversion E2E PASS or equate `signup_intent` with completed registration.
