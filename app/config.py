@@ -440,3 +440,13 @@ def llm_runtime_summary(settings: Settings) -> tuple[str, str, bool]:
         settings.ollama_model,
         bool(settings.ollama_api_key.get_secret_value().strip()),
     )
+
+
+def llm_provider_readiness(settings: Settings) -> tuple[bool, bool, bool]:
+    """Return safe provider-readiness booleans without exposing secrets."""
+
+    return (
+        bool(settings.openai_api_key.get_secret_value().strip()),
+        bool(settings.groq_api_key.get_secret_value().strip()),
+        bool(settings.groq_model.strip()),
+    )

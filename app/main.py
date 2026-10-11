@@ -24,7 +24,7 @@ from app.automation_rules.router import router as automation_rules_router
 from app.ai_assistant.router import router as ai_assistant_router
 from app.commerce.router import router as commerce_router
 from app.conversation_core.router import router as conversation_core_router
-from app.config import get_settings, llm_runtime_summary, validate_runtime_settings
+from app.config import (get_settings, llm_provider_readiness, llm_runtime_summary, validate_runtime_settings)
 from app.database import Base, check_database_connection, engine, get_db
 from app.instagram import router as instagram_router
 from app.instagram_channel.router import (
@@ -70,6 +70,16 @@ async def lifespan(_: FastAPI):
             llm_model,
             str(llm_credential_configured).lower(),
             extra={"event_code": "llm.runtime_config"},
+        )
+        openai_ready, groq_credential_ready, groq_model_ready = (
+            llm_provider_readiness(settings)
+        )
+        logger.info(
+            "llm provider readiness openai_credential=%s groq_credential=%s groq_model=%s",
+            str(openai_ready).lower(),
+            str(groq_credential_ready).lower(),
+            str(groq_model_ready).lower(),
+            extra={"event_code": "llm.provider_readiness"},
         )
     logger.info("application starting", extra={"event_code": "application.starting"})
     if DEPLOYED_AT_BOOT:

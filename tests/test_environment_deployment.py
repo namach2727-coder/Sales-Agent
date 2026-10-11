@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
-from app.config import Settings, llm_runtime_summary, validate_runtime_settings
+from app.config import Settings, llm_provider_readiness, llm_runtime_summary, validate_runtime_settings
 from app.database import build_engine
 from app.main import app
 from app.models import AuthPlatformRoleAssignment, IdentityAuditLog, UserIdentity
@@ -192,3 +192,18 @@ def test_llm_runtime_summary_is_secret_safe() -> None:
         True,
     )
     assert "secret-groq-key" not in repr(llm_runtime_summary(groq))
+
+
+def test_llm_provider_readiness_is_boolean_only() -> None:
+    settings = Settings(
+        _env_file=None,
+        openai_api_key="secret-openai-key",
+        groq_api_key="secret-groq-key",
+        groq_model="verified-model",
+    )
+    readiness = llm_provider_readiness(settings)
+    assert readiness == (True, True, True)
+    rendered = repr(readiness)
+    assert "secret-openai-key" not in rendered
+    assert "secret-groq-key" not in rendered
+    assert "verified-model" not in rendered
