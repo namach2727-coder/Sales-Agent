@@ -381,3 +381,10 @@ Create/enable the Production DM_KEYWORD EXACT rule for قیمت with a harmless 
 - Guarded deployment: `dep-db5ihrg473hc73ba3be0` — LIVE.
 - Runtime validation: production environment PASS, database connectivity PASS, migration head PASS, application startup PASS.
 - Next action: send `قیمت` exactly once from the second Instagram account, then inspect deterministic match, one provider delivery, dedupe and echo suppression.
+
+
+## Controlled Outbound Attempt 1 — Inconclusive (2026-10-11)
+- The first pilot message was sent while the UAT relay service was redeploying.
+- No new webhook/inbound event was observed in UAT or Production for that attempt.
+- Automation matching and outbound delivery were therefore not evaluated.
+- UAT relay startup then completed successfully. One clean retest is required.
