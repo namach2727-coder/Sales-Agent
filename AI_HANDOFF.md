@@ -503,3 +503,20 @@ Prioritize Production database durability + backup/restore acceptance before rea
 - Current frontend checkout intentionally does not invoke Payexa; manual card transfer remains the primary checkout path. Payexa source/routes and result page remain present.
 - Real-provider acceptance is NOT PASS. It requires Production credential provisioning, Payexa-side verification/approval of the DirectPilot callback site/domain as applicable, and a controlled transaction path.
 - Never copy UAT credentials into Production, expose provider secrets in chat/logs, or blindly retry ambiguous create operations.
+
+
+## Authoritative Payment Flow Correction — 2026-10-11
+
+- Current DirectPilot payment architecture is **manual card transfer with admin approval**, not Payexa.
+- Customer selects a paid plan and receives the configured payment-card details from DirectPilot.
+- Customer transfers the exact amount using any banking method outside DirectPilot.
+- Customer uploads a JPEG/PNG/PDF receipt from the customer panel.
+- Backend validates the receipt and persists the receipt bytes plus metadata in PostgreSQL (`receipt_data`, content type, size, SHA-256), then changes payment status to `submitted` and order status to `payment_submitted`.
+- Platform Admin reviews submitted payments in Admin -> Payments, can securely view the receipt, and chooses Approve or Reject.
+- Approve is backend-authoritative: it row-locks/checks optimistic revision, marks payment `approved`, marks order `paid`, creates/activates the subscription, applies plan/module entitlements and writes an audit record atomically.
+- Reject returns the order to `pending` and records the rejection reason without deleting the payment.
+- UAT frontend currently contains this complete customer + admin flow and its Vercel deployment is SUCCESS at frontend UAT SHA `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`.
+- Backend manual flow is present and deployed from `backend-main`; current CI remains PASS.
+- Payexa/KPay routes are preserved only as non-primary/deferred integration code. They are **not** part of the current customer checkout path and are **not** a Production-readiness gate for the current payment process.
+- Do not request or provision Payexa credentials unless the owner explicitly decides to re-open automated payment-gateway work.
+- Current payment readiness should be evaluated against manual-card-transfer E2E and admin approval, not Payexa acceptance.
