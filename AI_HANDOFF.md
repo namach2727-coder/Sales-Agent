@@ -450,3 +450,12 @@ Prioritize Production database durability + backup/restore acceptance before rea
 - Do not copy UAT credentials into Production and do not expose any provider key in chat/logs.
 - Do not copy the UAT Groq model blindly; its current support status must be verified before Production use.
 - Next gate: securely provision a Production-specific LLM credential, then configure non-secret provider/model settings and run one controlled AI fallback E2E while Meta send is explicitly gated.
+
+
+## Groq Model Support Check — 2026-10-11
+- UAT currently selects `qwen/qwen3.6-27b`.
+- Official Groq deprecation guidance says `qwen/qwen3.6-27b` was deprecated for Free/Developer usage on 2026-09-14.
+- Direct replacement: `qwen/qwen3.8-27b`.
+- Do not copy the deprecated UAT model into Production.
+- If Production Groq is approved, target `qwen/qwen3.8-27b` with existing guardrails `GROQ_CONTEXT_LENGTH=4096`, `GROQ_MAX_OUTPUT_TOKENS=256`, and `GROQ_REASONING_EFFORT=none`.
+- Production still requires its own securely provisioned `GROQ_API_KEY`; never copy or expose the UAT credential.
