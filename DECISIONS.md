@@ -348,3 +348,12 @@ Human Takeover
 - UAT frontend SHA `eccb29022e81141bd90b9abf77c019f018889d8c`: Vercel SUCCESS.
 - Production frontend SHA `cd9d3e5f10a97fd2edc9b6fb2d8ee34e87575030`: Vercel SUCCESS.
 - Existing billing logic, order creation, checkout, manual card-transfer payment and receipt upload routes were unchanged.
+
+## Decision — Manual Card Transfer Accepted for Production MVP (2026-10-11)
+
+- The Production MVP payment acceptance gate is satisfied by manual card transfer + receipt upload + Admin/backend-authoritative approval.
+- Controlled Production E2E completed successfully through payment approval, paid order, active `AUTOMATION_V1` subscription and entitlement activation.
+- Owner visually confirmed the approved payment in Production.
+- Payexa/KPay remain deferred and are not required for MVP payment readiness.
+- Do not substitute or reopen an automated gateway unless the owner explicitly changes this product decision.
+
