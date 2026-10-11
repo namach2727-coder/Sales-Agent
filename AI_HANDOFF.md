@@ -471,3 +471,21 @@ Prioritize Production database durability + backup/restore acceptance before rea
 - Restricted Meta-send test deployment `dep-db5ji6ss728c73823a50`: LIVE.
 - Meta send is enabled only under the existing single-pilot account allowlist for one controlled AI fallback E2E.
 - Next: send one deliberately unmatched pilot message and verify Groq request completion, assistant persistence, exactly one outbound delivery, quota accounting, dedupe and no echo loop.
+
+
+## Production AI Fallback E2E — PASS (2026-10-11)
+
+- Controlled unmatched Instagram test reached Production through the UAT relay.
+- Correlation: `3005f232-3fe2-4c8f-bb37-642c5b16a6d1`.
+- Deterministic automation did not handle the message; AI fallback started.
+- Groq request: PASS using `qwen/qwen3.8-27b`.
+- Provider latency: 226 ms.
+- Token evidence: input=425, output=63, total=488, finish_reason=stop.
+- AI orchestration completed and assistant response was persisted before delivery.
+- Exactly one outbound started and exactly one outbound delivered: PASS.
+- No outbound failure, AI failure, duplicate second send, or echo loop observed.
+- Provider/self follow-up inbound was ignored.
+- AI request quota guard executed before the provider call; persisted assistant metadata carries token usage used by the server-authoritative usage summary. Exact aggregate counter was not independently queried because Production DB external access remains intentionally closed.
+- Post-test `META_SEND_ENABLED=false` restored.
+- Safety rollback deployment `dep-db5jm4nlk1mc73a8du40`: LIVE.
+- Production LLM configuration + controlled AI fallback E2E are accepted as PASS.
