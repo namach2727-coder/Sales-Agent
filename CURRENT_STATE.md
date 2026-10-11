@@ -325,3 +325,20 @@ Status: PASS.
 - Restricted Meta-send test deployment `dep-db5ji6ss728c73823a50`: LIVE.
 - Meta send is enabled only under the existing single-pilot account allowlist for one controlled AI fallback E2E.
 - Next: send one deliberately unmatched pilot message and verify Groq request completion, assistant persistence, exactly one outbound delivery, quota accounting, dedupe and no echo loop.
+
+
+## Production AI Fallback — PASS (2026-10-11)
+
+- Production provider: Groq.
+- Production model: `qwen/qwen3.8-27b`.
+- Production Groq credential presence: verified configured without revealing the secret.
+- Controlled AI fallback correlation: `3005f232-3fe2-4c8f-bb37-642c5b16a6d1`.
+- Groq completion: PASS, latency 226 ms, 425 input / 63 output / 488 total tokens.
+- AI orchestration + assistant persistence: PASS.
+- Meta outbound: exactly one start / one delivery / zero failures.
+- Duplicate second send: not observed.
+- Echo/self follow-up: ignored.
+- Quota guard executed; token metadata is persisted for usage aggregation. Exact aggregate counter not independently queried because Production DB external access remains closed.
+- Post-test send state: disabled.
+- Post-test deployment `dep-db5jm4nlk1mc73a8du40`: LIVE.
+- Production LLM configuration verification and AI fallback acceptance: PASS.
