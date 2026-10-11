@@ -1,7 +1,7 @@
 # DirectPilot Decisions
 
 > Read after `AI_HANDOFF.md` and `PROJECT_ROADMAP.md`.
-> Last reconciled: 2026-10-10.
+> Last SEO decision reconciliation: 2026-10-11; other decisions retain their independent checkpoints.
 > These decisions remain fixed unless new verified technical or product evidence justifies a change.
 
 ## Continuity and Evidence
@@ -125,7 +125,12 @@ Human Takeover
 - Keep one primary commercial owner per important keyword cluster to reduce cannibalization.
 - Search Console deployment acceptance and ranking acceptance are separate: successful deployment does not imply immediate recrawl or ranking improvement.
 - The baseline for SEO Phase 1 is the settled 28-day period through 2026-10-04: 14 clicks, 315 impressions, 4.44% CTR, average position 40.30.
-- SEO Phase 2 accepted SHA is `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`; live Production audit is clean on the five priority SEO pages.
+- SEO Phase 2 accepted SHA is `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`; historical live Production audit was clean on five priority SEO pages.
+- 2026-10-11 SEO publication checkpoint: five incremental PRs (#1-#5) were merged; latest verified Production SHA is `e527c8f7e47a3259457f4efd72ded588eb3e26b9` at Vercel `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2` (READY). Six current marketing URLs were audited live with 0 SEO issues.
+- Keep the educational query cluster (e.g. «دایرکت هوشمند چیست») centered on `/blog/instagram-smart-direct`; the product/service cluster (e.g. «دایرکت هوشمند اینستاگرام», «دایرکت اتوماتیک») on `/instagram-direct-automation`, with contextual two-way navigation, not duplicate commercial landing pages.
+- Any marketing copy about free access must reflect the verified 14-day trial, not a permanent free plan. Do not claim guaranteed conversions, customers, security certifications or ranking improvement without evidence.
+- Fix article internal-link rendering when bold Markdown encloses an internal link; ensure relevant next-step links are clickable and visible in rendered HTML. Preserve existing canonicals, URL ownership, semantic content and Preview/UAT noindex protections.
+- Evaluate SEO changes through fresh settled GSC data after recrawl; six pages with 0 technical findings and Vercel READY prove release health, **not** Google ranking uplift.
 
 - OAuth relay is now the accepted pilot workaround when Meta Developer access is unavailable: Production creates the OAuth state, Meta returns to the already-registered UAT callback, and UAT relays only the Production-prefixed state to the Production callback.
 - Webhook relay activation is a separate gate and must not be enabled until Production OAuth connection is verified.
