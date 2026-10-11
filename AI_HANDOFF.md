@@ -200,7 +200,7 @@ Status: **PASS — DO NOT REBUILD**
 
 ## Meta / OAuth
 
-Status: **PRODUCTION OAUTH PASS / INBOUND RELAY PASS / OUTBOUND E2E OPEN**
+Status: **PRODUCTION OAUTH PASS / INBOUND RELAY PASS / OUTBOUND E2E PASS**
 
 - Owner-approved UAT -> Production Meta relay remains the pilot workaround while Meta Developer settings are inaccessible.
 - Production OAuth through the relay: PASS.
@@ -214,7 +214,7 @@ Status: **PRODUCTION OAUTH PASS / INBOUND RELAY PASS / OUTBOUND E2E OPEN**
 - Production outbound remains fail-closed with `META_SEND_ENABLED=false`.
 - Runtime now refuses Production startup with send enabled unless `META_SEND_ALLOWED_ACCOUNT_IDS` contains exactly one pilot Instagram account.
 - Do not copy UAT encrypted token rows or the UAT encryption key into Production.
-- Next gate: create/enable one deterministic `DM_KEYWORD` exact-match rule for `قیمت`, identify and configure exactly the connected pilot account in the send allowlist, then enable Production send only for one controlled outbound E2E.
+- Controlled deterministic outbound E2E passed on 2026-10-11. Production send was returned to `META_SEND_ENABLED=false` after the test; the single-account allowlist remains configured.
 
 ## Current Priority / Blocker
 
@@ -335,11 +335,11 @@ ACCEPTANCE: PASS
 META_E2E:
 PRODUCTION OAUTH PASS
 INBOUND RELAY PASS
-OUTBOUND E2E OPEN
+OUTBOUND E2E PASS
 
 OBSERVED_OUTBOUND_BLOCKER:
-NO DETERMINISTIC RULE FOR قیمت
-LLM FALLBACK CONFIGURATION ERROR
+NONE FOR DETERMINISTIC META TRANSPORT
+LLM FALLBACK CONFIGURATION REMAINS A SEPARATE OPEN GATE
 
 PRODUCTION_DB:
 FREE / EXPIRES 2026-11-02
@@ -347,7 +347,7 @@ DURABILITY: OPEN
 BACKUP_RESTORE: OPEN
 
 NEXT EXACT ACTION:
-Create/enable the Production DM_KEYWORD EXACT rule for قیمت with a harmless fixed reply. Then resolve the connected pilot instagram_account_id through the authenticated tenant/store API, configure exactly that one ID in META_SEND_ALLOWED_ACCOUNT_IDS while send stays disabled, and only then run one controlled outbound E2E.
+Prioritize Production database durability + backup/restore acceptance before real-customer onboarding. Verify Production LLM configuration separately afterward.
 ```
 
 
@@ -369,8 +369,8 @@ Create/enable the Production DM_KEYWORD EXACT rule for قیمت with a harmless 
 - Platform authorization continues through the backend's existing `tenant.update` platform permission path.
 - Admin can configure the actual customer/store rule fields: trigger location, match type, keywords/phrases, response text, priority and enabled state.
 - Backend remains authoritative for capability and automation-limit enforcement.
-- Owner Production functional acceptance: PENDING.
-- Next functional action: use the Production pilot store under Admin -> Customers & Stores to create the deterministic `قیمت` rule before enabling Meta outbound.
+- Owner Production functional acceptance: PASS for customer automation rule creation.
+- Production pilot deterministic rule creation was confirmed and used successfully in controlled E2E.
 
 
 ## Controlled Production Outbound Gate — 2026-10-11
@@ -388,3 +388,20 @@ Create/enable the Production DM_KEYWORD EXACT rule for قیمت with a harmless 
 - No new webhook/inbound event was observed in UAT or Production for that attempt.
 - Automation matching and outbound delivery were therefore not evaluated.
 - UAT relay startup then completed successfully. One clean retest is required.
+
+
+## Controlled Production Outbound E2E — PASS (2026-10-11)
+
+- Clean retest correlation: `eb5e69b7-2ebb-4daf-a487-c9cc2857ec43`.
+- UAT relay: PASS.
+- Production inbound received/account resolved/conversation reused/message persisted: PASS.
+- Deterministic AutomationRule executed: PASS.
+- Exactly one outbound started and exactly one outbound delivered: PASS.
+- AI fallback did not start: PASS.
+- No outbound failure observed: PASS.
+- Provider-side follow-up webhook did not create a second send; self/echo event was ignored: PASS.
+- No later outbound-start event appeared in the observation window: PASS.
+- Post-test safety rollback deployment: `dep-db5illid0e5s73fju470` — LIVE.
+- Production send returned to `META_SEND_ENABLED=false`.
+- Meta Production controlled E2E is accepted as PASS.
+- Remaining major readiness gates: Production database durability/backup-restore, Production LLM verification, payment-provider verification/acceptance, forgot-password provider.
