@@ -698,3 +698,15 @@ Next:
 - Do not copy the deprecated UAT model into Production.
 - If Production Groq is approved, target `qwen/qwen3.8-27b` with existing guardrails `GROQ_CONTEXT_LENGTH=4096`, `GROQ_MAX_OUTPUT_TOKENS=256`, and `GROQ_REASONING_EFFORT=none`.
 - Production still requires its own securely provisioned `GROQ_API_KEY`; never copy or expose the UAT credential.
+
+
+## Production Groq Configuration Activated — 2026-10-11
+- Production LLM provider is now `groq`.
+- Production model is `qwen/qwen3.8-27b`.
+- Groq credential presence: verified true through sanitized startup metadata; secret value was never logged or copied.
+- Guardrails: `GROQ_CONTEXT_LENGTH=4096`, `GROQ_MAX_OUTPUT_TOKENS=256`, `GROQ_REASONING_EFFORT=none`.
+- Production environment, DB connectivity, migration head and application startup: PASS.
+- LLM configuration deployment `dep-db5jh9lckfvc73aekfbg`: LIVE.
+- Restricted Meta-send test deployment `dep-db5ji6ss728c73823a50`: LIVE.
+- Meta send is enabled only under the existing single-pilot account allowlist for one controlled AI fallback E2E.
+- Next: send one deliberately unmatched pilot message and verify Groq request completion, assistant persistence, exactly one outbound delivery, quota accounting, dedupe and no echo loop.
