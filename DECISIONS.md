@@ -189,3 +189,13 @@ Human Takeover
 - Do not change the current Free Production database plan or incur paid infrastructure cost without a new explicit approval.
 - Current risk remains accepted temporarily: Free Production Postgres expires 2026-11-02 and does not satisfy durability/backup-restore acceptance.
 - Real-customer onboarding remains blocked by Production database durability until this decision is revisited.
+
+
+## LLM Production Configuration — 2026-10-11
+
+- Treat LLM diagnosis as PASS but Production LLM readiness as BLOCKED until a Production-specific provider credential exists.
+- Never copy UAT LLM secrets into Production and never request/paste provider secrets in chat.
+- Selected-provider/model/credential-presence may be logged only as sanitized metadata; credential values must never be logged.
+- Production currently selects OpenAI but has no OpenAI credential; Groq credential/model are also absent.
+- Before selecting Groq for Production, use a currently supported Groq model rather than blindly mirroring UAT configuration.
+- Preserve deterministic-first execution: a matched AutomationRule performs zero LLM work.
