@@ -444,3 +444,12 @@ Remaining readiness priorities:
 - UAT frontend SHA `eccb29022e81141bd90b9abf77c019f018889d8c`: Vercel SUCCESS.
 - Production frontend SHA `cd9d3e5f10a97fd2edc9b6fb2d8ee34e87575030`: Vercel SUCCESS.
 - Existing billing logic, order creation, checkout, manual card-transfer payment and receipt upload routes were unchanged.
+
+## Manual Payment Follow-up — Gate Closed (2026-10-11)
+
+- Production Manual Payment E2E is PASS and requires no further acceptance work unless a regression is reported.
+- Do not create additional test purchases or rerun one-shot approval helpers without a new controlled-test reason.
+- Keep Payexa/KPay deferred unless explicitly reopened by the owner.
+- Preserve payment-card configuration and receipt/audit history.
+- Next Production-readiness work should move to remaining non-payment items. Production DB durability remains owner-deferred; do not upgrade or spend without explicit approval.
+
