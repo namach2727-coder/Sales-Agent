@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
-from app.config import Settings, validate_runtime_settings
+from app.config import Settings, llm_runtime_summary, validate_runtime_settings
 from app.database import build_engine
 from app.main import app
 from app.models import AuthPlatformRoleAssignment, IdentityAuditLog, UserIdentity
@@ -164,3 +164,31 @@ def test_first_admin_bootstrap_is_audited_and_single_use(tmp_path: Path, monkeyp
             )
         ) is not None
     engine.dispose()
+
+
+def test_llm_runtime_summary_is_secret_safe() -> None:
+    openai = Settings(
+        _env_file=None,
+        llm_provider="openai",
+        openai_api_key="secret-openai-key",
+        openai_model="gpt-5.6-sol",
+    )
+    assert llm_runtime_summary(openai) == (
+        "openai",
+        "gpt-5.6-sol",
+        True,
+    )
+    assert "secret-openai-key" not in repr(llm_runtime_summary(openai))
+
+    groq = Settings(
+        _env_file=None,
+        llm_provider="groq",
+        groq_api_key="secret-groq-key",
+        groq_model="verified-model",
+    )
+    assert llm_runtime_summary(groq) == (
+        "groq",
+        "verified-model",
+        True,
+    )
+    assert "secret-groq-key" not in repr(llm_runtime_summary(groq))

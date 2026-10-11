@@ -24,7 +24,7 @@ from app.automation_rules.router import router as automation_rules_router
 from app.ai_assistant.router import router as ai_assistant_router
 from app.commerce.router import router as commerce_router
 from app.conversation_core.router import router as conversation_core_router
-from app.config import get_settings, validate_runtime_settings
+from app.config import get_settings, llm_runtime_summary, validate_runtime_settings
 from app.database import Base, check_database_connection, engine, get_db
 from app.instagram import router as instagram_router
 from app.instagram_channel.router import (
@@ -61,6 +61,16 @@ logger = logging.getLogger("sales_assistant.lifecycle")
 async def lifespan(_: FastAPI):
     if DEPLOYED_AT_BOOT:
         validate_runtime_settings(settings)
+        llm_provider, llm_model, llm_credential_configured = (
+            llm_runtime_summary(settings)
+        )
+        logger.info(
+            "llm runtime configuration provider=%s model=%s credential_configured=%s",
+            llm_provider,
+            llm_model,
+            str(llm_credential_configured).lower(),
+            extra={"event_code": "llm.runtime_config"},
+        )
     logger.info("application starting", extra={"event_code": "application.starting"})
     if DEPLOYED_AT_BOOT:
         try:

@@ -418,3 +418,25 @@ def load_startup_settings(profile: str | None = None) -> Settings:
 @lru_cache
 def get_settings() -> Settings:
     return load_startup_settings()
+
+
+def llm_runtime_summary(settings: Settings) -> tuple[str, str, bool]:
+    """Return safe selected LLM metadata without exposing credentials."""
+
+    if settings.llm_provider == "openai":
+        return (
+            "openai",
+            settings.openai_model,
+            bool(settings.openai_api_key.get_secret_value().strip()),
+        )
+    if settings.llm_provider == "groq":
+        return (
+            "groq",
+            settings.groq_model,
+            bool(settings.groq_api_key.get_secret_value().strip()),
+        )
+    return (
+        "ollama",
+        settings.ollama_model,
+        bool(settings.ollama_api_key.get_secret_value().strip()),
+    )
