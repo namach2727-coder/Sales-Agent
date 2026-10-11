@@ -172,3 +172,13 @@ Human Takeover
 - Production send is returned to disabled after the test.
 - Do not reopen Meta transport work without regression evidence.
 - Production database durability/backup-restore is the next highest-priority real-customer readiness gate.
+
+
+## Production DB Durability Assessment — 2026-10-11
+- Current Production Postgres is Free, expires 2026-11-02, has no managed backups/PITR, no HA, no replicas, and an empty external IP allowlist.
+- Seven-day metrics show very low Pilot load: CPU ~0.007 cores, memory roughly 40-60 MB, active connections peak 6.
+- Recommended paid target: Render Postgres `0.1c-256mb` with current storage kept minimal.
+- Expected base compute cost: about $6/month; 1 GB storage included, additional Postgres storage is billed separately.
+- Paid Render Postgres enables PITR; on a Hobby workspace the recovery window is 3 days. On-demand logical exports are available for paid instances and retained for 7 days.
+- Compute-plan change requires brief database downtime.
+- Paid infrastructure change remains blocked until explicit owner approval.
