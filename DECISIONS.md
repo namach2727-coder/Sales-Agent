@@ -230,3 +230,21 @@ Human Takeover
 - Controlled acceptance requires one provider request, assistant persistence, exactly one Meta delivery, no provider/outbound failure, and no duplicate/echo loop; all were satisfied.
 - Keep `META_SEND_ENABLED=false` outside explicitly controlled pilot tests until broader Production-send policy is approved.
 - Server-authoritative quota guard remains part of the AI path; do not weaken it for testing.
+
+
+## Payexa Environment Split Verification — 2026-10-11
+
+- Safe Payexa runtime observability SHA: `b7c510912a6b5bb13c736192e390bce44a3dcb61`.
+- CI for the observability change: test PASS / docker-build PASS / postgres-smoke PASS.
+- Initial UAT runtime was incorrectly configured against Production Payexa: base `https://pay.pexn.ir`, callback base `https://directpilot.ir`, credential present. This environment-split finding was FAIL and was corrected immediately.
+- UAT is now isolated to Payexa Sandbox: base `https://sandbox.pexn.ir`, callback base `https://uat.directpilot.ir`, sandbox credential configured. Deployment `dep-db5k0pcs728c7383hnh0`: LIVE. UAT Payexa environment split: PASS.
+- Initial Production Payexa state was fail-closed: sandbox/default base, empty callback, no credential.
+- Production non-secret Payexa configuration is now base `https://pay.pexn.ir`, callback base `https://directpilot.ir`, timeout 15s, while Production credential remains absent. Deployment `dep-db5k2e142hec7398l0h0`: LIVE.
+- Production Payexa environment structure is therefore correct but provider execution remains intentionally BLOCKED until a Production-specific `PAYEXA_API_KEY` is provisioned securely.
+- Current frontend checkout intentionally does not invoke Payexa; manual card transfer remains the primary checkout path. Payexa source/routes and result page remain present.
+- Real-provider acceptance is NOT PASS. It requires Production credential provisioning, Payexa-side verification/approval of the DirectPilot callback site/domain as applicable, and a controlled transaction path.
+- Never copy UAT credentials into Production, expose provider secrets in chat/logs, or blindly retry ambiguous create operations.
+
+- Decision: keep Production Payexa fail-closed without a credential until explicit merchant credential provisioning is complete.
+- Decision: UAT must use only Payexa Sandbox and its sandbox credential; it must never point at Production Payexa.
+- Decision: do not expose Payexa checkout broadly until controlled acceptance is complete.
