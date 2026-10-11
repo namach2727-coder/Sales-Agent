@@ -252,3 +252,10 @@ Status: PASS.
 - Migration head verification: PASS.
 - Application startup: PASS.
 - No outbound acceptance message has been sent yet in this checkpoint.
+
+
+## Controlled Outbound Attempt 1 — 2026-10-11
+- No inbound event from the first pilot message was observed in UAT or Production.
+- The attempt overlapped UAT relay redeployment and is INCONCLUSIVE.
+- UAT relay startup subsequently completed successfully.
+- Restricted Production outbound remains ready for one clean retest.
