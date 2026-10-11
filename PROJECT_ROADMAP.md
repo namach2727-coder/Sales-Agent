@@ -643,3 +643,15 @@ Acceptance evidence:
 - Rollback deployment `dep-db5illid0e5s73fju470`: LIVE.
 
 Meta transport is no longer the current Production-readiness blocker. Production database durability and backup/restore remain the highest-priority blocker before real customers; LLM verification remains a separate open gate.
+
+
+## Meta Production Controlled E2E — PASS (2026-10-11)
+- UAT relay -> Production inbound: PASS.
+- Deterministic rule handling: PASS.
+- Exactly one outbound delivery: PASS.
+- AI fallback not invoked: PASS.
+- No duplicate second send observed: PASS.
+- Follow-up/self event was ignored; no loop observed: PASS.
+- Production send returned to disabled after acceptance.
+- Post-test deployment `dep-db5illid0e5s73fju470`: LIVE.
+- Current highest-priority readiness blocker: Production database durability and backup/restore before real customers.
