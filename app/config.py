@@ -450,3 +450,13 @@ def llm_provider_readiness(settings: Settings) -> tuple[bool, bool, bool]:
         bool(settings.groq_api_key.get_secret_value().strip()),
         bool(settings.groq_model.strip()),
     )
+
+
+def payexa_runtime_summary(settings: Settings) -> tuple[str, str, bool]:
+    """Return safe Payexa runtime metadata without exposing credentials."""
+
+    return (
+        settings.payexa_base_url.rstrip("/"),
+        settings.payexa_callback_base_url.rstrip("/"),
+        bool(settings.payexa_api_key.get_secret_value().strip()),
+    )

@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
-from app.config import Settings, llm_provider_readiness, llm_runtime_summary, validate_runtime_settings
+from app.config import Settings, llm_provider_readiness, llm_runtime_summary, payexa_runtime_summary, validate_runtime_settings
 from app.database import build_engine
 from app.main import app
 from app.models import AuthPlatformRoleAssignment, IdentityAuditLog, UserIdentity
@@ -207,3 +207,19 @@ def test_llm_provider_readiness_is_boolean_only() -> None:
     assert "secret-openai-key" not in rendered
     assert "secret-groq-key" not in rendered
     assert "verified-model" not in rendered
+
+
+def test_payexa_runtime_summary_is_secret_safe() -> None:
+    settings = Settings(
+        _env_file=None,
+        payexa_base_url="https://sandbox.pexn.ir",
+        payexa_callback_base_url="https://uat.example.com",
+        payexa_api_key="secret-payexa-key",
+    )
+    summary = payexa_runtime_summary(settings)
+    assert summary == (
+        "https://sandbox.pexn.ir",
+        "https://uat.example.com",
+        True,
+    )
+    assert "secret-payexa-key" not in repr(summary)

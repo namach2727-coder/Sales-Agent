@@ -24,7 +24,7 @@ from app.automation_rules.router import router as automation_rules_router
 from app.ai_assistant.router import router as ai_assistant_router
 from app.commerce.router import router as commerce_router
 from app.conversation_core.router import router as conversation_core_router
-from app.config import (get_settings, llm_provider_readiness, llm_runtime_summary, validate_runtime_settings)
+from app.config import (get_settings, llm_provider_readiness, llm_runtime_summary, payexa_runtime_summary, validate_runtime_settings)
 from app.database import Base, check_database_connection, engine, get_db
 from app.instagram import router as instagram_router
 from app.instagram_channel.router import (
@@ -80,6 +80,16 @@ async def lifespan(_: FastAPI):
             str(groq_credential_ready).lower(),
             str(groq_model_ready).lower(),
             extra={"event_code": "llm.provider_readiness"},
+        )
+        payexa_base_url, payexa_callback_base_url, payexa_credential_configured = (
+            payexa_runtime_summary(settings)
+        )
+        logger.info(
+            "payexa runtime configuration base_url=%s callback_base_url=%s credential_configured=%s",
+            payexa_base_url or "-",
+            payexa_callback_base_url or "-",
+            str(payexa_credential_configured).lower(),
+            extra={"event_code": "payment.payexa_runtime_config"},
         )
     logger.info("application starting", extra={"event_code": "application.starting"})
     if DEPLOYED_AT_BOOT:
