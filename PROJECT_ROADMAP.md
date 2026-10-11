@@ -672,3 +672,20 @@ Meta transport is no longer the current Production-readiness blocker. Production
 - Do not change the current Free Production database plan or incur paid infrastructure cost without a new explicit approval.
 - Current risk remains accepted temporarily: Free Production Postgres expires 2026-11-02 and does not satisfy durability/backup-restore acceptance.
 - Real-customer onboarding remains blocked by Production database durability until this decision is revisited.
+
+
+## Production LLM Configuration Verification — DIAGNOSIS PASS / READINESS BLOCKED
+
+Runtime evidence (2026-10-11):
+- Safe observability SHA: `398d6dc52e436f4db25f21b19e7dbca4bef10f3c`.
+- CI: test PASS, docker-build PASS, postgres-smoke PASS.
+- UAT: Groq selected; configured credential and model present; deployment `dep-db5j4ebbc2fs73934e7g` LIVE.
+- Production: OpenAI selected with `gpt-5.6-sol`, but selected-provider credential is absent; Groq credential/model are also absent; deployment `dep-db5j5c7lk1mc73a6ofkg` LIVE.
+- Production backend health remains PASS; only AI provider execution is blocked.
+- No provider secret was logged or copied across environments.
+
+Next:
+1. Provision a Production-specific LLM credential securely in Render.
+2. Select and configure a currently supported Production model.
+3. Preserve `GROQ_CONTEXT_LENGTH=4096` and `GROQ_MAX_OUTPUT_TOKENS=256` if Groq is selected.
+4. Run one controlled AI fallback E2E.
