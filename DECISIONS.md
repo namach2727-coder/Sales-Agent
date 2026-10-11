@@ -159,3 +159,8 @@ Human Takeover
 - The first Production outbound test may run only with the single pilot-account restriction active.
 - Use one deterministic `قیمت` message from the second Instagram account.
 - If routing, duplicate handling, account restriction, or echo behavior differs from expectation, disable Production send immediately before further investigation.
+
+
+## Controlled Outbound Retest Rule
+- If a pilot message produces no inbound webhook at either relay or Production, do not classify automation/outbound as failed.
+- After relay health is restored, perform exactly one clean retest before changing rule logic or outbound configuration.
