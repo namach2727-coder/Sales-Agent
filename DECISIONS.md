@@ -153,3 +153,9 @@ Human Takeover
 - Platform access must use the existing explicit platform permission path in `resolve_authorized_context`; do not use impersonation or weaken tenant/store isolation.
 - The Admin UI may expose the rule builder only when the selected store has the `instagram_automation` effective capability.
 - Backend capability and automation-limit checks remain authoritative even when the Platform Admin UI displays an estimated/current limit.
+
+
+## Controlled Production Outbound
+- The first Production outbound test may run only with the single pilot-account restriction active.
+- Use one deterministic `قیمت` message from the second Instagram account.
+- If routing, duplicate handling, account restriction, or echo behavior differs from expectation, disable Production send immediately before further investigation.

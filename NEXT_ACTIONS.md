@@ -200,3 +200,11 @@ Status: **PARKED**
 - Preserve as a future product concept.
 - Candidate foundation: Telegram Managed Bots + shared multi-tenant runtime.
 - Do not implement during current DirectPilot Production readiness work.
+
+
+## Immediate Action — Controlled Meta Outbound E2E
+1. From the second Instagram account, send `قیمت` exactly once to the Production pilot account.
+2. Do not send a second message or retry manually.
+3. Inspect Production logs for deterministic rule handling and provider delivery.
+4. Verify exactly one outbound response, no AI fallback, no duplicate send and no own-message echo loop.
+5. If any invariant fails, disable Production send before further diagnosis.

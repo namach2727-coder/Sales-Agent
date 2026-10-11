@@ -610,3 +610,13 @@ Status: IN PROGRESS.
 - Test message `قیمت` reached Production but no deterministic AutomationRule matched; AI fallback attempted and failed with `llm_provider_configuration_error`.
 - Production send remained disabled, so no outbound provider call was made.
 - Next gate: deterministic Production rule + restricted non-empty send allowlist + one controlled outbound E2E.
+
+
+## Controlled Production Outbound Gate — 2026-10-11
+Status: **READY FOR ONE CONTROLLED PILOT MESSAGE**
+- Deterministic pilot rule: owner confirmed.
+- Single-account Production restriction: configured.
+- Restricted Production send: enabled.
+- Deployment `dep-db5ihrg473hc73ba3be0`: LIVE.
+- Environment, DB, migration and startup checks: PASS.
+- Next exact step: send `قیمت` exactly once from the second Instagram account and verify deterministic response, one delivery, dedupe and no self-echo.

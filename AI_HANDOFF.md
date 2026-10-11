@@ -371,3 +371,13 @@ Create/enable the Production DM_KEYWORD EXACT rule for قیمت with a harmless 
 - Backend remains authoritative for capability and automation-limit enforcement.
 - Owner Production functional acceptance: PENDING.
 - Next functional action: use the Production pilot store under Admin -> Customers & Stores to create the deterministic `قیمت` rule before enabling Meta outbound.
+
+
+## Controlled Production Outbound Gate — 2026-10-11
+- Owner confirmed the deterministic pilot rule was created.
+- The Production pilot Instagram connection was resolved from the authenticated scoped connection API.
+- Production outbound restriction is now configured to exactly one pilot account.
+- Production sending is enabled only under that single-account restriction.
+- Guarded deployment: `dep-db5ihrg473hc73ba3be0` — LIVE.
+- Runtime validation: production environment PASS, database connectivity PASS, migration head PASS, application startup PASS.
+- Next action: send `قیمت` exactly once from the second Instagram account, then inspect deterministic match, one provider delivery, dedupe and echo suppression.

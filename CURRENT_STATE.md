@@ -240,3 +240,15 @@ Status: PASS.
 - Existing scoped backend authorization is reused; no new backend runtime deployment was required.
 - Backend remains authoritative for entitlement and rule-count limits.
 - Production owner functional retest: PENDING.
+
+
+## Production Outbound Ready for Controlled E2E — 2026-10-11
+- Pilot rule creation: owner confirmed.
+- Single-account outbound restriction: configured for the connected Production pilot account.
+- Restricted outbound: enabled.
+- Deployment `dep-db5ihrg473hc73ba3be0`: LIVE.
+- Production environment validation: PASS.
+- Database connectivity: PASS.
+- Migration head verification: PASS.
+- Application startup: PASS.
+- No outbound acceptance message has been sent yet in this checkpoint.
