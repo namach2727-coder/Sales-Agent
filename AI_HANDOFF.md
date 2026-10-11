@@ -434,3 +434,19 @@ Prioritize Production database durability + backup/restore acceptance before rea
 - Do not change the current Free Production database plan or incur paid infrastructure cost without a new explicit approval.
 - Current risk remains accepted temporarily: Free Production Postgres expires 2026-11-02 and does not satisfy durability/backup-restore acceptance.
 - Real-customer onboarding remains blocked by Production database durability until this decision is revisited.
+
+
+## Production LLM Configuration Diagnosis — 2026-10-11
+
+- Safe observability runtime: `398d6dc52e436f4db25f21b19e7dbca4bef10f3c`.
+- CI: test PASS / docker-build PASS / postgres-smoke PASS.
+- UAT deployment `dep-db5j4ebbc2fs73934e7g`: LIVE.
+- Production deployment `dep-db5j5c7lk1mc73a6ofkg`: LIVE.
+- UAT selected LLM: Groq, model `qwen/qwen3.6-27b`, credential configured.
+- UAT readiness also shows OpenAI credential present, Groq credential present, and Groq model configured.
+- Production selected LLM: OpenAI, model `gpt-5.6-sol`, credential NOT configured.
+- Production readiness shows OpenAI credential=false, Groq credential=false, Groq model=false.
+- Root cause of prior `llm_provider_configuration_error`: Production has no configured credential for the selected OpenAI provider.
+- Do not copy UAT credentials into Production and do not expose any provider key in chat/logs.
+- Do not copy the UAT Groq model blindly; its current support status must be verified before Production use.
+- Next gate: securely provision a Production-specific LLM credential, then configure non-secret provider/model settings and run one controlled AI fallback E2E while Meta send is explicitly gated.
