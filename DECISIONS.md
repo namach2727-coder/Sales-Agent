@@ -20,6 +20,14 @@
 - Documentation-only commits must never be described as deployed runtime code.
 - After a meaningful Production release, update the five continuity files only after Production verification passes.
 
+## 2026-10-11 — Frontend UI and Animated Branding Release Decision (ACCEPTED)
+
+- **Accept Production frontend PR #9:** UAT-origin humanized UI, motion glyphs, vector animated D tab favicon, dashboard/admin visual improvements, responsive sidebar single-line navigation and related copy/presentation improvements. GitHub `main` SHA `f5f6a5399f938969b9307475eeed208f0e10988b`; Vercel Production `dpl_Ghi3KVJrDwpW1a1nABBDk2wztyBJ` **READY**, aliased to `directpilot.ir` and `www.directpilot.ir`.
+- **Acceptance evidence:** owner confirmed favicon animation and dashboard/layout look correct in live Production Chrome after hard refresh; record **VISUAL PASS**. Prior Auth/UX evidence is retained separately. Do not elevate this to new full authenticated session, payment, Meta or GA4 registration E2E PASS.
+- **Release discipline:** branch history diverged; resolve with selective UAT-to-`main` changes while preserving Production GA4/SEO events, trial truthfulness, manual bank-card/payment fixes and backend-owned entitlements. No changes to database, backend runtime, secrets, Vercel Authentication or DNS were authorized or needed.
+- **No immediate additional redeploy:** intermittent Vercel daily build quota and `module_not_found` on a non-final preview commit were superseded by the final `main` Production READY deployment. Never attempt to promote intermediate `release/humanized-ui-uat-20261011` commit `8208b27`.
+- **Unchanged gates:** real `sign_up` event E2E delivery, search ranking impact, database durability/backup-restore (free DB expiry 2026-11-02), and explicitly open admin-plan behavior retest remain pending until their own verification.
+
 ## Architecture
 
 - Backend: FastAPI + SQLAlchemy + Alembic + PostgreSQL.
@@ -126,7 +134,7 @@ Human Takeover
 - Search Console deployment acceptance and ranking acceptance are separate: successful deployment does not imply immediate recrawl or ranking improvement.
 - The baseline for SEO Phase 1 is the settled 28-day period through 2026-10-04: 14 clicks, 315 impressions, 4.44% CTR, average position 40.30.
 - SEO Phase 2 accepted SHA is `4a1f8bb1812ce942e055c7f2c810f7d719939ab8`; historical live Production audit was clean on five priority SEO pages.
-- 2026-10-11 SEO PR #1-#5 historical publication checkpoint: frontend SHA `e527c8f7e47a3259457f4efd72ded588eb3e26b9` at Vercel `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2` (READY at the time); six marketing URLs were audited with 0 SEO issues. **Current Production** has since advanced to frontend PR #8 SHA `d9a1a53a6171f3d417637d12cec66eed1832a07b`, Vercel `dpl_EnejDGuCcotpf4kQrSQk7pnPsyRw` READY.
+- 2026-10-11 SEO PR #1-#5 historical publication checkpoint: frontend SHA `e527c8f7e47a3259457f4efd72ded588eb3e26b9` at Vercel `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2` (READY at the time); six marketing URLs were audited with 0 SEO issues. PR #8 then advanced Production to SHA `d9a1a53a6171f3d417637d12cec66eed1832a07b`, Vercel `dpl_EnejDGuCcotpf4kQrSQk7pnPsyRw` READY (historical). **Current Production** is accepted PR #9 `f5f6a5399f938969b9307475eeed208f0e10988b` / `dpl_Ghi3KVJrDwpW1a1nABBDk2wztyBJ` READY.
 - Keep the educational query cluster (e.g. «دایرکت هوشمند چیست») centered on `/blog/instagram-smart-direct`; the product/service cluster (e.g. «دایرکت هوشمند اینستاگرام», «دایرکت اتوماتیک») on `/instagram-direct-automation`, with contextual two-way navigation, not duplicate commercial landing pages.
 - Any marketing copy about free access must reflect the verified 14-day trial, not a permanent free plan. Do not claim guaranteed conversions, customers, security certifications or ranking improvement without evidence.
 - Fix article internal-link rendering when bold Markdown encloses an internal link; ensure relevant next-step links are clickable and visible in rendered HTML. Preserve existing canonicals, URL ownership, semantic content and Preview/UAT noindex protections.
