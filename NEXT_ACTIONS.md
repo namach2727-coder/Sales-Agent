@@ -35,6 +35,8 @@ Status: **ALL FIVE INCREMENTAL PRS MERGED, PRODUCTION READY, SIX LIVE SEO AUDITS
 - Current frontend Production SHA: `e527c8f7e47a3259457f4efd72ded588eb3e26b9`; Vercel `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2` = READY.
 - Live six-page audit (2026-10-11): HTTP 200, indexable, canonical self, 0 technical SEO issues. No Auth/Payment/Meta validation implied.
 - Reference Search Console snapshot for 2026-09-11—2026-10-08: smart-direct article 88 impressions / 2 clicks, direct-service landing 12 / 1, comment landing 22 / 1. This is **pre-change** context, not proof of impact.
+- Preserve the older whole-property Phase 1 settled baseline through 2026-10-04: 14 clicks / 315 impressions / 4.44% CTR / average position 40.30. These date windows are not identical; never compare them as before/after evidence without aligning dates.
+- Relevant query themes: «ربات دایرکت هوشمند اینستاگرام», «قیمت دایرکت هوشمند اینستاگرام», «آموزش دایرکت هوشمند», «پاسخ خودکار به کامنت اینستاگرام», «اتوماسیون دایرکت اینستاگرام».
 
 Next exact SEO steps (no further copy edits until measurement warrants them):
 1. Wait for Google recrawl / a meaningful settled post-change window; inspect the modified URLs via Google URL Inspection when appropriate and distinguish “submitted” from “crawled/indexed”.
