@@ -3,6 +3,15 @@
 > Snapshot of verifiable current state. Read `AI_HANDOFF.md` first.
 > Last SEO/frontend reconciliation: 2026-10-11; other system states have independent verification dates.
 
+## Latest Verified Frontend Release — 2026-10-11
+
+- **Status: PRODUCTION READY / OWNER VISUAL PASS.** Frontend PR #9 merged from selectively reconciled UAT UI into `main`; SHA `f5f6a5399f938969b9307475eeed208f0e10988b` (GitHub `main` matches); Vercel deployment `dpl_Ghi3KVJrDwpW1a1nABBDk2wztyBJ` READY.
+- `https://directpilot.ir` and `https://www.directpilot.ir` resolve to `dpl_Ghi3KVJrDwpW1a1nABBDk2wztyBJ`; no alias errors (www redirects to apex).
+- Owner confirmed the animated favicon and dashboard layout visually on live Production after hard refresh. Authenticated end-to-end regressions, payment lifecycle and GA4 successful `sign_up` event were **not** re-tested by that confirmation.
+- Release changes: motion SVG D tab icon, new glyph system, improved brand/landing/portal/admin layouts, sidebar wrap fix; preservation of Production GA4/SEO, 14-day trial, bank-card payment UX and signup tracking. No backend runtime, Render secrets, database, Meta, DNS or Vercel access-control changes.
+- Separate UAT branch SHA `dd9dee1f573151cd7507877aa9a868db467c95ba`; UAT Vercel deployment `dpl_J3foazh8ogYg7suDPUuEzCr37mJJ` READY. Earlier `d9a1a53` / `dpl_EnejDGuCcotpf4kQrSQk7pnPsyRw` are historical GA4 release evidence, not the live UI.
+- Current risk gates remain: Production Postgres free expiry 2026-11-02 and unaccepted backup/restore, GA4 controlled registration E2E, SEO after recrawl, and distinct admin-plan UX retest.
+
 ## Repository State
 
 ### Backend
@@ -19,8 +28,8 @@
 - Repository: `namach2727-coder/directpilot-web`
 - Production branch: `main`
 - UAT branch: `UAT`
-- Production `main` deployed and verified at `d9a1a53a6171f3d417637d12cec66eed1832a07b` for the GA4/SEO release.
-- UAT last separately verified at `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`; current UAT head is not claimed as checked by this SEO audit.
+- Production `main` deployed and verified at `f5f6a5399f938969b9307475eeed208f0e10988b` for UI PR #9 (with previously accepted GA4/SEO changes preserved).
+- UAT current branch (independently verified): `dd9dee1f573151cd7507877aa9a868db467c95ba`; separate READY Vercel deployment `dpl_J3foazh8ogYg7suDPUuEzCr37mJJ`.
 
 ## Production Backend
 
@@ -41,11 +50,11 @@
 
 - Public domain: `https://directpilot.ir`
 - Production branch: `main`
-- Current deployed frontend SEO/GA4 SHA: `d9a1a53a6171f3d417637d12cec66eed1832a07b`.
-- Vercel Production: READY; deployment ID `dpl_EnejDGuCcotpf4kQrSQk7pnPsyRw`.
-- Vercel inspector: `https://vercel.com/mohcenp-9857s-projects/directpilot-web/EnejDGuCcotpf4kQrSQk7pnPsyRw`.
+- Current deployed frontend UI/GA4 SHA: `f5f6a5399f938969b9307475eeed208f0e10988b`.
+- Vercel Production: READY; deployment ID `dpl_Ghi3KVJrDwpW1a1nABBDk2wztyBJ`.
+- Vercel inspector: `https://vercel.com/mohcenp-9857s-projects/directpilot-web/Ghi3KVJrDwpW1a1nABBDk2wztyBJ`.
 - Historical SEO Phase 2 production evidence remains recorded below; the current deployment above supersedes it.
-- Auth/UX Production smoke from the previous release remains PASS. It was not repeated for this SEO-only promotion because no authentication/session behavior changed.
+- Historical authenticated Auth/UX Production smoke remains PASS from its earlier separately accepted release. UI PR #9 owner confirmation covers favicon/dashboard visual behavior only, not fresh authentication or commerce E2E.
 
 ### Production Auth/UX Smoke — Owner Confirmed
 
@@ -79,8 +88,8 @@
 ## UAT Frontend and Acceptance
 
 - Public domain: `https://uat.directpilot.ir`
-- UAT branch SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`
-- Vercel deployment status for this SHA: SUCCESS.
+- UAT branch SHA: `dd9dee1f573151cd7507877aa9a868db467c95ba`
+- Vercel deployment status for this SHA: READY (`dpl_J3foazh8ogYg7suDPUuEzCr37mJJ`).
 - Prior Auth/UX UAT functional acceptance: PASS. SEO Phase 1 content/UAT review was accepted by the owner for Production promotion.
 
 Accepted UAT criteria:
@@ -230,7 +239,7 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 - PR #7 — frontend `31c348ab51c7dc6ae1d4c407c32da1c08a5b5c03`: corrected GA4 collection endpoint allowlists in Production CSP (no `unsafe-eval` and no ad tagging).
 - PR #8 — frontend `d9a1a53a6171f3d417637d12cec66eed1832a07b`: repaired gtag.js queue compatibility by pushing JavaScript `arguments`, not spread Arrays, into `dataLayer`; shipped through tested PR with a narrowly justified lint exception.
 
-- Latest verified frontend Production `main`: `d9a1a53a6171f3d417637d12cec66eed1832a07b`; Vercel deployment `dpl_EnejDGuCcotpf4kQrSQk7pnPsyRw` = **READY** (https://vercel.com/mohcenp-9857s-projects/directpilot-web/EnejDGuCcotpf4kQrSQk7pnPsyRw). This supersedes the earlier SEO PR #5 release `e527c8f7e47a3259457f4efd72ded588eb3e26b9` / `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2`; those older SHAs remain valid **historical** checkpoints only.
+- Historical GA4 PR #8 Production checkpoint (now superseded by PR #9): `d9a1a53a6171f3d417637d12cec66eed1832a07b`; Vercel deployment `dpl_EnejDGuCcotpf4kQrSQk7pnPsyRw` = **READY** (https://vercel.com/mohcenp-9857s-projects/directpilot-web/EnejDGuCcotpf4kQrSQk7pnPsyRw). This supersedes the earlier SEO PR #5 release `e527c8f7e47a3259457f4efd72ded588eb3e26b9` / `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2`; those older SHAs remain valid **historical** checkpoints only.
 - GA4 Web Stream: `https://directpilot.ir`, `DirectPilot - Production Web`, Measurement ID `G-9D1Z7HDYVZ`, GA4 Property ID `558426868`, GA4 reporting timezone `Asia/Dubai`. Vercel `NEXT_PUBLIC_GA_ID` is set for **Production only**; a fresh Production build is READY.
 - Browser verification on 2026-10-11 **after PR #8**: granted consent; gtag.js loaded; `dataLayer` contains `page_view`; request to `https://region1.google-analytics.com/g/collect` returned HTTP **204** with `en=page_view`. GA4 Realtime showed **one active user**, and `first_visit`, `session_start`, `page_view` each observed once. This establishes end-to-end **page-view event delivery and Realtime ingestion**, not all-event/real-signup acceptance.
 - In GA4, `sign_up` is defined as a **Key Event** (code-based, no default monetary value, once per event). **The actual `sign_up` delivery after a successful backend registration has NOT been tested**; do not mark conversion E2E PASS or equate `signup_intent` with completed registration.
