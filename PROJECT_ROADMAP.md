@@ -13,14 +13,21 @@
 ## 0A. Latest SEO Resume Marker — 2026-10-11
 
 ```text
-WORKSTREAM: SEO_SEARCH_INTENT_AND_INTERNAL_LINKING
-PRODUCTION_FRONTEND_SHA: e527c8f7e47a3259457f4efd72ded588eb3e26b9
-VERCEL_DEPLOYMENT: dpl_Btry5s2bBzHpW6n618fNB9ZihWn2
+WORKSTREAM: SEO_PLUS_GA4_MEASUREMENT
+PRODUCTION_FRONTEND_SHA: d9a1a53a6171f3d417637d12cec66eed1832a07b
+VERCEL_DEPLOYMENT: dpl_EnejDGuCcotpf4kQrSQk7pnPsyRw
 VERCEL_STATUS: READY
-LIVE_SEO_AUDIT: PASS / 6 URLS / 0 ISSUES
-SEO_RELEASES: PRS #1-#5 MERGED
+SEO_RELEASES: FRONTEND PRS #1-#8 MERGED
+LIVE_SEO_AUDIT: HISTORICAL PR1-5 PASS / 6 URLS / 0 ISSUES
+INDEX_TRACKER: 10 URLS INDEXED AT LAST CHECKPOINT
+GA4_PROPERTY: properties/558426868
+GA4_STREAM: G-9D1Z7HDYVZ
+GSC_WIZARD_LINK: sc-domain:directpilot.ir -> GA4 VERIFIED
+GA4_PAGE_VIEW: HTTP_204_AND_REALTIME_PASS
+GA4_SIGN_UP_KEY_EVENT: CONFIGURED_DELIVERY_UNVERIFIED
+WEEKLY_SEO_GA4_TASK: ENABLED / MONDAY_09_ASIA_DUBAI
 SEARCH_RANKING_IMPACT: NOT YET VERIFIED
-NEXT_SEO_GATE: GOOGLE_RECRAWL_AND_SETTLED_GSC_COMPARISON
+NEXT_SEO_GATE: FIRST_SETTLED_GA4_AND_SIGNUP_E2E_AND_GSC_RECRAWL
 ```
 
 This marker records the latest SEO evidence only. The older integration snapshot below is historical and should not overwrite this frontend release status.
@@ -149,7 +156,7 @@ GitHub CI for `91250140...`:
 Repository: namach2727-coder/directpilot-web
 Production branch: main
 UAT branch: UAT
-main deployed SEO SHA: e527c8f7e47a3259457f4efd72ded588eb3e26b9
+main deployed SEO/GA4 SHA: d9a1a53a6171f3d417637d12cec66eed1832a07b
 UAT SHA (last separately verified; SEO changes not asserted deployed to UAT): 4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159
 ```
 
@@ -212,8 +219,8 @@ Environment separation is COMPLETE and PASS.
 
 Production:
 - Branch: `main`
-- SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`
-- Vercel status: SUCCESS
+- Current verified SHA: `d9a1a53a6171f3d417637d12cec66eed1832a07b`, Vercel `dpl_EnejDGuCcotpf4kQrSQk7pnPsyRw` READY.
+- Historical Admin Plan UX source SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159` (do not report this as the current Production SHA).
 - Admin plan UX fixes deployed: scroll preservation before paint, inline validation without native scroll-to-invalid, and automatic uppercase normalization for internal plan codes.
 - Owner retest for the plan-creation UX fix: PENDING.
 
@@ -222,7 +229,27 @@ UAT:
 - SHA: `4acd10aaa2a78ab52ba8b3e9f1f1cc84ac48d159`
 - Vercel deployment: SUCCESS / branch aligned with Production source.
 
-## 5E. SEO Incremental Releases / 2026-10-11
+## 5F. GA4, Conversion Measurement and Mobile Lab Baseline — 2026-10-11
+
+- PR #6 — frontend `ae077e06915e5e280fbb5ff226ac5dd4d529891e`: consent-first GA4 tag, event bridge, limited sanitized marketing `page_view`, `signup_intent`, `pricing_plan_click`, `demo_start`, `blog_cta_click`, and `sign_up` after the backend register call succeeds; Production-only `NEXT_PUBLIC_GA_ID`, strict Preview/UAT isolation, privacy disclosure, CI tests and mobile Lighthouse workflow.
+- PR #7 — frontend `31c348ab51c7dc6ae1d4c407c32da1c08a5b5c03`: corrected GA4 collection endpoint allowlists in Production CSP (no `unsafe-eval` and no ad tagging).
+- PR #8 — frontend `d9a1a53a6171f3d417637d12cec66eed1832a07b`: repaired gtag.js queue compatibility by pushing JavaScript `arguments`, not spread Arrays, into `dataLayer`; shipped through tested PR with a narrowly justified lint exception.
+
+- Latest verified frontend Production `main`: `d9a1a53a6171f3d417637d12cec66eed1832a07b`; Vercel deployment `dpl_EnejDGuCcotpf4kQrSQk7pnPsyRw` = **READY** (https://vercel.com/mohcenp-9857s-projects/directpilot-web/EnejDGuCcotpf4kQrSQk7pnPsyRw). This supersedes the earlier SEO PR #5 release `e527c8f7e47a3259457f4efd72ded588eb3e26b9` / `dpl_Btry5s2bBzHpW6n618fNB9ZihWn2`; those older SHAs remain valid **historical** checkpoints only.
+- GA4 Web Stream: `https://directpilot.ir`, `DirectPilot - Production Web`, Measurement ID `G-9D1Z7HDYVZ`, GA4 Property ID `558426868`, GA4 reporting timezone `Asia/Dubai`. Vercel `NEXT_PUBLIC_GA_ID` is set for **Production only**; a fresh Production build is READY.
+- Browser verification on 2026-10-11 **after PR #8**: granted consent; gtag.js loaded; `dataLayer` contains `page_view`; request to `https://region1.google-analytics.com/g/collect` returned HTTP **204** with `en=page_view`. GA4 Realtime showed **one active user**, and `first_visit`, `session_start`, `page_view` each observed once. This establishes end-to-end **page-view event delivery and Realtime ingestion**, not all-event/real-signup acceptance.
+- In GA4, `sign_up` is defined as a **Key Event** (code-based, no default monetary value, once per event). **The actual `sign_up` delivery after a successful backend registration has NOT been tested**; do not mark conversion E2E PASS or equate `signup_intent` with completed registration.
+- GA4 is natively linked to Search Console Domain Property `directpilot.ir`, and GSC Wizard's GA4 connection is separately verified: `sc-domain:directpilot.ir` ↔ `properties/558426868` under `DirectPilot - Production`. GA4 reports and blended GSC+GA4 sections are visible.
+- GSC Wizard reports through 2026-10-10 initially showed GA4 zeros because collection was first accepted on 2026-10-11. Respect settled-data lag (~1-3 days), the GA4 launch boundary, site/session definitions, user consent and small samples; **do not** read historical zero as malfunction or claim ranking/conversion uplift. Google Search Console clicks and GA4 sessions are not interchangeable.
+
+- Existing weekly automation **«پایش هفتگی SEO و GA4 DirectPilot»** updated (ID `6acb649a476c8191895050914165ee85`), **enabled**, next intended run Monday 2026-10-12 at approximately 09:00 **Asia/Dubai**, `flexible_schedule`. It now checks settled 28-day SEO windows, 10 indexed URLs, queries/landing pages/cannibalization/sitemap, and GA4 sessions, landing pages, engagement, `signup_intent`, `sign_up` / Key Events, with post-activation/date-alignment safeguards. This is an automation-instructions update; it does not change site code or GA4 settings.
+- This scheduled task's automation record currently reports `notifications_enabled=false` and `email_enabled=false`; delivery/notification permissions should be reviewed by the owner separately if push or email alerts are expected. Do not falsely claim notification delivery is enabled.
+
+Mobile **Lighthouse lab** checkpoint (run 2026-10-11, preceding current GA4 ingest validation): `/` Performance **74**, SEO **100**, LCP **2.74s**, CLS **0.000**, TBT **974ms**; `/instagram-direct-automation` Performance **97**, SEO **100**, LCP **2.41s**, CLS **0.007**, TBT **64ms**. These are throttled lab measurements, not real-user INP/CrUX; the homepage's long main-thread blocking is an optimization candidate, not an SEO ranking claim.
+
+**Remaining SEO/measurement gates:** allow settled GA4 data after 2026-10-11, then verify Sessions / Page Views / Organic Search and event counts; run a controlled **successful** test registration and confirm `sign_up` in GA4 before declaring conversion PASS; compare GSC impressions/clicks/CTR/position on aligned post-recrawl windows; inspect the previously observed mobile homepage Lighthouse bottleneck (lab Performance 74, LCP ~2.74s, TBT ~974ms) separately from CrUX field vitals. Maintain the privacy consent gate, no personal data in analytics, no `unsafe-eval`, Production-only tagging, and unchanged backend/payment/Meta readiness gates.
+
+## 5E. Earlier SEO Incremental Releases / 2026-10-11
 
 - PR #1 `a0d663a59421de0f96789dc2dcd5e51d981430f8`: auto-comment article content, `dateModified` / Open Graph / sitemap last-modified support.
 - PR #2 `cbb7f74b9f21e9e61f78eaad11c89b9510631ad1`: blog hub guidance, FAQ and contextual navigation.
