@@ -412,3 +412,7 @@ Human Takeover
 - UAT-approved commercial policy is released by additive migration 0024, not by copying the Neon UAT database. `AI_ASSISTANT_V1` is publicly purchasable at IRR 6,900,000/30d with 1,000 reply and AI-request limits and one Instagram account. `AUTOMATION_V1` continues IRR 4,900,000/30d with 20 automation rules.
 - UAT and Production both use backend commit `90aea1e9`, and independent Production public API acceptance PASS (GitHub Actions `38275924090`). Existing Production customers/cards/receipts, UAT-only trial changes and Meta settings untouched.
 - Frontend status remains source merged and CI green, not Vercel-runtime verified; paid database upgrade remains deferred, with backup/restore gate OPEN.
+
+
+### Mobile login overlay hotfix — 2026-10-12
+- 2026-10-12 Mobile navigation accessibility decision: close mobile overlay on every anchor activation, make hidden overlay inert, size for dynamic viewport and iOS safe-area; preserve GA4/SEO/CSP and all auth/Meta/payment API behavior. Release as UAT-first frontend-only hotfix; browser behavior and Vercel live deployment require separate independent verification.
