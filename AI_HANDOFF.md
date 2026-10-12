@@ -656,3 +656,16 @@ Prioritize Production database durability + backup/restore acceptance before rea
 - Confirmed UAT `META_WEBHOOK_RELAY_TARGET_URL` points to Production (`https://directpilot-api.onrender.com/api/v1/integrations/instagram/webhook`); actual inbound deliveries must continue relay unchanged.
 - Isolated Neon UAT has one active Instagram connection; OAuth browser redirect backend PR #6 merged as `eb97e540` and deployed LIVE to UAT (`dep-db6ane7avr4c73apac1g`). UAT CORS allowed origin set to `https://uat.directpilot.ir`. Production was not deployed.
 - Offline regression added in `tests/test_instagram_webhook.py` on `test/isolated-uat-webhook-no-meta-changes-20261012`: invokes `InstagramWebhookIngestionService.ingest` against disposable local SQLite test DB, with relay disabled and outbound Meta sending disabled. This DOES NOT establish actual delivery from Meta to UAT nor write to UAT Neon. CI status pending.
+
+## 2026-10-12 — UAT multi-month prepaid orders (implementation pending release)
+- Independent UAT Neon confirmed one active default payment card (`payment_cards`: total=1, active_default=1); the missing-card issue no longer applies at DB level.
+- Backend PR #8 (`feat/uat-multi-month-orders-20261012`): 1–12 months supported on paid 30-day plans; server calculates price and order duration from the plan, snapshots totals, and uses existing manual transfer/receipt approval. AI response/request/token allowances scale with prepaid months. CI / merge / UAT deploy require verification.
+- Frontend PR #15 (`feat/uat-multi-month-checkout-20261012`): UAT-only selection for 1–12 months with preview, exact totals, 30 days/month, protection against reusing mismatched pending orders, and accessible RTL controls. Build status and UAT merge require verification.
+- Example: 3 x Automation 490,000 toman => 1,470,000 toman, 90 days; no automatic charge or installment. Shared Meta settings and Production deployments remain untouched.
+
+### Verified release progress — 2026-10-12 (supersedes pending statements above)
+- Backend PR #8 merged at `b1a63ea9b601b784474a5fbd1a37ebd20f6f9028`; CI run #355: Python tests, Docker, PostgreSQL PASS. ONLY UAT Render deployment `dep-db6becvlk1mc73cksvi0` is LIVE on the merge commit; Production Render not deployed.
+- Frontend PR #15 merged into UAT at `34b19e6e438ce8426ababea04839cf9a1984cd52`; Vercel reported Success. Browser purchase/receipt E2E is still unverified by owner.
+- PR #16 restores earlier customer dashboard next-step and manual-payment guidance alongside monthly selector; Preview/build pending. Keep shared Meta untouched.
+
+- Final UAT interface release: PR #16 merged at `8f083473` with Vercel Success; both month selection and dashboard/payment guidance retained. Browser three-month purchase/receipt E2E remains unverified; Production not deployed.

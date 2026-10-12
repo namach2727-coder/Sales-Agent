@@ -469,3 +469,17 @@ Remaining readiness priorities:
 2. Verify regression locally/CI only: disposable SQLite, no production calls, no Meta traffic, no UAT Neon writes.
 3. After merge, read-only review Render UAT event logs / Neon counts; live Meta delivery and automated replies remain NOT VERIFIED.
 4. Do not change Meta Developers settings, shared app OAuth/webhook configuration, or existing Production-bound webhook relay; seek explicit approval before any real delivery test.
+
+## 2026-10-12 — Release multi-month card-transfer purchase to UAT
+1. Confirm backend PR #8 CI including order snapshot/payment amount/90-day approval; resolve any failures before merge.
+2. Merge backend PR #8 after CI; manually deploy ONLY directpilot-uat-api; verify Render LIVE commit and /ready; Production auto deploy stays off.
+3. Confirm frontend PR #15 Preview build and test; merge to branch UAT after backend is live; verify uat.directpilot.ir targets the new commit (not Production).
+4. Owner UAT: choose 3 months for Automation; verify IRR 14,700,000, 90 days, correct active payment card, upload receipt and admin approval; check effective subscription expiry.
+5. Reconcile final CI / deployment status in all five continuity docs. Keep Meta shared and untouched.
+
+### Release update — 2026-10-12
+- Completed: Backend #8 CI PASS, merged/deployed ONLY to Render UAT (LIVE); Frontend #15 merged to UAT, Vercel Success.
+- Await PR #16 Preview before merging to UAT. Then request owner to open UAT billing, select 3 months Automation, verify 1,470,000 toman and 90 days and card copy; no money transfer required for quote verification.
+- Separate supervised manual receipt/payment approval E2E remains pending. Confirm subscription end date and AI aggregate quota before any Production promotion. Keep Meta settings fixed.
+
+- Final UI gate: PR #16 merged into UAT at `8f083473`; Vercel Success. Manual 3-month order verification remains open.

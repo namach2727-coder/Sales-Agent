@@ -522,3 +522,14 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 - Backend OAuth callback redirect PR #6 merged as `eb97e540` and UAT Render deploy `dep-db6ane7avr4c73apac1g` confirmed LIVE. `CORS_ALLOWED_ORIGINS` added to UAT as `https://uat.directpilot.ir`.
 - UAT `META_WEBHOOK_RELAY_TARGET_URL` targets Production; UAT Neon showed zero webhook deliveries at last check. This is consistent with relay behavior, not an independently verified Meta delivery.
 - Offline ingestion regression in `tests/test_instagram_webhook.py` is prepared on a testing branch; CI and merge not yet verified. No real webhook sent; Production and Meta config unchanged.
+
+## 2026-10-12 — Prepaid multi-month UI / UAT checkpoint
+- Confirmed isolated Neon UAT has one active default payment card; user previously saw no-active-card error because table was empty before the new card was added.
+- Backend multi-month order feature is implemented in unmerged PR #8 (CI pending at this checkpoint). Frontend month selector and checkout totals implemented in unmerged PR #15 (Vercel Preview check pending at this checkpoint).
+- Neither change has been deployed to UAT as of this checkpoint. Production untouched. Acceptance tests must establish 3-month total and 90-day entitlement after approved receipt.
+
+### Latest verified multi-month release — 2026-10-12
+- UAT Neon: 1 active default bank card (read-only count verification).
+- Backend PR #8: merged `b1a63ea9`, GitHub CI #355 PASS, manual Render UAT deploy `dep-db6becvlk1mc73cksvi0` LIVE (matching commit); no Production deploy.
+- Frontend PR #15: merged `34b19e6e` to UAT, Vercel status Success. PR #16 dashboard/billing UX reconciliation Preview pending.
+- Browser test of choosing and paying for 3 months, receipt submission, and confirming 90-day subscription is not yet performed.
