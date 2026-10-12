@@ -957,3 +957,5 @@ NEXT:
 - Backend automated CI #355 PASS; merged #8 `b1a63ea9`; Render UAT deploy `dep-db6becvlk1mc73cksvi0` LIVE.
 - Frontend multi-month PR #15 merged UAT `34b19e6e`; Vercel Success; account/browser acceptance for 3× Automation and manual receipt still required.
 - Dashboard/billing clarity reconciliation PR #16 pending Preview; no Production deploy. Next: manual UAT test and expiry check.
+
+- Final UAT interface release: PR #16 merged at `8f083473` with Vercel Success; both month selection and dashboard/payment guidance retained. Browser three-month purchase/receipt E2E remains unverified; Production not deployed.
