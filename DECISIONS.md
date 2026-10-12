@@ -378,3 +378,6 @@ Human Takeover
 
 ### UAT deployment evidence — 2026-10-12
 - The prepaid pricing/duration policy above has shipped to UAT backend (`b1a63ea9`, Render LIVE) and UAT frontend (`34b19e6e`, Vercel Success); no Production deployment. Manual three-month E2E remains pending; do not conflate green CI with payment acceptance.
+
+### Final UAT release verification — 2026-10-12
+- Multi-month checkout and reconciled dashboard/payment UX are merged into UAT at `8f083473`, Vercel Success. Manual full payment validation pending; shared Meta and Production unchanged.
