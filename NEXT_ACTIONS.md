@@ -483,3 +483,7 @@ Remaining readiness priorities:
 - Separate supervised manual receipt/payment approval E2E remains pending. Confirm subscription end date and AI aggregate quota before any Production promotion. Keep Meta settings fixed.
 
 - Final UI gate: PR #16 merged into UAT at `8f083473`; Vercel Success. Manual 3-month order verification remains open.
+
+
+### UAT receipt preview update
+- 2026-10-12 Receipt preview acceptance: confirm Vercel Preview Success on UAT commit `65c476ef`, open UAT admin Payments, select submitted receipt, verify JPG/PNG and PDF appear inline without automatic download, ensure approve/reject still work; cross-check 401/403 access and iframe same-origin restriction. Production untouched.
