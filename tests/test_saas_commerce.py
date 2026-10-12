@@ -1323,3 +1323,43 @@ def test_manual_receipt_is_persisted_in_database(commerce_api) -> None:
     assert downloaded.status_code == 200
     assert downloaded.content == receipt
     assert downloaded.headers["content-type"].startswith("image/png")
+
+
+def test_multi_month_manual_order_price_duration_and_validation(commerce_api) -> None:
+    client, engine, _settings = commerce_api
+    register(client, "multi-month")
+    headers = login(client, "multi-month")
+    plan = paid_plan(client)
+
+    response = client.post(
+        "/api/v1/orders",
+        headers=headers,
+        json={"plan_public_id": plan["public_id"], "months": 3},
+    )
+    assert response.status_code == 201, response.text
+    order = response.json()
+    assert order["price_amount"] == 3 * plan["price_amount"]
+    assert order["duration_days"] == 90
+    with Session(engine) as db:
+        saved = db.scalar(select(SubscriptionOrder).where(SubscriptionOrder.public_id == order["public_id"]))
+        assert saved is not None
+        assert saved.price_amount == 3 * plan["price_amount"]
+        assert saved.duration_days_snapshot == 90
+
+    payment = create_payment(client, headers, order)
+    assert payment["amount"] == 3 * plan["price_amount"]
+
+    for invalid in (0, 13):
+        rejected = client.post(
+            "/api/v1/orders",
+            headers=headers,
+            json={"plan_public_id": plan["public_id"], "months": invalid},
+        )
+        assert rejected.status_code == 422
+
+    malformed = client.post(
+        "/api/v1/orders",
+        headers=headers,
+        json={"plan_public_id": plan["public_id"], "months": "three"},
+    )
+    assert malformed.status_code == 422
