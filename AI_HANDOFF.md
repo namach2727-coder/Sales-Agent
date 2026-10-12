@@ -669,3 +669,7 @@ Prioritize Production database durability + backup/restore acceptance before rea
 - PR #16 restores earlier customer dashboard next-step and manual-payment guidance alongside monthly selector; Preview/build pending. Keep shared Meta untouched.
 
 - Final UAT interface release: PR #16 merged at `8f083473` with Vercel Success; both month selection and dashboard/payment guidance retained. Browser three-month purchase/receipt E2E remains unverified; Production not deployed.
+
+
+### UAT receipt preview update
+- 2026-10-12 UAT receipt inline review: Backend PR #10 merged `c2eaf52d6d39d055782e1e56a79242948c07b349` (CI #383 PASS) and deployed ONLY to UAT Render `dep-db6bpsm7bikc73ca11i0` LIVE. Admin receipt route now uses inline disposition; same-origin framing restricted to authenticated receipt path. Frontend PR #17 merged to UAT `65c476ef563f8791054ddfe0578bc6667c8e3457`; Vercel release/build and manual receipt preview acceptance need verification. Production not deployed.
