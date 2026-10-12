@@ -491,3 +491,7 @@ Remaining readiness priorities:
 
 ### 2026-10-12 UAT compact payment UI
 - 2026-10-12 UAT acceptance: verify frontend merge `1cae8c08` Vercel Success and `uat.directpilot.ir` alias. In Admin Payments confirm compact facts, JPG/PNG natural image dimensions and bounded PDF viewer, approve/reject unchanged. In customer Billing confirm paid plan is visible and only `ارتقا پلن` button wording appears in active-plan upgrade offers. No Production promotion.
+
+
+### Production promotion preflight (2026-10-12)
+- 2026-10-12 Next release tasks: Resolve production-only 20 frontend commits vs 83 UAT commits under PR #19 and safeguard GA4/CSP. Verify Production DATABASE_URL target without disclosing it, obtain read-only schema/plan comparison and predeployment backup/rollback. Avoid data copy from UAT. Ensure AI_ASSISTANT_V1 and AUTOMATION_V1 production catalog states only after safe read-only inspection. After CI and DB preflight, deploy Backend Production then Frontend Production; run smoke tests and rollback if failed. Current status: production rollout not executed.
