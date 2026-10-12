@@ -303,7 +303,7 @@ class CommerceService:
         self.session.refresh(item)
         return item
 
-    def create_order(self, principal: AuthenticatedPrincipal, plan_public_id: str) -> SubscriptionOrder:
+    def create_order(self, principal: AuthenticatedPrincipal, plan_public_id: str, *, months: int = 1) -> SubscriptionOrder:
         tenant, store = self.customer_scope(principal)
         plan = self.session.scalar(select(SaasPlan).where(
             SaasPlan.public_id == plan_public_id,
@@ -312,6 +312,8 @@ class CommerceService:
         ))
         if plan is None:
             raise CommerceNotFound("plan not found")
+        if months < 1 or months > 12 or (months != 1 and (plan.price_amount <= 0 or plan.duration_days != 30)):
+            raise CommerceValidationError("Multi-month orders require a paid 30-day plan and 1 to 12 months")
         if plan.code == "TRIAL":
             existing_subscription = self.session.scalar(
                 select(TenantSubscription)
@@ -335,6 +337,15 @@ class CommerceService:
             user_id=principal.user_id,
             plan=plan,
         )
+        if months > 1:
+            order.price_amount = plan.price_amount * months
+            order.duration_days_snapshot = plan.duration_days * months
+            if plan.product_family == "AI_ASSISTANT":
+                order.ai_reply_limit_snapshot = plan.reply_limit * months
+                if plan.ai_request_limit is not None:
+                    order.ai_request_limit_snapshot = plan.ai_request_limit * months
+                if plan.ai_token_limit is not None:
+                    order.ai_token_limit_snapshot = plan.ai_token_limit * months
         if plan.price_amount == 0:
             order.status = "paid"
             self._activate_free_subscription(order, plan)
