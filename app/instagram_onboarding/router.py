@@ -86,7 +86,11 @@ def _frontend_callback_url(settings: Settings) -> str | None:
 
 
 def _browser_request(request: Request) -> bool:
-    return "text/html" in request.headers.get("accept", "").casefold()
+    """Recognize browser navigation even when the OAuth provider omits HTML Accept."""
+    accept = request.headers.get("accept", "").casefold()
+    fetch_mode = request.headers.get("sec-fetch-mode", "").casefold()
+    fetch_dest = request.headers.get("sec-fetch-dest", "").casefold()
+    return "text/html" in accept or fetch_mode == "navigate" or fetch_dest == "document"
 
 
 def _oauth_redirect(
