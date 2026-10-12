@@ -656,3 +656,9 @@ Prioritize Production database durability + backup/restore acceptance before rea
 - Confirmed UAT `META_WEBHOOK_RELAY_TARGET_URL` points to Production (`https://directpilot-api.onrender.com/api/v1/integrations/instagram/webhook`); actual inbound deliveries must continue relay unchanged.
 - Isolated Neon UAT has one active Instagram connection; OAuth browser redirect backend PR #6 merged as `eb97e540` and deployed LIVE to UAT (`dep-db6ane7avr4c73apac1g`). UAT CORS allowed origin set to `https://uat.directpilot.ir`. Production was not deployed.
 - Offline regression added in `tests/test_instagram_webhook.py` on `test/isolated-uat-webhook-no-meta-changes-20261012`: invokes `InstagramWebhookIngestionService.ingest` against disposable local SQLite test DB, with relay disabled and outbound Meta sending disabled. This DOES NOT establish actual delivery from Meta to UAT nor write to UAT Neon. CI status pending.
+
+## 2026-10-12 — UAT multi-month prepaid orders (implementation pending release)
+- Independent UAT Neon confirmed one active default payment card (`payment_cards`: total=1, active_default=1); the missing-card issue no longer applies at DB level.
+- Backend PR #8 (`feat/uat-multi-month-orders-20261012`): 1–12 months supported on paid 30-day plans; server calculates price and order duration from the plan, snapshots totals, and uses existing manual transfer/receipt approval. AI response/request/token allowances scale with prepaid months. CI / merge / UAT deploy require verification.
+- Frontend PR #15 (`feat/uat-multi-month-checkout-20261012`): UAT-only selection for 1–12 months with preview, exact totals, 30 days/month, protection against reusing mismatched pending orders, and accessible RTL controls. Build status and UAT merge require verification.
+- Example: 3 x Automation 490,000 toman => 1,470,000 toman, 90 days; no automatic charge or installment. Shared Meta settings and Production deployments remain untouched.
