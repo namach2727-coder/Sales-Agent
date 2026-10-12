@@ -420,3 +420,7 @@ Human Takeover
 
 ### Customer Dashboard UAT UX (2026-10-12)
 - 2026-10-12 Customer dashboard UX policy: online/live conversations are no longer displayed or navigable in the customer's authenticated dashboard; this is a frontend surface removal only, not data loss, API deletion or shared Meta change. Keep product-specific Automation and AI configuration/entitlements. Show authoritative billing and connection status only; pending/unknown API reads must not be represented as inactive subscriptions/disconnected Instagram or encourage duplicate payment. Prioritize unfinished/submitted payment, then missing subscription, missing Instagram, then business setup. Make mobile links accessible and dismiss account menu after navigation. Apply UAT-first until visual acceptance before Production.
+
+
+### Customer Inbox follow-up — 2026-10-12
+- 2026-10-12 Clarification of customer conversation removal: not sufficient to hide sidebar/route. UI acceptance requires removing actual InboxPanel presentation code from client bundle while preserving backend records and APIs; implemented UAT PR #24. Keep Production unchanged pending UAT Vercel deployment and manual acceptance.
