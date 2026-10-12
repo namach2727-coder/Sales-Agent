@@ -481,3 +481,5 @@ Remaining readiness priorities:
 - Completed: Backend #8 CI PASS, merged/deployed ONLY to Render UAT (LIVE); Frontend #15 merged to UAT, Vercel Success.
 - Await PR #16 Preview before merging to UAT. Then request owner to open UAT billing, select 3 months Automation, verify 1,470,000 toman and 90 days and card copy; no money transfer required for quote verification.
 - Separate supervised manual receipt/payment approval E2E remains pending. Confirm subscription end date and AI aggregate quota before any Production promotion. Keep Meta settings fixed.
+
+- Final UI gate: PR #16 merged into UAT at `8f083473`; Vercel Success. Manual 3-month order verification remains open.
