@@ -548,3 +548,11 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 
 ### Production promotion preflight (2026-10-12)
 - 2026-10-12 Production preflight: UAT customer/admin interface accepted by owner. Production NOT UPDATED by this release. Render `directpilot-api`: last LIVE `421d157f`, Auto Deploy OFF; backend-main 41 commits ahead. Frontend `UAT...main`: diverged; UAT 83 commits ahead, main 20 commits ahead in reverse; PR #19 draft mergeable=false. Neon connector exposes isolated UAT project only, not verified Production database. Production schema/catalog promotion requires separate safe DB access/backup review.
+
+
+## 2026-10-12 — Actual Production release status (latest; supersedes older statuses)
+- UAT owner acceptance PASS.
+- Backend PROD Render `dep-db6fr2bl550s73esrnh0`, SHA `043d37ff`: LIVE. APP_ENV production, DB connect, Alembic head, startup PASS. Schema migration file diff: NONE.
+- Frontend PROD `main` PR #20 merged at `06ebe316e5193f111ebd4b0733ee85c406d0a56e`; CI #38271830924 PASS (210 tests; type-check; lint; build); domain Vercel READY/alias NOT VERIFIED due project 403/404 and absence from linkedProjects. Direct UAT PR #19 superseded/closed.
+- Production data catalog `AI_ASSISTANT_V1` existence UNVERIFIED and no production data change performed; UAT paid AI is not a Production entitlement. Manual payment in Production had prior approved E2E PASS. No Meta/settings changes.
+- DB Free expiration 2026-11-02 and unverified backup/restore remain OPEN.

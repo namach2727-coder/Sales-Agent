@@ -971,3 +971,10 @@ NEXT:
 
 ### Production promotion preflight (2026-10-12)
 - 2026-10-12 Production release gates: 1) Resolve frontend draft PR #19 conflicts preserving production-only GA4/CSP/SEO config; 2) review current Production DB schema and backup/rollback, ensure only additive approved migrations + catalog entries; 3) run CI and staging compatibility; 4) deploy backend Production with monitoring and rollback, then frontend Production; 5) validate signup/login, Instagram shared relay, manual payments, multi-month calculations, receipts and active-plan upgrade UI. Until then status BLOCKED, nothing deployed.
+
+
+## 2026-10-12 — Production commerce rollout evidence (supersedes older UAT-only markers)
+- Backend Production `043d37ff` LIVE on Render deploy `dep-db6fr2bl550s73esrnh0`; startup/DB/migration PASS; no new Alembic files across rollout. Multi-month server order pricing and receipt-inline policy are available in Production backend.
+- Frontend selectively reconciled PR #20 merged to `main` SHA `06ebe316` preserving GA4/SEO/CSP; CI #38271830924 210 tests/type-check/lint/build PASS. Vercel PROD alias/READY UNVERIFIED due connector project access and missing GitHub Vercel status.
+- Production catalog seeding of paid `AI_ASSISTANT_V1` and read-only plan comparison still OPEN; do not bulk-transfer isolated UAT Neon data. Restore verification remains OPEN; owner has deferred paid DB upgrade.
+- Gate to close: Vercel inspect actual `directpilot.ir` deployment, browser customer/admin smoke, audit Production paid-plan catalog and safely add missing AI plan only after protected DB review.

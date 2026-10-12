@@ -495,3 +495,11 @@ Remaining readiness priorities:
 
 ### Production promotion preflight (2026-10-12)
 - 2026-10-12 Next release tasks: Resolve production-only 20 frontend commits vs 83 UAT commits under PR #19 and safeguard GA4/CSP. Verify Production DATABASE_URL target without disclosing it, obtain read-only schema/plan comparison and predeployment backup/rollback. Avoid data copy from UAT. Ensure AI_ASSISTANT_V1 and AUTOMATION_V1 production catalog states only after safe read-only inspection. After CI and DB preflight, deploy Backend Production then Frontend Production; run smoke tests and rollback if failed. Current status: production rollout not executed.
+
+
+## 2026-10-12 — Finalize Production promotion
+1. Verify new `directpilot.ir` Vercel deployment matches `main` SHA `06ebe316e5193f111ebd4b0733ee85c406d0a56e` (PR #20). Vercel connector cannot list current project; check Vercel team dashboard or CLI; do not claim READY from Git merge alone.
+2. Production smoke: customer login/session, select 3 months Automation price IRR 14,700,000 and 90 days, customer card display/copy, admin inline receipt JPG/PNG/PDF sizing, approve/reject, active-plan detail and «ارتقا پلن» CTA. Do not create new real payments just for analytics.
+3. Read-only verify Production plan catalog, confirm `AUTOMATION_V1` and whether `AI_ASSISTANT_V1` exists/active/purchasable; securely add only approved reference plan if missing, preserving existing accounts, payments and cards. No direct SQL access via hosted Render MCP due empty external allowlist; do not relax access rules.
+4. Establish verified backup/restore before any new Production DB mutation/plan seed or schema changes; current FREE Postgres expires 2026-11-02, cost upgrade deferred by owner.
+5. After evidence, update continuity docs again with exact Vercel ID/Production catalog acceptance. Preserve GA4, SEO, Meta shared relay and production data isolation.
