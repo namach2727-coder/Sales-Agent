@@ -673,3 +673,7 @@ Prioritize Production database durability + backup/restore acceptance before rea
 
 ### UAT receipt preview update
 - 2026-10-12 UAT receipt inline review: Backend PR #10 merged `c2eaf52d6d39d055782e1e56a79242948c07b349` (CI #383 PASS) and deployed ONLY to UAT Render `dep-db6bpsm7bikc73ca11i0` LIVE. Admin receipt route now uses inline disposition; same-origin framing restricted to authenticated receipt path. Frontend PR #17 merged to UAT `65c476ef563f8791054ddfe0578bc6667c8e3457`; Vercel release/build and manual receipt preview acceptance need verification. Production not deployed.
+
+
+### 2026-10-12 UAT compact payment UI
+- UAT interface PR #18 merged to UAT commit `1cae8c088542ff7ce6612c76705e3c670d223f74` on 2026-10-12. Changes: compact admin payment facts, receipt images rendered at intrinsic dimensions (PDF bounded viewer), current active subscription product names, and paid-customer CTA explicitly `ارتقا پلن`. Vercel merged-commit deploy/manual visual acceptance pending. No backend/Meta/Production deployment.
