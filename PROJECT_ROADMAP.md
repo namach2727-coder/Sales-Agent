@@ -985,3 +985,11 @@ NEXT:
 - OPEN: Vercel Production deployed SHA evidence unavailable because connector cannot access linked deployment. Owner or newly authorized Vercel connection must verify `directpilot.ir` latest READY deployment points to the production merge SHA before considering frontend fully released.
 - OPEN: Paid AI Assistant catalog activation in Production. UAT row independently verified in Neon. Backend PR #15 adds only missing row with idempotent Alembic 0024; tests and UAT/Production release pending. Never import UAT orders/customers/cards or tokens into Production.
 - GATES: Production Free Postgres no accepted backup/restore; no new customer onboarding; manual card payment and shared Meta unchanged. Controlled independent-product and three-month price/expiry tests after release, without unapproved transfers.
+
+
+## 2026-10-12 Production catalog release evidence
+- PASS: UAT `dep-db6gbobbc2fs73c1r860` LIVE; migration 0024 safe no-op on existing AI row and Neon readback unchanged.
+- PASS: Production Backend `dep-db6gco59fdbs7382opb0` LIVE and Alembic 0024 applied, current-head/startup PASS; active/default manual payment card count=1.
+- PASS: GitHub Actions `38275924090` read-only public Production plan catalog acceptance. Automation IRR 4,900,000/30d/20 rules and AI IRR 6,900,000/30d/1,000 AI requests/replies.
+- PENDING: Vercel Production frontend deployment matching merged `main` SHA `06ebe316`; authenticated admin/customer UI smoke and non-payment three-month 90d quote check. Do not infer Ready from GitHub merge alone.
+- Production Free Postgres durability and backup/restore gate still OPEN; no Meta, payment provider or infrastructure-plan changes.
