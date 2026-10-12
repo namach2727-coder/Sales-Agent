@@ -370,3 +370,8 @@ Human Takeover
 - Owner decision: UAT and Production must share existing Meta App configuration. Never change Meta callback URL, subscriptions or shared settings to conduct UAT tests.
 - Current UAT webhook relay forwards Meta-signed payloads to Production. Preserve it; no real messages or webhook POST probes as part of the offline isolation test.
 - Safe validation is a pure local test of existing ingestion service with ephemeral SQLite database, disabled outbound Meta sending, and no relay calls. Not a substitute for Meta E2E delivery evidence.
+
+## 2026-10-12 — Prepaid subscription period rules
+- Customer may prepay 1–12 months only for paid plans with an authoritative 30-day base duration. Price = plan price × selected months; duration = 30 × months days. No discounts, recurring charge or installment scheduling.
+- Backend is authoritative: frontend quote is informational; order and payment snapshots drive the actual charged amount and activated term. AI period request/reply/token allowances scale to total purchased period; Automation rule limit remains unchanged.
+- Keep existing manual card-to-card receipt upload and admin verification; no changes to shared Meta configuration or Production releases.
