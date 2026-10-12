@@ -579,3 +579,7 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 
 ### Customer Dashboard UAT UX (2026-10-12)
 - 2026-10-12 Customer dashboard redesign: Frontend `UAT` merge `00d29a8952c867be0c0b33c5619962b4c97478f3` from PR #23; CI run `38281718727` PASS (tests/type-check/lint/build). New compact task-first overview, contextual shortcuts, three meaningful status tiles, correct unknown/loading error handling and mobile navigation dismiss. Removed customer Inbox menu/quick CTA and direct `section=inbox` route. Backend conversation data, APIs and Meta untouched. UAT actual browser visual deployment acceptance unverified and Production frontend unchanged.
+
+
+### Customer Inbox follow-up — 2026-10-12
+- 2026-10-12 UAT online conversations screen removal: frontend PR #24 merged UAT SHA `16e2547d0b5d2815209bcba931cf76b52afbc7dc`, CI `38285210154` PASS. Prior PR #23 only removed menu/router links; stale InboxPanel JSX persisted and now fully removed in PR #24. Production remains unchanged. Vercel UAT deployment and browser acceptance pending due plugin 403.
