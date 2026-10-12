@@ -860,7 +860,7 @@ def admin_receipt(
                 or "application/octet-stream",
                 headers={
                     "Content-Disposition": (
-                        f'attachment; filename="receipt-{payment.public_id}{suffix}"'
+                        f'inline; filename="receipt-{payment.public_id}{suffix}"'
                     )
                 },
             )
@@ -876,6 +876,7 @@ def admin_receipt(
             receipt_path,
             media_type=payment.receipt_content_type,
             filename=f"receipt-{payment.public_id}{receipt_path.suffix}",
+            content_disposition_type="inline",
         )
 
     except CommerceError as exc:
