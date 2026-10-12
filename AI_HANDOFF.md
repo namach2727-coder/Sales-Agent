@@ -662,3 +662,8 @@ Prioritize Production database durability + backup/restore acceptance before rea
 - Backend PR #8 (`feat/uat-multi-month-orders-20261012`): 1–12 months supported on paid 30-day plans; server calculates price and order duration from the plan, snapshots totals, and uses existing manual transfer/receipt approval. AI response/request/token allowances scale with prepaid months. CI / merge / UAT deploy require verification.
 - Frontend PR #15 (`feat/uat-multi-month-checkout-20261012`): UAT-only selection for 1–12 months with preview, exact totals, 30 days/month, protection against reusing mismatched pending orders, and accessible RTL controls. Build status and UAT merge require verification.
 - Example: 3 x Automation 490,000 toman => 1,470,000 toman, 90 days; no automatic charge or installment. Shared Meta settings and Production deployments remain untouched.
+
+### Verified release progress — 2026-10-12 (supersedes pending statements above)
+- Backend PR #8 merged at `b1a63ea9b601b784474a5fbd1a37ebd20f6f9028`; CI run #355: Python tests, Docker, PostgreSQL PASS. ONLY UAT Render deployment `dep-db6becvlk1mc73cksvi0` is LIVE on the merge commit; Production Render not deployed.
+- Frontend PR #15 merged into UAT at `34b19e6e438ce8426ababea04839cf9a1984cd52`; Vercel reported Success. Browser purchase/receipt E2E is still unverified by owner.
+- PR #16 restores earlier customer dashboard next-step and manual-payment guidance alongside monthly selector; Preview/build pending. Keep shared Meta untouched.
