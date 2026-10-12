@@ -416,3 +416,7 @@ Human Takeover
 
 ### Mobile login overlay hotfix — 2026-10-12
 - 2026-10-12 Mobile navigation accessibility decision: close mobile overlay on every anchor activation, make hidden overlay inert, size for dynamic viewport and iOS safe-area; preserve GA4/SEO/CSP and all auth/Meta/payment API behavior. Release as UAT-first frontend-only hotfix; browser behavior and Vercel live deployment require separate independent verification.
+
+
+### Customer Dashboard UAT UX (2026-10-12)
+- 2026-10-12 Customer dashboard UX policy: online/live conversations are no longer displayed or navigable in the customer's authenticated dashboard; this is a frontend surface removal only, not data loss, API deletion or shared Meta change. Keep product-specific Automation and AI configuration/entitlements. Show authoritative billing and connection status only; pending/unknown API reads must not be represented as inactive subscriptions/disconnected Instagram or encourage duplicate payment. Prioritize unfinished/submitted payment, then missing subscription, missing Instagram, then business setup. Make mobile links accessible and dismiss account menu after navigation. Apply UAT-first until visual acceptance before Production.
