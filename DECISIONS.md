@@ -375,3 +375,6 @@ Human Takeover
 - Customer may prepay 1–12 months only for paid plans with an authoritative 30-day base duration. Price = plan price × selected months; duration = 30 × months days. No discounts, recurring charge or installment scheduling.
 - Backend is authoritative: frontend quote is informational; order and payment snapshots drive the actual charged amount and activated term. AI period request/reply/token allowances scale to total purchased period; Automation rule limit remains unchanged.
 - Keep existing manual card-to-card receipt upload and admin verification; no changes to shared Meta configuration or Production releases.
+
+### UAT deployment evidence — 2026-10-12
+- The prepaid pricing/duration policy above has shipped to UAT backend (`b1a63ea9`, Render LIVE) and UAT frontend (`34b19e6e`, Vercel Success); no Production deployment. Manual three-month E2E remains pending; do not conflate green CI with payment acceptance.
