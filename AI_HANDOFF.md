@@ -650,3 +650,9 @@ Prioritize Production database durability + backup/restore acceptance before rea
 - Production cleanup deployment `dep-db5p0nng0jfs73bign50`: LIVE; application startup complete; approval did not rerun.
 - Production Manual Payment E2E gate is CLOSED/PASS. Do not reopen Payexa/KPay for this gate unless the owner explicitly changes payment strategy.
 
+
+## 2026-10-12 — UAT Instagram isolated webhook test (pending CI)
+- Owner constraint: one shared Meta App/configuration for UAT and Production. Do not modify Meta Developers callback, subscriptions, secrets, or production routing.
+- Confirmed UAT `META_WEBHOOK_RELAY_TARGET_URL` points to Production (`https://directpilot-api.onrender.com/api/v1/integrations/instagram/webhook`); actual inbound deliveries must continue relay unchanged.
+- Isolated Neon UAT has one active Instagram connection; OAuth browser redirect backend PR #6 merged as `eb97e540` and deployed LIVE to UAT (`dep-db6ane7avr4c73apac1g`). UAT CORS allowed origin set to `https://uat.directpilot.ir`. Production was not deployed.
+- Offline regression added in `tests/test_instagram_webhook.py` on `test/isolated-uat-webhook-no-meta-changes-20261012`: invokes `InstagramWebhookIngestionService.ingest` against disposable local SQLite test DB, with relay disabled and outbound Meta sending disabled. This DOES NOT establish actual delivery from Meta to UAT nor write to UAT Neon. CI status pending.

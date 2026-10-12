@@ -463,3 +463,9 @@ Remaining readiness priorities:
 - Preserve payment-card configuration and receipt/audit history.
 - Next Production-readiness work should move to remaining non-payment items. Production DB durability remains owner-deferred; do not upgrade or spend without explicit approval.
 
+
+## 2026-10-12 — UAT webhook isolation next actions
+1. Run CI for the offline regression test (`tests/test_instagram_webhook.py`) and fix any failure before merge.
+2. Verify regression locally/CI only: disposable SQLite, no production calls, no Meta traffic, no UAT Neon writes.
+3. After merge, read-only review Render UAT event logs / Neon counts; live Meta delivery and automated replies remain NOT VERIFIED.
+4. Do not change Meta Developers settings, shared app OAuth/webhook configuration, or existing Production-bound webhook relay; seek explicit approval before any real delivery test.

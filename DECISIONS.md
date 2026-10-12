@@ -365,3 +365,8 @@ Human Takeover
 - Payexa/KPay remain deferred and are not required for MVP payment readiness.
 - Do not substitute or reopen an automated gateway unless the owner explicitly changes this product decision.
 
+
+## 2026-10-12 — Shared Meta remains immutable during UAT tests
+- Owner decision: UAT and Production must share existing Meta App configuration. Never change Meta callback URL, subscriptions or shared settings to conduct UAT tests.
+- Current UAT webhook relay forwards Meta-signed payloads to Production. Preserve it; no real messages or webhook POST probes as part of the offline isolation test.
+- Safe validation is a pure local test of existing ingestion service with ephemeral SQLite database, disabled outbound Meta sending, and no relay calls. Not a substitute for Meta E2E delivery evidence.
