@@ -385,3 +385,7 @@ Human Takeover
 
 ### UAT receipt preview update
 - 2026-10-12 Decision: admin should inspect uploaded manual payment receipts inside UAT review page without mandatory downloads. Preserve authenticated PAYMENT_READ guard, no-store/same-origin embedding policy restricted to receipt route, and separate explicit admin approval. Download/new tab only fallback, not default.
+
+
+### 2026-10-12 UAT compact payment UI
+- 2026-10-12 customer UI policy: following confirmed payment, display authoritative active subscription/active product plan(s); purchase CTA in active subscription section is labelled `ارتقا پلن`. Admin payment details are compact; natural-sized image receipts and a bounded PDF viewer reduce whitespace without changing payment approval workflow or authorization.

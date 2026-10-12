@@ -540,3 +540,7 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 
 ### UAT receipt preview update
 - 2026-10-12 UAT payment preview checkpoint: Backend PR #10 CI PASS and Render UAT deploy `dep-db6bpsm7bikc73ca11i0` LIVE on `c2eaf52d`. Frontend PR #17 merged to UAT commit `65c476ef`; browser preview and PDF behavior manual confirmation pending. No Production deploy.
+
+
+### 2026-10-12 UAT compact payment UI
+- 2026-10-12 frontend UAT PR #18 merged at `1cae8c088542ff7ce6612c76705e3c670d223f74`. Compact admin payment details, image/PDF receipt sizing, active plan names and upgrade-only CTA are present in UAT source. Merged deployment status and manual visual tests not yet verified at this checkpoint; Production unchanged.

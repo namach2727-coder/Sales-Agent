@@ -963,3 +963,7 @@ NEXT:
 
 ### UAT receipt preview update
 - 2026-10-12 UAT payment admin UX: Inline preview for secured JPG/PNG/PDF receipts in payment review panel; approve/reject remains an explicit admin action. Backend #10 merged and UAT LIVE, Frontend #17 merged into UAT; verify Vercel Success and real admin view. No Meta or Production changes.
+
+
+### 2026-10-12 UAT compact payment UI
+- 2026-10-12 UAT UI: compact payment review + receipt-sized in-page preview + active plan/upgrade-only CTA implemented in frontend PR #18; merged to UAT `1cae8c08`. Validate mobile/desktop receipt JPG/PNG/PDF, after-approval plan visibility and upgrade label before any Production promotion.
