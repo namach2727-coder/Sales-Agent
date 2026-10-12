@@ -523,3 +523,7 @@ Remaining readiness priorities:
 
 ### Mobile login overlay hotfix — 2026-10-12
 - 2026-10-12 Mobile login final acceptance: check Production Vercel deployment is READY with main SHA 69632c8a6e0bb1ba66933d3f8b8167823fb6bcf9; test https://directpilot.ir on iPhone Safari/mobile Chrome: menu -> ورود must close menu and display /login; test tapping logo, keyboard/Escape close and safe-area. If unable to confirm runtime, do NOT mark bug fully resolved. Previous backend and AI catalog PASS remain valid.
+
+
+### Customer Dashboard UAT UX (2026-10-12)
+- 2026-10-12 Customer dashboard visual acceptance: verify UAT Vercel READY deploy at merge SHA `00d29a89` (Vercel connector may lack permission). Test desktop and mobile overview, current active paid plan, empty trial or unpaid customer, one submitted/pending payment, Instagram connecting and unknown API cases. Confirm customer `گفت‌وگوها` menu and quick link absent; direct `/dashboard?section=inbox` returns overview, not conversation UI. Confirm responsive quick links and mobile section menu closes after click. No deletion of stored conversation records. Once owner approves, selectively promote Frontend PR #23 features to Production while retaining GA4/SEO/CSP; Backend/DB/Meta not part of this UX release.
