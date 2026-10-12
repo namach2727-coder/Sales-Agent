@@ -172,6 +172,7 @@ class ProductSubscriptionRead(BaseModel):
 
 class OrderCreate(BaseModel):
     plan_public_id: str = Field(min_length=36, max_length=36)
+    months: int = Field(default=1, ge=1, le=12)
 
 
 class OrderRead(BaseModel):
