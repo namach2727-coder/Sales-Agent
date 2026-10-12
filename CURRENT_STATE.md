@@ -563,3 +563,11 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 - Frontend `main`: PR #20 merged at `06ebe316e5193f111ebd4b0733ee85c406d0a56e`; 210 tests, TS, lint and build PASS on release candidate. Reconciled multi-month checkout, secure receipt rendering, compact admin facts and active-plan upgrades; retained GA4 and SEO. **Vercel live deployed SHA remains UNVERIFIED** due insufficient plugin project permission.
 - UAT independent Neon: active/purchasable `AI_ASSISTANT_V1` price IRR 6,900,000 with 30 days/1,000 AI requests+replies, active/purchasable `AUTOMATION_V1` price IRR 4,900,000 with 30 days. Production AI row read-only verification unavailable; additive schema/data PR #15 pending CI/deployment at this checkpoint. Existing Production operational DB not replaced.
 - Previous free database expiry 2026-11-02 and missing validated backup/restore remain unresolved per owner-deferral. No Prod Meta configuration change.
+
+
+## Latest verified Production state — 2026-10-12 16:12 UTC
+- Backend Production Render `directpilot-api`: LIVE deployment `dep-db6gco59fdbs7382opb0`, commit `90aea1e925219056a9347f344fa020e6b7b6a744`. Alembic upgraded from 0023 to 0024 and current head verified; startup and Postgres connectivity PASS. Manual payment readiness active=1/default=1.
+- Backend UAT Render `directpilot-uat-api`: LIVE deployment `dep-db6gbobbc2fs73c1r860` on same SHA, current head PASS. Isolated UAT Neon readback confirms original AI and Automation rows unchanged and no duplicates.
+- Paid Production public catalog: PASS in read-only GitHub Actions run `38275924090`; `AI_ASSISTANT_V1` IRR 6,900,000/30 days, request+reply 1,000; `AUTOMATION_V1` IRR 4,900,000/30 days, automation cap 20. Both are advertised as active/purchasable.
+- Frontend `main` code release PR #20 merged at `06ebe316e5193f111ebd4b0733ee85c406d0a56e` with 210 tests, TS/lint/build PASS. **Vercel live deployment is still UNVERIFIED** due lack of connector project permission. No new GA4/SEO/Meta configuration changes.
+- Production Free PostgreSQL expiry 2026-11-02; durability/backup restore remains owner-deferred and OPEN.
