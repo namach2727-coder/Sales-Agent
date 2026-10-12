@@ -978,3 +978,10 @@ NEXT:
 - Frontend selectively reconciled PR #20 merged to `main` SHA `06ebe316` preserving GA4/SEO/CSP; CI #38271830924 210 tests/type-check/lint/build PASS. Vercel PROD alias/READY UNVERIFIED due connector project access and missing GitHub Vercel status.
 - Production catalog seeding of paid `AI_ASSISTANT_V1` and read-only plan comparison still OPEN; do not bulk-transfer isolated UAT Neon data. Restore verification remains OPEN; owner has deferred paid DB upgrade.
 - Gate to close: Vercel inspect actual `directpilot.ir` deployment, browser customer/admin smoke, audit Production paid-plan catalog and safely add missing AI plan only after protected DB review.
+
+
+## Production promotion — 2026-10-12 release checkpoint
+- DONE: Backend production `043d37ff`, Render `dep-db6fr2bl550s73esrnh0` LIVE; DB/migration/startup PASS. Frontend production `main` PR #20 merged (`06ebe316`), 210 UI tests + type-check + lint + build PASS; GA4/SEO and receipt/admin/customer UX selectively reconciled.
+- OPEN: Vercel Production deployed SHA evidence unavailable because connector cannot access linked deployment. Owner or newly authorized Vercel connection must verify `directpilot.ir` latest READY deployment points to the production merge SHA before considering frontend fully released.
+- OPEN: Paid AI Assistant catalog activation in Production. UAT row independently verified in Neon. Backend PR #15 adds only missing row with idempotent Alembic 0024; tests and UAT/Production release pending. Never import UAT orders/customers/cards or tokens into Production.
+- GATES: Production Free Postgres no accepted backup/restore; no new customer onboarding; manual card payment and shared Meta unchanged. Controlled independent-product and three-month price/expiry tests after release, without unapproved transfers.
