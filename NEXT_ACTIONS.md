@@ -519,3 +519,7 @@ Remaining readiness priorities:
 3. Authenticated Production customer + admin smoke: compact payment facts, image/PDF receipt fit and no forced download, active plan names, `ارتقا پلن`, paid AI visible in billing, 1–12 month prepaid selection and 3-month Automation quote IRR 14,700,000/90 days. Avoid test payment transfers and duplicate creation unless specifically authorized.
 4. Preserve Production marketing GA4 consent/SEO and shared Meta routing without changes. Production manual payment active default card exists. No customer/receipt/card/token transfer from Neon.
 5. Free PostgreSQL plan expires 2026-11-02 and has no accepted off-host backup restore; paid infrastructure upgrade remains owner-deferred and no real customer durability acceptance claimed.
+
+
+### Mobile login overlay hotfix — 2026-10-12
+- 2026-10-12 Mobile login final acceptance: check Production Vercel deployment is READY with main SHA 69632c8a6e0bb1ba66933d3f8b8167823fb6bcf9; test https://directpilot.ir on iPhone Safari/mobile Chrome: menu -> ورود must close menu and display /login; test tapping logo, keyboard/Escape close and safe-area. If unable to confirm runtime, do NOT mark bug fully resolved. Previous backend and AI catalog PASS remain valid.
