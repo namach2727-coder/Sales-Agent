@@ -575,3 +575,7 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 
 ### Mobile login overlay hotfix — 2026-10-12
 - 2026-10-12 Mobile login hotfix: UAT frontend PR #21 merged at 041b3ccdb4b188a46178153d62b44b239d557837, UAT Customer Journey Quality PASS. Production frontend PR #22 merged to main at 69632c8a6e0bb1ba66933d3f8b8167823fb6bcf9, Production promotion validation PASS. Root cause identified in source: open mobile panel not closed when clicking login; revised to dismiss, inert when hidden, 100dvh and safe-area. Live Vercel deployment and interactive mobile acceptance UNVERIFIED due connector project access. No Production backend/DB/Meta change.
+
+
+### Customer Dashboard UAT UX (2026-10-12)
+- 2026-10-12 Customer dashboard redesign: Frontend `UAT` merge `00d29a8952c867be0c0b33c5619962b4c97478f3` from PR #23; CI run `38281718727` PASS (tests/type-check/lint/build). New compact task-first overview, contextual shortcuts, three meaningful status tiles, correct unknown/loading error handling and mobile navigation dismiss. Removed customer Inbox menu/quick CTA and direct `section=inbox` route. Backend conversation data, APIs and Meta untouched. UAT actual browser visual deployment acceptance unverified and Production frontend unchanged.
