@@ -340,6 +340,12 @@ class CommerceService:
         if months > 1:
             order.price_amount = plan.price_amount * months
             order.duration_days_snapshot = plan.duration_days * months
+            if plan.product_family == "AI_ASSISTANT":
+                order.ai_reply_limit_snapshot = plan.reply_limit * months
+                if plan.ai_request_limit is not None:
+                    order.ai_request_limit_snapshot = plan.ai_request_limit * months
+                if plan.ai_token_limit is not None:
+                    order.ai_token_limit_snapshot = plan.ai_token_limit * months
         if plan.price_amount == 0:
             order.status = "paid"
             self._activate_free_subscription(order, plan)
