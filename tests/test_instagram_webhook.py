@@ -563,3 +563,38 @@ def test_public_webhook_relay_failure_is_fail_closed(
 
     assert response.status_code == 502
     assert response.json()["detail"]["code"] == "webhook_relay_failed"
+
+
+def test_offline_uat_ingestion_does_not_use_meta_or_relay(webhook_engine, monkeypatch) -> None:
+    """Use isolated test DB; never invoke webhook HTTP route or external Meta."""
+    connection = create_connection(webhook_engine)
+    payload = messaging_payload(connection.instagram_account_id, f"offline-{uuid.uuid4().hex}")
+    body = body_for(payload)
+
+    async def unexpected_relay(*_args, **_kwargs):
+        raise AssertionError("External webhook relay is forbidden in offline UAT drill")
+
+    monkeypatch.setattr(
+        "app.instagram_channel.router.relay_instagram_webhook", unexpected_relay
+    )
+    settings = Settings(meta_webhook_relay_target_url="", meta_send_enabled=False)
+    assert not settings.meta_webhook_relay_target_url
+    assert settings.meta_send_enabled is False
+
+    with Session(webhook_engine) as db:
+        before = db.scalar(select(func.count()).select_from(InstagramWebhookDelivery))
+        result = InstagramWebhookIngestionService(db).ingest(
+            raw_body=body,
+            payload=payload,
+            external_delivery_key=None,
+            correlation_id="offline-uat-isolation",
+        )
+    with Session(webhook_engine) as db:
+        after = db.scalar(select(func.count()).select_from(InstagramWebhookDelivery))
+        assert after == before + 1
+        assert db.scalar(
+            select(func.count()).select_from(InstagramInboundEvent).where(
+                InstagramInboundEvent.connection_id == connection.id
+            )
+        ) >= 1
+    assert result == ("accepted", False, 1)
