@@ -393,3 +393,9 @@ Human Takeover
 
 ### Production promotion preflight (2026-10-12)
 - 2026-10-12 Production promotion policy: owner authorized transition from approved isolated UAT. Do not bulk copy UAT PostgreSQL into Production; migrate schema and approved reference catalog only, do not transfer test identities, payment receipts, cards, sessions or Instagram tokens. Preserve Production frontend GA4/SEO/security changes, existing shared Meta app/webhook routing and existing operational payment data. Do not release while frontend draft PR #19 has conflicts or Production DB backup/compatibility unverified.
+
+
+## 2026-10-12 — Controlled promotion decision (latest)
+- User authorized UAT-accepted changes for Production, including multi-month prepaid periods and UX. Backend deployment is approved and LIVE; frontend PR #20 merged after independent CI, but deployed Vercel status is not yet verified.
+- Preserve consent-gated Production GA4 and SEO; Trial homepage still truthfully says 14 days, UAT-only 3-day admin commercial policy must not modify Production. Keep shared Meta app, relay, outbound guard and credentials untouched.
+- Product price, active/purchasable AI status must be server-authoritative. Paid `AI_ASSISTANT_V1` is a desired Production rollout item but remains pending until Production catalog access and safe backup/reconciliation are available; never copy UAT tenant, payment card, receipt, token, or authentication data.
