@@ -894,3 +894,16 @@ def test_uat_callback_relays_production_state_without_consuming_local_db_state(
     assert query["code"] == ["provider-code"]
     assert query["state"] == ["production.relay-state"]
     assert fake.codes == []
+
+
+def test_oauth_browser_navigation_detected_without_html_accept() -> None:
+    from starlette.requests import Request
+    from app.instagram_onboarding.router import _browser_request
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    scope = {"type": "http", "method": "GET", "path": "/callback", "headers": [(b"accept", b"*/*"), (b"sec-fetch-mode", b"navigate"), (b"sec-fetch-dest", b"document")]}
+    assert _browser_request(Request(scope, receive)) is True
+    scope["headers"] = [(b"accept", b"application/json")]
+    assert _browser_request(Request(scope, receive)) is False
