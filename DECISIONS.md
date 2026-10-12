@@ -381,3 +381,7 @@ Human Takeover
 
 ### Final UAT release verification — 2026-10-12
 - Multi-month checkout and reconciled dashboard/payment UX are merged into UAT at `8f083473`, Vercel Success. Manual full payment validation pending; shared Meta and Production unchanged.
+
+
+### UAT receipt preview update
+- 2026-10-12 Decision: admin should inspect uploaded manual payment receipts inside UAT review page without mandatory downloads. Preserve authenticated PAYMENT_READ guard, no-store/same-origin embedding policy restricted to receipt route, and separate explicit admin approval. Download/new tab only fallback, not default.
