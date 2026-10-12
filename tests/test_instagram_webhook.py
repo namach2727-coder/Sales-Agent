@@ -594,7 +594,7 @@ def test_offline_uat_ingestion_does_not_use_meta_or_relay(webhook_engine, monkey
         assert after == before + 1
         assert db.scalar(
             select(func.count()).select_from(InstagramInboundEvent).where(
-                InstagramInboundEvent.connection_id == connection.id
+                InstagramInboundEvent.instagram_connection_id == connection.id
             )
         ) >= 1
     assert result == ("accepted", False, 1)
