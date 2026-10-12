@@ -571,3 +571,7 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 - Paid Production public catalog: PASS in read-only GitHub Actions run `38275924090`; `AI_ASSISTANT_V1` IRR 6,900,000/30 days, request+reply 1,000; `AUTOMATION_V1` IRR 4,900,000/30 days, automation cap 20. Both are advertised as active/purchasable.
 - Frontend `main` code release PR #20 merged at `06ebe316e5193f111ebd4b0733ee85c406d0a56e` with 210 tests, TS/lint/build PASS. **Vercel live deployment is still UNVERIFIED** due lack of connector project permission. No new GA4/SEO/Meta configuration changes.
 - Production Free PostgreSQL expiry 2026-11-02; durability/backup restore remains owner-deferred and OPEN.
+
+
+### Mobile login overlay hotfix — 2026-10-12
+- 2026-10-12 Mobile login hotfix: UAT frontend PR #21 merged at 041b3ccdb4b188a46178153d62b44b239d557837, UAT Customer Journey Quality PASS. Production frontend PR #22 merged to main at 69632c8a6e0bb1ba66933d3f8b8167823fb6bcf9, Production promotion validation PASS. Root cause identified in source: open mobile panel not closed when clicking login; revised to dismiss, inert when hidden, 100dvh and safe-area. Live Vercel deployment and interactive mobile acceptance UNVERIFIED due connector project access. No Production backend/DB/Meta change.
