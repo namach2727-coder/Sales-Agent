@@ -16,6 +16,10 @@ down_revision = "0023_user_phone_number"
 branch_labels = None
 depends_on = None
 
+# Reviewed exception: deleting or disabling a paid plan on migration rollback
+# risks breaking historical paid subscriptions and admin-managed catalog rows.
+EMPTY_DOWNGRADE_ALLOWED = True
+
 
 def _plan_table():
     return sa.table(
