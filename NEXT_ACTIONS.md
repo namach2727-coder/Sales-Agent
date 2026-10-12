@@ -487,3 +487,7 @@ Remaining readiness priorities:
 
 ### UAT receipt preview update
 - 2026-10-12 Receipt preview acceptance: confirm Vercel Preview Success on UAT commit `65c476ef`, open UAT admin Payments, select submitted receipt, verify JPG/PNG and PDF appear inline without automatic download, ensure approve/reject still work; cross-check 401/403 access and iframe same-origin restriction. Production untouched.
+
+
+### 2026-10-12 UAT compact payment UI
+- 2026-10-12 UAT acceptance: verify frontend merge `1cae8c08` Vercel Success and `uat.directpilot.ir` alias. In Admin Payments confirm compact facts, JPG/PNG natural image dimensions and bounded PDF viewer, approve/reject unchanged. In customer Billing confirm paid plan is visible and only `ارتقا پلن` button wording appears in active-plan upgrade offers. No Production promotion.
