@@ -209,7 +209,7 @@ def _order_read(db: Session, item: SubscriptionOrder) -> OrderRead:
 @router.post("/orders", response_model=OrderRead, status_code=201)
 def create_order(payload: OrderCreate, principal: AuthenticatedPrincipal = Depends(require_authenticated_principal), db: Session = Depends(get_db)) -> OrderRead:
     try:
-        return _order_read(db, CommerceService(db).create_order(principal, payload.plan_public_id))
+        return _order_read(db, CommerceService(db).create_order(principal, payload.plan_public_id, months=payload.months))
     except CommerceError as exc:
         _error(exc)
 
