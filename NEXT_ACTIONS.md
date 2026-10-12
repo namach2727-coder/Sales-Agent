@@ -511,3 +511,11 @@ Remaining readiness priorities:
 3. Confirm Production public/admin plan catalog lists Automation + paid AI separately with correct 30-day prices/limits; verify three-month Automation quote IRR 14,700,000 and 90-day snapshot and AI paid option without creating duplicate/real payment needlessly.
 4. Smoke-test Prod login/session, admin payment receipt inline preview, active subscription labels/upgrade CTA and GA4 consent-first events. Do not change shared Meta OAuth/webhook/relay or trigger real Instagram messages.
 5. Production Free Postgres has no accepted off-host backup/restore and expires 2026-11-02; preserve owner-deferred paid-upgrade decision and keep real-customer durability gate OPEN. Update these five files after actual rollout with exact commit/deploy IDs and outcomes.
+
+
+## Remaining Production promotion gates — 2026-10-12
+1. COMPLETED: paid AI plan migrated 0024 in UAT and Production; exact Render deployment IDs and independent Production public catalog PASS are in CURRENT_STATE.md. Do not re-run database migration or seed changes needlessly.
+2. Verify Vercel Production deploy/alias `directpilot.ir` READY and deployed commit `06ebe316e5193f111ebd4b0733ee85c406d0a56e`. Current Vercel plugin lacks project authorization; owner may need to grant access to `directpilot-web` under their Vercel team. GitHub merge/CI is not proof of live deployment.
+3. Authenticated Production customer + admin smoke: compact payment facts, image/PDF receipt fit and no forced download, active plan names, `ارتقا پلن`, paid AI visible in billing, 1–12 month prepaid selection and 3-month Automation quote IRR 14,700,000/90 days. Avoid test payment transfers and duplicate creation unless specifically authorized.
+4. Preserve Production marketing GA4 consent/SEO and shared Meta routing without changes. Production manual payment active default card exists. No customer/receipt/card/token transfer from Neon.
+5. Free PostgreSQL plan expires 2026-11-02 and has no accepted off-host backup restore; paid infrastructure upgrade remains owner-deferred and no real customer durability acceptance claimed.
