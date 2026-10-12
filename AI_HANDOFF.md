@@ -677,3 +677,7 @@ Prioritize Production database durability + backup/restore acceptance before rea
 
 ### 2026-10-12 UAT compact payment UI
 - UAT interface PR #18 merged to UAT commit `1cae8c088542ff7ce6612c76705e3c670d223f74` on 2026-10-12. Changes: compact admin payment facts, receipt images rendered at intrinsic dimensions (PDF bounded viewer), current active subscription product names, and paid-customer CTA explicitly `ارتقا پلن`. Vercel merged-commit deploy/manual visual acceptance pending. No backend/Meta/Production deployment.
+
+
+### Production promotion preflight (2026-10-12)
+- 2026-10-12 Production promotion request: owner accepted all UAT tests and requests UI, database schema/catalog, and backend production rollout. NOT deployed. Production backend Render `directpilot-api` autoDeploy=no and latest verified live commit `421d157f`; UAT/backend-main is 41 commits ahead. Frontend `UAT` and `main` diverged (83 ahead, 20 behind), production promotion draft PR #19 has merge conflicts. Production `main` includes GA4 and security CSP customizations: preserve these. UAT Neon is separate and MUST NOT be copied wholesale to Production; existing customer data, receipts, payments, sessions, Instagram connections, and payment-card data stay in their respective environments. Production DB backup and compatibility must be verified before migrations; read-only production DB visibility has not been established.

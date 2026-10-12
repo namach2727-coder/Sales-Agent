@@ -544,3 +544,7 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 
 ### 2026-10-12 UAT compact payment UI
 - 2026-10-12 frontend UAT PR #18 merged at `1cae8c088542ff7ce6612c76705e3c670d223f74`. Compact admin payment details, image/PDF receipt sizing, active plan names and upgrade-only CTA are present in UAT source. Merged deployment status and manual visual tests not yet verified at this checkpoint; Production unchanged.
+
+
+### Production promotion preflight (2026-10-12)
+- 2026-10-12 Production preflight: UAT customer/admin interface accepted by owner. Production NOT UPDATED by this release. Render `directpilot-api`: last LIVE `421d157f`, Auto Deploy OFF; backend-main 41 commits ahead. Frontend `UAT...main`: diverged; UAT 83 commits ahead, main 20 commits ahead in reverse; PR #19 draft mergeable=false. Neon connector exposes isolated UAT project only, not verified Production database. Production schema/catalog promotion requires separate safe DB access/backup review.

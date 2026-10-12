@@ -389,3 +389,7 @@ Human Takeover
 
 ### 2026-10-12 UAT compact payment UI
 - 2026-10-12 customer UI policy: following confirmed payment, display authoritative active subscription/active product plan(s); purchase CTA in active subscription section is labelled `ارتقا پلن`. Admin payment details are compact; natural-sized image receipts and a bounded PDF viewer reduce whitespace without changing payment approval workflow or authorization.
+
+
+### Production promotion preflight (2026-10-12)
+- 2026-10-12 Production promotion policy: owner authorized transition from approved isolated UAT. Do not bulk copy UAT PostgreSQL into Production; migrate schema and approved reference catalog only, do not transfer test identities, payment receipts, cards, sessions or Instagram tokens. Preserve Production frontend GA4/SEO/security changes, existing shared Meta app/webhook routing and existing operational payment data. Do not release while frontend draft PR #19 has conflicts or Production DB backup/compatibility unverified.

@@ -967,3 +967,7 @@ NEXT:
 
 ### 2026-10-12 UAT compact payment UI
 - 2026-10-12 UAT UI: compact payment review + receipt-sized in-page preview + active plan/upgrade-only CTA implemented in frontend PR #18; merged to UAT `1cae8c08`. Validate mobile/desktop receipt JPG/PNG/PDF, after-approval plan visibility and upgrade label before any Production promotion.
+
+
+### Production promotion preflight (2026-10-12)
+- 2026-10-12 Production release gates: 1) Resolve frontend draft PR #19 conflicts preserving production-only GA4/CSP/SEO config; 2) review current Production DB schema and backup/rollback, ensure only additive approved migrations + catalog entries; 3) run CI and staging compatibility; 4) deploy backend Production with monitoring and rollback, then frontend Production; 5) validate signup/login, Instagram shared relay, manual payments, multi-month calculations, receipts and active-plan upgrade UI. Until then status BLOCKED, nothing deployed.
