@@ -39,7 +39,7 @@ def test_accept_direct_neon_connection_using_psycopg3() -> None:
     ],
 )
 def test_reject_every_unapproved_target(unsafe: str) -> None:
-    with pytest.raises((ValueError, Exception)):
+    with pytest.raises(ValueError):
         validated_url(unsafe)
 
 
