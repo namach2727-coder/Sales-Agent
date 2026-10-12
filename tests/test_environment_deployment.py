@@ -125,7 +125,7 @@ def test_readiness_requires_database_at_single_head(tmp_path: Path) -> None:
     try:
         result = readiness(engine)
         assert result.ready is True
-        assert result.current_revision == "0023_user_phone_number"
+        assert result.current_revision == "0024_ai_assistant_v1_catalog"
     finally:
         engine.dispose()
 
