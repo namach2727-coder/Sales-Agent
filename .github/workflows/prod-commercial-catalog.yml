@@ -1,0 +1,59 @@
+name: Read-only Production commercial catalog acceptance
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/prod-commercial-catalog.yml
+  push:
+    branches: [backend-main]
+    paths:
+      - .github/workflows/prod-commercial-catalog.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-public-plans:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Fetch only public plans from Production
+        run: |
+          curl --fail-with-body -sS --max-time 90 --retry 3 --retry-delay 5 \
+            "https://directpilot-api.onrender.com/api/v1/plans" \
+            --output /tmp/directpilot-prod-public-plans.json
+      - name: Validate approved Production catalog
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          raw = Path("/tmp/directpilot-prod-public-plans.json").read_text()
+          plans = json.loads(raw)
+          assert isinstance(plans, list), "Production /plans is not a JSON array"
+          by_code = {plan["code"]: plan for plan in plans}
+          expected = {
+              "AUTOMATION_V1": {
+                  "product_family": "AUTOMATION",
+                  "price_amount": 4_900_000,
+                  "currency": "IRR",
+                  "duration_days": 30,
+                  "automation_limit": 20,
+              },
+              "AI_ASSISTANT_V1": {
+                  "product_family": "AI_ASSISTANT",
+                  "price_amount": 6_900_000,
+                  "currency": "IRR",
+                  "duration_days": 30,
+                  "reply_limit": 1_000,
+                  "ai_request_limit": 1_000,
+              },
+          }
+          for code, values in expected.items():
+              assert code in by_code, f"Missing purchasable Production plan {code}"
+              for field, value in values.items():
+                  assert by_code[code][field] == value, f"{code}.{field}: unexpected value"
+          assert len({p["code"] for p in plans}) == len(plans), "Duplicate plan codes"
+          print("Production public commercial catalog PASS: Automation + AI Assistant present, prices/durations/limits verified.")
+          PY
