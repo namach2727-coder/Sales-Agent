@@ -959,3 +959,7 @@ NEXT:
 - Dashboard/billing clarity reconciliation PR #16 pending Preview; no Production deploy. Next: manual UAT test and expiry check.
 
 - Final UAT interface release: PR #16 merged at `8f083473` with Vercel Success; both month selection and dashboard/payment guidance retained. Browser three-month purchase/receipt E2E remains unverified; Production not deployed.
+
+
+### UAT receipt preview update
+- 2026-10-12 UAT payment admin UX: Inline preview for secured JPG/PNG/PDF receipts in payment review panel; approve/reject remains an explicit admin action. Backend #10 merged and UAT LIVE, Frontend #17 merged into UAT; verify Vercel Success and real admin view. No Meta or Production changes.
