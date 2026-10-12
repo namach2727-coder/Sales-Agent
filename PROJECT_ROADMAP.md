@@ -947,3 +947,8 @@ NEXT:
 - Gate A: offline signed/event ingestion regression with disposable database; no calls to Meta or Production (code prepared, CI pending).
 - Gate B: read-only inspect Render UAT webhook logs and isolated Neon counts; do not assume zero rows means failure while UAT relays to Production.
 - Gate C: any live UAT webhook ingestion test requires a separately approved safe routing architecture; no changes to shared Meta app or operational relay until that plan is validated.
+
+## 2026-10-12 — Multi-month manual subscription purchase
+- Delivery: backend order pricing/duration snapshots for 1–12 prepaid months (PR #8) and frontend UAT month selector, total preview and manual receipt path (PR #15).
+- Deployment order: Backend CI PASS → merge/backend UAT-only deploy → verify API → frontend PR #15 merge into UAT → visual payment/receipt tests. Do not deploy Production; both Render services track backend-main with auto deploy disabled.
+- Remaining UAT acceptance: 3-month Automation order must yield IRR 14,700,000 and 90 days; receipt approval must create correct subscription. Existing payment card default exists in isolated Neon.
