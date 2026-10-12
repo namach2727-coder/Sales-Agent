@@ -536,3 +536,7 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 
 ### UAT interface release closure — 2026-10-12
 - PR #16 merged to UAT at commit `8f083473` with Vercel Success. Backend UAT `dep-db6becvlk1mc73cksvi0` LIVE. Manual 3-month payment E2E still pending; Production unchanged.
+
+
+### UAT receipt preview update
+- 2026-10-12 UAT payment preview checkpoint: Backend PR #10 CI PASS and Render UAT deploy `dep-db6bpsm7bikc73ca11i0` LIVE on `c2eaf52d`. Frontend PR #17 merged to UAT commit `65c476ef`; browser preview and PDF behavior manual confirmation pending. No Production deploy.
