@@ -942,3 +942,8 @@ NEXT:
 2. Keep Payexa/KPay deferred unless explicitly reopened by the owner.
 3. Continue with the next unresolved Production-readiness item; DB durability remains owner-deferred and should not incur paid changes without explicit approval.
 
+
+## 2026-10-12 — Shared-Meta UAT webhook validation plan
+- Gate A: offline signed/event ingestion regression with disposable database; no calls to Meta or Production (code prepared, CI pending).
+- Gate B: read-only inspect Render UAT webhook logs and isolated Neon counts; do not assume zero rows means failure while UAT relays to Production.
+- Gate C: any live UAT webhook ingestion test requires a separately approved safe routing architecture; no changes to shared Meta app or operational relay until that plan is validated.
