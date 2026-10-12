@@ -406,3 +406,9 @@ Human Takeover
 - The explicitly approved UAT paid AI product terms are IRR 6,900,000 / 30 days, 1,000 requests, 1,000 replies, one Instagram account, `ai_assistant` + `knowledge_base`. Automation remains IRR 4,900,000 / 30 days, 20 automation rules and one Instagram account. Prepaid price and duration scale by 1–12 periods on server; no recurring charge or discounts.
 - Production AI catalog rollout is additive/idempotent: insert only if missing, never overwrite existing administrator-defined plan, customer/receipt data, subscriptions or historical snapshots. Production trial period stays 14 days (do not copy UAT-only trial-duration experiments).
 - No paid Render database upgrade, network exposure, bulk Neon import or Meta send-settings changes. Production database durability and verified off-host backup are separately OPEN.
+
+
+## Approved paid AI plan now published — 2026-10-12
+- UAT-approved commercial policy is released by additive migration 0024, not by copying the Neon UAT database. `AI_ASSISTANT_V1` is publicly purchasable at IRR 6,900,000/30d with 1,000 reply and AI-request limits and one Instagram account. `AUTOMATION_V1` continues IRR 4,900,000/30d with 20 automation rules.
+- UAT and Production both use backend commit `90aea1e9`, and independent Production public API acceptance PASS (GitHub Actions `38275924090`). Existing Production customers/cards/receipts, UAT-only trial changes and Meta settings untouched.
+- Frontend status remains source merged and CI green, not Vercel-runtime verified; paid database upgrade remains deferred, with backup/restore gate OPEN.
