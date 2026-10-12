@@ -993,3 +993,7 @@ NEXT:
 - PASS: GitHub Actions `38275924090` read-only public Production plan catalog acceptance. Automation IRR 4,900,000/30d/20 rules and AI IRR 6,900,000/30d/1,000 AI requests/replies.
 - PENDING: Vercel Production frontend deployment matching merged `main` SHA `06ebe316`; authenticated admin/customer UI smoke and non-payment three-month 90d quote check. Do not infer Ready from GitHub merge alone.
 - Production Free Postgres durability and backup/restore gate still OPEN; no Meta, payment provider or infrastructure-plan changes.
+
+
+### Mobile login overlay hotfix — 2026-10-12
+- 2026-10-12 Mobile Login: UAT PR #21 and Production selective PR #22 both merged; respective GitHub quality checks PASS. Fix persistent mobile navigation overlay, safe-area and keyboard focus; no backend modifications. Gate still OPEN: verify Vercel Production READY deployment SHA 69632c8a and manually test login navigation on mobile Safari/Chrome.
