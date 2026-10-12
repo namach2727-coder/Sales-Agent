@@ -516,3 +516,9 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 - Cleanup deployment `dep-db5p0nng0jfs73bign50`: LIVE with the approval flag disabled.
 - Manual Payment Production E2E is no longer an open blocker.
 
+
+## 2026-10-12 — Instagram UAT checkpoint
+- Owner-created test customer passed manual admin-denial test; one connected Instagram account visible in UAT and one active connection in isolated Neon.
+- Backend OAuth callback redirect PR #6 merged as `eb97e540` and UAT Render deploy `dep-db6ane7avr4c73apac1g` confirmed LIVE. `CORS_ALLOWED_ORIGINS` added to UAT as `https://uat.directpilot.ir`.
+- UAT `META_WEBHOOK_RELAY_TARGET_URL` targets Production; UAT Neon showed zero webhook deliveries at last check. This is consistent with relay behavior, not an independently verified Meta delivery.
+- Offline ingestion regression in `tests/test_instagram_webhook.py` is prepared on a testing branch; CI and merge not yet verified. No real webhook sent; Production and Meta config unchanged.
