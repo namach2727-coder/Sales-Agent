@@ -667,3 +667,5 @@ Prioritize Production database durability + backup/restore acceptance before rea
 - Backend PR #8 merged at `b1a63ea9b601b784474a5fbd1a37ebd20f6f9028`; CI run #355: Python tests, Docker, PostgreSQL PASS. ONLY UAT Render deployment `dep-db6becvlk1mc73cksvi0` is LIVE on the merge commit; Production Render not deployed.
 - Frontend PR #15 merged into UAT at `34b19e6e438ce8426ababea04839cf9a1984cd52`; Vercel reported Success. Browser purchase/receipt E2E is still unverified by owner.
 - PR #16 restores earlier customer dashboard next-step and manual-payment guidance alongside monthly selector; Preview/build pending. Keep shared Meta untouched.
+
+- Final UAT interface release: PR #16 merged at `8f083473` with Vercel Success; both month selection and dashboard/payment guidance retained. Browser three-month purchase/receipt E2E remains unverified; Production not deployed.
