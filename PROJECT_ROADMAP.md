@@ -952,3 +952,8 @@ NEXT:
 - Delivery: backend order pricing/duration snapshots for 1–12 prepaid months (PR #8) and frontend UAT month selector, total preview and manual receipt path (PR #15).
 - Deployment order: Backend CI PASS → merge/backend UAT-only deploy → verify API → frontend PR #15 merge into UAT → visual payment/receipt tests. Do not deploy Production; both Render services track backend-main with auto deploy disabled.
 - Remaining UAT acceptance: 3-month Automation order must yield IRR 14,700,000 and 90 days; receipt approval must create correct subscription. Existing payment card default exists in isolated Neon.
+
+### Release evidence — 2026-10-12
+- Backend automated CI #355 PASS; merged #8 `b1a63ea9`; Render UAT deploy `dep-db6becvlk1mc73cksvi0` LIVE.
+- Frontend multi-month PR #15 merged UAT `34b19e6e`; Vercel Success; account/browser acceptance for 3× Automation and manual receipt still required.
+- Dashboard/billing clarity reconciliation PR #16 pending Preview; no Production deploy. Next: manual UAT test and expiry check.
