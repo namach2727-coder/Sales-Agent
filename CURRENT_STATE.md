@@ -556,3 +556,10 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 - Frontend PROD `main` PR #20 merged at `06ebe316e5193f111ebd4b0733ee85c406d0a56e`; CI #38271830924 PASS (210 tests; type-check; lint; build); domain Vercel READY/alias NOT VERIFIED due project 403/404 and absence from linkedProjects. Direct UAT PR #19 superseded/closed.
 - Production data catalog `AI_ASSISTANT_V1` existence UNVERIFIED and no production data change performed; UAT paid AI is not a Production entitlement. Manual payment in Production had prior approved E2E PASS. No Meta/settings changes.
 - DB Free expiration 2026-11-02 and unverified backup/restore remain OPEN.
+
+
+## Most recent Production code and catalog checkpoint — 2026-10-12
+- Backend `directpilot-api` Render deployment `dep-db6fr2bl550s73esrnh0`: LIVE, SHA `043d37ff6d514a46eef33770cf86f4892f7f00e8`. Production APP_ENV, PostgreSQL connectivity, current Alembic head and application startup PASS. Startup logs: payment_cards active=1, active_default=1.
+- Frontend `main`: PR #20 merged at `06ebe316e5193f111ebd4b0733ee85c406d0a56e`; 210 tests, TS, lint and build PASS on release candidate. Reconciled multi-month checkout, secure receipt rendering, compact admin facts and active-plan upgrades; retained GA4 and SEO. **Vercel live deployed SHA remains UNVERIFIED** due insufficient plugin project permission.
+- UAT independent Neon: active/purchasable `AI_ASSISTANT_V1` price IRR 6,900,000 with 30 days/1,000 AI requests+replies, active/purchasable `AUTOMATION_V1` price IRR 4,900,000 with 30 days. Production AI row read-only verification unavailable; additive schema/data PR #15 pending CI/deployment at this checkpoint. Existing Production operational DB not replaced.
+- Previous free database expiry 2026-11-02 and missing validated backup/restore remain unresolved per owner-deferral. No Prod Meta configuration change.

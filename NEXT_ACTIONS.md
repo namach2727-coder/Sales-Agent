@@ -503,3 +503,11 @@ Remaining readiness priorities:
 3. Read-only verify Production plan catalog, confirm `AUTOMATION_V1` and whether `AI_ASSISTANT_V1` exists/active/purchasable; securely add only approved reference plan if missing, preserving existing accounts, payments and cards. No direct SQL access via hosted Render MCP due empty external allowlist; do not relax access rules.
 4. Establish verified backup/restore before any new Production DB mutation/plan seed or schema changes; current FREE Postgres expires 2026-11-02, cost upgrade deferred by owner.
 5. After evidence, update continuity docs again with exact Vercel ID/Production catalog acceptance. Preserve GA4, SEO, Meta shared relay and production data isolation.
+
+
+## Next Production promotion actions — 2026-10-12
+1. Finish Backend PR #15 CI for safe `0024_ai_assistant_v1_catalog` (Postgres smoke, Docker, comprehensive Python tests); confirm existing UAT AI row is untouched in a UAT dry-run deploy, then manually deploy migration to Production and verify `Alembic current head` + plan catalog readback without exposing DB.
+2. Reauthorize/extend Vercel connection to actual `directpilot-web` project/team or have owner provide verified Vercel Production deployment status matching `main` SHA `06ebe316`. Do not equate GitHub merge + CI to READY deploy.
+3. Confirm Production public/admin plan catalog lists Automation + paid AI separately with correct 30-day prices/limits; verify three-month Automation quote IRR 14,700,000 and 90-day snapshot and AI paid option without creating duplicate/real payment needlessly.
+4. Smoke-test Prod login/session, admin payment receipt inline preview, active subscription labels/upgrade CTA and GA4 consent-first events. Do not change shared Meta OAuth/webhook/relay or trigger real Instagram messages.
+5. Production Free Postgres has no accepted off-host backup/restore and expires 2026-11-02; preserve owner-deferred paid-upgrade decision and keep real-customer durability gate OPEN. Update these five files after actual rollout with exact commit/deploy IDs and outcomes.

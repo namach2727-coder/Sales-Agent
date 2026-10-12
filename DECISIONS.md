@@ -399,3 +399,10 @@ Human Takeover
 - User authorized UAT-accepted changes for Production, including multi-month prepaid periods and UX. Backend deployment is approved and LIVE; frontend PR #20 merged after independent CI, but deployed Vercel status is not yet verified.
 - Preserve consent-gated Production GA4 and SEO; Trial homepage still truthfully says 14 days, UAT-only 3-day admin commercial policy must not modify Production. Keep shared Meta app, relay, outbound guard and credentials untouched.
 - Product price, active/purchasable AI status must be server-authoritative. Paid `AI_ASSISTANT_V1` is a desired Production rollout item but remains pending until Production catalog access and safe backup/reconciliation are available; never copy UAT tenant, payment card, receipt, token, or authentication data.
+
+
+## Production promotion policy — 2026-10-12 owner instruction
+- Owner approves deploying accepted UAT multi-month prepaid plans, secure inline/fit receipt preview, compact admin payment details, active product names and `ارتقا پلن` CTA into Production. Preserve manually approved card-transfer processing, original Production customer data, GA4/SEO/CSP and shared Meta routing.
+- The explicitly approved UAT paid AI product terms are IRR 6,900,000 / 30 days, 1,000 requests, 1,000 replies, one Instagram account, `ai_assistant` + `knowledge_base`. Automation remains IRR 4,900,000 / 30 days, 20 automation rules and one Instagram account. Prepaid price and duration scale by 1–12 periods on server; no recurring charge or discounts.
+- Production AI catalog rollout is additive/idempotent: insert only if missing, never overwrite existing administrator-defined plan, customer/receipt data, subscriptions or historical snapshots. Production trial period stays 14 days (do not copy UAT-only trial-duration experiments).
+- No paid Render database upgrade, network exposure, bulk Neon import or Meta send-settings changes. Production database durability and verified off-host backup are separately OPEN.
