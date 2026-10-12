@@ -527,3 +527,7 @@ Remaining readiness priorities:
 
 ### Customer Dashboard UAT UX (2026-10-12)
 - 2026-10-12 Customer dashboard visual acceptance: verify UAT Vercel READY deploy at merge SHA `00d29a89` (Vercel connector may lack permission). Test desktop and mobile overview, current active paid plan, empty trial or unpaid customer, one submitted/pending payment, Instagram connecting and unknown API cases. Confirm customer `گفت‌وگوها` menu and quick link absent; direct `/dashboard?section=inbox` returns overview, not conversation UI. Confirm responsive quick links and mobile section menu closes after click. No deletion of stored conversation records. Once owner approves, selectively promote Frontend PR #23 features to Production while retaining GA4/SEO/CSP; Backend/DB/Meta not part of this UX release.
+
+
+### Customer Inbox follow-up — 2026-10-12
+- HIGH PRIORITY UAT: Open Vercel `directpilot-web` Deployments and verify latest READY Preview for branch `UAT` has SHA `16e2547d0b5d2815209bcba931cf76b52afbc7dc`. Existing UAT domain is associated with UAT branch, but connected Vercel API returns 403/404 and cannot verify deployments. If absent, trigger deployment from the latest UAT branch (do NOT redeploy an older SHA). Open UAT customer dashboard in a fresh tab, verify no online conversations UI or `section=inbox`, and report screenshot if still visible. Backend customer conversations remain preserved.
