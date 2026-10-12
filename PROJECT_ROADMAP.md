@@ -1001,3 +1001,7 @@ NEXT:
 
 ### Customer Dashboard UAT UX (2026-10-12)
 - 2026-10-12 UAT customer dashboard UX PR #23 merged SHA `00d29a89`, CI run `38281718727` PASS. Improve navigation hierarchy, checkout safety on failed reads, mobile responsive shortcuts, and remove the customer-visible online conversation screen entirely while preserving historical data/APIs. Next gates: visually review `uat.directpilot.ir/dashboard` (mobile/desktop), confirm removed Inbox nav and `?section=inbox` fallback, validate paid/trial/unpaid/disconnected scenarios and check that UAT Vercel deployed SHA is Ready; only then promote selectively to Production with GA4/SEO/CSP retained.
+
+
+### Customer Inbox follow-up — 2026-10-12
+- 2026-10-12 UAT customer Inbox follow-up: PR #24 merged `16e2547d`, CI PASS, removed actual 10k-character customer InboxPanel renderer that PR #23 had left in code. Vercel branch UAT READY SHA and mobile/desktop visual confirmation are outstanding gates. No Production promotion until confirmed.
