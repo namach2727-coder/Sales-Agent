@@ -1348,6 +1348,25 @@ def test_multi_month_manual_order_price_duration_and_validation(commerce_api) ->
 
     payment = create_payment(client, headers, order)
     assert payment["amount"] == 3 * plan["price_amount"]
+    submitted = client.post(
+        "/api/v1/payments/" + payment["public_id"] + "/receipt",
+        headers={**headers, "Content-Type": "image/png"},
+        content=bytes.fromhex("89504e470d0a1a0a") + b"multi-month",
+    )
+    assert submitted.status_code == 200
+    admin_headers = platform_admin_headers(client, engine, "multi-month")
+    approved = client.post(
+        "/api/v1/admin/payments/" + payment["public_id"] + "/approve",
+        headers=admin_headers,
+        json={"expected_revision": submitted.json()["revision"]},
+    )
+    assert approved.status_code == 200
+    with Session(engine) as db:
+        saved = db.scalar(select(SubscriptionOrder).where(SubscriptionOrder.public_id == order["public_id"]))
+        assert saved is not None
+        subscription = db.scalar(select(TenantSubscription).where(TenantSubscription.order_id == saved.id))
+        assert subscription is not None
+        assert subscription.current_period_end - subscription.starts_at == timedelta(days=90)
 
     for invalid in (0, 13):
         rejected = client.post(
