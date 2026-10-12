@@ -997,3 +997,7 @@ NEXT:
 
 ### Mobile login overlay hotfix — 2026-10-12
 - 2026-10-12 Mobile Login: UAT PR #21 and Production selective PR #22 both merged; respective GitHub quality checks PASS. Fix persistent mobile navigation overlay, safe-area and keyboard focus; no backend modifications. Gate still OPEN: verify Vercel Production READY deployment SHA 69632c8a and manually test login navigation on mobile Safari/Chrome.
+
+
+### Customer Dashboard UAT UX (2026-10-12)
+- 2026-10-12 UAT customer dashboard UX PR #23 merged SHA `00d29a89`, CI run `38281718727` PASS. Improve navigation hierarchy, checkout safety on failed reads, mobile responsive shortcuts, and remove the customer-visible online conversation screen entirely while preserving historical data/APIs. Next gates: visually review `uat.directpilot.ir/dashboard` (mobile/desktop), confirm removed Inbox nav and `?section=inbox` fallback, validate paid/trial/unpaid/disconnected scenarios and check that UAT Vercel deployed SHA is Ready; only then promote selectively to Production with GA4/SEO/CSP retained.
