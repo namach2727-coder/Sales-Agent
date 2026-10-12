@@ -113,11 +113,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("X-Frame-Options", "DENY")
+        receipt_preview = (request.url.path.startswith("/api/v1/admin/payments/") and request.url.path.endswith("/receipt"))
+        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN" if receipt_preview else "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
         response.headers.setdefault(
             "Content-Security-Policy",
-            "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'",
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'" if receipt_preview else "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'",
         )
         return response

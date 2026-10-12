@@ -703,6 +703,7 @@ def test_manual_receipt_and_atomic_idempotent_approval(commerce_api) -> None:
     assert subscription.json()["current_period_end"] is not None
     receipt = client.get(f"/api/v1/admin/payments/{payment['public_id']}/receipt", headers=admin_headers)
     assert receipt.status_code == 200 and receipt.content.startswith(b"\x89PNG")
+    assert receipt.headers["content-disposition"].startswith("inline;")
     with Session(engine) as db:
         stored = db.scalar(
             select(ManualPayment).where(
