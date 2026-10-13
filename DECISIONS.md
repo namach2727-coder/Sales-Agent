@@ -424,3 +424,10 @@ Human Takeover
 
 ### Customer Inbox follow-up — 2026-10-12
 - 2026-10-12 Clarification of customer conversation removal: not sufficient to hide sidebar/route. UI acceptance requires removing actual InboxPanel presentation code from client bundle while preserving backend records and APIs; implemented UAT PR #24. Keep Production unchanged pending UAT Vercel deployment and manual acceptance.
+
+
+### 2026-10-13 decisions: trials and solutions
+- All new free trials for TRIAL, AUTOMATION_TRIAL and AI_ASSISTANT_TRIAL use 3 calendar days; existing subscriptions and order duration snapshots must never be retroactively shortened or rewritten. Authoritative migration is 0025_trial_three_days, Backend bfe67fd.
+- Free-trial public copy should communicate exactly 3 days; avoid 14-day and 24-day claims, while presenting a direct accurate expiry in authenticated subscription view.
+- Solutions marketing must be industry-neutral. Use online stores, clothing, beauty services and education as practical examples rather than making online retail the umbrella audience.
+- Promotions between UAT and Production should be selective, gated by CI and live Vercel READY with alias SHA, preserving GA4, SEO, payments and backend Meta interfaces.
