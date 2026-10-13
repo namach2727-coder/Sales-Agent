@@ -590,3 +590,7 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 - Backend backend-main bfe67fd79fb738027444fdead68b940d19b71f82: Render Production and UAT LIVE. Alembic 0025_trial_three_days changes catalog duration to 3 for TRIAL, AUTOMATION_TRIAL and AI_ASSISTANT_TRIAL; existing subscription expiry and order snapshots preserved. Neon UAT catalog SELECT confirmed 3; Production DB direct SQL blocked by IP allowlist; migration deployment LIVE.
 - 14-day legacy trial marketing claims replaced by 3-day text in both frontends; no 24-day claims found in audited marketing source. Frontend PRs #27, #28 merged; backend PR #22 merged.
 - UAT /solutions now uses cross-industry examples and main nav points to /solutions. Production Solutions general-page promotion is distinct follow-up pending confirmation; do not assume it is live.
+
+
+### Production Solutions promotion verified — 2026-10-13
+- Frontend PR #29 merged at commit `79b8fad33b72e350b644162f69439d8c3e777471`; Production CI PASS; Vercel deployment `dpl_4NhY4Amexaamq4NUZSjTExTtRYLP` READY and aliases `directpilot.ir`, `www.directpilot.ir` active. General `/solutions` page and links promoted from UAT selectively, with shops/services/education/salons only as examples. Existing 3-day trial copy, SEO, GA4 and payment flows preserved. This supersedes earlier notes stating generic Solutions Production promotion pending.
