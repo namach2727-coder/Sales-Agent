@@ -1,5 +1,30 @@
 # DirectPilot Current State
 
+## CURRENT VERIFIED SYSTEM SNAPSHOT — 2026-10-13 (authoritative)
+
+**Production is still on Render PostgreSQL. There has been NO live Neon cutover.** Older sections below are dated historical observations; when conflicting, use this verified snapshot.
+
+| Area | Current verified status |
+| --- | --- |
+| Production Backend | Render `directpilot-api` LIVE `dep-db6tq6vf3r2c73ch03bg` code `bfe67fd79fb738027444fdead68b940d19b71f82` (`autoDeploy=no`) |
+| UAT Backend | Render `directpilot-uat-api` LIVE `dep-db6tpcff3r2c73cgtb30`, same code SHA, `autoDeploy=no`; isolated Neon UAT unchanged |
+| Frontend Production | `directpilot.ir` Vercel READY `dpl_4NhY4Amexaamq4NUZSjTExTtRYLP`, commit `79b8fad33b72e350b644162f69439d8c3e777471`; industry-neutral `/solutions` live |
+| Render Production DB | Free PostgreSQL 16, **available**, expires **2026-11-02T11:59:46.610475Z**; live authoritative DB |
+| Neon Production rehearsal | Project `billowing-poetry-05589994`, PG18.6, DB `neondb`, ~17 MB, **82 tables / 76 sequences / 522 indexes / 427 source constraints**, Alembic `0025_trial_three_days`. PostgreSQL18 adds 689 NOT NULL catalog constraints |
+| Restore data parity | 82/82 table count comparison **PASS per operator's private Codex report**; agent independently queried target schema but **not** all original live source rows |
+| Neon integrity | Three trial plans all 3 days; no invalid/unchecked FK/index, orphan subscription/order/payment links, or invalid subscription periods in read-only checks |
+| Latest CI | Backend PR #24 `dab43e7` and #25 `f5b6f98` merged; CI `38401718878` all 4 jobs PASS, **905 passed, 7 skipped**. Git `backend-main` can be newer than LIVE Render SHA |
+| Neon compute | Free `free_v3`, 0.25–2 CU, provider-default suspend, pooler disabled, **100 CU-hour/month** limit. Provider API returned zero usage despite DB activity: **real burn UNKNOWN** |
+| App connection tests | Disposable PG18 SQLAlchemy/read-only preflight PASS in CI; **real Neon restored-data SQLAlchemy workstation preflight NOT YET RUN** |
+| Backup | Original 557942-byte Render dump SHA-256 `436721c2779dcd50c3a65f4a1036a7738c7b4a246189f8cd433e02938c98e80a` verified by owner; independent encrypted offsite copy and real rollback acceptance **OPEN** |
+| Render DB inbound ACL | Owner reported removed temporary /32; latest independent API response still shows one. **Unresolved discrepancy; verify dashboard.** |
+| Cutover readiness | BLOCKED: true fresh snapshot/delta, write freeze/webhook replay, rollback rehearsal, independent protected backup, actual usage validation, explicit approval |
+
+**No Production/UAT database records, Meta settings, payment flows, Render environment variables or live services were modified by PR #24/#25 and ensuing read-only audit.** Last confirmed Render health-check is `/live` for both Backend services (does not open a DB connection); `/ready` does.
+
+---
+
+
 > Snapshot of verifiable current state. Read `AI_HANDOFF.md` first.
 > Last SEO/frontend reconciliation: 2026-10-11; other system states have independent verification dates.
 
