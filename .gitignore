@@ -36,3 +36,8 @@ tools/pinggy-python-dist/
 .tmp_pytest_*/
 
 *.db.bak
+
+# Never accidentally commit customer database backup archives or checksum manifests
+*.dump
+*.backup
+*.manifest.json
