@@ -531,3 +531,10 @@ Remaining readiness priorities:
 
 ### Customer Inbox follow-up — 2026-10-12
 - HIGH PRIORITY UAT: Open Vercel `directpilot-web` Deployments and verify latest READY Preview for branch `UAT` has SHA `16e2547d0b5d2815209bcba931cf76b52afbc7dc`. Existing UAT domain is associated with UAT branch, but connected Vercel API returns 403/404 and cannot verify deployments. If absent, trigger deployment from the latest UAT branch (do NOT redeploy an older SHA). Open UAT customer dashboard in a fresh tab, verify no online conversations UI or `section=inbox`, and report screenshot if still visible. Backend customer conversations remain preserved.
+
+
+### Next actions after 2026-10-13 verified deployments
+- HIGH: Selectively promote generic /solutions marketing landing and top navigation from UAT to Production; avoid copying the entire UAT catch-all page over Production SEO/three-day copy. Require Production CI PASS and Vercel READY.
+- QA: Create new isolated UAT registration; verify both free plan product families activate for exactly 3 days, and prior subscriptions retain current_period_end. Avoid modifying historical customer records.
+- Verify Production migration 0025 status through approved secure DB path if available; Render database external read-only connector is blocked by empty IP allowlist. Backend Production deploy LIVE.
+- Conduct marketing /features, /solutions, /demo mobile and desktop acceptance. Existing verified SHAs: frontend Production 6f383fc, UAT fb340b7, backend bfe67fd. Previous UAT Vercel 403 limitation is resolved.
