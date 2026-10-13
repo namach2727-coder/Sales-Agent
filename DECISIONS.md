@@ -431,3 +431,7 @@ Human Takeover
 - Free-trial public copy should communicate exactly 3 days; avoid 14-day and 24-day claims, while presenting a direct accurate expiry in authenticated subscription view.
 - Solutions marketing must be industry-neutral. Use online stores, clothing, beauty services and education as practical examples rather than making online retail the umbrella audience.
 - Promotions between UAT and Production should be selective, gated by CI and live Vercel READY with alias SHA, preserving GA4, SEO, payments and backend Meta interfaces.
+
+
+### Production Solutions promotion verified — 2026-10-13
+- Frontend PR #29 merged at commit `79b8fad33b72e350b644162f69439d8c3e777471`; Production CI PASS; Vercel deployment `dpl_4NhY4Amexaamq4NUZSjTExTtRYLP` READY and aliases `directpilot.ir`, `www.directpilot.ir` active. General `/solutions` page and links promoted from UAT selectively, with shops/services/education/salons only as examples. Existing 3-day trial copy, SEO, GA4 and payment flows preserved. This supersedes earlier notes stating generic Solutions Production promotion pending.
