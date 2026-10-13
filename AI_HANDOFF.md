@@ -726,3 +726,7 @@ Prioritize Production database durability + backup/restore acceptance before rea
 - Verified frontend Production 6f383fc3193f86888199d6faf06d8e93b83cb248 READY at directpilot.ir and UAT fb340b724eba13bf5c8225272bd69667c0659143 READY at uat.directpilot.ir. Production trial copy updated from 14 to 3 days; reviewed source showed no 24-day trial claims.
 - UAT has industry-neutral /solutions landing with online shops, services, salons, education as examples. Promotion of this general landing to Production remains a separate controlled frontend change until READY.
 - Previously noted Vercel connector 403 issue resolved: use project ID prj_w46jn80pmeOpoIZ5KZmQiY7GfKDl WITHOUT team slug.
+
+
+### Production Solutions promotion verified — 2026-10-13
+- Frontend PR #29 merged at commit `79b8fad33b72e350b644162f69439d8c3e777471`; Production CI PASS; Vercel deployment `dpl_4NhY4Amexaamq4NUZSjTExTtRYLP` READY and aliases `directpilot.ir`, `www.directpilot.ir` active. General `/solutions` page and links promoted from UAT selectively, with shops/services/education/salons only as examples. Existing 3-day trial copy, SEO, GA4 and payment flows preserved. This supersedes earlier notes stating generic Solutions Production promotion pending.
