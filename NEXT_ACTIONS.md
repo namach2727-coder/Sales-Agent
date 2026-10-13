@@ -538,3 +538,7 @@ Remaining readiness priorities:
 - QA: Create new isolated UAT registration; verify both free plan product families activate for exactly 3 days, and prior subscriptions retain current_period_end. Avoid modifying historical customer records.
 - Verify Production migration 0025 status through approved secure DB path if available; Render database external read-only connector is blocked by empty IP allowlist. Backend Production deploy LIVE.
 - Conduct marketing /features, /solutions, /demo mobile and desktop acceptance. Existing verified SHAs: frontend Production 6f383fc, UAT fb340b7, backend bfe67fd. Previous UAT Vercel 403 limitation is resolved.
+
+
+### Production Solutions promotion verified — 2026-10-13
+- Frontend PR #29 merged at commit `79b8fad33b72e350b644162f69439d8c3e777471`; Production CI PASS; Vercel deployment `dpl_4NhY4Amexaamq4NUZSjTExTtRYLP` READY and aliases `directpilot.ir`, `www.directpilot.ir` active. General `/solutions` page and links promoted from UAT selectively, with shops/services/education/salons only as examples. Existing 3-day trial copy, SEO, GA4 and payment flows preserved. This supersedes earlier notes stating generic Solutions Production promotion pending.
