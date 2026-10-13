@@ -7,7 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 
 POSTGRES_TEST_URL_VARIABLE = "DIRECTPILOT_POSTGRES_TEST_URL"
-ALEMBIC_HEAD = "0023_user_phone_number"
+ALEMBIC_HEAD = "0025_trial_three_days"
 
 
 def configure_explicit_postgres_test_database() -> bool:
