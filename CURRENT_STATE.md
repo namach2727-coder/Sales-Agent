@@ -583,3 +583,10 @@ Ranking/click-through impact: **OPEN**, pending Google recrawl and a comparable 
 
 ### Customer Inbox follow-up — 2026-10-12
 - 2026-10-12 UAT online conversations screen removal: frontend PR #24 merged UAT SHA `16e2547d0b5d2815209bcba931cf76b52afbc7dc`, CI `38285210154` PASS. Prior PR #23 only removed menu/router links; stale InboxPanel JSX persisted and now fully removed in PR #24. Production remains unchanged. Vercel UAT deployment and browser acceptance pending due plugin 403.
+
+
+### Release reconciliation — 2026-10-13
+- Frontend Production main 6f383fc3193f86888199d6faf06d8e93b83cb248 and UAT fb340b724eba13bf5c8225272bd69667c0659143: Vercel domains directpilot.ir and uat.directpilot.ir both READY, verified.
+- Backend backend-main bfe67fd79fb738027444fdead68b940d19b71f82: Render Production and UAT LIVE. Alembic 0025_trial_three_days changes catalog duration to 3 for TRIAL, AUTOMATION_TRIAL and AI_ASSISTANT_TRIAL; existing subscription expiry and order snapshots preserved. Neon UAT catalog SELECT confirmed 3; Production DB direct SQL blocked by IP allowlist; migration deployment LIVE.
+- 14-day legacy trial marketing claims replaced by 3-day text in both frontends; no 24-day claims found in audited marketing source. Frontend PRs #27, #28 merged; backend PR #22 merged.
+- UAT /solutions now uses cross-industry examples and main nav points to /solutions. Production Solutions general-page promotion is distinct follow-up pending confirmation; do not assume it is live.
