@@ -1013,3 +1013,7 @@ NEXT:
 - DONE: Three-day trial policy via backend PR #22, migration 0025 and Render UAT/Production LIVE; UAT DB confirmed catalog 3 days. Production frontend PR #27 and UAT PR #28 merge/READY, 3-day wording; existing subscription expiries not changed.
 - OPEN: Promote industry-neutral /solutions hub and navigation selectively from UAT to Production with CI and Vercel READY; preserve Production SEO, GA4 and 3-day trial marketing content.
 - OPEN: Exercise a new registration on UAT and verify real subscription end timestamp approximately +3 days, without changing existing customers. Production DB direct inspection restricted by IP allowlist.
+
+
+### Production Solutions promotion verified — 2026-10-13
+- Frontend PR #29 merged at commit `79b8fad33b72e350b644162f69439d8c3e777471`; Production CI PASS; Vercel deployment `dpl_4NhY4Amexaamq4NUZSjTExTtRYLP` READY and aliases `directpilot.ir`, `www.directpilot.ir` active. General `/solutions` page and links promoted from UAT selectively, with shops/services/education/salons only as examples. Existing 3-day trial copy, SEO, GA4 and payment flows preserved. This supersedes earlier notes stating generic Solutions Production promotion pending.
