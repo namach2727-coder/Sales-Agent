@@ -10,6 +10,9 @@ down_revision = "0024_ai_assistant_v1_catalog"
 branch_labels = None
 depends_on = None
 
+# Rollback must not silently extend, shorten, or resurrect expired trials.
+EMPTY_DOWNGRADE_ALLOWED = True
+
 def upgrade() -> None:
     op.get_bind().execute(sa.text("""
         UPDATE saas_plans SET duration_days = 3
