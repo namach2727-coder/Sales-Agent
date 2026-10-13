@@ -1,5 +1,21 @@
 # DirectPilot AI Handoff
 
+## LATEST VERIFIED CONTINUITY — 2026-10-13 (read before historical checkpoints)
+
+**Priority P0:** Render Production PostgreSQL Free expiry **2026-11-02T11:59:46Z**; aim to complete a measured, reversible Neon cutover by **Oct 25**. **NO Production database cutover authorized or performed.** Older notes below describing 14-day trials, pending /solutions, no Render backup, Neon target empty, or backend repository SHA as a deployed service are historical/superseded where contradicted by this checkpoint.
+
+- **Actual runtime:** Render Production `directpilot-api` deployment `dep-db6tq6vf3r2c73ch03bg` LIVE, UAT `dep-db6tpcff3r2c73cgtb30` LIVE, both backend code `bfe67fd79fb738027444fdead68b940d19b71f82`, both `autoDeploy=no`. Do not confuse newer docs/CI commits on `backend-main` with live Backend deployment.
+- **Frontend:** Production `directpilot.ir` Vercel READY commit `79b8fad33b72e350b644162f69439d8c3e777471` / `dpl_4NhY4Amexaamq4NUZSjTExTtRYLP`; cross-industry `/solutions` is LIVE; UAT branch has its own READY release. Trial marketing shows **3 days**.
+- **Neon restored Production copy:** Project `billowing-poetry-05589994`, branch `production`, DB `neondb`, PostgreSQL **18.6**, **82 tables / 76 sequences / 522 indexes / 427 original constraints**, plus 689 PG18 NOT NULL catalog constraints, `alembic_version=0025_trial_three_days`. Exact 82-table row-count equality with Render source reported PASS by owner/Codex; independent Neon SQL confirms schema/migration and zero invalid constraints/indexes, but cannot independently re-query all original source rows. Snapshot is from 2026-10-13 10:42:36 UTC; no continuous replication, so a final fresh backup/delta with write freeze is mandatory.
+- **Verified compatibility:** backend PR #24 merged `dab43e76c07a94bd39f949efd90e3bd62b24b2f9` (disposable PostgreSQL 18 app startup/migration/auth/transaction testing); PR #25 merged `f5b6f98f23bf3a02f77a631ded7e2fa7faa2c94c` (guarded SQLAlchemy read-only preflight tool). CI run `38401718878`: 4/4 jobs PASS, 905 Python tests PASS, 7 skipped. **Real restored-Neon SQLAlchemy preflight on laptop is NOT YET RUN:** `python -m tools.neon_readonly_preflight`, private direct DB URL entered locally, never in chat.
+- **Read-only Neon business checks:** three trial plan codes have `duration_days=3`; no invalid subscription periods, orphan tenant subscriptions, orphan order plan refs or orphan manual payment order refs. Do not send real Meta messages, approve payments, start schedulers or use live API against this copy.
+- **Compute and durability:** Neon Free 100 CU-hour/month, 1 GiB storage, 0.25–2 CU, provider-default idle suspend, pooler currently disabled. Render app `/live` health-check does not query DB; `/ready` does. Neon API's 0 consumed compute seconds is NOT a reliable capacity measurement. Test actual sleeping/cold-start, connections and quota before cutover. Existing 557942-byte PostgreSQL dump and matching SHA256 manifest were operator-verified; encryption deferred *for rehearsal only*, no accepted independent encrypted offsite recovery copy.
+- **Security discrepancy:** Owner reports temporary workstation Render inbound /32 removed, but latest independent Render API readback on 2026-10-13 still reports **one** entry. Ask to reconcile in Render dashboard; do not display or widen the IP.
+- **NEXT decision:** close DR/offsite recovery, real read-only app preflight, compute usage, final snapshot/delta and row reconciliation, webhook/write freeze, tested rollback/split-brain plan; then request separate explicit live cutover approval. NEVER repoint Production or UAT as a consequence of a CI/docs commit.
+
+---
+
+
 > **PRIMARY CROSS-CHAT CONTINUITY AUTHORITY**
 >
 > Read this file first in every new DirectPilot session.
