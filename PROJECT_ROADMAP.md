@@ -1005,3 +1005,11 @@ NEXT:
 
 ### Customer Inbox follow-up — 2026-10-12
 - 2026-10-12 UAT customer Inbox follow-up: PR #24 merged `16e2547d`, CI PASS, removed actual 10k-character customer InboxPanel renderer that PR #23 had left in code. Vercel branch UAT READY SHA and mobile/desktop visual confirmation are outstanding gates. No Production promotion until confirmed.
+
+
+### 2026-10-13 releases and remaining gates
+- DONE: Customer dashboard and Inbox removal released Production under PR #25; production 44aeedf (later 6f383fc), READY. Explicit homepage navigation also patched to both environments; customer reported fixed.
+- DONE: UAT marketing features, solutions examples, demo clarity PR #26; user later requested industry-neutral general /solutions landing; implemented UAT and verified domain READY.
+- DONE: Three-day trial policy via backend PR #22, migration 0025 and Render UAT/Production LIVE; UAT DB confirmed catalog 3 days. Production frontend PR #27 and UAT PR #28 merge/READY, 3-day wording; existing subscription expiries not changed.
+- OPEN: Promote industry-neutral /solutions hub and navigation selectively from UAT to Production with CI and Vercel READY; preserve Production SEO, GA4 and 3-day trial marketing content.
+- OPEN: Exercise a new registration on UAT and verify real subscription end timestamp approximately +3 days, without changing existing customers. Production DB direct inspection restricted by IP allowlist.
