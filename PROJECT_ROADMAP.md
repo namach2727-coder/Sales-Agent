@@ -45,6 +45,15 @@
 - **Red / Oct 25:** Not yet migrated => activate outage-prevention contingency. Obtain explicit approval for paid database upgrade; if unavailable, communicate controlled service pause before expiry rather than promising uninterrupted service.
 - **Risk closure only when:** durable destination LIVE, offsite backup independent, restore PASS, reconciliation PASS, alerts enabled, operational handoff complete. Remaining nonzero risk must be stated.
 
+### Backup execution access decision — 2026-10-13
+
+- Read-only verification: Render Production Free Postgres external IP allowlist is empty. Hosted Render MCP read-only SQL cannot connect (Render hosted connector has no fixed allowlist IP); Free Render Web Service does not support Shell/SSH or one-off jobs. NO direct service-run backup is possible through current connectors without changing access model.
+- Prepared secure offline operator procedure and tool: GitHub Sales-Agent PR #23, `tools/production_db_transfer.py`, `docs/runbooks/production_db_backup_restore.md` (CI status must be checked before acceptance). These run on owner's trusted workstation using Docker/PostgreSQL 18 client and Render *external* DB URL entered only locally. Source scope limited to Render Production, target limited to verified independent Neon Production; Restore requires explicit confirmation and empty target.
+- **ACTUAL PG_DUMP: NOT EXECUTED.** **OFFSITE ENCRYPTED COPY: NOT STORED.** **ACTUAL PG_RESTORE: NOT EXECUTED.** Do not mark P0 backup/restore gates PASS.
+- Required next operator step: temporarily allowlist only trusted workstation public IPv4 /32 on Render Postgres; retrieve Render external DB URL privately from Render Connect; enter it via a local secure PowerShell prompt; execute the reviewed backup script, verify SHA-256 manifest and PostgreSQL archive list, preserve an independent encrypted copy, and remove the temporary IP allowlist entry. Never paste URL or backup into chat/GitHub.
+- After backup verification, enter the Neon Production direct connection URL locally for isolated restore. Then run schema/row-count and customer/payment/token presence reconciliation. DO NOT update Production DATABASE_URL or copy partial data into UAT.
+- **No cutover authorization or production data mutation occurred** during this preparation.
+
 ### Actual status at this checkpoint
 - DONE: Identified exact expiry and source DB/provider via Render read-only inventory.
 - NEW 2026-10-13 OWNER-REPORTED Render Production storage indicator: 7.51% of 1 GB (~76.9 MiB allocated/used by displayed gauge; exact meaning and PostgreSQL logical database size require verification). This is far below Neon's 1 GiB per-project nominal storage, but does not prove dump/restore or production compute fit. Next: read-only pg_database_size if possible, backup size, table counts, Neon Production independently scoped project, isolated restore, parity checks.
