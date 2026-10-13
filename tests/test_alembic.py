@@ -318,8 +318,8 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
-        "0024_ai_assistant_v1_catalog",
         "0025_trial_three_days",
+        "0024_ai_assistant_v1_catalog",
         "0023_user_phone_number",
         "0022_durable_receipt_blob",
         "0021_admin_payment_cards",
