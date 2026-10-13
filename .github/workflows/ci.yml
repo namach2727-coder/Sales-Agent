@@ -145,6 +145,22 @@ jobs:
       - name: PostgreSQL 18 SQLAlchemy dialect and transaction isolation checks
         run: python -m pytest tests/test_postgresql_compatibility.py -q
 
+      - name: Read-only restored-schema SQLAlchemy preflight on DISPOSABLE CI database
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy.engine import make_url
+          from tools import neon_readonly_preflight as preflight
+          # TEST OVERRIDES: only the disposable CI DB; never a customer database.
+          preflight.EXPECTED_HOST = "127.0.0.1"
+          preflight.EXPECTED_DATABASE = "directpilot_ci_test"
+          preflight.validate_target_url = lambda raw: make_url(raw)
+          result = preflight.run_preflight(os.environ["DATABASE_URL"])
+          assert result["connection_read_only"] is True
+          assert result["three_day_trial_catalog"] == "PASS"
+          print("DISPOSABLE_POSTGRES18_READONLY_PREFLIGHT: PASS")
+          PY
+
 
   docker-build:
     runs-on: ubuntu-latest
