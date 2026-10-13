@@ -47,6 +47,8 @@
 
 ### Actual status at this checkpoint
 - DONE: Identified exact expiry and source DB/provider via Render read-only inventory.
+- NEW 2026-10-13 OWNER-REPORTED Render Production storage indicator: 7.51% of 1 GB (~76.9 MiB allocated/used by displayed gauge; exact meaning and PostgreSQL logical database size require verification). This is far below Neon's 1 GiB per-project nominal storage, but does not prove dump/restore or production compute fit. Next: read-only pg_database_size if possible, backup size, table counts, Neon Production independently scoped project, isolated restore, parity checks.
+
 - DONE: Existing backup/restore scripts reviewed, but NOT executed against Production and NOT validated for offsite durability.
 - NOT DONE: Backup extraction and offsite object, recovery drill, database cost/provider approval, source-to-target migration, tested rollback, measured RPO/RTO.
 - DO NOT treat Neon UAT `round-shape-42044596` as a recovery replica. Do not alter Production DB credentials, billing plan, network allowlist or connection string without separate operator approval and measured cutover plan.
