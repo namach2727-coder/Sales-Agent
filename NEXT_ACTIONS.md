@@ -1,5 +1,25 @@
 # DirectPilot Next Actions
 
+## EXECUTION QUEUE — 2026-10-13 (LATEST; supersedes older dated TODOs)
+
+**P0 / Deadline:** Render Production Free PostgreSQL expiry **2026-11-02T11:59:46Z**. Internal goal **Oct 25**; prioritize resilient cutover with zero unacknowledged missing records over marketing tasks. No Production database cutover is approved yet.
+
+1. **NOW — close Render ACL mismatch:** operator reports workstation IP removed, but newest Render API still reports **one temporary /32**. Open Render DB Networking / PostgreSQL Inbound IP Rules, refresh and remove leftover rule if present; independently confirm allowlist count=0. Do NOT allow `0.0.0.0/0`.
+2. **P0 — complete actual restored-copy ORM read-only preflight:** from trusted local Backend repo (`backend-main`) run `python -m tools.neon_readonly_preflight`; privately enter independent Neon Production **DIRECT** connection URL for project `billowing-poetry-05589994` / `neondb`. No API startup, background workers, migrations, seeds, Meta, payments or writes. Return sanitized `NEON_READONLY_PREFLIGHT: PASS/FAIL` and counts. The tool/CI smoke are implemented and PASS, but laptop execution on the restored target is **NOT YET VERIFIED**.
+3. **P0 — validate Free Neon CU consumption and sleep/wakeup:** Neon Free 100 CU-hour/month, 0.25–2 CU, idle suspend default, pooler off. Check Neon Console usage/quotas (API reporting 0 does NOT verify zero burn), log initial and subsequent CU-hour counters after representative idle/limited traffic, instrument alerts around ~70%/90%, validate wake latency and retry/backoff. Render `/live` health path already avoids DB queries; do not poll `/ready` so frequently it keeps Neon awake. Test conservative app pool settings **only** in isolated environment first.
+4. **P0 — durable independent recoverable backup:** 2026-10-13 original PG custom dump verified by operator; **plaintext on unencrypted C:/D:, physical independence uncertain**, encrypted offsite copy OPEN. Owner deferred encryption for restore rehearsal ONLY. Secure an independent offline/encrypted recoverable copy and test extraction/checksum/restore. Never share dump, password or customer data in GitHub/chat.
+5. **P0 — schedule controlled final sync:** since restored Neon is a point-in-time copy, agree on maintenance window and freeze writes, pause/queue or replay Meta webhooks and payment approvals safely; take **fresh consistent Render snapshot or verified delta**, re-reconcile all tables including orders, payments, customers, sessions, subscriptions and IDs. Preserve original backup and audit trail; avoid duplicate/replayed side effects.
+6. **P0 — rehearsal of rollback with split-brain protection:** test how to return to Render or forward-recover safely after Neon writes. Do not treat DB URL reversal as safe once target accepts new writes; record clear abort conditions, time owner and measured RPO/RTO.
+7. **P0 — explicit go/no-go:** only after steps 2–6 PASS, present operator a complete cutover plan and obtain separate explicit Production approval. Then set authorized Production backend DB URL only; monitor readiness/logs, authentication, subscriptions, payment receipts, inbox/Meta business functionality. Do not make UAT share data with Production.
+8. **P1 — post-cutover reliability:** daily encrypted backups with tested restore, provider usage alerts, customer/GA4 conversion follow-up, admin/payment flows and 3-day new-trial expiry checks.
+
+**Completed, no need to redo:** isolated Neon restore (82 tables, PG18.6, Alembic 0025; row-count equality reported PASS), PR #24 PG18 CI + PR #25 guarded read-only tool merged, latest CI `38401718878` **4/4 PASS / 905 tests passed / 7 skipped**, frontend `/solutions` LIVE READY. Both Backend Render services still LIVE on code `bfe67fd`; new repository-only checks were not deployed.
+
+**SECURITY:** backups are sensitive, credentials must be requested only locally; neither UAT nor the live Render API should ever be pointed to the Neon restored copy until go/no-go approval.
+
+---
+
+
 > Execution queue. Read `AI_HANDOFF.md` first.
 > Last SEO action reconciliation: 2026-10-11; other workstreams retain separately tracked readiness gates.
 
