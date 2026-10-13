@@ -302,7 +302,7 @@ def test_approved_plan_catalog_is_backend_authoritative(commerce_api) -> None:
         )
         for code, plan in plans.items()
     } == {
-        "TRIAL": (0, 14, 200, 3, 1, True),
+        "TRIAL": (0, 3, 200, 3, 1, True),
         "START": (2_990_000, 30, 1_500, 10, 1, True),
         "PRO": (6_990_000, 30, 5_000, 30, 1, True),
     }
