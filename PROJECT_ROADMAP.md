@@ -1,5 +1,30 @@
 # DirectPilot Project Roadmap & Continuity Checkpoint
 
+## LATEST P0 GATEBOARD — 2026-10-13 (supersedes older historical status blocks)
+
+| Gate | Latest evidence | Status |
+| --- | --- | --- |
+| Render source / expiry | Production Free DB available; expiry 2026-11-02 11:59:46 UTC | **OPEN / CRITICAL deadline** |
+| Off-machine backup acquisition | `20261013T104236Z` PG custom archive, 557942 bytes, SHA-256 checksum/listing verified by operator | **PASS (operator report)** |
+| Durable encrypted offsite copy | Backups currently on unencrypted media; encrypted independent recovery copy deferred by owner only for rehearsal | **OPEN — blocker for live cutover** |
+| Isolated Neon restore | PG18.6 `billowing-poetry-05589994/neondb`, 82 tables / 76 sequences / 522 indexes / 427 original constraints; 689 PG18 NOT NULL catalog constraints | **PASS** |
+| Snapshot row parity | 82/82 table row counts matched in operator's private report; source cannot be directly re-queried through hosted Render connector | **PASS per operator; independently partial** |
+| Neon data integrity | Alembic 0025, 0 invalid constraints/indexes, no orphan subscription/order/payment refs; all three trials 3 days | **PASS read-only** |
+| Backend PG18 compatibility | PR #24 merged, PR #25 merged; CI `38401718878` 4/4 PASS, 905 tests PASS, 7 skipped | **PASS synthetic disposable PG18** |
+| Actual copied-data SQLAlchemy test | Guarded `python -m tools.neon_readonly_preflight` available; no report of workstation execution | **OPEN** |
+| Neon Free compute budget | 0.25–2 CU, idle suspend default, pooler off; returned 0 compute seconds is non-conclusive | **OPEN: measure settled CU-hours/cold starts** |
+| Fresh final sync | Source live after backup; no replication or final write freeze/delta reconciliation | **OPEN** |
+| Rollback and event safety | Need plan for payment approvals, active sessions, Meta webhook replay/idempotency, and prevention of split-brain | **OPEN** |
+| Live cutover | Backend Production remains Render `bfe67fd` LIVE; Neon copy isolated; no approval or env changes | **NOT AUTHORIZED** |
+| Render temporary /32 | Owner reported deleted; Render API still sees one allowlisted rule | **VERIFY discrepancy** |
+
+**Priority and sequence:** (1) reconcile temporary IP rule; (2) run workstation-only real Neon READ-ONLY SQLAlchemy preflight; (3) monitor Neon console billed CU-hours, idle/wake and connection usage, decide conservative pooling; (4) protect offsite encrypted/independent restorable copy; (5) set final maintenance window + writes/webhooks freeze and verified fresh snapshot/delta; (6) rehearse rollback; (7) request explicit Production cutover authorization. **Internal target Oct 25**, before Render expiry Nov 2. Never claim zero data-loss risk or actual Production cutover based on snapshot restore alone.
+
+**Code/runtime separation:** PR #24 `dab43e7` and PR #25 `f5b6f98` are merged **repository/CI checks**, not deployed on Render. Last confirmed Production/UAT Backend runtime remains `bfe67fd`. Current frontend Production `/solutions` has been promoted and verified Vercel READY (`79b8fad`). Supersede earlier dated TODOs implying those promotions remain pending.
+
+---
+
+
 > **Strategic roadmap / secondary continuity document.** Read `AI_HANDOFF.md` first in every new DirectPilot session; then read this file.
 >
 > **Latest roadmap and continuity audit:** 2026-10-13 (older dated sections are historical; follow the current P0 action plan below).
