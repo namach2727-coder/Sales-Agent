@@ -2,11 +2,54 @@
 
 > **Strategic roadmap / secondary continuity document.** Read `AI_HANDOFF.md` first in every new DirectPilot session; then read this file.
 >
-> **Last SEO/frontend reconciliation:** 2026-10-11 (integration sections retain their own checkpoint dates)
+> **Latest roadmap and continuity audit:** 2026-10-13 (older dated sections are historical; follow the current P0 action plan below).
 >
 > **Authority rule:** verified runtime/deployment evidence > deployed commit > repository source > `AI_HANDOFF.md` > this document > old chat history.
 >
 > **Secret rule:** record credential names, locations, owners and verification status only. Never record secret values.
+
+---
+
+
+## P0 — Production Database Expiry and Disaster Recovery (verified 2026-10-13)
+
+**Status: OPEN / CRITICAL. Owner priority above marketing features and nonessential deployments.**
+**Source of truth:** Render workspace `tea-dabsgm0n74is738av7l0`, database `directpilot-production-db` / `dpg-db0escm0tbcc73fhig2g-a`. Read-only Render inventory on 2026-10-13 reports `plan=free`, `status=available`, `expiresAt=2026-11-02T11:59:46.610475Z` (approximately 15:29 Iran local time). Production service `srv-db0f3uc9v7es73b5k51g`, UAT service `srv-dabsmo7qj5pc7397jqf0`, both on Render with autoDeploy disabled. Neon project `round-shape-42044596` is the ISOLATED UAT database, not a Production backup or migration target.
+
+**Primary failure mode:** Production DB expiry could make the app unavailable and put production records at risk. RISK IS NOT ZERO until an independently stored, verified restorable copy and a durable live database both exist. Do not claim zero absolute risk; after controls are accepted, classify residual risk based on measured restore results.
+
+### Hard gates and dates (UTC dates; complete before expiry)
+| Due | Priority | Deliverable | Owner / evidence / exit criterion |
+| --- | --- | --- | --- |
+| **Oct 14** | P0 | Verify Production data inventory and access path without changing firewall or exposing credentials. Inventory tables, orders, active subscriptions, receipts, account identities, encryption keys dependencies, background jobs and Meta integration touchpoints. | Operator + engineering; documented read-only query results, access limitations, chosen backup transfer mechanism. |
+| **Oct 15** | P0 | Acquire first full Production `pg_dump -Fc` via an approved secured execution path (prefer controlled Render-side job or protected runner; do not assume empty IP allowlist allows remote connection), transfer it OFF Render ephemeral filesystem to a private encrypted durable destination. | Object existence, timestamp, bytes, SHA-256 checksum, PostgreSQL version, source DB identifier, authorized custodian; no secrets in documentation. |
+| **Oct 16** | P0 | Restore into a brand-new disposable *isolated* Postgres database. Verify `pg_restore --list`, migration head, row counts and critical business invariants: accounts, tenant separation, paid subscriptions, pending orders, payment receipt blobs, admin payment cards and Meta token presence (do not expose tokens). | Restore logs, reconciliation matrix, application smoke tests, exact measured RTO and backup-age RPO. Never restore over live Production/UAT. |
+| **Oct 17–20** | P0 | Select durable Production destination: **A** approved paid Render Postgres upgrade (simplest if cost accepted), or **B** a genuinely separate provider with verified connectivity/migration and sustained operational limits. Estimate total cost; check data region, retention, automated backups/PITR and support. | Owner explicitly approves infrastructure spend and/or data-provider cutover. No automatic paid upgrade. |
+| **Oct 21–24** | P0 | Run rehearsal: fresh source snapshot, isolated target restore, migration compatibility, controlled app smoke; for provider move, test SSL/database URL, pooling, CORS/Meta unaffected at app level, migration head, API start/readiness, receipt fetch, subscription lifecycle and rollback. | Signed rehearsal report, verified endpoint and backup evidence, tested rollback within agreed window. |
+| **Oct 25** | **HARD INTERNAL DEADLINE** | Production on durable database with validated restore and at least two independently retained backup copies; approve cutover only after reconciliation. | Post-cutover clean deployment, health/readiness PASS, data integrity checks PASS and owner acceptance. |
+| **Oct 26–Nov 1** | P0 | Daily expiry watch, automated backup completion/age alerts, access check and emergency rehearsal; retain source while safe and permitted. | Alerts working, on-call/owner notified if backup or DB health fails. |
+| **Nov 2** | FINAL EXTERNAL DEADLINE | **Do not depend on Free Render Postgres at expiry.** | Business continuity verified on durable destination. |
+
+### Non-negotiable recovery architecture
+1. **Prevent data loss:** Use database-consistent `pg_dump` custom format and `pg_restore` in disposable isolated DB. Existing `scripts/deployment/backup.sh` calls `pg_dump --format=custom`, `pg_restore --list` and writes under `BACKUP_DIR` (default `/app/backups`); that is NOT accepted as durable offsite backup. Existing `scripts/deployment/restore.sh` has a destructive confirmation flag: NEVER point it at Production for rehearsal.
+2. **Offsite 3-2-1 goal:** At least two recoverable independent copies in different failure domains, one outside Render; encryption at rest/in transit, least-privilege access, no public URLs, SHA-256 manifest, documented keys custodian. Backups must not be committed into Git, attached to tickets/chats or moved into UAT. Receipt blobs in the DB are part of backup scope; inspect any non-DB file dependencies and back those up separately.
+3. **Backup cadence:** Until durable migration, at least daily verified offsite copy; while traffic is active or immediately ahead of cutover, take a fresh consistent snapshot and enforce a write freeze or application-coordinated quiescence. On durable Production, target 24-hour minimum recovery point in first phase, then improve to <=1 hour where supported by managed PITR/continuous archiving. These are TARGETS, NOT accepted SLOs until tested.
+4. **Restore and monitoring:** Automated daily job must fail loudly if source dump, offsite upload, checksum, age or retention fails. Periodic (initially weekly) disposable restore must reconcile critical counts and business state; log actual RPO/RTO, do not invent metrics. Alert on failed DB readiness, low storage and impending expiry.
+5. **Cutover safety:** Obtain pre-cutover verified offsite backup; pause writes/orders/payment approval/Meta sends as necessary, avoid lost webhook events and duplicated payment/order actions, transfer final delta or full consistent snapshot, validate target and connection, switch only authorized secrets, smoke-test API and web, then reopen traffic. Rollback must be explicit: if writes have resumed on target, reverting DB URL alone may lose or split data. Never mix UAT and Production records, tokens or financial details.
+6. **Security:** No DATABASE_URL or credential values in Git docs/logs. Render DB external allowlist is empty; Render's hosted MCP read-only SQL cannot connect. Assess a secure in-platform export/approved tunnel mechanism, not widening internet exposure as a shortcut.
+
+### Risks and escalation
+- **Red / blocked:** No successful offsite backup and restore proof; keep real-customer onboarding and new paid production orders gated as long as business policy allows. Escalate to owner immediately.
+- **Red / Oct 17:** No durable provider choice/approval => present explicit paid Render upgrade as low-change contingency; a free replacement is not assumed durable.
+- **Red / Oct 21:** No tested restore => abort migration/cutover, fix recovery first. Preserve current business records and escalate.
+- **Red / Oct 25:** Not yet migrated => activate outage-prevention contingency. Obtain explicit approval for paid database upgrade; if unavailable, communicate controlled service pause before expiry rather than promising uninterrupted service.
+- **Risk closure only when:** durable destination LIVE, offsite backup independent, restore PASS, reconciliation PASS, alerts enabled, operational handoff complete. Remaining nonzero risk must be stated.
+
+### Actual status at this checkpoint
+- DONE: Identified exact expiry and source DB/provider via Render read-only inventory.
+- DONE: Existing backup/restore scripts reviewed, but NOT executed against Production and NOT validated for offsite durability.
+- NOT DONE: Backup extraction and offsite object, recovery drill, database cost/provider approval, source-to-target migration, tested rollback, measured RPO/RTO.
+- DO NOT treat Neon UAT `round-shape-42044596` as a recovery replica. Do not alter Production DB credentials, billing plan, network allowlist or connection string without separate operator approval and measured cutover plan.
 
 ---
 
