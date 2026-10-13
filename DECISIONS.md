@@ -1,5 +1,20 @@
 # DirectPilot Decisions
 
+## ACTIVE DECISIONS — 2026-10-13 (latest; supersedes conflicting older entries)
+
+1. **Database continuity priority P0.** Render Free Production PostgreSQL `dpg-db0escm0tbcc73fhig2g-a` expires **2026-11-02T11:59:46Z**; target a safe, verified migration by Oct 25. A deadline does not waive backups, data parity, rollback or explicit approval.
+2. **Separate Neon Production and UAT permanently.** Neon Production `billowing-poetry-05589994` / `neondb` (PG18.6) contains a **restored point-in-time copy**, not an authoritative live synchronized source. Neon UAT `round-shape-42044596` must never be mixed/copied over Production.
+3. **Isolated restore accepted as evidence, not as cutover approval.** Neon shows 82 tables, 76 sequences, 522 indexes, 427 source-compatible constraints; PG18 adds 689 catalog NOT NULL constraints. Migration `0025_trial_three_days`, three trial plans 3 days. Operator reports exact 82-table row-count parity with original snapshot. Final source delta/write-freeze is mandatory before live switchover.
+4. **Owner's encryption deferral is narrowly scoped.** Owner temporarily waived encrypted backup as a condition of **isolated restore rehearsal only** to move faster. Plaintext backup on C:/D: is still a security/durability exposure. Do NOT construe this as approval to operate Production without an independent protected/restorable backup.
+5. **No side effects while testing copied Production customer data.** Use only SELECT/read-only SQLAlchemy preflight against restored Neon, no real signups/payments/Meta sends/cron or app startup migrations. Synthetic write/auth/transaction tests run only on disposable PostgreSQL 18 CI databases. `tools/neon_readonly_preflight.py` requires exact Neon hostname and server-enforced read-only session; real workstation execution is pending.
+6. **Neon Free capacity remains conditional.** Free 100 CU-hour/month; configured 0.25–2 CU, default idle suspension, no pooler. Do not infer 0 cost from provider API's current zero compute counter; confirm settled billing/usage and test cold wake. `/live` is safe health endpoint; avoid unnecessary frequent `/ready` polling. Evaluate smaller SQLAlchemy pools only through tested, approved configuration.
+7. **No automatic Production deployment or DATABASE_URL change.** Backend CI PR #24 (`dab43e7`) and #25 (`f5b6f98`) merged with all 4 jobs PASS (905 tests passed / 7 skipped in latest CI). Render Production + UAT remain LIVE at `bfe67fd`, autoDeploy OFF. Frontend Production `/solutions` verified READY at `79b8fad`.
+8. **Cutover requires a separate explicit approval**, final write freeze/snapshot/delta validation, preserved payment/receipt/order/idempotency state, safe Meta webhook replay, rollback tested against post-switch writes, and alerts. Do not roll back by merely reverting DATABASE_URL after new writes without data reconciliation.
+9. **Operational ACL truth matters:** although operator reports workstation /32 IP removed, independent Render database inventory still showed one entry at latest check. Reconcile in Render Dashboard; never open `0.0.0.0/0`.
+
+---
+
+
 > Read after `AI_HANDOFF.md` and `PROJECT_ROADMAP.md`.
 > Last SEO decision reconciliation: 2026-10-11; other decisions retain their independent checkpoints.
 > These decisions remain fixed unless new verified technical or product evidence justifies a change.
