@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -29,6 +29,7 @@ from app.instagram_publishing import (
     publishing_status,
     serialize_publish_job,
 )
+from app.object_media_storage import presigned_image_url
 from app.media_storage import (
     delete_product_image,
     resolve_asset_path,
@@ -194,11 +195,17 @@ def preview_product_media(
     asset_id: str,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-) -> FileResponse:
+) -> FileResponse | RedirectResponse:
     asset = _asset_or_404(db, asset_id)
     store = default_store(db)
     _require_store_module(db, store, "content_strategy")
-    response = FileResponse(resolve_asset_path(asset, settings), media_type="image/jpeg")
+    if settings.media_storage_backend == "s3":
+        response = RedirectResponse(
+            presigned_image_url(settings, asset.storage_key, ttl_seconds=60),
+            status_code=302,
+        )
+    else:
+        response = FileResponse(resolve_asset_path(asset, settings), media_type="image/jpeg")
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Content-Disposition"] = "inline"
