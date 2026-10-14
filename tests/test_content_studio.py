@@ -176,6 +176,65 @@ def test_image_upload_is_validated_private_and_previewable(content_client) -> No
         assert db.scalar(select(func.count(ProductMediaAsset.id))) == 1
 
 
+
+def test_image_is_durable_postgresql_blob_without_local_media_files(content_client, monkeypatch) -> None:
+    import base64
+
+    client, Session = content_client
+    product = client.get("/admin/api/content-studio").json()["products"][0]
+    asset = upload_image(client, product["id"])
+
+    # Distinct SQLAlchemy sessions verify that the response is not a
+    # transient Python buffer, temporary upload file or in-memory session.
+    with Session() as db:
+        record = db.get(ProductMediaAsset, asset["id"])
+        assert record is not None
+        assert record.storage_key.startswith("db:")
+        assert record.image_data == base64.b64decode(ONE_PIXEL_JPEG)
+        assert record.byte_size == len(record.image_data)
+        assert record.sha256
+    from pathlib import Path
+    assert not list(Path(settings.media_storage_root).rglob("*.jpg"))
+
+    preview = client.get(asset["preview_url"])
+    assert preview.status_code == 200
+    assert preview.content == base64.b64decode(ONE_PIXEL_JPEG)
+    assert preview.headers["cache-control"] == "no-store"
+    duplicate = upload_image(client, product["id"])
+    assert duplicate["id"] == asset["id"]
+    with Session() as db:
+        assert db.scalar(select(func.count(ProductMediaAsset.id))) == 1
+
+    monkeypatch.setattr(settings, "public_media_base_url", LOCAL_ORIGIN)
+    monkeypatch.setattr(settings, "media_signing_secret", "test-signing-secret-that-is-long")
+    from urllib.parse import urlsplit
+    url = urlsplit(create_public_media_url(asset["id"], settings))
+    public = client.get(f"{url.path}?{url.query}")
+    assert public.status_code == 200
+    assert public.content == base64.b64decode(ONE_PIXEL_JPEG)
+    tampered = client.get(f"{url.path}?{url.query[:-1]}0")
+    assert tampered.status_code == 403
+
+    deleted = client.delete(
+        f"/admin/api/product-media/{asset['id']}",
+        headers=MUTATION_HEADERS,
+    )
+    assert deleted.status_code == 200, deleted.text
+    with Session() as db:
+        stored = db.get(ProductMediaAsset, asset["id"])
+        assert stored.status == "deleted"
+        assert stored.image_data is None
+    assert client.get(asset["preview_url"]).status_code == 404
+    assert client.get(f"{url.path}?{url.query}").status_code == 404
+
+
+def test_postgres_media_payload_limit_is_safe_for_serverless() -> None:
+    from app.media_storage import MAX_IMAGE_BYTES, decode_manager_jpeg
+
+    assert MAX_IMAGE_BYTES == 2 * 1024 * 1024
+    with pytest.raises(ValueError, match="۲ مگابایت"):
+        decode_manager_jpeg("data:image/jpeg;base64," + ("A" * (MAX_IMAGE_BYTES * 4 // 3 + 100)))
+
 def test_generate_edit_approve_and_block_unconfigured_publish(content_client) -> None:
     client, _ = content_client
     product = client.get("/admin/api/content-studio").json()["products"][0]
