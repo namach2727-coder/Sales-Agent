@@ -1,0 +1,121 @@
+# DRAFT, NOT DEPLOYED. Requires private environment files outside Git.
+# A Linux Docker host (e.g., OCI Always Free VM or paid VPS) runs the API;
+# Neon hosts separate Production and UAT databases. Neither Render nor a
+# local PostgreSQL/Ollama service is created.
+name: directpilot-external
+
+x-app-base: &app-base
+  build:
+    context: ../..
+    dockerfile: Dockerfile
+  image: "directpilot:${DIRECTPILOT_IMAGE_TAG:?specify_immutable_image_tag}"
+  init: true
+  restart: unless-stopped
+  entrypoint: ["/bin/sh", "/app/scripts/deployment/portable-entrypoint.sh"]
+  security_opt:
+    - no-new-privileges:true
+  networks: [private_api]
+
+services:
+  prod-api:
+    <<: *app-base
+    env_file: "${DIRECTPILOT_PROD_ENV_FILE:?specify_private_absolute_path}"
+    environment:
+      APP_ENV: production
+      DIRECTPILOT_ENV_PROFILE: production
+      DP_ENTRYPOINT_APP: app.main:app
+      DP_ENTRYPOINT_PORT: "8000"
+      WEB_CONCURRENCY: "1"
+    volumes:
+      - prod_media:/app/private_media
+      - prod_receipts:/app/private_receipts
+    tmpfs:
+      - "/app/logs:uid=10001,gid=10001,mode=0750"
+      - "/tmp:uid=10001,gid=10001,mode=1777"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/live',timeout=5)"]
+      interval: 30s
+      retries: 5
+      start_period: 60s
+
+  prod-meta-gateway:
+    <<: *app-base
+    env_file: "${DIRECTPILOT_PROD_ENV_FILE:?specify_private_absolute_path}"
+    environment:
+      APP_ENV: production
+      DIRECTPILOT_ENV_PROFILE: production
+      DP_ENTRYPOINT_APP: app.public_instagram_gateway:app
+      DP_ENTRYPOINT_PORT: "8001"
+      WEB_CONCURRENCY: "1"
+    volumes:
+      - prod_media:/app/private_media:ro
+    tmpfs:
+      - "/app/logs:uid=10001,gid=10001,mode=0750"
+      - "/tmp:uid=10001,gid=10001,mode=1777"
+    depends_on:
+      prod-api: {condition: service_healthy}
+
+  uat-api:
+    <<: *app-base
+    env_file: "${DIRECTPILOT_UAT_ENV_FILE:?specify_private_absolute_path}"
+    environment:
+      APP_ENV: uat
+      DIRECTPILOT_ENV_PROFILE: uat
+      DP_ENTRYPOINT_APP: app.main:app
+      DP_ENTRYPOINT_PORT: "8000"
+      WEB_CONCURRENCY: "1"
+    volumes:
+      - uat_media:/app/private_media
+      - uat_receipts:/app/private_receipts
+    tmpfs:
+      - "/app/logs:uid=10001,gid=10001,mode=0750"
+      - "/tmp:uid=10001,gid=10001,mode=1777"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/live',timeout=5)"]
+      interval: 30s
+      retries: 5
+      start_period: 60s
+
+  uat-meta-gateway:
+    <<: *app-base
+    env_file: "${DIRECTPILOT_UAT_ENV_FILE:?specify_private_absolute_path}"
+    environment:
+      APP_ENV: uat
+      DIRECTPILOT_ENV_PROFILE: uat
+      DP_ENTRYPOINT_APP: app.public_instagram_gateway:app
+      DP_ENTRYPOINT_PORT: "8001"
+      WEB_CONCURRENCY: "1"
+    volumes:
+      - uat_media:/app/private_media:ro
+    tmpfs:
+      - "/app/logs:uid=10001,gid=10001,mode=0750"
+      - "/tmp:uid=10001,gid=10001,mode=1777"
+    depends_on:
+      uat-api: {condition: service_healthy}
+
+  https-gateway:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DIRECTPILOT_PROD_API_HOST: "${DIRECTPILOT_PROD_API_HOST:?specify_proposed_prod_domain}"
+      DIRECTPILOT_UAT_API_HOST: "${DIRECTPILOT_UAT_API_HOST:?specify_proposed_uat_domain}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      prod-api: {condition: service_healthy}
+      uat-api: {condition: service_healthy}
+    networks: [private_api]
+
+networks:
+  private_api: {driver: bridge}
+
+volumes:
+  prod_media:
+  prod_receipts:
+  uat_media:
+  uat_receipts:
+  caddy_data:
+  caddy_config:

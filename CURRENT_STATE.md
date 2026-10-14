@@ -1,5 +1,15 @@
 # DirectPilot Current State
 
+## 2026-10-14 CURRENT STATE: full-Render-exit preparation
+
+- Owner's target is zero Render resources, not just PostgreSQL cutover. Render currently still hosts 2 Free Web Services (Production `directpilot-api`, UAT `directpilot-uat-api`) and 1 Free Production PostgreSQL expiring 2026-11-02, with no Render KV.
+- Neon Production old snapshot `billowing-poetry-05589994/neondb` still contains 82 tables and is NOT in live sync. New final Production `directpilot_live` is proposed but does not exist; Neon UAT separate `round-shape-42044596/neondb`. Prod and UAT must move to external Docker-backed compute with secure env and persistent volumes.
+- Git-only portable host deployment draft `deploy/full-exit/compose.yaml`, Caddy, safe no-auto-migration entrypoint and target validation tests created. Operator still must choose host (OCI VM vs paid managed/VPS), set up account, transfer real Render secrets PRIVATELY, and approve staged UAT/Production cutovers. **No new host provisioned, no Production/UAT service migrated and no Render shutdown/deletion.**
+- Vercel frontend currently outside Render; Hobby commercial-use terms and possible paid upgrade should be reviewed separately.
+
+---
+
+
 ## 2026-10-14 Latest Render/Neon variable status
 
 - Render Production backend `directpilot-api` remains the runtime; service `autoDeploy=no` and currently NOT in maintenance. Render service API exposes environment metadata but NOT a list of key/value secrets. **No Render secret values have been copied or moved**.
