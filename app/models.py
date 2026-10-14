@@ -1140,7 +1140,6 @@ class ManualPaymentReceiptVersion(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    public_id: Mapped[str] = mapped_column(String(36), unique=True, default=new_public_id)
     payment_id: Mapped[int] = mapped_column(ForeignKey("manual_payments.id"), index=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("subscription_orders.id"), index=True)
     tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
