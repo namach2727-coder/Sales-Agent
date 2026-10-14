@@ -486,6 +486,11 @@ class ProductMediaAsset(Base):
     width: Mapped[int] = mapped_column(Integer)
     height: Mapped[int] = mapped_column(Integer)
     sha256: Mapped[str] = mapped_column(String(64), index=True)
+    # Durable PostgreSQL BYTEA for product images (like payment receipts).
+    # Deferred loading avoids reading image bytes for catalog/list operations.
+    image_data: Mapped[bytes | None] = mapped_column(
+        LargeBinary, nullable=True, deferred=True
+    )
     status: Mapped[str] = mapped_column(String(20), default="ready", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     product: Mapped[Product] = relationship()
