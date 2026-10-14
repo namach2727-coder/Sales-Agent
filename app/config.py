@@ -88,6 +88,16 @@ class Settings(BaseSettings):
     media_signing_secret: str = ""
     media_signing_secret_file: str | None = None
     media_storage_root: str = "./private_media"
+    # Optional S3-compatible private object storage (e.g. R2), UAT-first.
+    # Local filesystem is preserved for Docker compatibility but must not be
+    # used for new persistent image uploads in Vercel Functions.
+    media_storage_backend: Literal["local", "s3"] = "local"
+    media_s3_endpoint_url: str = ""
+    media_s3_region: str = "auto"
+    media_s3_bucket: str = ""
+    media_s3_prefix: str = ""
+    media_s3_access_key_id: str = ""
+    media_s3_secret_access_key: SecretStr = SecretStr("")
     tenant_base_domain: str = ""
     tenant_url_scheme: Literal["http", "https"] = "https"
     telegram_bot_token: str = ""
