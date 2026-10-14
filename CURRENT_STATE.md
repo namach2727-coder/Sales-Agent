@@ -1,5 +1,14 @@
 # DirectPilot Current State
 
+## CURRENT CHECKPOINT — 2026-10-14 — REAL NEON SQLALCHEMY PREFLIGHT PASSED
+
+- Actual restored Production `billowing-poetry-05589994/neondb` read-only tool PASS, **reported by operator/Codex** from trusted workstation using clean backend SHA `860aae65b843de2e4361c7158f35ea0fc563f005`, SQLAlchemy 2.0.41 / psycopg 3.2.9 / Alembic 1.16.5, valid host and TLS with server-enforced read-only transactions; no Production/UAT modification per report.
+- Hosted direct Neon SQL independently confirmed 82 tables / 76 sequences / 522 indexes / 427 source constraints, zero invalid indexes or unvalidated constraints, revision `0025_trial_three_days`, subscriptions 14, subscription orders 15, payments 1, orphan refs or invalid periods 0, all three trial codes 3 days. No direct hosted rerun of the owner's Python/SQLAlchemy process.
+- Neon Free compute project counters now **1746 compute seconds and 6888 active seconds** (not confirmed billing units). Cutover target is still an old Oct 13 snapshot. Render source AVAILABLE, inbound IP rules empty, expiration **Nov 2**. Neon Free capacity, independent protected backup, fresh write-frozen final source copy and reversible cutover remain OPEN. No Production DATABASE_URL change.
+
+---
+
+
 ## LATEST VERIFIED STATE — 2026-10-14 (authoritative)
 
 - Render Production PostgreSQL Free: AVAILABLE, zero external inbound allowlist rules, expires `2026-11-02T11:59:46.610475Z`. Production Backend still serves Render deployment `dep-db6tq6vf3r2c73ch03bg` at `bfe67fd`; UAT remains separately LIVE at `dep-db6tpcff3r2c73cgtb30`. No Neon cutover or new Render deploy.

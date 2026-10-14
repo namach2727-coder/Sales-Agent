@@ -1,5 +1,20 @@
 # DirectPilot Next Actions
 
+## CURRENT PRIORITY ACTIONS — 2026-10-14 (after operator's Neon preflight PASS)
+
+**Completed:** REAL Neon restored Production SQLAlchemy/psycopg/TLS/server-enforced READ ONLY preflight **PASS per owner/Codex**, hosted Neon SQL schema and 14 subscriptions/15 orders/1 payment checks independently PASS; three trial plans all 3 days; Render inbound IP allowlist=0. **Do not repeat `python -m tools.neon_readonly_preflight` as an outstanding gate unless the target/credentials/code materially change.**
+
+1. **P0 — real Neon Free capacity:** provider now returns `compute_time_seconds=1746` and `active_time_seconds=6888`, not a verified billed CU-hour measure. Collect Neon Console consumption and trend over representative idle/active intervals, test autosuspend/cold-wake/connection handling and documented fallback before deciding Free is production-ready.
+2. **P0 — protected independent backup:** preserve Oct 13 original and checksum; secure and independently test encrypted offsite recoverable fresh Render backup. Owner's no-encryption waiver was explicitly limited to the isolated rehearsal.
+3. **P0 — owner-approved maintenance window and freeze contract:** read `docs/runbooks/production_neon_cutover.md`; agree on source write freeze (including signups, manual payments, approvals, Meta callbacks, workers), safe receipt/webhook replay/retention and exact acceptance criteria. Obtain separate explicit approval before modifications.
+4. **P0 — final snapshot/restore/parity:** plan new **empty** Neon Production DB (proposed `directpilot_live`, not created yet); prepare safe reviewed restore CLI for that exact named target, fresh verified consistent Render backup during freeze, 82-table counts and finance/subscription/receipt/token metadata reconciliation, explicit abort triggers.
+5. **P0 — rollback and go/no-go:** define split-brain prevention, backward replay for events after Neon writes, observation period and recovery drill; show owner the reviewed schedule and receive distinct live Cutover approval. **Do not** change Render Production `DATABASE_URL` or touch UAT before that.
+
+**Deadline:** Render Free PostgreSQL source expires Nov 2 2026; internal target October 25; preserve data-integrity gates despite time pressure.
+
+---
+
+
 ## EXECUTION QUEUE UPDATE — 2026-10-14 (LATEST)
 
 **P0 deadline:** avoid Render Free PostgreSQL expiry `2026-11-02T11:59:46Z`; target controlled completion by Oct 25 without waiving data safety.

@@ -1,5 +1,18 @@
 # DirectPilot Project Roadmap & Continuity Checkpoint
 
+## P0 GATE STATUS UPDATE — 2026-10-14 — ACTUAL RESTORED NEON PREFLIGHT PASS
+
+**Newly CLOSED gate:** Operator/Codex ran `python -m tools.neon_readonly_preflight` on owner workstation against exactly approved independent Neon Production `neondb`; result `OVERALL_STATUS=PASS`: SQLAlchemy 2.0.41, psycopg 3.2.9, SSL, PostgreSQL 18, server-enforced read-only transactions. Production, UAT, Meta, database data and live API were not modified per operator report.
+
+**Independent hosted verification:** 82 tables, 76 sequences, 522 indexes, 427 original constraints, 0 invalid indexes and 0 unvalidated constraints, Alembic `0025_trial_three_days`; subscriptions=14, orders=15, manual payments=1, orphan/invalid periods=0, three trial plan durations=3. Operator's SQLAlchemy/TLS behavior is **operator-reported PASS**, not a remote re-run.
+
+**Compute monitoring baseline:** `Neon.describe_project` returned `compute_time_seconds=1746`, `active_time_seconds=6888` on 2026-10-14 (previously zeros). These API counters are not themselves a paid-invoice/CU-hour burn reading. **Free-plan capacity remains OPEN** pending Neon Console settled consumption, idle/wake test and realistic traffic estimate.
+
+**Go/no-go blockers remain:** encrypted independent recoverable backup; fresh final Render snapshot/delta with complete write-freeze and safe Meta/payment callbacks; dedicated EMPTY Neon final destination (proposed `directpilot_live`, NOT created), reconciliation of 82 tables and finance/idempotency, split-brain-safe rollback, and **explicit separate live cutover approval**. No live DATABASE_URL change, no migration and no Render/UAT deployment. Render source expires **2026-11-02**; target decision by October 25.
+
+---
+
+
 ## LATEST 2026-10-14 P0 READINESS REVIEW — controlled cutover not authorized
 
 - **PASS:** Render Production PostgreSQL remains available and API inventory confirms zero external inbound IP allowlist entries. Old rehearsal Neon `neondb` 82 tables/Alembic 0025 and PostgreSQL 18 read-only catalog integrity confirmed. Synthetic PG18 CI passed.

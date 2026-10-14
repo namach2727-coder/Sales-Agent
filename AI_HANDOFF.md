@@ -1,5 +1,16 @@
 # DirectPilot AI Handoff
 
+## LATEST VERIFIED MIGRATION CHECKPOINT — 2026-10-14 / ACTUAL NEON SQLALCHEMY READ-ONLY PASS
+
+- **Owner/Codex operator report:** `DIRECTPILOT_NEON_READONLY_PREFLIGHT` **PASS** on actual restored Neon Production `billowing-poetry-05589994` / direct host `ep-super-moon-arziccng.c-4.us-west-2.aws.neon.tech` / `neondb`: SQLAlchemy 2.0.41, psycopg 3.2.9, Alembic 1.16.5; TLS, PostgreSQL 18, DB target identity and **server-enforced READ ONLY**. The owner retained dirty local work safely and used clean `backend-main` snapshot SHA `860aae65b843de2e4361c7158f35ea0fc563f005`. No API, Meta, payment or worker side effects.
+- **Independent Neon SQL cross-check by hosted connector:** 82 tables, 76 sequences, 522 indexes, 427 source-compatible constraints; zero invalid indexes or unvalidated constraints; migration `0025_trial_three_days`; subscription count=14, subscription orders=15, manual payments=1, invalid commerce relations and subscription periods=0; `TRIAL`, `AUTOMATION_TRIAL`, `AI_ASSISTANT_TRIAL` each 3 days. Actual SQLAlchemy/TLS read-only enforcement was verified on operator workstation, NOT re-executed by hosted agent.
+- **Neon usage changed:** project `describe_project` now reports `compute_time_seconds=1746`, `active_time_seconds=6888` (previously both zero). Do not interpret raw counters as billed CU-hour consumption; Neon Free burn, autosuspend, cold start and production load suitability are **UNVERIFIED**.
+- **Render security:** Render Production database still AVAILABLE, `ipAllowList=[]`, expiry `2026-11-02T11:59:46.610475Z`. **NO cutover.**
+- **Next P0 gates:** owner-controlled independent encrypted/offsite recoverable backup (plaintext exception was only for rehearsal); actual Neon Free quota measurement; separate cutover maintenance-window approval and write/webhook/payment freeze, fresh authoritative `pg_dump` to a **separately approved new EMPTY final Neon database**, verified parity and rollback/split-brain plan. Follow `docs/runbooks/production_neon_cutover.md`, not historical stale TODOs.
+
+---
+
+
 ## NEWEST HANDOFF — 2026-10-14 (supersedes prior dated pre-cutover checkpoints)
 
 - **P0 Render PostgreSQL Free expires 2026-11-02T11:59:46Z.** Render Production DB AVAILABLE, external inbound `ipAllowList=[]` independently verified; Production/UAT Backend still LIVE on `bfe67fd`, autoDeploy OFF; **NO Neon live cutover**.

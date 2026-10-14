@@ -1,5 +1,14 @@
 # DirectPilot Decisions
 
+## ACCEPTED PREFLIGHT EVIDENCE — 2026-10-14 (ACTIVE)
+
+- Accept **operator-reported PASS** for the actual restored Neon Production SQLAlchemy/psycopg + TLS + PostgreSQL-server-enforced READ ONLY preflight using the guarded tool. Hosted Neon SQL independently matched the 82/76/522/427 database objects, Alembic 0025 and key commerce/trial aggregate integrity. This **closes only the read-only connectivity/integrity gate**; it does not constitute full live API or production auth/Meta/payment E2E acceptance.
+- Keep Production on Render; maintain UAT separation. **Explicit new approval** required for controlled maintenance and any future final database creation, write freeze, restore or Production DATABASE_URL cutover.
+- Neon Free provider returned **nonzero compute_time_seconds=1746 / active_time_seconds=6888**. Treat those as preliminary provider counters, not as measured billed CU-hour capacity. Preserve mandatory measured usage, cold start, side-effect-safe rollback, independent protected backup and final fresh data parity requirements.
+
+---
+
+
 ## CUTOVER SAFETY DECISION — 2026-10-14 (ACTIVE)
 
 - Adopt the reviewed `docs/runbooks/production_neon_cutover.md` (backend PR #26 merged `9ba207da2c5b18bf77003fd7e9b409ac69533f08`, 4/4 CI PASS) as the **planning guide**, NOT approval for live DB, secret or infrastructure changes.

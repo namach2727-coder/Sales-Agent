@@ -1,5 +1,13 @@
 # DirectPilot Render → Neon Production — Controlled Cutover Runbook
 
+## 2026-10-14 Preflight update — ACTUAL restored Neon read-only PASS
+
+**Operator/Codex reported PASS** for actual isolated restored Neon SQLAlchemy 2.0.41 / psycopg 3.2.9 / Alembic 1.16.5 with verified TLS/host and **server-enforced read-only transactions**. Independent Neon SQL verified 82 tables / 76 sequences / 522 indexes / 427 original constraints, no invalid indexes/unvalidated constraints, Alembic 0025 and 14 subscriptions / 15 subscription orders / 1 manual payment with zero checked orphan relations. This is NOT a write or Meta/payment E2E test. Historical NOT VERIFIED rows below are superseded by this update.
+
+**Compute status:** Neon `describe_project` now shows `compute_time_seconds=1746`, `active_time_seconds=6888`; actual billed CU-hour burn, cold-start and full load remain unverified. Live Render remains source. No final write-frozen snapshot or separate cutover authorization exists.
+
+
+
 **Status 2026-10-14: PLANNED / NOT AUTHORIZED / NOT EXECUTED.** Production remains on Render PostgreSQL. This document contains no secret values and is not executable automation. Existing restored Neon `neondb` is an **old snapshot** for rehearsal only. Never switch the live API to it without a fresh final sync.
 
 ## Fixed topology and expiry
@@ -78,7 +86,7 @@
 | Render inbound allowlist zero | **PASS** (Render API `ipAllowList=[]`) |
 | Rehearsal Neon restore with 82 tables and migration 0025 | **PASS** |
 | Synthetic PG18 / SQLAlchemy CI | **PASS** |
-| Actual restored Neon read-only SQLAlchemy CLI | **NOT VERIFIED** |
+| Actual restored Neon read-only SQLAlchemy CLI | **PASS per operator/Codex** (server-enforced read-only; independent data cross-check) |
 | Secure independent offsite backup | **OPEN** |
 | Fresh source snapshot with writes frozen | **NOT STARTED** |
 | Empty final target created and populated | **NOT STARTED** |
