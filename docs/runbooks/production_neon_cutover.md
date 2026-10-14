@@ -16,6 +16,13 @@
 
 **Internal deadline: October 25**; hard external expiry: November 2. Mark dates as risk targets, not proof that changes occurred.
 
+### Verified restored-data and recovery observations — October 14
+
+- Independent Neon read-only SQL returned `alembic_version=0025_trial_three_days`, 82 application tables, 0 invalid indexes and no missing FK validations. The backup is still a point-in-time copy.
+- Existing restored Production data contains **one manual payment record with an inline 40,139-byte receipt blob** in PostgreSQL and a `receipt_storage_key` reference. The current admin receipt endpoint first reads `receipt_data` from DB and falls back to filesystem for legacy receipts. Re-test retrieval offline against verified secrets during cutover; future/legacy external receipt files (if any) require separate inventory and backup.
+- The Neon project currently reports **zero saved snapshots and an empty snapshot schedule**. Neither the restored Neon branch nor short plan history should be treated as independent durable DR; arrange protected off-provider archives and tested restore.
+- Restored Production includes stored encrypted Instagram connection token metadata; encryption and signing key continuity must be verified in an isolated, outbound-disabled process. Never print/decrypt these secrets into reports.
+
 ## Prerequisites before opening maintenance
 
 1. **Owner go/no-go:** obtain separate explicit written approval for the final database cutover and anticipated controlled downtime. No implicit approval from Git merges or this runbook.
