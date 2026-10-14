@@ -1,5 +1,14 @@
 # DirectPilot Decisions
 
+## NEON FREE / MAINTENANCE PRECONDITIONS — 2026-10-14
+
+- Observed independent Neon Free API counters `compute_time_seconds=1746` and `active_time_seconds=6888`. Equivalent **~0.485 CU-hour only as a provisional estimate**, not a settled provider Console quota invoice nor measured customer traffic. Free 100 CU-hour/month; monitor actual burn and idle/cold starts before Production GO.
+- **Maintenance cannot be authorized just from a finished Runbook.** A comprehensive, reversible write barrier and durable Meta webhook + Payexa callback preservation/replay must first be implemented, tested and explicitly approved. Existing code paths can write or trigger outbound sends; a static maintenance page or returning arbitrary errors is not sufficient.
+- Adopt `docs/runbooks/neon_free_usage_and_maintenance_plan.md` as proposed go/no-go, staged freeze and recovery plan. T+90 checkpoint/120-minute maximum is a planning budget, **not a booked outage**. Owner must approve date, maintenance risk and a *separate* actual Production cutover. No live Render/Neon/UAT/Meta changes authorized.
+
+---
+
+
 ## ACCEPTED PREFLIGHT EVIDENCE — 2026-10-14 (ACTIVE)
 
 - Accept **operator-reported PASS** for the actual restored Neon Production SQLAlchemy/psycopg + TLS + PostgreSQL-server-enforced READ ONLY preflight using the guarded tool. Hosted Neon SQL independently matched the 82/76/522/427 database objects, Alembic 0025 and key commerce/trial aggregate integrity. This **closes only the read-only connectivity/integrity gate**; it does not constitute full live API or production auth/Meta/payment E2E acceptance.

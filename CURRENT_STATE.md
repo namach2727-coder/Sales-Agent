@@ -1,5 +1,15 @@
 # DirectPilot Current State
 
+## 2026-10-14 CONFIRMED CAPACITY AND MAINTENANCE READINESS
+
+- Independent Neon project `billowing-poetry-05589994` Free `free_v3`: provider `compute_time_seconds=1746`, `active_time_seconds=6888`, current period 2026-10-12T06:36Z–2026-11-01T00:00Z. Derived tentative 0.485 CU-hour (0.485% of Free 100 CU-hour allocation); Console bill/usage NOT verified and live load NOT measured.
+- Neon PG18.6 restored `neondb` 82 tables/Alembic 0025; compute endpoint observed idle and resumed on read-only SELECT (~6.65s end-to-end connector latency, not Backend latency). Pooler off, min 0.25/max 2 CU. Zero saved/scheduled Neon snapshots on readback, protected off-provider backup OPEN.
+- Render Production HTTP metrics requested over 24h returned empty series (not proof of zero requests); DB active connection hourly samples 0–2. Source DB AVAILABLE, zero inbound /32 rules, expires Nov 2. Production and UAT live connections untouched.
+- Backend audit reveals both Instagram webhook POST paths, Payexa callback GET/POST, signup/order/receipt/payment writers, automatic migration on start and possible one-shot startup mutation flags. **Comprehensive reversible freeze + durable replay NOT VERIFIED**. Proposed maintenance plan stored at `docs/runbooks/neon_free_usage_and_maintenance_plan.md`; no window booked; no cutover or deployment.
+
+---
+
+
 ## CURRENT CHECKPOINT — 2026-10-14 — REAL NEON SQLALCHEMY PREFLIGHT PASSED
 
 - Actual restored Production `billowing-poetry-05589994/neondb` read-only tool PASS, **reported by operator/Codex** from trusted workstation using clean backend SHA `860aae65b843de2e4361c7158f35ea0fc563f005`, SQLAlchemy 2.0.41 / psycopg 3.2.9 / Alembic 1.16.5, valid host and TLS with server-enforced read-only transactions; no Production/UAT modification per report.

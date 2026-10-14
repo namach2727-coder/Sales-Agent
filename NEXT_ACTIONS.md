@@ -1,5 +1,21 @@
 # DirectPilot Next Actions
 
+## 2026-10-14 EXECUTION PRIORITIES — Neon capacity and safe maintenance (LATEST)
+
+**COMPLETED:** Neon API metering baseline `compute_time_seconds=1746`, `active_time_seconds=6888`; provisional ~0.485 CU-hour **not Console billed**. Idle→active read-only query succeeded (~6.65s connector round trip, not actual API cold-start). Backend write/callback inventory documented; operation-only plan created in `docs/runbooks/neon_free_usage_and_maintenance_plan.md`. Production/UAT untouched and no maintenance scheduled.
+
+1. **P0 — build/test safe freeze-before-maintenance prerequisite.** Both Instagram webhook POST paths and Payexa GET/POST callbacks must be safely held/preserved/replayed with idempotency and no double customer replies/payments. Cover registration/login session writes, orders, receipt submission, admin approvals, workers, schedulers, token refresh and startup migration/seed/payment flags. Existing full freeze/replay implementation is NOT proven. Do not proceed relying on maintenance banner/provider retry guesses.
+2. **P0 — verify Neon Free capacity from actual Neon Console quota counter** across representative periods and capture post-wakeup p95/p99 Backend latency using isolated traffic. API sample ~0.485 CU-hour estimate alone does not prove under-100 monthly CU-hour production usage. Free-plan quota exhaustion can stop compute.
+3. **P0 — independently restorable protected offsite backup** and key/receipt continuity. Previous owner waiver of encryption was *only* for isolated restore rehearsal. No scheduled Neon snapshots reported.
+4. **P0 — select maintenance date/time and impact after above PASS.** Proposed controlled write pause ≤120 min with T+90 Go/No-Go is a draft only; business owner must authorize exact window/possible customer messaging separately. Secure export path with short-lived source /32 if needed and revoke.
+5. **P0 — final fresh Render dump/restoration with frozen writers.** Prepare separately approved new EMPTY Neon destination (proposed `directpilot_live` still uncreated), guarded restore revision, all-table counts + critical content parity, Meta/payment event watermark and reverse/split-brain rollback.
+6. **HARD STOP:** no Production `DATABASE_URL` changes, real messages/payment activity, scheduled downtime, migrations, UAT data movements or Neon new final DB without the respective scoped owner go/no-go.
+
+Internal target Oct 25, Render database expires Nov 2; protect customers/data above schedule speed.
+
+---
+
+
 ## CURRENT PRIORITY ACTIONS — 2026-10-14 (after operator's Neon preflight PASS)
 
 **Completed:** REAL Neon restored Production SQLAlchemy/psycopg/TLS/server-enforced READ ONLY preflight **PASS per owner/Codex**, hosted Neon SQL schema and 14 subscriptions/15 orders/1 payment checks independently PASS; three trial plans all 3 days; Render inbound IP allowlist=0. **Do not repeat `python -m tools.neon_readonly_preflight` as an outstanding gate unless the target/credentials/code materially change.**
