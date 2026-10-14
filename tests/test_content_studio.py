@@ -212,7 +212,7 @@ def test_image_is_durable_postgresql_blob_without_local_media_files(content_clie
     public = client.get(f"{url.path}?{url.query}")
     assert public.status_code == 200
     assert public.content == base64.b64decode(ONE_PIXEL_JPEG)
-    tampered = client.get(f"{url.path}?{url.query[:-1]}0")
+    tampered = client.get(f"{url.path}?{url.query.replace('sig=', 'sig=x', 1)}")
     assert tampered.status_code == 403
 
     deleted = client.delete(
@@ -226,6 +226,23 @@ def test_image_is_durable_postgresql_blob_without_local_media_files(content_clie
         assert stored.image_data is None
     assert client.get(asset["preview_url"]).status_code == 404
     assert client.get(f"{url.path}?{url.query}").status_code == 404
+
+
+def test_postgres_media_per_store_quota_fails_closed(content_client, monkeypatch) -> None:
+    from app import media_storage
+
+    client, Session = content_client
+    monkeypatch.setattr(media_storage, "MAX_STORE_IMAGE_BYTES", 1)
+    product = client.get("/admin/api/content-studio").json()["products"][0]
+    response = client.post(
+        f"/admin/api/products/{product['id']}/media",
+        json={"filename": "test.jpg", "data_url": f"data:image/jpeg;base64,{ONE_PIXEL_JPEG}"},
+        headers=MUTATION_HEADERS,
+    )
+    assert response.status_code == 422
+    assert "۵۰ مگابایت" in response.text
+    with Session() as db:
+        assert db.scalar(select(func.count(ProductMediaAsset.id))) == 0
 
 
 def test_postgres_media_payload_limit_is_safe_for_serverless() -> None:
