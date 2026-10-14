@@ -1,5 +1,16 @@
 # DirectPilot AI Handoff
 
+## NEWEST HANDOFF — 2026-10-14 (supersedes prior dated pre-cutover checkpoints)
+
+- **P0 Render PostgreSQL Free expires 2026-11-02T11:59:46Z.** Render Production DB AVAILABLE, external inbound `ipAllowList=[]` independently verified; Production/UAT Backend still LIVE on `bfe67fd`, autoDeploy OFF; **NO Neon live cutover**.
+- Restored independent Neon Production `billowing-poetry-05589994/neondb`: PostgreSQL 18.6, 82 tables, Alembic `0025_trial_three_days`, no invalid indexes, snapshot from Oct 13. The old restore is **NOT continuously synced** to Render.
+- **New operational runbook:** `docs/runbooks/production_neon_cutover.md`, merged backend PR #26 at `9ba207da2c5b18bf77003fd7e9b409ac69533f08`; CI `38514922043` 4/4 PASS. Proposed extra empty `directpilot_live` target is NOT created; separate approval required. No runtime deploy.
+- Neon list_snapshots empty, automatic snapshot schedule empty. One restored manual payment has 40,139-byte inline PostgreSQL receipt data; auth/Meta token encryption compatibility remains untested in isolated app. Plaintext backup/out-of-provider protected recovery remains open.
+- **NEXT:** workstation run `python -m tools.neon_readonly_preflight` using privately entered direct Neon URL; measure actual Free CU consumption/cold-wake; protect independent restorable backup; agree write/webhook freeze/final fresh dump and end-to-end rollback plan. Explicit go/no-go before any real Production DATABASE_URL change.
+
+---
+
+
 ## LATEST VERIFIED CONTINUITY — 2026-10-13 (read before historical checkpoints)
 
 **Priority P0:** Render Production PostgreSQL Free expiry **2026-11-02T11:59:46Z**; aim to complete a measured, reversible Neon cutover by **Oct 25**. **NO Production database cutover authorized or performed.** Older notes below describing 14-day trials, pending /solutions, no Render backup, Neon target empty, or backend repository SHA as a deployed service are historical/superseded where contradicted by this checkpoint.

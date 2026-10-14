@@ -1,5 +1,15 @@
 # DirectPilot Project Roadmap & Continuity Checkpoint
 
+## LATEST 2026-10-14 P0 READINESS REVIEW — controlled cutover not authorized
+
+- **PASS:** Render Production PostgreSQL remains available and API inventory confirms zero external inbound IP allowlist entries. Old rehearsal Neon `neondb` 82 tables/Alembic 0025 and PostgreSQL 18 read-only catalog integrity confirmed. Synthetic PG18 CI passed.
+- **NEW P0 finding:** Neon project `billowing-poetry-05589994` returned `list_snapshots=[]` and `get_snapshot_schedule=[]`; no scheduled independent snapshots evidenced. A PostgreSQL manual payment record has 40,139 bytes of receipt_data inline in restored target, and code supports inline-first/legacy filesystem fallback. Audit external legacy receipt files and protected independent backup before cutover.
+- **PLAN RELEASED:** `docs/runbooks/production_neon_cutover.md` merged via backend PR #26, SHA `9ba207da2c5b18bf77003fd7e9b409ac69533f08`, CI run `38514922043` **4/4 PASS**. Covers maintenance/write freeze, fresh pg_dump, proposed separately approved empty `directpilot_live` database (not created), final row and commerce/webhook checks, forward recovery and rollback safeguards. This is a runbook only: no Neon new DB, deployment or live cutover.
+- **OPEN HARD GATES:** real restored-data SQLAlchemy preflight on owner workstation, Neon billed CU-hour and cold-start evidence, protected independent restorable backup, webhook hold/replay and idempotency, complete fresh source-to-target parity with freeze, tested rollback and **explicit separate owner approval**. Internal goal Oct 25 before expiry Nov 2; do not sacrifice integrity for deadline.
+
+---
+
+
 ## LATEST P0 GATEBOARD — 2026-10-13 (supersedes older historical status blocks)
 
 | Gate | Latest evidence | Status |

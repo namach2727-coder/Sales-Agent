@@ -1,5 +1,15 @@
 # DirectPilot Current State
 
+## LATEST VERIFIED STATE — 2026-10-14 (authoritative)
+
+- Render Production PostgreSQL Free: AVAILABLE, zero external inbound allowlist rules, expires `2026-11-02T11:59:46.610475Z`. Production Backend still serves Render deployment `dep-db6tq6vf3r2c73ch03bg` at `bfe67fd`; UAT remains separately LIVE at `dep-db6tpcff3r2c73cgtb30`. No Neon cutover or new Render deploy.
+- Independent Neon Production `billowing-poetry-05589994/neondb`, PostgreSQL 18.6: 82 tables, Alembic `0025_trial_three_days`, 0 invalid indexes. Neon saved snapshots=0 and snapshot schedule empty. One manual payment's 40,139-byte receipt blob is stored inline, with storage-key reference; no data values printed.
+- Backend cutover runbook PR #26 merged at `9ba207da2c5b18bf77003fd7e9b409ac69533f08`; GitHub Actions latest doc PR CI `38514922043` all 4 jobs PASS. **This is a Git documentation release**, not a runtime feature release.
+- Real restored-Neon SQLAlchemy read-only CLI, Neon Free CU-hour/idle-wake test, protected offsite backup, fresh final sync and rollback acceptance remain OPEN. Proposed future fresh destination `directpilot_live` does NOT exist. Site must stay on Render until explicit cutover approval.
+
+---
+
+
 ## CURRENT VERIFIED SYSTEM SNAPSHOT — 2026-10-13 (authoritative)
 
 **Production is still on Render PostgreSQL. There has been NO live Neon cutover.** Older sections below are dated historical observations; when conflicting, use this verified snapshot.

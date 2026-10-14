@@ -1,5 +1,16 @@
 # DirectPilot Decisions
 
+## CUTOVER SAFETY DECISION — 2026-10-14 (ACTIVE)
+
+- Adopt the reviewed `docs/runbooks/production_neon_cutover.md` (backend PR #26 merged `9ba207da2c5b18bf77003fd7e9b409ac69533f08`, 4/4 CI PASS) as the **planning guide**, NOT approval for live DB, secret or infrastructure changes.
+- Rehearsal `neondb` is an old PostgreSQL 18 production copy. Never overwrite it or switch the app to it directly. Proposed `directpilot_live` is an **uncreated** empty final destination; create only after explicit operator approval and scoped restore review.
+- A **fresh consistent dump while all writes/Meta/payment webhooks are controlled** is mandatory, with row parity and reverse/recovery plan. Do not roll back by merely reverting DATABASE_URL after Neon accepts writes.
+- Neon lists **zero snapshots and zero scheduled snapshots**, so off-provider protected backup/restore proof remains a pre-cutover requirement. Owner's earlier plaintext encryption waiver applies only to rehearsal. Read-only actual customer data tests only; no Meta/payment side effects.
+- Render inbound database allowlist independently verified empty; preserve this security posture until a time-limited scoped source backup window is separately approved.
+
+---
+
+
 ## ACTIVE DECISIONS — 2026-10-13 (latest; supersedes conflicting older entries)
 
 1. **Database continuity priority P0.** Render Free Production PostgreSQL `dpg-db0escm0tbcc73fhig2g-a` expires **2026-11-02T11:59:46Z**; target a safe, verified migration by Oct 25. A deadline does not waive backups, data parity, rollback or explicit approval.

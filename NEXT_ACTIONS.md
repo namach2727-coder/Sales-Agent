@@ -1,5 +1,18 @@
 # DirectPilot Next Actions
 
+## EXECUTION QUEUE UPDATE — 2026-10-14 (LATEST)
+
+**P0 deadline:** avoid Render Free PostgreSQL expiry `2026-11-02T11:59:46Z`; target controlled completion by Oct 25 without waiving data safety.
+
+1. **NEXT ON TRUSTED LAPTOP:** check out latest `backend-main`; run `python -m tools.neon_readonly_preflight` and enter Neon direct restored-Production URL only into hidden local prompt. Share sanitized status, not credentials. SQLAlchemy real-data check NOT yet executed.
+2. **NEXT PROVIDER USAGE:** obtain two Neon Console CU-hour readings across representative awake/idle period, verify pause/wake and cumulative usage. API reports zero compute seconds despite queries and is **not** reliable proof of capacity; plan Free quota alerts/fallback.
+3. **NEXT RESILIENCE:** protect an independent encrypted restorable backup of active Render; Neon project has no saved snapshots and no snapshot schedule. Confirm no legacy receipt objects live outside PostgreSQL (one current inline receipt blob confirmed).
+4. **NEXT CUTOVER PLANNING:** use merged `docs/runbooks/production_neon_cutover.md` (PR #26 `9ba207da`, CI 4/4 PASS). Approve controlled write/webhook/payment freeze, final fresh pg_dump, restored count parity, then a **new empty final DB** in independent Neon Production (proposed `directpilot_live`, **not created**, requires explicit approval). Test rollback and idempotent replay.
+5. **P0 GO/NO-GO:** do not change Production DATABASE_URL, reboot apps with hidden seed/bootstrap flags, start Meta sends, merge UAT data or close DR gate until requirements PASS and owner separately approves. Render DB inbound IP rules currently empty (PASS); reopen only limited /32 during owner-approved source export and revoke afterward.
+
+---
+
+
 ## EXECUTION QUEUE — 2026-10-13 (LATEST; supersedes older dated TODOs)
 
 **P0 / Deadline:** Render Production Free PostgreSQL expiry **2026-11-02T11:59:46Z**. Internal goal **Oct 25**; prioritize resilient cutover with zero unacknowledged missing records over marketing tasks. No Production database cutover is approved yet.
