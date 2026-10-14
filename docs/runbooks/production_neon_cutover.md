@@ -1,5 +1,12 @@
 # DirectPilot Render → Neon Production — Controlled Cutover Runbook
 
+## 2026-10-14 — Render→Neon application Environment Variables policy
+
+**Read before touching any secrets:** [Render environment preservation and audit guide](render_neon_environment_preservation.md).
+
+The Render `directpilot-api` service continues to host FastAPI; independent Neon Production provides PostgreSQL, NOT Render-style API environment variables (platform Functions unavailable for this project). **No full environment variable copy to Neon is technically appropriate or attempted.** Preserve existing Render Meta, application encryption, cookie signing, payment, provider and one-shot control variables **in place**. At separately authorized database Cutover, the ONLY planned Render environment change is `DATABASE_URL` / `DATABASE_URL_FILE` pointing at the new fresh and independently verified Neon final DB; do not point at stale restored `neondb`. Render connector exposes environment metadata but no secret-value read/list action. Offline key-only audit in `tools.render_env_key_audit` can flag accidental missing names without seeing any secret values; value parity requires a separate private operator check. No Production settings have been changed.
+
+
 ## 2026-10-14 — Latest Neon Free usage and write-freeze readiness assessment
 
 **Detailed current plan:** [Neon Free usage and maintenance-window plan](neon_free_usage_and_maintenance_plan.md). This new plan supersedes any obsolete status below for CU-hour telemetry, cold wake and actual restored Neon SQLAlchemy preflight; Production Cutover is STILL NOT AUTHORIZED.
