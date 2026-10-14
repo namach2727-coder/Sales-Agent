@@ -1,5 +1,26 @@
 # DirectPilot Current State
 
+## 2026-10-14 — NEW VERIFIED CHECKPOINT: Neon UAT migrated, Vercel deployment BLOCKED
+
+**Permanent owner-approved design:** PostgreSQL/Neon BYTEA stores BOTH manual-payment receipt evidence and product images. No R2/S3. Receipts must be queryable by customer/order/payment at least four months later and retain all earlier uploads after a rejected replacement. These are non-negotiable cross-chat decisions; do not ask the owner to repeat them.
+
+**SUCCESS — Real independent Neon UAT:** project `round-shape-42044596`, main branch `br-autumn-rain-arxm147n`, database `neondb`, advanced from Alembic `0025_trial_three_days` to `0027_traceable_receipt_versions` in a single controlled SQL transaction reproducing additive Alembic 0026 + 0027. Added `product_media_assets.image_data BYTEA` and `manual_payment_receipt_versions` with six indexes and checksum/identity metadata. Non-destructive backfill copied 2/2 existing receipts into version 1 with identical bytes and SHA-256. On UAT before change, payment rows=2, blob rows=2, product media=0. NOT Production.
+
+**SUCCESS — Backup/restore rehearsal:** Neon snapshot `snap-patient-dawn-arkxewpc` (`uat-pre-0026-0027-20261014`) created from UAT branch before migration. Restored into independent `br-spring-dream-arhxt1ji` and verified 2/2 payment receipt bytes and `0025`; applied same additive schema on the restored copy first and verified `0027` and 2/2 byte-level parity. Snapshot restore is a same-provider recovery test, **NOT** an independent encrypted off-provider backup or proof of four-month retention policy.
+
+**SUCCESS — GitHub code:** backend image PR #34 and receipt traceability PR #36 passed four CI jobs each (Python, Docker, PostgreSQL 17 smoke, PostgreSQL 18 compatibility). Both merged **ONLY into branch `migration/vercel-uat-fastapi-20261014`**, HEAD `96611ce1500936b10d5836185a5d14c78b886035`, *not* `backend-main` or Render Production. Frontend PR #31 in `namach2727-coder/directpilot-web` contains archive/admin UI but remains open; isolated preview exists without E2E against updated API.
+
+**BLOCKED — Vercel UAT runtime:** standalone Vercel project `directpilot-uat-api` ID `prj_Kt665OcJisA7WMTA2YnGi7KSyT3b` latest inspected deployment still **`dpl_EdLHatmBs6GKyDeiMaAWFyCfpmmR` (READY) from OLD commit `c05a5a76def84b9495bf1b361f910a9194d58a59`**. Both production-target (UAT project only) and preview-target create_deployment calls returned **HTTP 403** forbidden. Merging to linked Git branch did NOT automatically create a deployment at time of check. IMPORTANT: a READY OLD deployment is not a passing new backend; after UAT DB moved to 0027, old API may report `/ready` migration mismatch. **Do not claim UAT transfer or functionality complete or begin Production cutover.**
+
+**Next exact action to clear gate:** owner/Vercel account holder must use `https://vercel.com/mohcenp-9857s-projects/directpilot-uat-api/deployments` → Create Deployment, select **branch `migration/vercel-uat-fastapi-20261014` and exact commit `96611ce1500936b10d5836185a5d14c78b886035`**, choose intended isolated UAT production environment; verify no environment variable points to Production Neon/Render DB. If blocked, inspect Vercel Git integration and Hobby owner/commit-author deployment authorization, do not bypass permissions. Deploy only after reviewing connected source and environment. Verify `/ready` reports `migration=current`, actual deployment SHA and database. Then use isolated frontend archive Preview, small dummy product image upload/preview/delete, dummy receipt replace/retrieve both versions, admin customer/date search, event timeline, auth/RBAC, session, persist across redeploy; Meta/payments should not perform real actions.
+
+**Production hard stop:** production Render backend/source DB remains authoritative; no fresh production snapshot/export-to-Neon-final, writer/webhook freeze, source-vs-target parity or production rollback testing confirmed. Production Neon `directpilot_live` should not be treated as restored and Production domains or Meta callbacks must NOT move until independent explicit GO. Hobby Vercel terms restrict commercial use; resolve hosting policy and costs before real revenue traffic.
+
+**Five-file read order:** `AI_HANDOFF.md`, `PROJECT_ROADMAP.md`, `DECISIONS.md`, `CURRENT_STATE.md`, `NEXT_ACTIONS.md`. Keep these in sync as each gate clears.
+
+---
+
+
 ## 2026-10-14 — PERMANENT OWNER REQUIREMENT: receipt traceability after four months
 
 **Cross-chat non-negotiable acceptance criterion:** Admin must be able to identify **every manual transfer receipt belonging to a particular customer**, retrieve the original image/PDF even **four months or more** after upload, identify the associated tenant/customer/order/payment, original submission time, checksum, approval/rejection sequence and acting administrator, and retrieve **earlier receipt versions after rejection and replacement**. Customer data and payment history MUST NOT be automatically overwritten or purged. This is a distinct requirement from image storage, but both rely on **PostgreSQL/Neon BYTEA**. **Never suggest R2/S3**, the owner has explicitly declined those providers.
