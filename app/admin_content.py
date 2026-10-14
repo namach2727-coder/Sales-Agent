@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -32,6 +32,7 @@ from app.instagram_publishing import (
 from app.media_storage import (
     delete_product_image,
     resolve_asset_path,
+    resolve_asset_bytes,
     save_product_image,
 )
 from app.models import Product, ProductMediaAsset, SocialContentDraft
@@ -194,11 +195,16 @@ def preview_product_media(
     asset_id: str,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-) -> FileResponse:
+) -> Response:
     asset = _asset_or_404(db, asset_id)
     store = default_store(db)
     _require_store_module(db, store, "content_strategy")
-    response = FileResponse(resolve_asset_path(asset, settings), media_type="image/jpeg")
+    image = resolve_asset_bytes(asset)
+    response = (
+        Response(content=image, media_type="image/jpeg")
+        if image is not None
+        else FileResponse(resolve_asset_path(asset, settings), media_type="image/jpeg")
+    )
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Content-Disposition"] = "inline"
