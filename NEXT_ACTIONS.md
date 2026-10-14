@@ -1,5 +1,26 @@
 # DirectPilot Next Actions
 
+## 2026-10-14 — CANONICAL UAT DOMAIN RECONCILED: branch, API, database and rollback
+
+**Permanent owner instruction: all UAT browser acceptance MUST use `https://uat.directpilot.ir`, not temporary Vercel Preview URLs.** Prior temporary Preview strategy has been superseded by owner directive to consolidate. User should not have to repeat this or the PostgreSQL BYTEA/no-R2/four-month historical receipt requirements in future chats.
+
+**Frontend source-of-truth:** GitHub `namach2727-coder/directpilot-web`, branch **`UAT`**. Previously blocked archive/auth fix feature PR **#31 MERGED** after full CI SUCCESS (tests, type-check, lint, Next.js build); merge commit `35aed23845b950fa4ee4800a6453eba843ce1a6d`. The branch now contains admin customer/email/date archive search, preserved versions/timeline UI, improved immediate Login form and stale session race protection, and corrected public trial claims to match not-yet-confirmed catalog. Its rollback snapshot branch is `backup/uat-before-vercel-neon-sync-20261014` at SHA `a8764a7dc9b4144a0edbfa07afc8ca4bb3667864`.
+
+**Domain/environment contract (READ BEFORE DEPLOYING):** Vercel Frontend project `directpilot-web` ID `prj_w46jn80pmeOpoIZ5KZmQiY7GfKDl`. Domain `uat.directpilot.ir` VERIFIED, Git Branch EXACT `UAT`, Preview target and no Production custom environment. Branch-specific Vercel Preview variables `DIRECTPILOT_API_UPSTREAM=https://directpilot-uat-api.vercel.app` and `NEXT_PUBLIC_SITE_URL=https://uat.directpilot.ir` (scope **only gitBranch=UAT**). Generic Preview, feature Preview and actual Frontend Production env vars are intentionally unchanged. Next.js routes `/api/v1/:path*` to standalone UAT backend with same-origin cookies. Do not configure domain on feature Preview or point canonical UAT to Render.
+
+**Actual UAT frontend deployment:** UAT Git push automatically generated Vercel READY deployments; latest observed `dpl_73wqwyWzY2PAGB6D3H5gXrH1DqYw` SHA `fd23cc6c7855db7d485051bd434e4364704acbb8` READY, with Vercel alias `uat.directpilot.ir` confirmed pointing to this deployment. This post-merge commit only adds a read-only GitHub Actions domain-smoke workflow on top of the PR #31 merged code. Vercel Production `directpilot.ir` and `www.directpilot.ir` still bind the separate `main` deployment: DO NOT change those aliases or environment variables.
+
+**Backend/Neon UAT:** standalone Vercel Backend project `directpilot-uat-api`, GitHub branch `migration/vercel-uat-fastapi-20261014`; live API `https://directpilot-uat-api.vercel.app`. Independent Neon project `round-shape-42044596`, main branch `br-autumn-rain-arxm147n`, database `neondb`, Alembic **`0027_traceable_receipt_versions`**. Real API GitHub Actions smoke previously PASS on `/ready` with `database:available, migration:current`, `/live` 200 and `/version` environment UAT. UAT database existing receipt blob backfill 2/2 matched, snapshot `snap-patient-dawn-arkxewpc` restored on independent rehearsal branch. Product image binary and receipt versions both use PostgreSQL BYTEA, no R2/S3.
+
+**Evidence still OPEN:** New Github Actions `Official UAT Domain Smoke` checks 200 /login HTML, unauthenticated same-origin `/api/v1/auth/me` 401 JSON, versioned receipt API auth guard 401 (reject legacy Render 404), UAT Backend /ready and disallow indexing via /robots.txt. At this checkpoint this workflow is **running**, not a PASS. The user's actual browser UAT login/session/navigation/logout, admin receipt history by customer/date, actual dummy image upload/retrieval/delete/redeploy and historical versions must be tested after domain smoke. Check exact latest workflow results rather than relying on the checkpoint text. If domain smoke fails, investigate DNS/aliases/rewrites/routing first; avoid silent Production changes.
+
+**Production firewall and final cutover:** Actual DirectPilot Production Render API/Postgres authoritative; Neon Production `directpilot_live` has not undergone fresh final migration. Real Production cutover requires source backup + independently restorable offsite copy, writer/Meta/Payexa webhook freeze & replay, fresh migration with business row/count/value parity, rollback drill, fully accepted UAT and explicit owner GO. Vercel Hobby's restrictions on commercial use must be resolved before routing paying customers. **Never claim UAT accepted solely from a Vercel READY status.**
+
+**Permanent cross-chat documents:** read `AI_HANDOFF.md` → `PROJECT_ROADMAP.md` → `DECISIONS.md` → `CURRENT_STATE.md` → `NEXT_ACTIONS.md`; these five are canonical, and this update supersedes previous notes saying the UAT domain still points to an old branch. Read live deployments and workflow statuses after them.
+
+---
+
+
 ## 2026-10-14 — UAT login/account-check latency: isolated Preview UX fix
 
 **Owner-reported problem:** On opening the new isolated receipt-history UAT frontend Preview, the Login area stayed on “بررسی حساب” / checking account for an unusually long time.
