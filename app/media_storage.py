@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -21,6 +21,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # Keep base64 JSON under Vercel Functions' 4.5 MiB request-body limit.
 # 2 MiB decoded JPEG ~= 2.67 MiB base64 + JSON overhead.
 MAX_IMAGE_BYTES = 2 * 1024 * 1024
+# Conservative per-store quota to protect Neon Free DB and backup growth.
+MAX_STORE_IMAGE_BYTES = 50 * 1024 * 1024
 MAX_IMAGE_PIXELS = 25_000_000
 JPEG_PREFIX = "data:image/jpeg;base64,"
 JPEG_SOF_MARKERS = {
@@ -129,6 +131,15 @@ def save_product_image(
             return duplicate
         except HTTPException:
             pass
+
+    occupied = db.scalar(
+        select(func.coalesce(func.sum(ProductMediaAsset.byte_size), 0)).where(
+            ProductMediaAsset.store_id == store.id,
+            ProductMediaAsset.status == "ready",
+        )
+    )
+    if int(occupied or 0) + len(data) > MAX_STORE_IMAGE_BYTES:
+        raise ValueError("سقف فضای تصاویر این فروشگاه ۵۰ مگابایت است.")
 
     asset_id = str(uuid.uuid4())
     storage_key = f"db:{uuid.uuid4().hex}.jpg"
