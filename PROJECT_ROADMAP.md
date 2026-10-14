@@ -1,5 +1,15 @@
 # DirectPilot Project Roadmap & Continuity Checkpoint
 
+## 2026-10-14 P0 — FINAL SYNC STATUS (NEW EMPTY TARGET CREATED)
+
+- **PASS:** Separate Neon Production `directpilot_live` CREATED in project `billowing-poetry-05589994`, independently verified **0 tables / 0 public sequences**; owner `neondb_owner`. Old restored Production `neondb` (82 tables) and independent Neon UAT unchanged.
+- **BLOCKED:** Direct hosted source Render SQL cannot connect while `ipAllowList=[]`; Render connector has no predictable whitelisting IP. No actual fresh source export/restore occurred and no maintained freeze exists. Existing Oct 13 rehearsal snapshot is stale and not suitable for final go-live.
+- **PREPARED IN GIT:** Guarded final source dump+empty-only target restore utility `tools/production_final_sync.py`, runbook `docs/runbooks/final_render_to_neon_sync_20261014.md`. Operator must prove durable write/webhook+Payexa callback freeze, secure independently encrypted/restorable source backup, full source→target parity; script requires freeze/recovery attestations, checksum, 2h freshness, TLS, empty destination and single-transaction pg_restore; never overwrites old Neon.
+- **NEXT:** Operator-controlled local backup with temporary trusted laptop Render /32, revoke after; no Production DATABASE_URL/Backend/DNS/Meta migration until protected final data copy and separate Go/No-Go. Render PG expires Nov 2. Full exit of both APIs plus DB remains owner mandate.
+
+---
+
+
 ## 2026-10-14 P0 SCOPE CHANGE: retire ALL Render workloads
 
 **OWNER GOAL:** Render must be completely emptied before its Free Production PG expiry Nov 2; do not plan to keep Backend there. Confirmed inventory: 2 web services (Prod `srv-db0f3uc9v7es73b5k51g`, UAT `srv-dabsmo7qj5pc7397jqf0`) and 1 Postgres DB (`dpg-db0escm0tbcc73fhig2g-a`); no Render KV. Backend code has a reusable Python 3.12 Dockerfile, but legacy Compose files provision LOCAL PostgreSQL and UAT Ollama and must not be used as-is.

@@ -1,5 +1,15 @@
 # DirectPilot Decisions
 
+## 2026-10-14 Controlled final synchronization decision
+
+- Owner instruction to start final Render→Neon synchronization permits preparing a new non-destructive final DB. **`directpilot_live` CREATED EMPTY** in independent Neon Production; source Render remains authoritative; don't overwrite stale restored `neondb` or touch Neon UAT.
+- Because hosted Render SQL is denied by the empty external allowlist, only a private workstation with scoped Render source access and existing secrets can export current data. Current connector cannot silently access it; do not reopen broad IP access.
+- **Final dump and restore are BLOCKED** until ALL user/admin/Meta webhook/Payexa/worker writers are demonstrably frozen with durable callback replay, plus a verified independent encrypted recoverable source backup. No falsely reassuring "final sync completed" status.
+- A successful freshly restored target does not approve API routing or Render decommission. Require exact 82-table or reviewed current source schema parity, critical content/financial validation, split-brain-safe rollback and distinct Production Go/No-Go.
+
+---
+
+
 ## 2026-10-14 Architecture revision: Render-free DirectPilot
 
 - Previous **DB-only Neon** plan is SUPERSEDED as the END STATE by owner's explicit direction: remove both Production and UAT Backend AND Render PostgreSQL. Neon remains database provider, not an app-secret store. Move API, restricted Meta gateway, private credentials, legacy media/receipts and custom domains to a new Docker-capable host outside Render.

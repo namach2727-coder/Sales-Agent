@@ -1,5 +1,15 @@
 # DirectPilot AI Handoff
 
+## LATEST 2026-10-14 — FINAL SOURCE→NEON SYNC REQUEST / TARGET CREATED / RESTORE BLOCKED
+
+- Owner authorized starting final synchronization. **Non-destructive Neon action COMPLETED:** Created new empty database `directpilot_live` inside independent Neon Production project `billowing-poetry-05589994`, branch `br-winter-water-argmnyru`, owner `neondb_owner`; direct query verified **0 public base tables / 0 sequences**. Existing `neondb` Production rehearsal (82 tables, stale Oct 13 snapshot) and independent Neon UAT untouched.
+- **LIVE Render source is still authoritative and writable**: `directpilot-production-db` available, external allowlist empty; hosted Render query rejected because connector has no allowlistable IP. Hosted assistant has NO access to local Codex Windows dump/source secrets or executable remote Render shell. **NO fresh dump, final restore, source data movement, maintenance window, or live cutover performed.**
+- New strictly scoped operator-only helper `tools/production_final_sync.py` and runbook `docs/runbooks/final_render_to_neon_sync_20261014.md` prepared on PR under review. Requires actual all-writer/Meta/Payexa durable freeze, independent encrypted offsite restore-tested backup, fresh ≤2h Render dump, hash/manifest verification, exact new Neon host+DB and single-transaction no-clean restore **ONLY if target empty**; no automatic production DATABASE_URL switch. This is NOT executable through hosted tools.
+- **P0 BLOCK:** No tested durable full source-write/webhook/payment freeze/replay. Do not perform an alleged "final sync" with active source writers or abandon late orders. Local Codex/operator action, approved maintenance, /32 Render source access and complete parity+rollback required. Keep both Render APIs LIVE and preserve full-Render-exit objective.
+
+---
+
+
 ## NEW OWNER SCOPE — 2026-10-14: FULL EXIT FROM RENDER, NOT DATABASE-ONLY
 
 - **Owner explicitly wants NOTHING on Render** after the expiry window. Do not interpret prior DB-only migration policy as the final architecture. Render inventory: two Free web services `directpilot-api` and `directpilot-uat-api`, plus one Free Production PostgreSQL DB expiring 2026-11-02. No Render KV resources.

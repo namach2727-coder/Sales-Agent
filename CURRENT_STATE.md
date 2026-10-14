@@ -1,5 +1,15 @@
 # DirectPilot Current State
 
+## 2026-10-14 Live state after final-sync initiation
+
+- New Neon Production database `directpilot_live` CREATED by connected Neon action, owner `neondb_owner` on project `billowing-poetry-05589994`; independent read-only SQL verified `0` application tables and `0` sequences. This is the planned EMPTY fresh final data target; **NO data imported**.
+- Existing Production rehearsal `neondb` remains 82 tables/Alembic 0025 from Oct 13, stale vs current Render. Neon UAT independent, untouched.
+- Render Production PG remains AVAILABLE, external allowlist `[]`, expiry 2026-11-02; hosted SQL query failed because no inbound IP can be allowlisted for remote connector. Both Render FastAPI services LIVE, no deployment, no maintenance window and no DATABASE_URL changed.
+- `tools/production_final_sync.py` + `docs/runbooks/final_render_to_neon_sync_20261014.md` prepared for locally controlled operator fresh frozen pg_dump, protected backup, empty Neon restore and independent reconciliation. **NO final dump or restore performed; writer freeze and event hold/replay unproven.**
+
+---
+
+
 ## 2026-10-14 CURRENT STATE: full-Render-exit preparation
 
 - Owner's target is zero Render resources, not just PostgreSQL cutover. Render currently still hosts 2 Free Web Services (Production `directpilot-api`, UAT `directpilot-uat-api`) and 1 Free Production PostgreSQL expiring 2026-11-02, with no Render KV.
