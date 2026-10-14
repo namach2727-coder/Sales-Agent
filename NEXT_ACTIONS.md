@@ -1,5 +1,19 @@
 # DirectPilot Next Actions
 
+## 2026-10-14 NEXT ACTIONS: complete actual final synchronization, do not claim done early
+
+**Completed:** non-destructive independent Neon Production `directpilot_live` created, verified EMPTY; old production rehearsal `neondb` and UAT preserved. New guarded operator CLI and `docs/runbooks/final_render_to_neon_sync_20261014.md` prepared (review/CI pending).
+
+1. **CRITICAL first:** implement and prove durable Meta **both** webhook path + Payexa callback store/replay, stop all signup/session/order/receipt/admin and worker writers, and account for in-flight activity without false 2xx acknowledgments or split-brain.
+2. **On authorized private Windows workstation:** with trusted /32 Render allowlist temporarily reopened only for backup and private source URL, use `tools/production_final_sync.py` to take fresh consistent pg_dump **AFTER** verified freeze. User must re-authorize actual outage/maintenance window separately. Hosted Render MCP is blocked by currently empty allowlist.
+3. **Protect recoverability:** encrypted off-provider verified backup AND successful test restoration into disposable target, verify SHA256, no customer data or credentials in chat/GitHub.
+4. **Guarded restore:** only into newly created currently-empty independent Neon `directpilot_live`; NEVER into old `neondb` or UAT. Dump must be fresh (<2h) with manifest; single transaction no-clean/no-overwrite.
+5. **Independent reconciliation:** source vs restored target ALL tables, counts, critical content fingerprints, subscriptions/orders/manual receipts, Meta/Payexa event IDs and token encryption continuity; rollback rehearsal. Fix any mismatches BEFORE opening writes.
+6. **Later explicit GO:** relocate Production FastAPI off Render, update secure env/Meta/DNS/callback URLs and switch live production to final fresh Neon DB; then retire Render services only after acceptance. Render expiry 2026-11-02 is not permission to lose data.
+
+---
+
+
 ## 2026-10-14 FULL RENDER EXIT — executive work queue
 
 1. **Immediately choose a non-Render Docker host for 2 Backend environments:** OCI Always Free VM if account/payment verification and regional capacity work, or owner-approved paid Railway/VPS. This decision is essential; hosted tools cannot provision an unconnected provider account automatically.
