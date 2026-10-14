@@ -1,5 +1,10 @@
 # DirectPilot Database
 
+
+## Durable receipt evidence and retention — pending UAT
+
+`manual_payments.receipt_data` currently holds the latest receipt per payment, but after a rejected payment is resubmitted the former bytes are overwritten. Owner requires every customer's original receipts to remain identifiable and retrievable four months or longer afterward. Stacked UAT PR #36 introduces Alembic `0027_traceable_receipt_versions` (after pending 0026) and `manual_payment_receipt_versions` containing separate immutable `receipt_data BYTEA` for every upload, payment/order/customer/tenant/store IDs, version, content SHA-256, byte size, content type and timestamp. Existing PostgreSQL receipts are copied as version 1 without deleting source records. Authorized admin can search payment history by customer email/date and fetch versioned receipt bytes and events. **Not migrated or deployed**; recovery and real retention evidence remain OPEN. No automatic purge; propose 12-month retention with restricted access, tested independent restorable backups and capacity measurement before any claim of guaranteed durability.
+
 ## Technology and migration policy
 
 PostgreSQL is the deployed database; SQLite remains a local development and unit-test option. `DATABASE_URL` is the only application database contract. Every schema change is an Alembic revision and deployed startup fails if the database is not at the single migration head. `create_all()` is not a production migration mechanism.
