@@ -1,5 +1,20 @@
 # DirectPilot Next Actions
 
+## 2026-10-14 — OFFICIAL UAT ROUTING SMOKE PASS; Vercel SSO HTML GATE OPEN
+
+**Read this checkpoint before UAT testing.** GitHub Actions `Official UAT Domain Smoke` run **38565672177 PASS** against `https://uat.directpilot.ir` (commit `08828ee1358ead2e9d81d2985fe2e4b07020e355`). It independently verified: same-origin `GET /api/v1/auth/me` without credentials returns **401 JSON**; upgraded versioned receipt endpoint `GET /api/v1/admin/payments/smoke-invalid/receipts` returns **401 JSON** (so the official domain routes to the new Backend, not the old Render API); and `https://directpilot-uat-api.vercel.app/ready` returns **200 with database=available, migration=current**.
+
+**Verified separate diagnostic** GitHub Actions run **38565116215 PASS** (job 115855706729) showed public DNS resolved, `/api/v1/auth/me` 401 JSON, new archive endpoint 401 JSON, Backend /ready 200, but GET `/login` and `/robots.txt` on canonical UAT were **HTTP 302 redirect to `https://vercel.com/sso-api`**. **Vercel Authentication protects UAT HTML pages** for non-Vercel-authenticated external clients; it is not a DNS, Next.js rewrite, Backend API or Neon migration error. Original naive HTTP smoke failed because its redirect-following client interpreted the Vercel SSO page as an API response, not because Backend returned anonymous 200. The current smoke intentionally validates expected SSO protection and tests API routes independently. It prints `page access=vercel-sso-protected`, so **UAT browser UI is NOT independently verified** and public robots/noindex cannot be asserted without a reviewer session.
+
+**Security rule:** DO NOT disable Vercel SSO / Deployment Protection globally, open a public alias bypass, share credentials, or loosen customer/receipt access just to make unauthenticated bots return 200. Owner approval is required before changing access policy. Authorized reviewer should open `https://uat.directpilot.ir/login` while authenticated to Vercel and test customer/admin login, session persistence, Logout, receipt history by email/date/versions and product image storage. If Vercel redirects to SSO, complete legitimate Vercel login. No real payment approval or Meta send in smoke. If owner explicitly requests unauthenticated public UAT, evaluate **alias-only** access change and its risk, never Production protections.
+
+**Current source:** Frontend repo `namach2727-coder/directpilot-web` branch `UAT` (PR #31 merged with entire CI pass), custom branch-specific Vercel Preview env `DIRECTPILOT_API_UPSTREAM=https://directpilot-uat-api.vercel.app`, `NEXT_PUBLIC_SITE_URL=https://uat.directpilot.ir`; official custom domain alias follows Branch UAT. Backend Vercel `directpilot-uat-api`, GitHub migration branch; independent Neon UAT `neondb` head `0027_traceable_receipt_versions`. Old `UAT` source rollback branch `backup/uat-before-vercel-neon-sync-20261014`. No R2/S3: receipts and product JPEGs live in PostgreSQL BYTEA; ensure receipt versions are traceable four+ months and backups independently recoverable.
+
+**Production still blocked:** Actual Production `directpilot.ir` / `main` and Render authoritative DB, real Meta/Payexa callbacks and domains were NOT changed. Independent final backup/restore, writers/webhook freeze and replay, fresh Production migration/parity, commercial host suitability, rollback and explicit GO remain pending. These five canonical files must be read/reconciled at the start of every DirectPilot chat without reasking owner.
+
+---
+
+
 ## 2026-10-14 — CANONICAL UAT DOMAIN RECONCILED: branch, API, database and rollback
 
 **Permanent owner instruction: all UAT browser acceptance MUST use `https://uat.directpilot.ir`, not temporary Vercel Preview URLs.** Prior temporary Preview strategy has been superseded by owner directive to consolidate. User should not have to repeat this or the PostgreSQL BYTEA/no-R2/four-month historical receipt requirements in future chats.
