@@ -1,5 +1,10 @@
 # Manual Card-Transfer Payment Flow
 
+
+## Owner requirement: retrieve any customer's receipts after four months
+
+A receipt must be traceable to the customer identity, tenant, store, order, payment ID, upload timestamp, content SHA-256, and administrative approval/rejection actions. After a rejected upload is replaced, the previous file must still be retrievable. The previous live implementation overwrites `manual_payments.receipt_data` after rejection; do **not** represent that behavior as version-safe. Pending isolated UAT PR #36 adds additive Alembic 0027 `manual_payment_receipt_versions` to preserve the original bytes and digest of every upload and admin-only customer/date search, versioned download and event timeline. Backfill of already stored PostgreSQL receipts is non-destructive. This is **not deployed**. No age-based deletion; target at least 4 months (12-month operating baseline proposed, subject to verified recoverable backups, quotas and privacy policy). Customer files remain in PostgreSQL BYTEA; no R2/S3.
+
 ## Current authoritative workflow (2026-10-14)
 
 1. The customer selects an active plan from `/api/v1/plans`.
