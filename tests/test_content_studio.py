@@ -322,3 +322,106 @@ def test_live_publish_is_idempotent_and_maps_comments(
         assert mapping is not None
         assert mapping.product_id == product["id"]
         assert db.scalar(select(func.count(InstagramPublishJob.id))) == 1
+
+
+def test_serverless_local_media_upload_fails_closed(content_client, monkeypatch) -> None:
+    """An ephemeral Vercel disk must never be treated as durable media storage."""
+    client, _ = content_client
+    monkeypatch.setattr(settings, "media_storage_backend", "local")
+    monkeypatch.setenv("VERCEL", "1")
+    product = client.get("/admin/api/content-studio").json()["products"][0]
+    response = client.post(
+        f"/admin/api/products/{product['id']}/media",
+        json={"filename": "photo.jpg", "data_url": f"data:image/jpeg;base64,{ONE_PIXEL_JPEG}"},
+        headers=MUTATION_HEADERS,
+    )
+    assert response.status_code == 503
+    assert "پیکربندی" in response.text
+
+
+def test_private_object_storage_upload_preview_public_and_delete(
+    content_client, monkeypatch
+) -> None:
+    """Object storage is private; both admin and public paths use expiring URLs."""
+    from pydantic import SecretStr
+
+    from app import object_media_storage
+
+    class FakeS3:
+        def __init__(self):
+            self.objects = {}
+            self.deletes = []
+
+        def put_object(self, **kwargs):
+            assert kwargs["ContentType"] == "image/jpeg"
+            assert kwargs["CacheControl"] == "private, no-store"
+            self.objects[kwargs["Key"]] = kwargs["Body"]
+
+        def delete_object(self, **kwargs):
+            self.deletes.append(kwargs["Key"])
+            self.objects.pop(kwargs["Key"], None)
+
+        def generate_presigned_url(self, operation, *, Params, ExpiresIn, HttpMethod):
+            assert operation == "get_object" and HttpMethod == "GET"
+            assert 1 <= ExpiresIn <= 900
+            assert Params["Key"] in self.objects
+            return "https://storage.example.test/private.jpg?signature=short-lived"
+
+    fake = FakeS3()
+    monkeypatch.setattr(object_media_storage, "_client", lambda _: fake)
+    monkeypatch.setattr(settings, "media_storage_backend", "s3")
+    monkeypatch.setattr(settings, "media_s3_endpoint_url", "https://example.r2.cloudflarestorage.com")
+    monkeypatch.setattr(settings, "media_s3_bucket", "directpilot-uat-images")
+    monkeypatch.setattr(settings, "media_s3_prefix", "uat")
+    monkeypatch.setattr(settings, "media_s3_access_key_id", "fake-test-key")
+    monkeypatch.setattr(settings, "media_s3_secret_access_key", SecretStr("fake-test-secret"))
+    monkeypatch.setattr(settings, "public_media_base_url", LOCAL_ORIGIN)
+    monkeypatch.setattr(settings, "media_signing_secret", "test-signing-secret-that-is-long")
+    client, _ = content_client
+    product = client.get("/admin/api/content-studio").json()["products"][0]
+    asset = upload_image(client, product["id"])
+    key = next(iter(fake.objects))
+    assert key.startswith("uat/store-")
+    assert key.endswith(".jpg")
+    preview = client.get(asset["preview_url"], follow_redirects=False)
+    assert preview.status_code == 302
+    assert preview.headers["location"].startswith("https://storage.example.test/private.jpg")
+    assert preview.headers["cache-control"] == "no-store"
+
+    public_url = create_public_media_url(asset["id"], settings)
+    public = client.get(public_url, follow_redirects=False)
+    assert public.status_code == 302
+    assert public.headers["location"].startswith("https://storage.example.test/")
+    tampered = client.get(public_url.replace("sig=", "sig=x"), follow_redirects=False)
+    assert tampered.status_code == 403
+
+    deleted = client.delete(
+        f"/admin/api/product-media/{asset['id']}",
+        headers=MUTATION_HEADERS,
+    )
+    assert deleted.status_code == 200
+    assert fake.deletes == [key]
+    assert not fake.objects
+
+
+def test_object_storage_configuration_rejects_path_traversal() -> None:
+    from pydantic import SecretStr
+    from app.config import Settings
+    from app.object_media_storage import object_key
+
+    settings_s3 = Settings(
+        _env_file=None,
+        media_storage_backend="s3",
+        media_s3_endpoint_url="https://example.r2.cloudflarestorage.com",
+        media_s3_bucket="uat-private-media",
+        media_s3_prefix="uat",
+        media_s3_access_key_id="fake",
+        media_s3_secret_access_key=SecretStr("fake"),
+    )
+    with pytest.raises(ValueError, match="Invalid product-media storage key"):
+        object_key(settings_s3, "../private.jpg")
+    with pytest.raises(ValueError, match="Invalid product-media storage key"):
+        object_key(settings_s3, "store-1/../../private.jpg")
+    settings_s3.media_s3_prefix = "../production"
+    with pytest.raises(ValueError, match="PREFIX"):
+        object_key(settings_s3, "store-1/00000000-0000-0000-0000-000000000000.jpg")
