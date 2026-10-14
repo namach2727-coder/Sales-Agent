@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
@@ -19,7 +19,7 @@ def public_product_image(
     sig: str = Query(..., min_length=32, max_length=128),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-) -> FileResponse | RedirectResponse:
+) -> Response:
     validate_public_media_signature(asset_id, exp, sig, settings)
     asset = db.get(ProductMediaAsset, asset_id)
     if asset is None or asset.status != "ready":
