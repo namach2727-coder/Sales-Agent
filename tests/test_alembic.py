@@ -201,9 +201,11 @@ def test_baseline_operations_match_metadata_without_database(monkeypatch) -> Non
     # snapshot is still verified above and all unchanged baseline tables must
     # continue to match current metadata.
     unchanged = BASELINE_TABLES - {"stores", "conversations"}
-    assert metadata_signature(operations.metadata, unchanged) == metadata_signature(
-        Base.metadata, unchanged
-    )
+    expected = metadata_signature(Base.metadata, unchanged)
+    # 0026 evolves the product-media table, not immutable baseline 0001.
+    # Compare the baseline against the pre-0026 subset of model columns.
+    expected["product_media_assets"]["columns"].pop("image_data", None)
+    assert metadata_signature(operations.metadata, unchanged) == expected
     namespace["downgrade"]()
     assert not operations.metadata.tables
 
@@ -215,7 +217,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0025_trial_three_days"]
+    assert scripts.get_heads() == ["0026_durable_product_media"]
     baseline = scripts.get_revision("0001_baseline_schema")
     seed_history = scripts.get_revision("0002_create_seed_history")
     rbac = scripts.get_revision("0003_authorization_rbac")
@@ -240,6 +242,8 @@ def test_alembic_loads_with_one_linear_head() -> None:
     durable_receipt = scripts.get_revision("0022_durable_receipt_blob")
     user_phone = scripts.get_revision("0023_user_phone_number")
     ai_paid = scripts.get_revision("0024_ai_assistant_v1_catalog")
+    trials = scripts.get_revision("0025_trial_three_days")
+    durable_media = scripts.get_revision("0026_durable_product_media")
     assert baseline is not None and baseline.down_revision is None
     assert seed_history is not None and seed_history.down_revision == "0001_baseline_schema"
     assert rbac is not None and rbac.down_revision == "0002_create_seed_history"
@@ -264,6 +268,8 @@ def test_alembic_loads_with_one_linear_head() -> None:
     assert durable_receipt is not None and durable_receipt.down_revision == "0021_admin_payment_cards"
     assert user_phone is not None and user_phone.down_revision == "0022_durable_receipt_blob"
     assert ai_paid is not None and ai_paid.down_revision == "0023_user_phone_number"
+    assert trials is not None and trials.down_revision == "0024_ai_assistant_v1_catalog"
+    assert durable_media is not None and durable_media.down_revision == "0025_trial_three_days"
 
 
 @requires_alembic
@@ -318,6 +324,7 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
+        "0026_durable_product_media",
         "0025_trial_three_days",
         "0024_ai_assistant_v1_catalog",
         "0023_user_phone_number",
