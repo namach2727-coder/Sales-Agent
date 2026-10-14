@@ -1,5 +1,14 @@
 # DirectPilot Project Roadmap & Continuity Checkpoint
 
+## 2026-10-14 Env architecture clarification and scoped audit (P0)
+
+**Status: no app Environment Variable transfer to Neon.** Backend is still hosted on Render `directpilot-api`; Neon Production `billowing-poetry-05589994` hosts the PostgreSQL copy only; Functions are unavailable for this project. Keep ALL existing Render app keys/values (Meta/IG crypto, payment, cookies, third-party credentials, bootstrap flags) in Render. The future Render-side `DATABASE_URL`/`DATABASE_URL_FILE` update is distinct, requires fresh Neon final DB, verified freeze/reconciliation, and separate owner approval. No changed env values yet.
+
+**Action delivered in PR #28:** offline `tools/render_env_key_audit.py` (names-only, rejects `KEY=value`, catches removed keys), `tests/test_render_env_key_audit.py`, and `docs/runbooks/render_neon_environment_preservation.md`. Actual Render env value parity is **not verified**: connected Render service inventory has no secret read/list capability. Do not claim secrets copied, extracted or moved. PR CI and merge status must be independently checked.
+
+---
+
+
 ## LATEST P0 DECISION BOARD — 2026-10-14 Neon Free usage and maintenance
 
 **Usage:** Free 100 CU-hour/project/month; Neon project API `compute_time_seconds=1746` and `active_time_seconds=6888`; conditional ~**0.485 CU-hour** estimated usage (0.485% Free allocation), **not** independently verified Console billed consumption. Endpoint idle→active observed on successful SELECT with ~6.65-second connector round trip, not app p95. Auto scale 0.25–2 CU; continuous 0.25 CU for 30 days ~180 CU-hour. Source Render 24h HTTP/latency telemetry returned empty time series (NOT zero requests). Real Production demand/Neon quota burn **OPEN**.

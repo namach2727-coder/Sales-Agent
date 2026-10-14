@@ -1,5 +1,15 @@
 # DirectPilot AI Handoff
 
+## LATEST — 2026-10-14 Render→Neon environment variable transfer request
+
+- **Architecture VERIFIED:** `directpilot-api` still runs FastAPI on Render. Neon project `billowing-poetry-05589994` has PostgreSQL `neondb` and no available platform Functions. **Neon is NOT a destination for all Render API env vars**; copying Meta, signing, token encryption and payment secrets into Neon database/project settings is neither supported nor needed for the DB-only migration.
+- Connected Render `get_service` supplies an `environmentId`, but no environment keys/values or secure export/list action. **No Render secret values were read, copied, modified, or exposed.** Retain all existing Render variables; at a separately approved cutover, change ONLY the controlled `DATABASE_URL`/`DATABASE_URL_FILE` to the new fresh Neon final DB, NOT old `neondb`.
+- PR #28 (pending CI/merge when this branch prepared) introduces offline names-only guard `tools/render_env_key_audit.py`, tests, and `docs/runbooks/render_neon_environment_preservation.md`. It blocks missing key names, rejects `KEY=value` inputs and cannot claim secret VALUE parity.
+- No Production/UAT environment, database, Meta, API service, or customer data changes were made. Final fresh snapshot, webhook freeze/replay, DR and owner go/no-go still apply.
+
+---
+
+
 ## LATEST — 2026-10-14 Neon Free metering / cutover write-freeze discovery
 
 - **Capacity inspection:** Neon independent Production project `billowing-poetry-05589994`, Free 100 CU-hour/month. Read-only project API `compute_time_seconds=1746`, `active_time_seconds=6888`; inferred 0.485 CU-hour (0.485% of quota) **only if compute seconds represent CU-weighted seconds**, not console-billed/representative Production use. 0.25–2 CU autoscaling, Free idle suspension. Endpoint observed `idle`; read-only SELECT woke to `active` (~6.65s total hosted connector request, not customer SLA). HTTP demand metrics for source Render returned empty series, so cannot extrapolate customer load. At 0.25 CU always-on, 30 days could use ~180 CU-hour; Free is not proven viable for Production.

@@ -1,5 +1,14 @@
 # DirectPilot Decisions
 
+## Render application secret preservation policy — 2026-10-14
+
+- **DECISION:** migration is of Production PostgreSQL from Render to independent Neon; the running FastAPI backend remains on Render unless a separately approved architecture changes. Neon Production project currently has no Functions and is **not** a safe/general-purpose destination for app environment variables.
+- Preserve all current Render Backend variables and their VALUES (including `APPLICATION_SECRET`, Instagram encryption, Meta OAuth/webhook, Payexa, session cookies and startup one-shot controls). Only an authorized, verified future **Render** `DATABASE_URL`/`DATABASE_URL_FILE` change should reference new final Neon DB after fresh synchronized restore and GO.
+- No API env secret read or write capabilities are available via the current Render connector; do not dump secret values into chat, GitHub, SQL tables, screenshots or logs. Use private operator-controlled audit and names-only guard documented in `docs/runbooks/render_neon_environment_preservation.md`. No env copy or live Cutover occurred.
+
+---
+
+
 ## NEON FREE / MAINTENANCE PRECONDITIONS — 2026-10-14
 
 - Observed independent Neon Free API counters `compute_time_seconds=1746` and `active_time_seconds=6888`. Equivalent **~0.485 CU-hour only as a provisional estimate**, not a settled provider Console quota invoice nor measured customer traffic. Free 100 CU-hour/month; monitor actual burn and idle/cold starts before Production GO.

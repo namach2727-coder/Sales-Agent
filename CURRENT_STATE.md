@@ -1,5 +1,14 @@
 # DirectPilot Current State
 
+## 2026-10-14 Latest Render/Neon variable status
+
+- Render Production backend `directpilot-api` remains the runtime; service `autoDeploy=no` and currently NOT in maintenance. Render service API exposes environment metadata but NOT a list of key/value secrets. **No Render secret values have been copied or moved**.
+- Neon `billowing-poetry-05589994` contains only PostgreSQL `neondb` (stale restored snapshot); Neon platform Functions tool reports unavailable. Backend application secrets belong in Render, not Neon.
+- A names-only preservation script and guide were prepared on an isolated GitHub PR #28, pending CI/merge at creation. Validation of *values* is not possible from current connector; requires secure private Render operator route. Production `DATABASE_URL` remains unchanged. No UAT/Meta/payment changes or Cutover.
+
+---
+
+
 ## 2026-10-14 CONFIRMED CAPACITY AND MAINTENANCE READINESS
 
 - Independent Neon project `billowing-poetry-05589994` Free `free_v3`: provider `compute_time_seconds=1746`, `active_time_seconds=6888`, current period 2026-10-12T06:36Z–2026-11-01T00:00Z. Derived tentative 0.485 CU-hour (0.485% of Free 100 CU-hour allocation); Console bill/usage NOT verified and live load NOT measured.
