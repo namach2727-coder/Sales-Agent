@@ -1,5 +1,22 @@
 # DirectPilot Next Actions
 
+## 2026-10-14 — UAT login/account-check latency: isolated Preview UX fix
+
+**Owner-reported problem:** On opening the new isolated receipt-history UAT frontend Preview, the Login area stayed on “بررسی حساب” / checking account for an unusually long time.
+
+**Code diagnosis:** Public header `components/layout.tsx` rendered **only a spinner** until `useBrowserSession()` completed `GET /api/v1/auth/me`. The shared `lib/api/client.ts` READ policy allows 30s timeout and one safe retry with backoff, so slow/cold Backend/Neon or network could leave the Login CTA unavailable for roughly 60 seconds (upper bound, not a measured production latency). `components/portal.tsx` also hid the real Login form until the session check finished.
+
+**Preview-only fix IMPLEMENTED:** Frontend GitHub repo `namach2727-coder/directpilot-web`, branch `feature/uat-payment-audit-history-20261014`, SHA `7a1ce4ba09d3edcaef88c2280823df3d1f11622f`. Public header immediately shows “ورود” and register CTA while the session check continues; actual Login form is usable during check and still redirects an already authenticated principal based on its server-verified role. In `lib/auth/browser-session.ts`, a monotonic session epoch prevents stale `/auth/me` from overwriting newer completed login/logout. **No authorization bypass, no token storage and no Production change.** Vercel Preview deployment `dpl_GWUMgWTf3cMcgbor6fdnPzTkjY6w` READY at `https://directpilot-3595ydido-mohcenp-9857s-projects.vercel.app`.
+
+**Evidence boundaries:** GitHub Actions tested 215 frontend cases; 213 PASS including 3 new auth/UX tests, 2 FAIL are unchanged existing trial-commercial-copy tests (also failing in prior build). A Vercel READY build is verified, but actual user-perceived speed improvement and server `/auth/me` latency need browser/network timing confirmation. Do NOT claim backend cold start fixed. The UAT Backend `https://directpilot-uat-api.vercel.app` had previously passed /ready, /live, /version and Neon 0027 checks. UI improvement removes the blocking Login gate, not remote request time.
+
+**Next:** User opens corrected isolated Preview in a fresh/incognito tab and checks whether the Login button/form appear immediately, authenticates with UAT customer/admin, verifies refresh/logout and expired-cookie behavior without regression. If submitting credentials is still slow, measure in DevTools Network `/api/v1/auth/login` and `/api/v1/auth/me` TTFB/cold start and evaluate Vercel Function/Neon performance separately before further changes. **Do not promote PR #31 to shared UAT or Production until accepted.**
+
+**Permanent requirements remain unchanged:** PostgreSQL/Neon BYTEA for product images and every receipt version, customer receipt traceability for 4+ months, no R2/S3. Five canonical files must remain cross-chat current (`AI_HANDOFF.md`, `PROJECT_ROADMAP.md`, `DECISIONS.md`, `CURRENT_STATE.md`, `NEXT_ACTIONS.md`). Production Render/Neon cutover remains blocked by source backup/freeze/parity/rollback and commercial hosting eligibility.
+
+---
+
+
 ## 2026-10-14 — LIVE UAT VERCEL GIT/HEALTH PASSED (supersedes earlier deployment-blocked checkpoint)
 
 **Verified technical deployment:** The owner connected GitHub `namach2727-coder/Sales-Agent` and corrected Vercel Production Branch Tracking **inside standalone UAT project only** to `migration/vercel-uat-fastapi-20261014`. Git push now triggers Vercel UAT production-target deployments; backend deployment `dpl_G8sFmEPDs5Lx7f1oaQwWmAZF1ywo` at commit `e8e4a1c07c02ff6b5cfc32090f719ce4aa68657b` verified READY, with Git source `migration/vercel-uat-fastapi-20261014`. This is *NOT* the commercial DirectPilot Production project.
