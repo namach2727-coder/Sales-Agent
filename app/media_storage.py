@@ -18,7 +18,9 @@ from app.models import Product, ProductMediaAsset, SocialContentDraft, Store
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-MAX_IMAGE_BYTES = 8 * 1024 * 1024
+# Keep base64 JSON under Vercel Functions' 4.5 MiB request-body limit.
+# 2 MiB decoded JPEG ~= 2.67 MiB base64 + JSON overhead.
+MAX_IMAGE_BYTES = 2 * 1024 * 1024
 MAX_IMAGE_PIXELS = 25_000_000
 JPEG_PREFIX = "data:image/jpeg;base64,"
 JPEG_SOF_MARKERS = {
@@ -85,13 +87,13 @@ def decode_manager_jpeg(data_url: str) -> tuple[bytes, int, int]:
         raise ValueError("تصویر باید به فرمت JPEG آماده شده باشد.")
     encoded = data_url[len(JPEG_PREFIX) :]
     if len(encoded) > (MAX_IMAGE_BYTES * 4 // 3) + 16:
-        raise ValueError("حجم تصویر بیشتر از ۸ مگابایت است.")
+        raise ValueError("حجم تصویر بیشتر از ۲ مگابایت است.")
     try:
         data = base64.b64decode(encoded, validate=True)
     except (binascii.Error, ValueError) as exc:
         raise ValueError("داده تصویر معتبر نیست.") from exc
     if not data or len(data) > MAX_IMAGE_BYTES:
-        raise ValueError("حجم تصویر باید کمتر از ۸ مگابایت باشد.")
+        raise ValueError("حجم تصویر باید حداکثر ۲ مگابایت باشد.")
     width, height = jpeg_dimensions(data)
     if width * height > MAX_IMAGE_PIXELS:
         raise ValueError("ابعاد تصویر بیش از حد بزرگ است.")
@@ -117,17 +119,20 @@ def save_product_image(
         )
     )
     if duplicate is not None:
-        return duplicate
+        # Historical rows may exist without BYTEA. Never mistake a missing
+        # legacy on-disk file for a durable image in a stateless deployment.
+        if duplicate.image_data is not None:
+            return duplicate
+        try:
+            resolve_asset_path(duplicate, settings)
+            return duplicate
+        except HTTPException:
+            pass
 
     asset_id = str(uuid.uuid4())
-    storage_key = f"store-{store.id}/{asset_id}.jpg"
-    root = media_root(settings)
-    target = (root / storage_key).resolve()
-    if root not in target.parents:
-        raise ValueError("مسیر ذخیره تصویر معتبر نیست.")
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(data)
-
+    storage_key = f"db:{uuid.uuid4().hex}.jpg"
+    # Image bytes are committed with their metadata as one DB transaction.
+    # No write to Render/Vercel filesystem or external object provider.
     safe_name = Path(original_filename or "product.jpg").name[:255] or "product.jpg"
     asset = ProductMediaAsset(
         id=asset_id,
@@ -140,6 +145,7 @@ def save_product_image(
         width=width,
         height=height,
         sha256=digest,
+        image_data=data,
         status="ready",
     )
     db.add(asset)
@@ -147,6 +153,11 @@ def save_product_image(
     db.refresh(asset)
     return asset
 
+
+
+def resolve_asset_bytes(asset: ProductMediaAsset) -> bytes | None:
+    """Return PostgreSQL BYTEA when present; otherwise legacy disk may apply."""
+    return bytes(asset.image_data) if asset.image_data is not None else None
 
 def resolve_asset_path(asset: ProductMediaAsset, settings: Settings) -> Path:
     root = media_root(settings)
@@ -165,10 +176,15 @@ def delete_product_image(db: Session, asset: ProductMediaAsset, settings: Settin
     )
     if referenced is not None:
         raise ValueError("این تصویر در یک محتوای تأییدشده استفاده شده و قابل حذف نیست.")
-    try:
-        resolve_asset_path(asset, settings).unlink(missing_ok=True)
-    except HTTPException:
-        pass
+    if asset.image_data is not None:
+        # Release DB storage without leaving an accessible "deleted" blob.
+        asset.image_data = None
+    else:
+        # Compatibility path for verified old local-file-only records.
+        try:
+            resolve_asset_path(asset, settings).unlink(missing_ok=True)
+        except HTTPException:
+            pass
     asset.status = "deleted"
     db.commit()
 
