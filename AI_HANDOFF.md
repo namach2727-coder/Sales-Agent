@@ -1,5 +1,15 @@
 # DirectPilot AI Handoff
 
+## LATEST — 2026-10-14 Neon Free metering / cutover write-freeze discovery
+
+- **Capacity inspection:** Neon independent Production project `billowing-poetry-05589994`, Free 100 CU-hour/month. Read-only project API `compute_time_seconds=1746`, `active_time_seconds=6888`; inferred 0.485 CU-hour (0.485% of quota) **only if compute seconds represent CU-weighted seconds**, not console-billed/representative Production use. 0.25–2 CU autoscaling, Free idle suspension. Endpoint observed `idle`; read-only SELECT woke to `active` (~6.65s total hosted connector request, not customer SLA). HTTP demand metrics for source Render returned empty series, so cannot extrapolate customer load. At 0.25 CU always-on, 30 days could use ~180 CU-hour; Free is not proven viable for Production.
+- **P0 cutover blocker discovered in live Backend code:** Two Instagram POST webhook endpoints, GET/POST Payexa callback, commerce/admin signup/order/receipt/payment writers; Docker entrypoint runs Alembic on every startup. No proven complete write-freeze with durable external webhook/callback queue/replay is implemented or verified. Do not treat frontend maintenance banner, Meta sending disabled, or normal 503 retry as proof of zero event loss.
+- **New operations plan:** `docs/runbooks/neon_free_usage_and_maintenance_plan.md` (owner date/time and separate Cutover authorization PENDING). Proposed 120-minute controlled pause with T+90 go/no-go only after tested freeze/replay, protected independently restorable backup, console usage evidence and final target restore compatibility. **No window scheduled; no database/app/Neon/Meta changes executed.**
+- Database remains Render Production available with zero external inbound rules; restored Neon `neondb` 82 tables/Alembic 0025 is stale snapshot. Actual restored Neon SQLAlchemy READ ONLY test PASS per operator. Secure off-provider backup, quota under real traffic, fresh final snapshot/delta, split-brain rollback and owner approval remain OPEN. Render Free source expires 2026-11-02.
+
+---
+
+
 ## LATEST VERIFIED MIGRATION CHECKPOINT — 2026-10-14 / ACTUAL NEON SQLALCHEMY READ-ONLY PASS
 
 - **Owner/Codex operator report:** `DIRECTPILOT_NEON_READONLY_PREFLIGHT` **PASS** on actual restored Neon Production `billowing-poetry-05589994` / direct host `ep-super-moon-arziccng.c-4.us-west-2.aws.neon.tech` / `neondb`: SQLAlchemy 2.0.41, psycopg 3.2.9, Alembic 1.16.5; TLS, PostgreSQL 18, DB target identity and **server-enforced READ ONLY**. The owner retained dirty local work safely and used clean `backend-main` snapshot SHA `860aae65b843de2e4361c7158f35ea0fc563f005`. No API, Meta, payment or worker side effects.

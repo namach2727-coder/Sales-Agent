@@ -1,5 +1,16 @@
 # DirectPilot Project Roadmap & Continuity Checkpoint
 
+## LATEST P0 DECISION BOARD — 2026-10-14 Neon Free usage and maintenance
+
+**Usage:** Free 100 CU-hour/project/month; Neon project API `compute_time_seconds=1746` and `active_time_seconds=6888`; conditional ~**0.485 CU-hour** estimated usage (0.485% Free allocation), **not** independently verified Console billed consumption. Endpoint idle→active observed on successful SELECT with ~6.65-second connector round trip, not app p95. Auto scale 0.25–2 CU; continuous 0.25 CU for 30 days ~180 CU-hour. Source Render 24h HTTP/latency telemetry returned empty time series (NOT zero requests). Real Production demand/Neon quota burn **OPEN**.
+
+**Maintenance plan:** `docs/runbooks/neon_free_usage_and_maintenance_plan.md` records actual mutating API surfaces, 120-minute provisional write-pause budget, checkpoints and abort/rollback contract. Business owner has NOT picked clock time, approved outage or approved cutover. **P0 blocker newly explicit:** no independently demonstrated all-writer freeze and durable hold/replay for both Meta webhook endpoints plus Payexa callbacks. Startup auto-migration and one-shot reset/seed/payment flags require audited isolation. Runbook only: no infrastructure or app deploy.
+
+**Remaining gates:** tested edge/write-freeze and guaranteed preservation/at-least-once replay with idempotency; independent encrypted recoverable backup; fresh source write freeze and snapshot after last accepted event; approved empty Neon final target/restore tooling, full parity and split-brain-safe rollback; Free usage/cold wake under representative traffic; separate explicit owner GO. Temporary Render DB public /32 remains absent (ACL count 0). Source expires Nov 2; internal goal Oct 25.
+
+---
+
+
 ## P0 GATE STATUS UPDATE — 2026-10-14 — ACTUAL RESTORED NEON PREFLIGHT PASS
 
 **Newly CLOSED gate:** Operator/Codex ran `python -m tools.neon_readonly_preflight` on owner workstation against exactly approved independent Neon Production `neondb`; result `OVERALL_STATUS=PASS`: SQLAlchemy 2.0.41, psycopg 3.2.9, SSL, PostgreSQL 18, server-enforced read-only transactions. Production, UAT, Meta, database data and live API were not modified per operator report.
