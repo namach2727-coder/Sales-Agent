@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -195,7 +195,7 @@ def preview_product_media(
     asset_id: str,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-) -> FileResponse | RedirectResponse:
+) -> Response:
     asset = _asset_or_404(db, asset_id)
     store = default_store(db)
     _require_store_module(db, store, "content_strategy")
