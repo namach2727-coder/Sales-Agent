@@ -1,5 +1,16 @@
 # DirectPilot AI Handoff
 
+## NEW OWNER SCOPE — 2026-10-14: FULL EXIT FROM RENDER, NOT DATABASE-ONLY
+
+- **Owner explicitly wants NOTHING on Render** after the expiry window. Do not interpret prior DB-only migration policy as the final architecture. Render inventory: two Free web services `directpilot-api` and `directpilot-uat-api`, plus one Free Production PostgreSQL DB expiring 2026-11-02. No Render KV resources.
+- Target: Production & UAT Dockerized FastAPI on independent non-Render provider (HOST **NOT YET SELECTED**), each with restricted Meta webhook gateway, private secrets, TLS, persistent media/legacy receipt storage; existing independent Neon Production/UAT projects for databases, Vercel frontend stays outside Render subject to Hobby commercial-plan policy review.
+- Prepared portable templates: `deploy/full-exit/compose.yaml`, `deploy/full-exit/Caddyfile`, `scripts/deployment/portable-entrypoint.sh`, `tools/full_render_exit_guard.py` and offline tests. Guard rejects Render source, old Production rehearsal Neon `neondb`, cross-environment DB hosts, unsafe startup one-shot writers, disabled TLS. No runtime provisioning/deployment or DNS/Meta variable transfer performed.
+- Deployment choice: Oracle Always Free VM (if account/card/region/compute available) versus approved modest-cost Docker host (Railway/VPS); Northflank Free Sandbox explicitly not for Production. Until operator picks host and obtains account access, no real provisioning possible.
+- **Hard gates:** secrets need PRIVATE export from Render into the NEW BACKEND host (not Neon Postgres). Rewrite stale onrender.com callback/OAuth/media host values only with verified new public hostname and partner registration. UAT first, then secure Production final write-freeze/fresh source snapshot/Neon final DB/Meta-payment replay, and separately approved live cutover; retain Render until tested acceptance. Do not stop services now.
+
+---
+
+
 ## LATEST — 2026-10-14 Render→Neon environment variable transfer request
 
 - **Architecture VERIFIED:** `directpilot-api` still runs FastAPI on Render. Neon project `billowing-poetry-05589994` has PostgreSQL `neondb` and no available platform Functions. **Neon is NOT a destination for all Render API env vars**; copying Meta, signing, token encryption and payment secrets into Neon database/project settings is neither supported nor needed for the DB-only migration.

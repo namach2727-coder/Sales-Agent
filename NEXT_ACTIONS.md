@@ -1,5 +1,19 @@
 # DirectPilot Next Actions
 
+## 2026-10-14 FULL RENDER EXIT — executive work queue
+
+1. **Immediately choose a non-Render Docker host for 2 Backend environments:** OCI Always Free VM if account/payment verification and regional capacity work, or owner-approved paid Railway/VPS. This decision is essential; hosted tools cannot provision an unconnected provider account automatically.
+2. **After provider selection, provision a SECRET-FREE isolated stage first.** Review `docs/runbooks/full_render_exit_20261014.md` and `deploy/full-exit/compose.yaml`. Build the immutable Python Docker image, configure HTTPS, separate Production/UAT hostnames, and verify UAT-only DB startup against independent Neon UAT; META_SEND off. Do not use existing local Postgres/Ollama Compose.
+3. **Securely migrate Render Web Service ENV values to the new Backend host**, not into Neon PG. Current Render connector does not expose secret values. Operator must transfer privately, preserving crypto keys, sessions, bank/payment settings and public Meta OAuth relay state, and fix Render-host callback URLs only after verified destination. No secret value in GitHub/chat.
+4. **Implement/test durable event freeze for Meta webhook routes and Payexa callbacks**, no duplicated messages/payments; maintain signed media and receipt volumes, tenant session continuity and out-of-provider encrypted DR backup.
+5. **Finalize database migration:** freeze all writes, export FRESH Render PG16 snapshot, restore verified new EMPTY `directpilot_live` in independent Neon Production, compare all tables, records and finance/watermarks, prove rollback.
+6. **Separate owner Go/No-Go:** production app hostname/DNS and Meta/Payexa callback update, switch Production API to fresh Neon DB, observe login/orders/receipts, confirm Neon capacity then retire both Render APIs and Render PG AFTER acceptance and retention. Do NOT delete now.
+
+Render PG expires November 2; internal readiness target October 25. Current status preparation only, no new provider account or deployment.
+
+---
+
+
 ## Immediate environment safety actions — 2026-10-14
 
 1. **DO NOT copy Render app variables to Neon PostgreSQL.** Neon currently hosts database only; Render remains the API execution environment. Keep every existing Render `APP_ENV`, `APPLICATION_SECRET`, Meta, Instagram token encryption, payment, auth, AI, callback and startup flag intact.

@@ -1,5 +1,15 @@
 # DirectPilot Decisions
 
+## 2026-10-14 Architecture revision: Render-free DirectPilot
+
+- Previous **DB-only Neon** plan is SUPERSEDED as the END STATE by owner's explicit direction: remove both Production and UAT Backend AND Render PostgreSQL. Neon remains database provider, not an app-secret store. Move API, restricted Meta gateway, private credentials, legacy media/receipts and custom domains to a new Docker-capable host outside Render.
+- **No host/billing choice or live deployment has been authorized yet.** Prefer OCI Always Free VM IF VM allocation, account and payment verification are possible; alternatively discuss a modest paid Docker service. Don't claim any hosted app is deployed until verified by endpoint.
+- Prepared provider-neutral `deploy/full-exit/compose.yaml`, Caddy, non-migrating fail-closed API entrypoint and exact-host target guard, all Git-only. Never start Production against old restored Neon `neondb`; Production final DB is still NOT CREATED. UAT has a separate Neon project and must remain isolated.
+- Render secrets must be securely transferred to NEW BACKEND HOST, not Neon DB, without posting values; onrender.com Meta/OAuth/media/payment callback references require controlled update after new stable hostnames are validated. UAT-first staging, webhook hold/replay, fully protected backup, fresh sync/parity, rollback and explicit owner live-cutover plus Render deletion approval remain prerequisites.
+
+---
+
+
 ## Render application secret preservation policy — 2026-10-14
 
 - **DECISION:** migration is of Production PostgreSQL from Render to independent Neon; the running FastAPI backend remains on Render unless a separately approved architecture changes. Neon Production project currently has no Functions and is **not** a safe/general-purpose destination for app environment variables.

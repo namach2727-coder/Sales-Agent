@@ -1,5 +1,16 @@
 # DirectPilot Project Roadmap & Continuity Checkpoint
 
+## 2026-10-14 P0 SCOPE CHANGE: retire ALL Render workloads
+
+**OWNER GOAL:** Render must be completely emptied before its Free Production PG expiry Nov 2; do not plan to keep Backend there. Confirmed inventory: 2 web services (Prod `srv-db0f3uc9v7es73b5k51g`, UAT `srv-dabsmo7qj5pc7397jqf0`) and 1 Postgres DB (`dpg-db0escm0tbcc73fhig2g-a`); no Render KV. Backend code has a reusable Python 3.12 Dockerfile, but legacy Compose files provision LOCAL PostgreSQL and UAT Ollama and must not be used as-is.
+
+**PREPARED only:** `docs/runbooks/full_render_exit_20261014.md` and portable `deploy/full-exit/` Compose+Caddy setup for 2 FastAPI+2 gateways, isolated volumes, SSL, Neon Prod/Neon UAT. Security guard refuses old `neondb` rehearsal for new Prod and any Render/UAT cross-reference. No cloud host selected/provisioned, no application moved, no secret copied, no live writes/DNS changed.
+
+**Decision required:** host outside Render. Low/zero-cost potential OCI Always Free only if operator can establish verified account and find capacity; Railway Free is insufficient as guaranteed always-on for 2 real APIs, Hobby >=$5/month plus variable usage; commercial Vercel Hobby restrictions make it unsuitable as another free paid-business Backend. Next stage isolated UAT host first, no Prod touching. Then owner-approved fresh DB final restore/write freeze/Meta+Payexa replay, DNS+Meta URLs, secret migration, monitored rollback, Render deletion only after acceptance.
+
+---
+
+
 ## 2026-10-14 Env architecture clarification and scoped audit (P0)
 
 **Status: no app Environment Variable transfer to Neon.** Backend is still hosted on Render `directpilot-api`; Neon Production `billowing-poetry-05589994` hosts the PostgreSQL copy only; Functions are unavailable for this project. Keep ALL existing Render app keys/values (Meta/IG crypto, payment, cookies, third-party credentials, bootstrap flags) in Render. The future Render-side `DATABASE_URL`/`DATABASE_URL_FILE` update is distinct, requires fresh Neon final DB, verified freeze/reconciliation, and separate owner approval. No changed env values yet.
