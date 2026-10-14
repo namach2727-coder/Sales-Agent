@@ -16,7 +16,7 @@
 | Fresh final sync | Source live after backup; no replication or final write freeze/delta reconciliation | **OPEN** |
 | Rollback and event safety | Need plan for payment approvals, active sessions, Meta webhook replay/idempotency, and prevention of split-brain | **OPEN** |
 | Live cutover | Backend Production remains Render `bfe67fd` LIVE; Neon copy isolated; no approval or env changes | **NOT AUTHORIZED** |
-| Render temporary /32 | Owner reported deleted; Render API still sees one allowlisted rule | **VERIFY discrepancy** |
+| Render temporary /32 | Render API independently verified 2026-10-14: `ipAllowList=[]` (zero rules) | **PASS / CLOSED** |
 
 **Priority and sequence:** (1) reconcile temporary IP rule; (2) run workstation-only real Neon READ-ONLY SQLAlchemy preflight; (3) monitor Neon console billed CU-hours, idle/wake and connection usage, decide conservative pooling; (4) protect offsite encrypted/independent restorable copy; (5) set final maintenance window + writes/webhooks freeze and verified fresh snapshot/delta; (6) rehearse rollback; (7) request explicit Production cutover authorization. **Internal target Oct 25**, before Render expiry Nov 2. Never claim zero data-loss risk or actual Production cutover based on snapshot restore alone.
 
