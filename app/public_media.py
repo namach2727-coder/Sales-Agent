@@ -33,7 +33,7 @@ def public_product_image(
             filename=None,
         )
     )
-    response.headers["Cache-Control"] = "public, max-age=900"
+    response.headers["Cache-Control"] = "private, no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Content-Disposition"] = "inline"
     return response
