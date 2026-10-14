@@ -1395,7 +1395,7 @@ def test_receipt_versions_remain_traceable_after_rejection_and_four_months(comme
     order = create_paid_order(client, customer)
     payment = create_payment(client, customer, order)
     initial_bytes = b"%PDF-older-receipt"
-    revised_bytes = b"\\x89PNG\\r\\n\\x1a\\nnewer-receipt"
+    revised_bytes = b"\x89PNG\r\n\x1a\nnewer-receipt"
 
     first = client.post(
         f"/api/v1/payments/{payment['public_id']}/receipt",
