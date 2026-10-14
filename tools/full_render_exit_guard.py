@@ -58,6 +58,9 @@ def main() -> int:
     profile = os.getenv("APP_ENV", "")
     raw = os.getenv("DATABASE_URL", "")
     path = os.getenv("DATABASE_URL_FILE", "")
+    if path and raw:
+        print("PORTABLE_GUARD_BLOCKED: ambiguous DB URL and URL_FILE configured together")
+        return 2
     if path and not raw:
         p = Path(path).resolve()
         if p.is_relative_to(Path("/app")):
