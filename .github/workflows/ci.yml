@@ -154,6 +154,9 @@ jobs:
           # TEST OVERRIDES: only the disposable CI DB; never a customer database.
           preflight.EXPECTED_HOST = "127.0.0.1"
           preflight.EXPECTED_DATABASE = "directpilot_ci_test"
+          # CI disposable schema can advance independently of the safeguarded
+          # restored-Production preflight expectation (0025).
+          preflight.EXPECTED_VERSION = "0026_durable_product_media"
           preflight.validate_target_url = lambda raw: make_url(raw)
           result = preflight.run_preflight(os.environ["DATABASE_URL"])
           assert result["connection_read_only"] is True
