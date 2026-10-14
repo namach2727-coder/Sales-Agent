@@ -18,6 +18,8 @@ from app.authentication.schemas import LoginInput, OperationResponse, PasswordCh
 from app.authz.permissions import PermissionCode
 from app.commerce.schemas import (
     AdminPaymentRead,
+    AdminReceiptVersionRead,
+    AdminPaymentEventRead,
     AdminPaymentCardCreate,
     AdminPaymentCardRead,
     AdminPaymentCardUpdate,
@@ -314,8 +316,13 @@ def _admin_payment_read(db: Session, item: ManualPayment) -> AdminPaymentRead:
     store = db.get(Store, item.store_id)
     plan = db.get(SaasPlan, order.plan_id if order else None)
     assert order is not None and tenant is not None and store is not None and plan is not None
+    owner = db.get(UserIdentity, item.user_id)
+    assert owner is not None
     return AdminPaymentRead(
         **_payment_read(db, item).model_dump(),
+        customer_email=owner.email,
+        customer_display_name=owner.display_name,
+        tenant_public_id=tenant.public_id,
         tenant_name=tenant.name,
         store_name=store.name,
         plan_code=order.plan_code_snapshot or plan.code,
@@ -803,8 +810,27 @@ def admin_update_payment_card(
 
 
 @router.get("/admin/payments", response_model=list[AdminPaymentRead])
-def admin_payments(_principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.PAYMENT_READ)), db: Session = Depends(get_db)) -> list[AdminPaymentRead]:
-    return [_admin_payment_read(db, item) for item in CommerceService(db).admin_payments()]
+def admin_payments(
+    customer_email: str | None = Query(default=None, max_length=320),
+    created_from: datetime | None = Query(default=None),
+    created_to: datetime | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=500),
+    _principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.PAYMENT_READ)),
+    db: Session = Depends(get_db),
+) -> list[AdminPaymentRead]:
+    if created_from is not None and created_from.tzinfo is None:
+        raise HTTPException(status_code=422, detail="created_from must contain timezone")
+    if created_to is not None and created_to.tzinfo is None:
+        raise HTTPException(status_code=422, detail="created_to must contain timezone")
+    if created_from and created_to and created_from >= created_to:
+        raise HTTPException(status_code=422, detail="invalid date range")
+    return [
+        _admin_payment_read(db, item)
+        for item in CommerceService(db).admin_payments(
+            customer_email=customer_email, created_from=created_from,
+            created_to=created_to, limit=limit,
+        )
+    ]
 
 
 @router.get("/admin/payments/{payment_public_id}", response_model=AdminPaymentRead)
@@ -829,6 +855,86 @@ def reject_payment(payment_public_id: str, payload: PaymentDecision, principal: 
         return _admin_payment_read(db, CommerceService(db).reject(payment_public_id, expected_revision=payload.expected_revision, actor_user_id=principal.user_id, reason=payload.reason))
     except CommerceError as exc:
         _error(exc)
+
+
+@router.get(
+    "/admin/payments/{payment_public_id}/receipts",
+    response_model=list[AdminReceiptVersionRead],
+)
+def admin_receipt_versions(
+    payment_public_id: str,
+    _principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.PAYMENT_READ)),
+    db: Session = Depends(get_db),
+) -> list[AdminReceiptVersionRead]:
+    try:
+        versions = CommerceService(db).admin_receipt_versions(payment_public_id)
+        return [
+            AdminReceiptVersionRead(
+                version=item.version, submitted_at=item.submitted_at,
+                content_type=item.content_type, byte_size=item.byte_size,
+                sha256=item.sha256,
+            )
+            for item in versions
+        ]
+    except CommerceError as exc:
+        _error(exc)
+
+
+@router.get("/admin/payments/{payment_public_id}/receipts/{version}")
+def admin_receipt_version_file(
+    payment_public_id: str,
+    version: int,
+    _principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.PAYMENT_READ)),
+    db: Session = Depends(get_db),
+) -> Response:
+    try:
+        item = CommerceService(db).admin_receipt_version(payment_public_id, version)
+        import hashlib
+        data = bytes(item.receipt_data)
+        if hashlib.sha256(data).hexdigest() != item.sha256:
+            raise HTTPException(status_code=409, detail="receipt integrity mismatch")
+        suffix = {
+            "image/jpeg": ".jpg", "image/png": ".png", "application/pdf": ".pdf",
+        }.get(item.content_type, ".bin")
+        return Response(
+            content=data,
+            media_type=item.content_type,
+            headers={
+                "Content-Disposition": f'inline; filename="receipt-{payment_public_id}-v{version}{suffix}"',
+                "Cache-Control": "private, no-store",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+    except CommerceError as exc:
+        _error(exc)
+
+
+@router.get(
+    "/admin/payments/{payment_public_id}/events",
+    response_model=list[AdminPaymentEventRead],
+)
+def admin_payment_events(
+    payment_public_id: str,
+    _principal: AuthenticatedPrincipal = Depends(require_platform_permission(PermissionCode.PAYMENT_READ)),
+    db: Session = Depends(get_db),
+) -> list[AdminPaymentEventRead]:
+    try:
+        payment = CommerceService(db).admin_payment(payment_public_id)
+    except CommerceError as exc:
+        _error(exc)
+    events = list(db.scalars(select(CommerceAuditLog).where(
+        CommerceAuditLog.target_type == "payment",
+        CommerceAuditLog.target_public_id == payment.public_id,
+        CommerceAuditLog.tenant_id == payment.tenant_id,
+    ).order_by(CommerceAuditLog.created_at.asc(), CommerceAuditLog.id.asc())).all())
+    results = []
+    for event in events:
+        actor = db.get(UserIdentity, event.actor_user_id) if event.actor_user_id else None
+        results.append(AdminPaymentEventRead(
+            action=event.action, actor_email=actor.email if actor else None,
+            occurred_at=event.created_at, details=event.details_json or {},
+        ))
+    return results
 
 
 @router.get("/admin/payments/{payment_public_id}/receipt")
