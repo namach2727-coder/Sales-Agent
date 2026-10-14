@@ -1,5 +1,12 @@
 # DirectPilot — Vercel UAT Auth Acceptance and Media / Commercial Gates (2026-10-14)
 
+## SUPERSEDED MEDIA PROVIDER PROPOSAL — 2026-10-14
+
+**Do not execute R2/S3 setup recommendations in this historical analysis.** The owner explicitly chose PostgreSQL/Neon BYTEA for **both payment receipts and product images**. The former uses `manual_payments.receipt_data` already; the latter is being implemented in UAT PR #34 (`product_media_assets.image_data`, additive Alembic 0026) and remains un-deployed. R2 implementation PR #33 was CLOSED WITHOUT MERGE. The storage-size and Vercel/commercial constraints discussed later in this file remain useful evidence, but the external object-storage proposal is NOT the active architecture. For the current safe procedure consult the five canonical files (`AI_HANDOFF.md` → `PROJECT_ROADMAP.md` → `DECISIONS.md` → `CURRENT_STATE.md` → `NEXT_ACTIONS.md`) and the pending UAT runbook `docs/runbooks/uat_postgres_durable_media_20261014.md`.
+
+---
+
+
 ## Verified or operator-confirmed
 - Vercel UAT API project `directpilot-uat-api`, latest observed API deployment `dpl_EdLHatmBs6GKyDeiMaAWFyCfpmmR`, READY; frontend isolated preview `dpl_CEnKE8Fh98HpnsPfsFwMz7yzhnzY`, READY. Both independent of the live Render services.
 - The owner reported browser PASS for UAT customer login, session persistence after refresh, navigation, logout, unauthenticated-route protection, admin login, admin payment listing and viewing existing receipts in the isolated preview. This is **operator-reported manual UAT**, not a captured automated E2E test.
