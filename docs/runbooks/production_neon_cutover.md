@@ -1,5 +1,16 @@
 # DirectPilot Render → Neon Production — Controlled Cutover Runbook
 
+## 2026-10-14 — Latest Neon Free usage and write-freeze readiness assessment
+
+**Detailed current plan:** [Neon Free usage and maintenance-window plan](neon_free_usage_and_maintenance_plan.md). This new plan supersedes any obsolete status below for CU-hour telemetry, cold wake and actual restored Neon SQLAlchemy preflight; Production Cutover is STILL NOT AUTHORIZED.
+
+- Neon API reported `compute_time_seconds=1746`, `active_time_seconds=6888` for the current consumption period. If compute seconds are CU-weighted, this is an **estimated 0.485 CU-hour** / 0.485% of Free's 100-CU-hour monthly cap; real customer workload/console-billed usage are NOT verified. Compute observed idle; one read-only SQL query returned successfully after ~6.65 s end-to-end connector time, waking endpoint to active. This is NOT an application cold-start SLA.
+- Render HTTP request/latency 24-hour metric request returned no data (DO NOT infer zero user traffic). Database active connection hourly samples 0–2; peaks unknown.
+- Backend code review located both Meta webhook ingress paths, the Payexa GET+POST callback, commerce signup/order/receipt/admin mutation surfaces and unconditional Alembic check/runner at Docker startup. No complete tested write-freeze and durable inbound webhook/Payexa hold-and-replay barrier is evidenced. **DO NOT START MAINTENANCE / dump-based cutover without addressing this P0.**
+- Independent Neon SQL verified 82 tables / Alembic 0025, healthy indexes. Owner/Codex actually passed the restored-Neon SQLAlchemy/TLS/read-only preflight. Zero Neon saved snapshots and zero scheduled snapshots were reported; protected independent off-provider recovery remains OPEN.
+- This checkpoint is documentation and live read-only inspection only. Neither the proposed `directpilot_live` final database nor source write freeze, Production API redeploy, Render IP rule change, or Cutover was performed.
+
+
 ## 2026-10-14 Preflight update — ACTUAL restored Neon read-only PASS
 
 **Operator/Codex reported PASS** for actual isolated restored Neon SQLAlchemy 2.0.41 / psycopg 3.2.9 / Alembic 1.16.5 with verified TLS/host and **server-enforced read-only transactions**. Independent Neon SQL verified 82 tables / 76 sequences / 522 indexes / 427 original constraints, no invalid indexes/unvalidated constraints, Alembic 0025 and 14 subscriptions / 15 subscription orders / 1 manual payment with zero checked orphan relations. This is NOT a write or Meta/payment E2E test. Historical NOT VERIFIED rows below are superseded by this update.
@@ -38,14 +49,14 @@
 3. **No write ingress:** inventory all app writers: frontend signup/login sessions, orders and subscription purchase, manual payment receipt uploads and admin approvals, Meta webhook receivers/sending and reconciliation, service background workers, scheduled actions, token refresh, and provider callbacks. A frontend maintenance banner alone does NOT freeze background/webhook writes.
 4. **Webhook safety:** define durable inbound queue/retry contract for Meta and payment callbacks. If external providers do not retry reliably, arrange an accepted hold-and-replay method and explicitly communicate any interruption; never return success to a webhook if its payload was not durably stored.
 5. **Encryption secrets:** confirm required existing Production signing/encryption keys and customer receipts stored as `bytea` will remain valid after migration. Test token decryptability **only in an isolated, side-effect-disabled process**. Do not rotate keys as part of cutover unless separately reviewed.
-6. **Capacity/availability:** measure actual Neon Free CU-hour consumption from Neon Console, idle suspension and wake latency, with representative traffic. Current API value `compute_time_seconds=0` is unreliable. 0.25–2 CU, Free 100 CU-hour/month, pooler disabled. Decide a paid fallback before first real customers if Free is insufficient.
+6. **Capacity/availability:** measure actual Neon Free CU-hour consumption from Neon Console, idle suspension and wake latency, with representative traffic. Observed API `compute_time_seconds=1746` and `active_time_seconds=6888` are provisional and NOT a confirmed billed CU-hour reading. 0.25–2 CU, Free 100 CU-hour/month, pooler disabled. Decide a paid fallback before first real customers if Free is insufficient.
 7. **Rollback approach:** restoring Render DATABASE_URL after writing to Neon is NOT safe without reverse data reconciliation; define maintenance freeze, final authoritative database, abort window and responsible operator.
 
 ## T-minus 30 minutes — Preflight
 
 - Confirm source Render DB is AVAILABLE, API LIVE, current Alembic head `0025_trial_three_days`, relevant counts and verified restore plan. Temporarily allowlist only the trusted operator /32 if necessary for source export; revoke immediately after source activities.
 - Confirm Neon project and region and no UAT overlap; isolate the rehearsal `neondb` and **do not overwrite it**. The proposed **empty final target** should be newly created, explicitly named/approved and separately verified to have zero user tables.
-- Validate PostgreSQL 16→18 compatibility on disposable CI: PR #24 and #25 tests PASS but *real restored data* SQLAlchemy read-only test remains required. From trusted workstation: `python -m tools.neon_readonly_preflight`, providing target Neon direct URL privately. This is a read-only check, NOT an app E2E.
+- Validate PostgreSQL 16→18 compatibility on disposable CI: PR #24 and #25 tests PASS and actual restored-data SQLAlchemy READ-ONLY verification is PASS per owner/Codex (without starting API). From trusted workstation: `python -m tools.neon_readonly_preflight`, providing target Neon direct URL privately. This is a read-only check, NOT an app E2E.
 - Create a private evidence folder outside Git: timestamps, baseline row counts for all tables, object counts, migration, deployment SHA, payment counts, webhook event counts, manual approvals count, last accepted event/watermark. No raw customer rows, private token values or connection strings in logs/tickets.
 - Confirm `DIRECTPILOT_SEED_ON_START`, admin bootstrap/password reset and one-shot payment approval flags will **not** execute accidentally during the first migrated backend start. Render Docker entrypoint runs database readiness checks and Alembic migration on every startup: preflight and accept this behavior explicitly.
 - Record emergency contacts, rollback mechanism, communication and acceptance thresholds.
@@ -91,7 +102,7 @@
 | Fresh source snapshot with writes frozen | **NOT STARTED** |
 | Empty final target created and populated | **NOT STARTED** |
 | Provider webhook hold/replay and data parity | **NOT VERIFIED** |
-| Neon CU budget and cold-wake | **NOT VERIFIED** |
+| Neon CU budget and cold-wake | **PARTIAL**: idle→active SQL read succeeded (~6.65s connector time); billed Free CU-hour and site p95 not verified |
 | Owner-approved cutover | **NOT AUTHORIZED** |
 
 **Prohibition:** This file authorizes NO changes to Production runtime, database, Neon schema, DNS, Meta, billing or webhooks.
