@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 import re
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,7 @@ from app.models import (
     CommerceAdminAuditLog,
     IdentityAuditLog,
     ManualPayment,
+    ManualPaymentReceiptVersion,
     ModuleDefinition,
     PaymentCard,
     SaasPlan,
@@ -663,28 +664,86 @@ class CommerceService:
         return item
 
     def submit_receipt(self, principal: AuthenticatedPrincipal, payment_public_id: str, *, storage_key: str, content_type: str, size: int, sha256: str, data: bytes) -> ManualPayment:
-        payment = self.get_owned_payment(principal, payment_public_id)
+        owned = self.get_owned_payment(principal, payment_public_id)
+        # Serialize concurrent uploads against the tenant-owned payment row.
+        payment = self.session.scalar(
+            select(ManualPayment)
+            .where(ManualPayment.id == owned.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        assert payment is not None
         if payment.provider != "manual_card_transfer":
             raise CommerceConflict("receipt upload is only available for manual payments")
         if payment.status not in {"pending", "rejected"}:
             raise CommerceConflict("payment cannot accept a receipt")
+        # Keep each upload, including receipts replaced after rejection, as
+        # durable evidence with immutable bytes linked to original owner/order.
+        next_version = 1 + int(self.session.scalar(
+            select(func.coalesce(func.max(ManualPaymentReceiptVersion.version), 0))
+            .where(ManualPaymentReceiptVersion.payment_id == payment.id)
+        ) or 0)
+        submitted_at = now_utc()
+        self.session.add(
+            ManualPaymentReceiptVersion(
+                payment_id=payment.id,
+                order_id=payment.order_id,
+                tenant_id=payment.tenant_id,
+                store_id=payment.store_id,
+                user_id=payment.user_id,
+                version=next_version,
+                content_type=content_type,
+                byte_size=size,
+                sha256=sha256,
+                receipt_data=data,
+                submitted_at=submitted_at,
+            )
+        )
+        # Compatibility copy for the existing latest-receipt API. The version
+        # table is the permanent historical record; no old row is overwritten.
         payment.receipt_storage_key = storage_key
         payment.receipt_content_type = content_type
         payment.receipt_size = size
         payment.receipt_sha256 = sha256
         payment.receipt_data = data
         payment.status = "submitted"
-        payment.submitted_at = now_utc()
+        payment.submitted_at = submitted_at
         payment.rejected_at = None
         payment.rejection_reason = None
         payment.revision += 1
         order = self.session.get(SubscriptionOrder, payment.order_id)
         if order is not None:
             order.status = "payment_submitted"
-        self._audit(payment.tenant_id, payment.store_id, principal.user_id, "payment.receipt_submitted", "payment", payment.public_id, {"content_type": content_type, "size": size})
+        self._audit(payment.tenant_id, payment.store_id, principal.user_id, "payment.receipt_submitted", "payment", payment.public_id, {
+            "content_type": content_type,
+            "size": size,
+            "sha256": sha256,
+            "receipt_version": next_version,
+            "order_public_id": order.public_id if order else None,
+        })
         self.session.commit()
         self.session.refresh(payment)
         return payment
+
+    def admin_receipt_versions(self, payment_public_id: str) -> list[ManualPaymentReceiptVersion]:
+        payment = self.admin_payment(payment_public_id)
+        return list(self.session.scalars(
+            select(ManualPaymentReceiptVersion)
+            .where(ManualPaymentReceiptVersion.payment_id == payment.id)
+            .order_by(ManualPaymentReceiptVersion.version.asc())
+        ).all())
+
+    def admin_receipt_version(self, payment_public_id: str, version: int) -> ManualPaymentReceiptVersion:
+        payment = self.admin_payment(payment_public_id)
+        receipt = self.session.scalar(
+            select(ManualPaymentReceiptVersion).where(
+                ManualPaymentReceiptVersion.payment_id == payment.id,
+                ManualPaymentReceiptVersion.version == version,
+            )
+        )
+        if receipt is None:
+            raise CommerceNotFound("receipt version not found")
+        return receipt
 
     def admin_payment_cards(self) -> list[PaymentCard]:
         return list(
@@ -873,10 +932,28 @@ class CommerceService:
         self.session.refresh(card)
         return card
 
-    def admin_payments(self) -> list[ManualPayment]:
-        return list(self.session.scalars(select(ManualPayment).where(
+    def admin_payments(
+        self,
+        *,
+        customer_email: str | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        limit: int = 200,
+    ) -> list[ManualPayment]:
+        statement = select(ManualPayment).where(
             ManualPayment.provider == "manual_card_transfer"
-        ).order_by(ManualPayment.id.desc())).all())
+        )
+        if customer_email:
+            statement = statement.join(UserIdentity, ManualPayment.user_id == UserIdentity.id).where(
+                UserIdentity.normalized_email == normalize_email(customer_email)
+            )
+        if created_from is not None:
+            statement = statement.where(ManualPayment.created_at >= created_from)
+        if created_to is not None:
+            statement = statement.where(ManualPayment.created_at < created_to)
+        return list(self.session.scalars(statement.order_by(
+            ManualPayment.created_at.desc(), ManualPayment.id.desc()
+        ).limit(limit)).all())
 
     def admin_payment(self, public_id: str) -> ManualPayment:
         payment = self.session.scalar(select(ManualPayment).where(ManualPayment.public_id == public_id))

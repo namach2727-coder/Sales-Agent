@@ -30,7 +30,7 @@ def test_postgresql_database_is_at_alembic_head() -> None:
     with engine.connect() as connection:
         assert connection.scalar(
             text("SELECT version_num FROM alembic_version")
-        ) == "0025_trial_three_days"
+        ) == "0027_traceable_receipt_versions"
 
 
 def test_postgresql_conversation_path_handles_json_boolean_and_timezone() -> None:
