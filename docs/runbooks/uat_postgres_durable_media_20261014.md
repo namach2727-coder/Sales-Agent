@@ -30,3 +30,7 @@
 ## Evidence boundaries
 - Code committed/CI PASS is not operational UAT acceptance. Runtime changes must be measured and reported separately.
 - Empty `product_media_assets` in UAT as of 2026-10-14 is a point-in-time read-only count, not a promise that any other database has no existing legacy media.
+
+## UAT deployment trigger and rollback checkpoint (2026-10-14)
+
+GitHub integration for isolated `directpilot-uat-api` was confirmed connected by the owner. This documentation-only commit on the isolated UAT migration branch intentionally triggers Vercel's Git deployment after correcting that project's Production Branch Tracking. The separate live DirectPilot Production/Render projects and production DB are not modified. Validate exact Git commit in Vercel deployments and `/ready` migration head `0027_traceable_receipt_versions`; if no matching deployment occurs, treat this trigger as unsuccessful. Keep database snapshot `snap-patient-dawn-arkxewpc` and isolated recovery branch available for emergency UAT rollback.
