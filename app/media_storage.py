@@ -4,6 +4,7 @@ import base64
 import binascii
 import hashlib
 import hmac
+import os
 import time
 import uuid
 from pathlib import Path
@@ -15,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models import Product, ProductMediaAsset, SocialContentDraft, Store
+from app.object_media_storage import delete_image, put_image
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -107,6 +109,11 @@ def save_product_image(
     data_url: str,
 ) -> ProductMediaAsset:
     data, width, height = decode_manager_jpeg(data_url)
+    # Vercel Functions reject request payloads above 4.5 MiB, including
+    # base64/JSON overhead. This is a guard, not a replacement for client-side
+    # size validation or future direct-to-object-store uploads.
+    if os.environ.get("VERCEL") == "1" and len(data) > 3 * 1024 * 1024:
+        raise ValueError("برای این محیط حجم تصویر باید حداکثر ۳ مگابایت باشد.")
     digest = hashlib.sha256(data).hexdigest()
     duplicate = db.scalar(
         select(ProductMediaAsset).where(
@@ -121,12 +128,23 @@ def save_product_image(
 
     asset_id = str(uuid.uuid4())
     storage_key = f"store-{store.id}/{asset_id}.jpg"
-    root = media_root(settings)
-    target = (root / storage_key).resolve()
-    if root not in target.parents:
-        raise ValueError("مسیر ذخیره تصویر معتبر نیست.")
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(data)
+    if settings.media_storage_backend == "s3":
+        # Bucket remains private; public delivery uses a short-lived URL.
+        put_image(settings, storage_key, data, digest)
+    else:
+        # A Vercel Function's disk is not durable across requests or deploys.
+        # Never pretend that local image upload succeeded on serverless.
+        if os.environ.get("VERCEL") == "1":
+            raise HTTPException(
+                status_code=503,
+                detail="فضای ذخیره‌سازی دائمی تصاویر برای این محیط پیکربندی نشده است.",
+            )
+        root = media_root(settings)
+        target = (root / storage_key).resolve()
+        if root not in target.parents:
+            raise ValueError("مسیر ذخیره تصویر معتبر نیست.")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
 
     safe_name = Path(original_filename or "product.jpg").name[:255] or "product.jpg"
     asset = ProductMediaAsset(
@@ -165,10 +183,15 @@ def delete_product_image(db: Session, asset: ProductMediaAsset, settings: Settin
     )
     if referenced is not None:
         raise ValueError("این تصویر در یک محتوای تأییدشده استفاده شده و قابل حذف نیست.")
-    try:
-        resolve_asset_path(asset, settings).unlink(missing_ok=True)
-    except HTTPException:
-        pass
+    if settings.media_storage_backend == "s3":
+        # Fail closed if the object-store deletion fails; do not leave a
+        # database tombstone while a supposedly deleted image remains public.
+        delete_image(settings, asset.storage_key)
+    else:
+        try:
+            resolve_asset_path(asset, settings).unlink(missing_ok=True)
+        except HTTPException:
+            pass
     asset.status = "deleted"
     db.commit()
 
