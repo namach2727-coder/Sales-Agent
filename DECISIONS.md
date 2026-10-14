@@ -10,7 +10,7 @@
 6. **Neon Free capacity remains conditional.** Free 100 CU-hour/month; configured 0.25–2 CU, default idle suspension, no pooler. Do not infer 0 cost from provider API's current zero compute counter; confirm settled billing/usage and test cold wake. `/live` is safe health endpoint; avoid unnecessary frequent `/ready` polling. Evaluate smaller SQLAlchemy pools only through tested, approved configuration.
 7. **No automatic Production deployment or DATABASE_URL change.** Backend CI PR #24 (`dab43e7`) and #25 (`f5b6f98`) merged with all 4 jobs PASS (905 tests passed / 7 skipped in latest CI). Render Production + UAT remain LIVE at `bfe67fd`, autoDeploy OFF. Frontend Production `/solutions` verified READY at `79b8fad`.
 8. **Cutover requires a separate explicit approval**, final write freeze/snapshot/delta validation, preserved payment/receipt/order/idempotency state, safe Meta webhook replay, rollback tested against post-switch writes, and alerts. Do not roll back by merely reverting DATABASE_URL after new writes without data reconciliation.
-9. **Operational ACL truth matters:** although operator reports workstation /32 IP removed, independent Render database inventory still showed one entry at latest check. Reconcile in Render Dashboard; never open `0.0.0.0/0`.
+9. **Render Production inbound access now CLOSED (verified 2026-10-14):** direct Render PostgreSQL inventory reports `ipAllowList=[]` (zero rules). Do not reopen `0.0.0.0/0`; any future source access requires explicit approval, /32-only scope and timely revocation.
 
 ---
 
