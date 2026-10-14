@@ -1,5 +1,23 @@
 # DirectPilot AI Handoff
 
+## 2026-10-14 — Isolated Vercel UAT auth and receipt durability acceptance
+
+- Operator tested customer account against isolated frontend preview `dpl_CEnKE8Fh98HpnsPfsFwMz7yzhnzY` (READY), wired with branch-scoped `DIRECTPILOT_API_UPSTREAM=https://directpilot-uat-api.vercel.app` to API `dpl_EdLHatmBs6GKyDeiMaAWFyCfpmmR` and independent Neon UAT.
+- **USER-REPORTED PASS:** customer Login, session persistence after refresh, navigation, Logout and unauthenticated access rejection. These are manual browser acceptance results, not separately captured backend request logs or automated tests.
+- **Neon UAT direct read-only SELECT PASS:** `manual_payments` count=2; receipt rows with both storage key and bytea `receipt_data`=2; file-only legacy receipts=0; `product_media_assets`=0. Backend `CommerceService.submit_receipt` stores receipt bytes in PostgreSQL and the admin receipt endpoint serves those bytes, while product-image media writes local files (`app/media_storage.py`) and is NOT serverless-durable.
+- **OPEN:** UAT admin read-only/RBAC smoke; real UAT receipt upload/retrieval/restart test without payment approval; media persistent object-storage redesign; Meta webhooks, callback behavior, signed assets, cold-wake/capacity and explicit Vercel commercial suitability. All Production final source backup/freeze/replay/parity/GO gates remain unchanged. Preserve both Render services until accepted replacement.
+
+---
+
+
+## 2026-10-14 — Vercel API UAT checkpoint (not accepted)
+
+- Isolated Vercel project `directpilot-uat-api` (`prj_Kt665OcJisA7WMTA2YnGi7KSyT3b`) deployed from migration branch `migration/vercel-uat-fastapi-20261014`, commit `c05a5a76def84b9495bf1b361f910a9194d58a59`, via `api/index.py` ASGI shim. Latest redeploy `dpl_EdLHatmBs6GKyDeiMaAWFyCfpmmR` reports READY, but runtime `/live` and `/ready` remain unverified. Earlier redeploy returned 500 FUNCTION_INVOCATION_FAILED; Runtime Logs access returned 403, so root cause is unknown.
+- Vercel UAT environment keys registered: DATABASE_URL, APPLICATION_SECRET, INSTAGRAM_TOKEN_ENCRYPTION_KEY (sensitive), APP_ENV=uat, DEBUG=false, TRUSTED_HOSTS, FORCE_HTTPS=true, LEGACY_ADMIN_ADAPTER_ENABLED=false, CORS_ALLOWED_ORIGINS. Values and end-to-end compatibility not verified.
+- Render Production remains authoritative; no Production cutover, data restore, Meta/payment change or Render shutdown. Evaluate Vercel serverless runtime, persistent private receipts/media, encryption, auth, webhook callbacks and paid-use terms before approval. Existing Production final fresh Render sync and freeze/replay/backup/rollback gates remain mandatory.
+
+---
+
 ## 2026-10-14 — Final sync tooling merged; actual data transfer remains BLOCKED
 
 - Backend PR #30 **MERGED** commit `3f07b16bd7ade6f065f3638417e5adc838f6f810`, latest CI run `38530717010` **4/4 PASS**, Python **941 passed / 7 skipped**. New operator-only `tools/production_final_sync.py`, `docs/runbooks/final_render_to_neon_sync_20261014.md` now in `backend-main`.

@@ -1,5 +1,30 @@
 # DirectPilot Next Actions
 
+## 2026-10-14 — Isolated Vercel UAT auth and receipt durability acceptance
+
+- Operator tested customer account against isolated frontend preview `dpl_CEnKE8Fh98HpnsPfsFwMz7yzhnzY` (READY), wired with branch-scoped `DIRECTPILOT_API_UPSTREAM=https://directpilot-uat-api.vercel.app` to API `dpl_EdLHatmBs6GKyDeiMaAWFyCfpmmR` and independent Neon UAT.
+- **USER-REPORTED PASS:** customer Login, session persistence after refresh, navigation, Logout and unauthenticated access rejection. These are manual browser acceptance results, not separately captured backend request logs or automated tests.
+- **Neon UAT direct read-only SELECT PASS:** `manual_payments` count=2; receipt rows with both storage key and bytea `receipt_data`=2; file-only legacy receipts=0; `product_media_assets`=0. Backend `CommerceService.submit_receipt` stores receipt bytes in PostgreSQL and the admin receipt endpoint serves those bytes, while product-image media writes local files (`app/media_storage.py`) and is NOT serverless-durable.
+- **OPEN:** UAT admin read-only/RBAC smoke; real UAT receipt upload/retrieval/restart test without payment approval; media persistent object-storage redesign; Meta webhooks, callback behavior, signed assets, cold-wake/capacity and explicit Vercel commercial suitability. All Production final source backup/freeze/replay/parity/GO gates remain unchanged. Preserve both Render services until accepted replacement.
+
+---
+
+
+## 2026-10-14 — Vercel UAT API migration checkpoint (runtime acceptance OPEN)
+
+- Scope: isolated UAT experiment only, NOT a Production cutover or a change to the full-Render-exit objective. The earlier Docker-host recommendation remains an alternative; a Vercel Functions backend is under evaluation, NOT yet accepted as a durable commercial Production architecture.
+- Source: backend `namach2727-coder/Sales-Agent`, branch `migration/vercel-uat-fastapi-20261014`, commit `c05a5a76def84b9495bf1b361f910a9194d58a59`; an `api/index.py` ASGI entrypoint imports `app.main:app`. This change is isolated and not merged to `backend-main`.
+- Vercel project `directpilot-uat-api`, ID `prj_Kt665OcJisA7WMTA2YnGi7KSyT3b`, is independent from the existing `directpilot-web` frontend. Redeploy `dpl_EdLHatmBs6GKyDeiMaAWFyCfpmmR` reports READY (build/deployment only), not runtime or DB readiness. Project's Vercel target is labeled `production` but contains UAT configuration; this is NOT DirectPilot live Production.
+- Names-only Vercel environment inventory independently checked: `DATABASE_URL` (sensitive), `APP_ENV=uat`, `DEBUG=false`, `APPLICATION_SECRET` (sensitive), `INSTAGRAM_TOKEN_ENCRYPTION_KEY` (sensitive), `TRUSTED_HOSTS`, `FORCE_HTTPS=true`, `LEGACY_ADMIN_ADAPTER_ENABLED=false`, `CORS_ALLOWED_ORIGINS`. UAT secret *values*, URL correctness, Render↔Vercel parity and successful app decryption have NOT been independently verified. No secret values are recorded in these documents.
+- On prior redeploy `dpl_5xAzCx6otghdXgXET5JnXyQJvthA`, browser requests to `/live` and `/ready` returned `500 FUNCTION_INVOCATION_FAILED` with request IDs `fra1::bv4nk-1791966084654-c376ac9837af` and `fra1::gznj8-1791966090412-cebb7c848b9b`. This is confirmed failure for that earlier deployment; the latest redeploy's endpoint outcomes are NOT verified. Vercel Runtime Logs and error clusters returned 403; root cause remains UNCONFIRMED. Missing required UAT env settings on prior deployment were a plausible cause, not a demonstrated stack trace.
+- Important code compatibility risks requiring explicit UAT tests: Vercel Function lifecycle versus Docker entrypoint's check/migrate/startup behavior; database pool connections and Neon cold wake; receipt/media files under local filesystem (ephemeral functions); signed public media; auth cookies, CORS, trusted hosts, Meta OAuth/webhooks, payment callbacks, encryption key continuity. No real outbound Meta sends or payment approvals during infrastructure smoke. Ensure no double writers / split brain.
+- Current status: `BUILD READY`; `/live` UNKNOWN on latest deployment; `/ready` UNKNOWN; auth/payment/media/Meta E2E BLOCKED; Production unchanged; both Render APIs remain live; Render Production DB is still authoritative. Do not claim UAT PASS or retire Render. Immediate next: capture sanitized latest runtime HTTP response/logs through authorized dashboard/CLI, verify configuration, safely test `/live`, `/ready` and UAT-only auth/payment without external side effects; select persistent storage and commercial-suitable compute, then update acceptance gate.
+
+---
+
+**Prioritized execution:** (1) latest UAT deployment log/HTTP triage; (2) safe app boot and Neon readiness; (3) separate UAT login/session/receipt-storage/Meta webhook dry-run and rollback checks; (4) only then decide Vercel Functions suitability versus Docker host; (5) continue independently the Render Production final-freeze/backup/restore blockers. No live Production cutover.
+
+
 ## 2026-10-14 — Final sync tooling merged; actual data transfer remains BLOCKED
 
 - Backend PR #30 **MERGED** commit `3f07b16bd7ade6f065f3638417e5adc838f6f810`, latest CI run `38530717010` **4/4 PASS**, Python **941 passed / 7 skipped**. New operator-only `tools/production_final_sync.py`, `docs/runbooks/final_render_to_neon_sync_20261014.md` now in `backend-main`.
