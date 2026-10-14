@@ -31,6 +31,11 @@
 - Prefer additive, forward-only migrations. Preserve historical orders, subscriptions, automation rules, knowledge, and AI usage.
 - Never perform a destructive migration without explicit approval. Validate migrations on a fresh temporary database, never `sales_assistant.db`.
 
+
+## Non-negotiable customer receipt traceability (2026-10-14)
+
+Every manual payment receipt must remain attached to customer identity and its original tenant, store, order, payment, timestamp, checksum and admin event sequence. Must permit privileged search and recovery even after four months and preserve previous uploads when rejected receipts are replaced. Pending UAT PR #36 / Alembic 0027 implements append-only receipt-version evidence within PostgreSQL BYTEA; **NOT yet deployed**. No age-based purge or silent overwrite; backup/restore verification, permission tests and admin UI are acceptance requirements. Proposed 12-month operating retention is subject to valid privacy policy and recoverable backups. Do NOT choose R2/S3 or ask user to repeat this requirement.
+
 ## Current owner-approved media architecture (2026-10-14)
 
 - DirectPilot payment receipts ALREADY use PostgreSQL `manual_payments.receipt_data` (BYTEA). Product JPEG media MUST also use durable PostgreSQL `product_media_assets.image_data` (BYTEA) once UAT feature PR #34 and additive Alembic 0026 pass review/migration. No R2/S3 provider is approved: experimental PR #33 was closed WITHOUT MERGE. Do not recreate buckets, suggest cloud storage, require credentials or route images to ephemeral Vercel disk unless the owner explicitly changes the decision.
