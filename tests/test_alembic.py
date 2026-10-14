@@ -65,6 +65,7 @@ POST_BASELINE_TABLES = {
     "saas_plans",
     "subscription_orders",
     "manual_payments",
+    "manual_payment_receipt_versions",
     "tenant_subscriptions",
     "commerce_audit_logs",
     "commerce_admin_audit_logs",
@@ -217,7 +218,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0026_durable_product_media"]
+    assert scripts.get_heads() == ["0027_traceable_receipt_versions"]
     baseline = scripts.get_revision("0001_baseline_schema")
     seed_history = scripts.get_revision("0002_create_seed_history")
     rbac = scripts.get_revision("0003_authorization_rbac")
@@ -244,6 +245,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
     ai_paid = scripts.get_revision("0024_ai_assistant_v1_catalog")
     trials = scripts.get_revision("0025_trial_three_days")
     durable_media = scripts.get_revision("0026_durable_product_media")
+    receipt_history = scripts.get_revision("0027_traceable_receipt_versions")
     assert baseline is not None and baseline.down_revision is None
     assert seed_history is not None and seed_history.down_revision == "0001_baseline_schema"
     assert rbac is not None and rbac.down_revision == "0002_create_seed_history"
@@ -270,6 +272,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
     assert ai_paid is not None and ai_paid.down_revision == "0023_user_phone_number"
     assert trials is not None and trials.down_revision == "0024_ai_assistant_v1_catalog"
     assert durable_media is not None and durable_media.down_revision == "0025_trial_three_days"
+    assert receipt_history is not None and receipt_history.down_revision == "0026_durable_product_media"
 
 
 @requires_alembic
@@ -324,6 +327,7 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
+        "0027_traceable_receipt_versions",
         "0026_durable_product_media",
         "0025_trial_three_days",
         "0024_ai_assistant_v1_catalog",

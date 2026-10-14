@@ -7,7 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 
 POSTGRES_TEST_URL_VARIABLE = "DIRECTPILOT_POSTGRES_TEST_URL"
-ALEMBIC_HEAD = "0026_durable_product_media"
+ALEMBIC_HEAD = "0027_traceable_receipt_versions"
 
 
 def configure_explicit_postgres_test_database() -> bool:

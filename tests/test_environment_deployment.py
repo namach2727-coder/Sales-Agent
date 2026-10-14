@@ -125,7 +125,7 @@ def test_readiness_requires_database_at_single_head(tmp_path: Path) -> None:
     try:
         result = readiness(engine)
         assert result.ready is True
-        assert result.current_revision == "0026_durable_product_media"
+        assert result.current_revision == "0027_traceable_receipt_versions"
     finally:
         engine.dispose()
 
