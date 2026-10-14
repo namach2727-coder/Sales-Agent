@@ -1,5 +1,18 @@
 # DirectPilot Decisions
 
+## 2026-10-14 — FINAL TECHNICAL UAT CHECKPOINT: domain/API/Neon PASS, browser signoff PENDING
+
+**Canonical UAT ONLY:** `https://uat.directpilot.ir` (Frontend Vercel Preview, GitHub `directpilot-web` branch `UAT`), deployment `dpl_8J7NSmuGuBf8U8mxzX7JQXoVKEdj` READY at SHA `08828ee1358ead2e9d81d2985fe2e4b07020e355`. **Production `directpilot.ir` remains `main` on separate deployment**. UAT branch-only Preview env has `DIRECTPILOT_API_UPSTREAM=https://directpilot-uat-api.vercel.app` and `NEXT_PUBLIC_SITE_URL=https://uat.directpilot.ir`; values verified, Production vars unchanged.
+
+**PASS:** Frontend PR #31 full CI 216 tests + TS + lint + Next.js build. `Official UAT Domain Smoke` run `38565672177` PASS, anonymously checks /auth/me 401 JSON, upgraded receipt history endpoint 401 JSON, Backend /ready=200 database=available migration=current. Neon independent UAT PostgreSQL project `round-shape-42044596`, database `neondb`, Alembic `0027_traceable_receipt_versions`. **Data: 2 current receipt blobs, 2 historical version-1 copies (2/2 parity), 0 orphaned/mismatched links, 0 duplicate versions, 0 invalid evidence, 0 missing backfills; 8 receipt history indexes.** Product image BYTEA column exists; 0 stored images. Pre-migration Neon snapshot `snap-patient-dawn-arkxewpc` was restore-tested on a separate branch. No independent offsite backup SLA proven.
+
+**IMPORTANT BROWSER GATE:** Unauthenticated external `GET /login` and `/robots.txt` on `uat.directpilot.ir` returned HTTP 302 → `vercel.com/sso-api`: Vercel Deployment Protection/SSO covers UAT HTML. This is not a failed rewrite, and the public API auth paths remain protected. **Do not disable Vercel SSO or bypass security without explicit owner permission**. Authorized browser with legitimate Vercel sign-in must verify Login responsiveness, customer/Admin login & session/logout, customer/date payment archive, receipt version review and actions, role restrictions, dummy image upload/preview/delete/redeploy. No real transfer approval or Meta sends. Status remains **TECHNICALLY READY FOR AUTHORIZED UAT BROWSER TESTING**, **NOT BUSINESS ACCEPTED**.
+
+**Single operational runbook with complete evidence, ownership, test checklist and hard Production gate:** `docs/runbooks/official_uat_acceptance_gate_20261014.md`. Read it before next action. Retain owner requirements: canonical UAT domain; PostgreSQL BYTEA for all product images and versions of manual payment receipts, searchable after 4+ months; no R2/S3. Source rollback frontend `backup/uat-before-vercel-neon-sync-20261014` and Neon UAT snapshot retained. Production Render/Neon cutover is UNAUTHORIZED until independent backup, writer/webhook freeze, final sync/parity, rollback, commercial hosting terms and owner GO. Cross-chat file order remains `AI_HANDOFF.md`, `PROJECT_ROADMAP.md`, `DECISIONS.md`, `CURRENT_STATE.md`, `NEXT_ACTIONS.md`.
+
+---
+
+
 ## 2026-10-14 — OFFICIAL UAT ROUTING SMOKE PASS; Vercel SSO HTML GATE OPEN
 
 **Read this checkpoint before UAT testing.** GitHub Actions `Official UAT Domain Smoke` run **38565672177 PASS** against `https://uat.directpilot.ir` (commit `08828ee1358ead2e9d81d2985fe2e4b07020e355`). It independently verified: same-origin `GET /api/v1/auth/me` without credentials returns **401 JSON**; upgraded versioned receipt endpoint `GET /api/v1/admin/payments/smoke-invalid/receipts` returns **401 JSON** (so the official domain routes to the new Backend, not the old Render API); and `https://directpilot-uat-api.vercel.app/ready` returns **200 with database=available, migration=current**.
