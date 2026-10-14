@@ -17,7 +17,7 @@
 | Neon compute | Free `free_v3`, 0.25–2 CU, provider-default suspend, pooler disabled, **100 CU-hour/month** limit. Provider API returned zero usage despite DB activity: **real burn UNKNOWN** |
 | App connection tests | Disposable PG18 SQLAlchemy/read-only preflight PASS in CI; **real Neon restored-data SQLAlchemy workstation preflight NOT YET RUN** |
 | Backup | Original 557942-byte Render dump SHA-256 `436721c2779dcd50c3a65f4a1036a7738c7b4a246189f8cd433e02938c98e80a` verified by owner; independent encrypted offsite copy and real rollback acceptance **OPEN** |
-| Render DB inbound ACL | Owner reported removed temporary /32; latest independent API response still shows one. **Unresolved discrepancy; verify dashboard.** |
+| Render DB inbound ACL | **CLOSED / PASS:** independent Render API verification on 2026-10-14 returned `ipAllowList=[]`, zero external inbound rules; previous discrepancy resolved. |
 | Cutover readiness | BLOCKED: true fresh snapshot/delta, write freeze/webhook replay, rollback rehearsal, independent protected backup, actual usage validation, explicit approval |
 
 **No Production/UAT database records, Meta settings, payment flows, Render environment variables or live services were modified by PR #24/#25 and ensuing read-only audit.** Last confirmed Render health-check is `/live` for both Backend services (does not open a DB connection); `/ready` does.
