@@ -43,7 +43,8 @@ JPEG_SOF_MARKERS = {
 def media_root(settings: Settings) -> Path:
     configured = Path(settings.media_storage_root)
     root = configured if configured.is_absolute() else PROJECT_ROOT / configured
-    root.mkdir(parents=True, exist_ok=True)
+    # Read-only legacy-file fallback. Never create a directory on Vercel,
+    # whose deployment filesystem is read-only and ephemeral.
     return root.resolve()
 
 
