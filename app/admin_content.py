@@ -198,6 +198,8 @@ def preview_product_media(
 ) -> Response:
     asset = _asset_or_404(db, asset_id)
     store = default_store(db)
+    if asset.store_id != store.id:
+        raise HTTPException(status_code=404, detail="تصویر پیدا نشد.")
     _require_store_module(db, store, "content_strategy")
     image = resolve_asset_bytes(asset)
     response = (
@@ -222,6 +224,8 @@ def remove_product_media(
 ) -> dict[str, str]:
     asset = _asset_or_404(db, asset_id)
     store = default_store(db)
+    if asset.store_id != store.id:
+        raise HTTPException(status_code=404, detail="تصویر پیدا نشد.")
     _require_store_module(db, store, "content_strategy")
     try:
         delete_product_image(db, asset, settings)
