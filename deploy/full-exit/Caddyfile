@@ -1,0 +1,20 @@
+# DRAFT, NOT DEPLOYED. DNS and Meta callback cutover require separate approval.
+# Caddy manages HTTPS. NEVER route UAT to Production DB/secrets.
+{$DIRECTPILOT_PROD_API_HOST} {
+  @meta path /webhooks/instagram /api/v1/integrations/instagram/webhook
+  handle @meta {
+    reverse_proxy prod-meta-gateway:8001
+  }
+  handle {
+    reverse_proxy prod-api:8000
+  }
+}
+{$DIRECTPILOT_UAT_API_HOST} {
+  @meta path /webhooks/instagram /api/v1/integrations/instagram/webhook
+  handle @meta {
+    reverse_proxy uat-meta-gateway:8001
+  }
+  handle {
+    reverse_proxy uat-api:8000
+  }
+}
