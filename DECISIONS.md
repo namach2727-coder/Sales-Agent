@@ -1,5 +1,22 @@
 # DirectPilot Decisions
 
+## 2026-10-14 — PERMANENT OWNER REQUIREMENT: receipt traceability after four months
+
+**Cross-chat non-negotiable acceptance criterion:** Admin must be able to identify **every manual transfer receipt belonging to a particular customer**, retrieve the original image/PDF even **four months or more** after upload, identify the associated tenant/customer/order/payment, original submission time, checksum, approval/rejection sequence and acting administrator, and retrieve **earlier receipt versions after rejection and replacement**. Customer data and payment history MUST NOT be automatically overwritten or purged. This is a distinct requirement from image storage, but both rely on **PostgreSQL/Neon BYTEA**. **Never suggest R2/S3**, the owner has explicitly declined those providers.
+
+**Current deployed implementation:** `manual_payments` already keeps the current `receipt_data BYTEA`, `receipt_sha256`, `receipt_size`, `receipt_content_type`, customer `user_id`, `tenant_id`, `order_id`, timestamps and status; `commerce_audit_logs` records status transitions. However, **after rejected re-upload the previous file is overwritten**, and the admin UI has no historical by-customer/date search. Existing receipts are not automatically deleted based on age, but a four-month availability SLA is **NOT YET VERIFIED** without independent restorable backups.
+
+**Pending UAT implementation:** Backend stacked PR **#36** (based on PostgreSQL-image feature PR **#34**, neither deployed) introduces additive Alembic **`0027_traceable_receipt_versions`** after 0026: one preserved binary receipt and SHA-256 per upload, backfills existing PostgreSQL receipts as version 1, tracks customer/tenant/order/payment IDs and upload timestamp, admin `payment.read`-protected history/download/audit endpoints and customer-email/date history search. No existing receipt bytes are deleted. Backend regression tests simulate review 125 days after upload. This is PR/code-only until CI, independent UAT backup, migration and browser acceptance are verified.
+
+**Long-term policy:** no automatic deletion or age-based purge of payment receipts or related payment/audit/order records. Minimum user expectation is 4 months; **12-month retention is the proposed operating baseline**, subject to data-protection requirements and explicit product policy; actual secure retention/recovery requires tested encrypted off-provider backups, restore drills, access control, capacity budgeting, and validated search UI. Never claim a 12-month guarantee on Neon Free without recovery evidence.
+
+**Roadmap priority:** CI and code review PR #34 then #36 → protected recoverable Neon UAT backup → additive UAT migrations 0026 and 0027 in order → isolated Vercel UAT deployment → dummy receipt create/reject/re-upload → owner/admin search by email/date → download old/new versions with hashes and event timeline → simulated four-month-old record test and restart/redeploy durability. Do not touch Render/Production or Meta sends and do not bypass Production write freeze/backup/parity/rollback/GO.
+
+**Mandatory cross-chat read order:** `AI_HANDOFF.md`, `PROJECT_ROADMAP.md`, `DECISIONS.md`, `CURRENT_STATE.md`, `NEXT_ACTIONS.md`. Reuse this requirement and current PR/migration status rather than asking the owner to restate it.
+
+---
+
+
 ## 2026-10-14 — PERMANENT OWNER DECISION / CROSS-CHAT HANDOFF: PostgreSQL media, not R2
 
 **READ FIRST in EVERY DirectPilot chat before recommending storage or continuing migration. The owner has repeatedly confirmed this; do NOT ask them to explain or approve this architecture again.**
