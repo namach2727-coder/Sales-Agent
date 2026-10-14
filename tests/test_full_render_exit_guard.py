@@ -48,3 +48,14 @@ def test_meta_send_needs_separate_gate():
 def test_refuse_cleartext_tls():
     with pytest.raises(UnsafePortableRuntime):
         check_target("production",url(PROD_HOST,"directpilot_live").replace("sslmode=require","sslmode=disable"),safe("production"))
+
+def test_wrong_profile_is_blocked():
+    with pytest.raises(UnsafePortableRuntime):
+        check_target("uat",url(UAT_HOST,"neondb"),safe("production"))
+
+def test_one_shot_seed_and_reset_blocked():
+    for key in ["DIRECTPILOT_SEED_ON_START", "DIRECTPILOT_RESET_ADMIN_PASSWORD_ON_START"]:
+        env = safe("uat")
+        env[key] = "true"
+        with pytest.raises(UnsafePortableRuntime):
+            check_target("uat",url(UAT_HOST,"neondb"),env)
