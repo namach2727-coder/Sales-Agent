@@ -31,6 +31,12 @@
 - Prefer additive, forward-only migrations. Preserve historical orders, subscriptions, automation rules, knowledge, and AI usage.
 - Never perform a destructive migration without explicit approval. Validate migrations on a fresh temporary database, never `sales_assistant.db`.
 
+## Current owner-approved media architecture (2026-10-14)
+
+- DirectPilot payment receipts ALREADY use PostgreSQL `manual_payments.receipt_data` (BYTEA). Product JPEG media MUST also use durable PostgreSQL `product_media_assets.image_data` (BYTEA) once UAT feature PR #34 and additive Alembic 0026 pass review/migration. No R2/S3 provider is approved: experimental PR #33 was closed WITHOUT MERGE. Do not recreate buckets, suggest cloud storage, require credentials or route images to ephemeral Vercel disk unless the owner explicitly changes the decision.
+- Media quotas for new JPEGs: 2 MiB decoded per image and 50 MiB active images/store. UAT and Production Neon projects are separate; never apply 0026 to real database or deploy ORM before approved UAT backup/migration/test. Rendering receipts or static HMAC links must preserve authorization and expiry; no real Meta sends during UAT.
+- For cross-chat continuity, read `AI_HANDOFF.md`, `PROJECT_ROADMAP.md`, `DECISIONS.md`, `CURRENT_STATE.md`, `NEXT_ACTIONS.md` IN THAT ORDER. If they conflict with verified deployments/DB state, verify reality; keep docs updated. The owner should never have to repeat this storage or separation policy.
+
 ## DirectPilot Product and Architecture Guardrails
 
 These rules apply to every repository task:

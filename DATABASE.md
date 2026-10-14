@@ -20,6 +20,10 @@ PostgreSQL is the deployed database; SQLite remains a local development and unit
 - `instagram_oauth_states`: SHA-256 digest of short-lived, single-use OAuth state. Raw state and OAuth codes are never persisted.
 - `instagram_connections`: the existing encrypted per-store Meta credential.
 
+## Owner-approved next step: PostgreSQL product media (pending UAT rollout)
+
+On 2026-10-14 the owner reaffirmed PostgreSQL-only durable image storage. PR #33 (R2/S3) was CLOSED WITHOUT MERGE. UAT-only PR #34 introduces additive Alembic `0026_durable_product_media` and nullable `product_media_assets.image_data BYTEA`, with 2 MiB JPEG/file and 50 MiB active/store guards. **This change is committed to a feature branch, NOT deployed to Neon UAT or Production yet.** Existing `manual_payments.receipt_data` for receipts remains active and unchanged. Apply 0026 only after verified recoverable UAT backup, clean CI, review and explicit UAT migration gate; actual Production remains on Render until independently authorized final cutover.
+
 ## Receipt and media storage boundaries
 
 - **New manual-payment receipts:** validated JPEG/PNG/PDF content and SHA-256 metadata stored in PostgreSQL; accessible through authorized admin route. This survives stateless Backend redeployments as long as the database is durable and recoverable.
