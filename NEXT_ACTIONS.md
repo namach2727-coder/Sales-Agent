@@ -1,5 +1,16 @@
 # DirectPilot Next Actions
 
+## Immediate environment safety actions — 2026-10-14
+
+1. **DO NOT copy Render app variables to Neon PostgreSQL.** Neon currently hosts database only; Render remains the API execution environment. Keep every existing Render `APP_ENV`, `APPLICATION_SECRET`, Meta, Instagram token encryption, payment, auth, AI, callback and startup flag intact.
+2. **CI-check/merge PR #28** offline names-only guard and guide; do not deploy or change Render Environment Variables. Review `docs/runbooks/render_neon_environment_preservation.md`.
+3. **Privately inventory current Render environment variable NAMES** on trusted operator workstation/UI (no values shared). Compare against proposed Render post-cutover inventory using `python -m tools.render_env_key_audit --render-keys <private-names-file> --proposed-render-keys <private-names-file>`. Guard ensures no existing key name deleted; secret VALUE continuity needs separate trusted private review.
+4. **Prerequisite gates** before the ONLY future Render DB URL change: safe Meta/Payexa webhook replay + all-writer freeze, independent protected backup, fresh dump after freeze, approved separate empty final Neon DB, full table/business parity, split-brain rollback, and explicit live Production owner GO.
+5. No UAT change, Neon DB creation, Render variable write or live cutover until separately authorized. Source Render PostgreSQL Free expiry 2026-11-02 remains P0.
+
+---
+
+
 ## 2026-10-14 EXECUTION PRIORITIES — Neon capacity and safe maintenance (LATEST)
 
 **COMPLETED:** Neon API metering baseline `compute_time_seconds=1746`, `active_time_seconds=6888`; provisional ~0.485 CU-hour **not Console billed**. Idle→active read-only query succeeded (~6.65s connector round trip, not actual API cold-start). Backend write/callback inventory documented; operation-only plan created in `docs/runbooks/neon_free_usage_and_maintenance_plan.md`. Production/UAT untouched and no maintenance scheduled.
