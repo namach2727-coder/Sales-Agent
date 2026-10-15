@@ -1,5 +1,20 @@
 # DirectPilot Decisions
 
+## 2026-10-15 — MOBILE UX / NAVIGATION REWORK MERGED IN OFFICIAL UAT
+
+**Owner requirement for ALL future DirectPilot chats:** Mobile navigation must have obvious **بازگشت/بستن**, never trap customer/admin in a menu or long form; all changes are developed and tested on canonical **`https://uat.directpilot.ir`**, NOT abandoned temporary Preview URLs. Check latest real deployment and browser acceptance, don't ask owner to re-explain mobile requirements. Production is strictly separate.
+
+**Code/CI DONE:** Frontend `namach2727-coder/directpilot-web` UAT branch, PR **#32 MERGED** SHA **`dad3a3790246f96fbbe760d26e2415afd0a45851`**. Shared customer/admin mobile navigation now has labeled menu toggle, independent visible close, Back to overview/home, Escape/outside tap/history dismiss and current section label. Public full-screen menu has fixed visible Back and proper scroll/focus/route restoration. Login/register/billing payment pages share back destinations; long automation editing modal has top Back; error page has home return. Touch targets and iOS safe areas improved. PR final feature SHA `176dbeb712e780aa1ce0b8630745da18f4025039` passed **223/223 tests, TypeScript, ESLint, Next build**. Backup branch `backup/uat-before-mobile-navigation-20261015` retains previous UAT source.
+
+**Deployment VERIFIED:** Vercel official UAT `dpl_GGgg4EkaQF3bExfnzbfgRBK1GLhj` READY at SHA `dad3a379...`; alias `uat.directpilot.ir` points to that deployment, while Production `directpilot.ir` still points to `dpl_cRZsk7rndqFWH1KnKdhLVbNU1VxF`. Domain Smoke run `38709714205` PASS, HTTP Diagnostic run `38709713924` PASS. Latest UAT merge quality workflow run `38709714016` was running at this checkpoint: verify status; do not falsely claim final UAT browser acceptance.
+
+**Still OPEN:** Actual mobile Safari/Chrome visual, tap/Back, VoiceOver and customer/admin usability signoff behind Vercel SSO; test 320/360/375/390/768px, long scroll modal, checkout/receipt journey and role guards. Source code+automated tests do NOT prove polished mobile experience on a real handset. Additional dashboard/payment information architecture redesign is a separate measured UX phase. Exact checklist: `docs/runbooks/uat_mobile_frontend_ux_audit_20261015.md`.
+
+**Permanent nonnegotiable architecture remains:** PostgreSQL/Neon BYTEA stores receipts and product images, no R2/S3; all receipt versions traceable by customer/order/payment for 4+ months with backups. Production Render/Neon cutover still requires independent backups, freeze/replay, parity, rollback, commercial hosting decision, and separate owner GO. Five-file cross-chat read order: `AI_HANDOFF.md` → `PROJECT_ROADMAP.md` → `DECISIONS.md` → `CURRENT_STATE.md` → `NEXT_ACTIONS.md`.
+
+---
+
+
 ## 2026-10-14 — FINAL TECHNICAL UAT CHECKPOINT: domain/API/Neon PASS, browser signoff PENDING
 
 **Canonical UAT ONLY:** `https://uat.directpilot.ir` (Frontend Vercel Preview, GitHub `directpilot-web` branch `UAT`), deployment `dpl_8J7NSmuGuBf8U8mxzX7JQXoVKEdj` READY at SHA `08828ee1358ead2e9d81d2985fe2e4b07020e355`. **Production `directpilot.ir` remains `main` on separate deployment**. UAT branch-only Preview env has `DIRECTPILOT_API_UPSTREAM=https://directpilot-uat-api.vercel.app` and `NEXT_PUBLIC_SITE_URL=https://uat.directpilot.ir`; values verified, Production vars unchanged.
