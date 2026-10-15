@@ -18,6 +18,12 @@
 | D-010 | **تاریخچه حذف نشود**: قبل از خلاصه‌سازی پنج فایل، متن کامل byte-equivalent با Git blob SHA در Runbook archive حفظ شود | **COMPLETED AND VERIFIED**؛ `docs/runbooks/history/20261015_pre_release_register/README.md` |
 | D-011 | Release واقعی Production نیازمند UAT signoff، backup، freeze/replay، data parity، rollback، ارزیابی میزبانی تجاری و GO مستقل Owner است | **HARD STOP**؛ بدون این موارد هیچ تغییر Production مجاز نیست |
 
+## تصمیم اجرایی جدید — پذیرش P0-HEALTH-01
+
+**P0-HEALTH-01 — UAT Health & Integration Audit:** مطابق اعلام صریح Owner در ۲۰۲۶-۱۰-۱۵ **ACCEPTED / CLOSED BY OWNER** است و نباید دوباره به‌عنوان کار باز یا پیش‌نیاز تکراری مطرح شود. دامنه تأیید: بررسی اتصال Frontend/Backend/Neon، سلامت ثبت‌نام/ورود/خروج/Session، دریافت پلن/Trial و خطاهای حیاتی UAT طبق چک‌لیست P0-01 مکالمه. این تأیید کاربر جایگزین شواهد ثبت‌نشده CI، تست مستقل یا تأیید E2E خرید، Meta و Production نیست. فقط در صورت Regression جدید با شواهد مشخص بازگشایی شود.
+
+این پذیرش مجوز Production GO یا بستن سایر موارد P0 نیست.
+
 ## تصمیم‌های باز؛ نباید قطعی تفسیر شوند
 
 - قیمت‌های Production Render و تفاوت با کاتالوگ Neon UAT: **UNVERIFIED**، جدول UAT مجوز تغییر Production نیست.
