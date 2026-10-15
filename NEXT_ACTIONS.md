@@ -2,6 +2,10 @@
 
 **وضعیت as-of:** 2026-10-15. **مرجع حقیقت:** [Release Register](docs/releases/RELEASE_REGISTER.md). **منبع شواهد تاریخی بدون حذف:** [Archive Manifest](docs/runbooks/history/20261015_pre_release_register/README.md). برای تصمیم‌های انتشار، همیشه نتیجه GitHub، Vercel Alias، Neon و Render را دوباره بررسی کن.
 
+## بسته‌شده و خارج از صف
+
+**P0-HEALTH-01 — UAT Health & Integration Audit:** مطابق اعلام صریح Owner در ۲۰۲۶-۱۰-۱۵ **ACCEPTED / CLOSED BY OWNER** است و نباید دوباره به‌عنوان کار باز یا پیش‌نیاز تکراری مطرح شود. دامنه تأیید: بررسی اتصال Frontend/Backend/Neon، سلامت ثبت‌نام/ورود/خروج/Session، دریافت پلن/Trial و خطاهای حیاتی UAT طبق چک‌لیست P0-01 مکالمه. این تأیید کاربر جایگزین شواهد ثبت‌نشده CI، تست مستقل یا تأیید E2E خرید، Meta و Production نیست. فقط در صورت Regression جدید با شواهد مشخص بازگشایی شود.
+
 ## P0 — پیش از امضای UAT
 
 1. [ ] **تست مشتری در `uat.directpilot.ir`:** Register/Login، شروع Trial واجدشرایط سه‌روزه، انتخاب پلن قابل خرید، سفارش ۱..۱۲ ماه، مبلغ/مدت snapshot، نمایش/کپی شماره کارت، آپلود رسید ساختگی و Refresh/Logout. از `docs/runbooks/uat_customer_billing_acceptance_20261015.md` تبعیت کن.
