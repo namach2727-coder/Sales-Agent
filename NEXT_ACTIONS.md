@@ -63,3 +63,12 @@ Owner در گفتگو **تمام پنج ردیف P1-01 تا P1-05 از چک‌ل
 **قانون عدم تکرار:** P2-01 و P2-02 مانند P0-01..P0-06 و P1-01..P1-05 بدون گزارش Regression جدید یا دستور صریح Owner دوباره به صف فعالیت‌ها ارجاع داده نشوند. این ثبت، پذیرش کار توسط کاربر است، **نه** نتیجه تست مستقل جدید یا اثبات GA4 Realtime، Recovery چندماهه، صحت داده Production یا صدور GO برای مهاجرت. گزارش‌های فنی تاریخی و وضعیت محیط‌ها بدون جعل PASS محفوظ می‌مانند.
 
 **گام‌های باز بعدی:** P0-07 (Backup و آزمایش Restore پایگاه داده Production)، P0-08 (Sync کنترل‌شده Production به Neon و Data Parity)، P0-09 (Backend cutover و Rollback)، سپس P3-01 (انتشار گزینشی با مجوز مستقل). بدون تأیید مستقل Production GO هیچ Cutover یا تغییر محیط Production انجام نشود.
+
+
+## P0-07 — Production backup execution preflight (2026-10-15)
+
+- **Confirmed from Render control plane:** Workspace `tea-dabsgm0n74is738av7l0`; production database `directpilot-production-db` (`dpg-db0escm0tbcc73fhig2g-a`), PostgreSQL 16, status `available`, plan `free`, reported expiry **2026-11-02T11:59:46Z**. Production API service `directpilot-api` (`srv-db0f3uc9v7es73b5k51g`) remains on Render.
+- **Attempted read-only DB preflight:** `query_render_postgres` could not connect: Render reports **empty IP allowlist blocking all external connections**; hosted Render connector has no fixed IPs for allowlisting. No database-level SQL query was run.
+- **Backup outcome: BLOCKED / NOT CREATED. Restore test: NOT RUN.** Available Render connector methods list/read Postgres and execute read-only SQL but do not provide `pg_dump`/snapshot export; never treat schema inspection or copied Neon UAT as a recoverable Production backup.
+- **Safe next step:** use a credentialed runtime with authorized private/network DB access to run `pg_dump -Fc` to encrypted durable storage, checksum the archive, then restore to isolated scratch database and validate schema/data counts. Keep source Production unchanged; avoid publishing secrets or raw personal data in GitHub. Do not start P0-08 sync or shutdown until evidence exists.
+- **Owner's instruction:** perform work autonomously wherever connected tools permit, without requiring desktop interaction; only request a credential/network authorization if no automated connector route exists. **This entry is an execution blocker, not successful completion.**
