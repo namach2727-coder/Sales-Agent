@@ -1,5 +1,15 @@
 # DirectPilot development instructions
 
+## Canonical release documentation / cross-chat continuity (2026-10-15)
+
+- Before modifying DirectPilot or suggesting promotion, read the **current** five concise files `AI_HANDOFF.md`, `PROJECT_ROADMAP.md`, `DECISIONS.md`, `CURRENT_STATE.md`, `NEXT_ACTIONS.md`; then `docs/releases/RELEASE_REGISTER.md` and relevant dated runbook. Do not rely on an earlier chronological heading or require owner to re-explain signed-off documentation decisions.
+- For EVERY new PR/deployment, update the matching Release Register row with PR number, exact Git ref/SHA, deployed alias/environment, UAT status, Production status, customer acceptance, and evidence. No `CI PASS`/`READY` implies real UAT end-to-end or Production business signoff.
+- Never merge the entire Frontend UAT branch to Production main. Two live frontend aliases are separate; backend Vercel UAT/Neon UAT is separate from authoritative Production Render DB/API.
+- Neon UAT currently has eight `saas_plans`; only `AUTOMATION_V1`/`AI_ASSISTANT_V1` are purchasable, only `AUTOMATION_TRIAL`/`AI_ASSISTANT_TRIAL` are newly trial eligible (three days). UAT prices do not establish Production DB values. Frontend multi-source DM/Story/Comment makes a separate backend automation rule per selected source, each consuming capacity.
+- Owner mandates PostgreSQL BYTEA for all product images and receipt versions, **no R2/S3**, four-month or longer customer-level traceability, obvious mobile Back/Close. Do not misrepresent schema/CI as browser acceptance or independent backup guarantee.
+- **Preserve evidence:** original full five canonical docs and supporting AGENTS/PAYMENT_FLOW are archived byte-for-byte at `docs/runbooks/history/20261015_pre_release_register/` and in Git; never remove. Current docs are intentionally concise and supersede chronological status notes in those archives.
+- For this **documentation-only** release, Render Production API autodeploy is verified `no` and autoDeployTrigger `off`; nonetheless do not trigger Render deployment, modify production env, data, DNS, Meta, pricing, customer subscriptions, or payments. Production cutover requires separate explicit owner GO.
+
 ## Working method
 
 - Inspect `git status` first. Preserve unrelated dirty work and stage intended paths explicitly.
