@@ -1,31 +1,30 @@
-# Manual Card-Transfer Payment Flow
+# DirectPilot — Manual Card-Transfer Payment Flow (Current)
 
+**Updated:** 2026-10-15. **Canonical release status:** [docs/releases/RELEASE_REGISTER.md](docs/releases/RELEASE_REGISTER.md). **Original 2026-10-15 version preserved exactly:** [history/PAYMENT_FLOW.md](docs/runbooks/history/20261015_pre_release_register/PAYMENT_FLOW.md).
 
-## Owner requirement: retrieve any customer's receipts after four months
+## Contract — customer
 
-A receipt must be traceable to the customer identity, tenant, store, order, payment ID, upload timestamp, content SHA-256, and administrative approval/rejection actions. After a rejected upload is replaced, the previous file must still be retrievable. The previous live implementation overwrites `manual_payments.receipt_data` after rejection; do **not** represent that behavior as version-safe. Pending isolated UAT PR #36 adds additive Alembic 0027 `manual_payment_receipt_versions` to preserve the original bytes and digest of every upload and admin-only customer/date search, versioned download and event timeline. Backfill of already stored PostgreSQL receipts is non-destructive. This is **not deployed**. No age-based deletion; target at least 4 months (12-month operating baseline proposed, subject to verified recoverable backups, quotas and privacy policy). Customer files remain in PostgreSQL BYTEA; no R2/S3.
+1. Registration/authentication via UAT `https://uat.directpilot.ir`; plan data **only** from Backend `GET /api/v1/plans` and `saas_plans`. Legacy `FREE` is inactive; `TRIAL` is not trial eligible; the two eligible specialized Trial plans last **3 days**. Only active, purchasable catalog rows can be bought.
+2. Select a paid plan. For price `>0` and `duration_days=30`, choose **1..12** months; client sends `{plan_public_id, months}`. Backend stores **price and duration snapshot**, rejects invalid months and computes payable amount. See [UAT billing acceptance](docs/runbooks/uat_customer_billing_acceptance_20261015.md).
+3. A manual-card-transfer order displays the **configured** card owner/number and clipboard copy action; showing the card does **not** transfer money automatically. Customer sends money externally and uploads JPEG/PNG/PDF receipt, with server-side file type, size, user/tenant/order and payment-state validation.
+4. Backend stores current receipt `manual_payments.receipt_data BYTEA` + metadata and SHA-256. **In UAT after migration 0027** each re-upload also creates a preserved `manual_payment_receipt_versions` row with independently retrievable original bytes, version, customer, order, tenant and store links. The original is never overwritten in the version table.
+5. Platform admin requires `payment.read` for image/PDF and history, `payment.manage` to approve/reject. Approval/rejection is audited. Approval grants entitlement based on order snapshot. The receipt is private; no general public media URL.
+6. Admin UAT can search receipts by customer email and date range, compare versions and review action history. Four-month retention and off-provider restore **remain acceptance gates**, not guaranteed by schema alone.
 
-## Current authoritative workflow (2026-10-14)
+## Environment distinction
 
-1. The customer selects an active plan from `/api/v1/plans`.
-2. The backend captures the authoritative plan price in a subscription order.
-3. `ManualCardTransferProvider` returns the configured card/account details and payment instructions. No banking secrets are embedded in source code, and the manual provider makes no bank call.
-4. The customer pays outside DirectPilot and uploads a JPEG, PNG or PDF receipt through the authenticated `/api/v1/payments/{payment_public_id}/receipt` endpoint.
-5. The backend validates the file signature/type, size limit (configured by `RECEIPT_MAX_BYTES`, default 5 MiB), and ownership/payment state. It generates a non-enumerable `db:` storage key and a SHA-256 checksum.
-6. **Durable primary storage is PostgreSQL, not local disk.** The receipt's binary bytes are stored in `manual_payments.receipt_data` (LargeBinary/bytea) alongside `receipt_storage_key`, `receipt_content_type`, `receipt_size` and `receipt_sha256`. The payment changes to `submitted`; its order moves to `payment_submitted`.
-7. Authorized platform administrators with `payment.read` can access the private receipt from `GET /api/v1/admin/payments/{payment_public_id}/receipt`. The API serves the stored PostgreSQL bytes inline; the customer does not receive an unrestricted public URL.
-8. Administrators with `payment.manage` approve or reject the payment using optimistic revision checks. Approval locks/updates the payment and order, grants subscription entitlements, and writes an audit record transactionally.
+| Item | Official UAT | Production |
+|---|---|---|
+| Frontend | `uat.directpilot.ir`, Branch UAT | `directpilot.ir`, Branch main |
+| API/database | Vercel `directpilot-uat-api` + Neon `neondb`, Alembic 0027 | Render API/database remains source of truth |
+| Card copy, initial receipt preview, multi-month checkout | Code present, automatic tests PASS; business/browser E2E PENDING | Source code present in actual deployed Frontend SHA; real production payment verification **not done in this documentation audit** |
+| Historical versions and signed traceability | B#36/F#31 UAT code/DB deployed; 2/2 backfill PASS | **NOT DEPLOYED / NOT VERIFIED** |
+| Images products | B#34: PostgreSQL BYTEA column, UAT tests pending | No Product media cutover |
 
-## Legacy receipt compatibility
+**Never recommend R2/S3 without explicit Owner reversal.** Legacy on-disk fallback is a compatibility mechanism only while original files exist; it is not durable on serverless platforms.
 
-Older receipts without `receipt_data` can still be served via the protected `RECEIPT_STORAGE_ROOT` local-disk fallback **only when the original legacy file exists on that host**. This fallback is not durable on Vercel Functions and must not be mistaken for migrated media. Inventory and securely migrate any such historical files before retiring Render.
+**Physical receipt upload caveat:** configured max receipt file size (historically 5MiB) may exceed Vercel request body transport limits; test size and error handling before production release. **Never assume a browser-ready receipt preview proves successful file upload or long-term retention.**
 
-## Verified evidence and remaining gates
+**Evidence and acceptance:** [release register](docs/releases/RELEASE_REGISTER.md), [payment/customer runbook](docs/runbooks/uat_customer_billing_acceptance_20261015.md), [historical unmodified previous flow](docs/runbooks/history/20261015_pre_release_register/PAYMENT_FLOW.md).
 
-- On 2026-10-14, the independent Neon UAT database had 2 `manual_payments` records with both `receipt_storage_key` and non-null `receipt_data`, and 0 file-only receipts (read-only SQL verification).
-- The owner reported PASS for reading existing receipts from the isolated Vercel UAT admin preview. A fresh upload/redeployment/retrieval E2E is **not yet verified**.
-- PostgreSQL durability does not bypass Vercel Functions' request-body limit or Neon storage and backup requirements. Receipt sizes up to the application default of 5 MiB may exceed the host request limit: test small uploads and explicitly address oversize requests before commercial release.
-- Product publishing **images are a different feature**: `app/media_storage.py` currently uses local files; those media assets require separate durable object storage or another approved redesign. Do not equate them with the PostgreSQL receipt flow.
-- Full Production cutover still requires verified independent encrypted backups and restore, fresh source synchronization, all-writer/webhook/payment freeze with replay and reconciliation, rollback and explicit owner approval.
-
-Relevant source: `app/commerce/storage.py`, `app/commerce/service.py`, `app/commerce/router.py`, `app/models.py`.
+**Hard stop:** no Production schema, customer money/receipt approval, account status, DNS, webhook, Render/Neon or Vercel Production deployment change without independently reviewed authorization and Production backup/cutover GO.
