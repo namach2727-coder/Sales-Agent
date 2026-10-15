@@ -12,6 +12,12 @@
 | Frontend Production | `directpilot.ir`, Git `main`, `8592c6e91d4beaed7c31653dc285612fd511fa53`, Vercel `dpl_cRZsk7rndqFWH1KnKdhLVbNU1VxF` | **READY**؛ source code محتوای مشخص را ثابت می‌کند نه تست پرداخت کامل |
 | Backend/DB Production | Render همچنان مرجع | **NO CUTOVER**؛ کاتالوگ و DB Production از این بررسی قابل اثبات کامل نیستند |
 
+## پذیرش اخیر و وضعیت ممیزی سلامت
+
+**P0-HEALTH-01 — UAT Health & Integration Audit:** مطابق اعلام صریح Owner در ۲۰۲۶-۱۰-۱۵ **ACCEPTED / CLOSED BY OWNER** است و نباید دوباره به‌عنوان کار باز یا پیش‌نیاز تکراری مطرح شود. دامنه تأیید: بررسی اتصال Frontend/Backend/Neon، سلامت ثبت‌نام/ورود/خروج/Session، دریافت پلن/Trial و خطاهای حیاتی UAT طبق چک‌لیست P0-01 مکالمه. این تأیید کاربر جایگزین شواهد ثبت‌نشده CI، تست مستقل یا تأیید E2E خرید، Meta و Production نیست. فقط در صورت Regression جدید با شواهد مشخص بازگشایی شود.
+
+**اولویت باز بعدی:** P0-02 (سناریوهای Auth و جریان کسب‌وکار)؛ موارد E2E پیشین همچنان باز هستند و نباید صرفاً با این تأیید PASS اعلام شوند.
+
 ## تفاوت‌های مهم UAT و Production
 
 - **در هر دو Frontend deployed source وجود دارد:** خرید چندماهه (`ordersApi.create(id,months)`)، نمایش/کپی شماره کارت؛ همچنین PRهای گزینشی Production برای Dashboard و `/solutions` ثبت شده‌اند. این‌ها را مجدداً به‌عنوان قابلیت منتظر انتشار فهرست نکنید؛ E2E مالی همچنان باز است.
