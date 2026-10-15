@@ -18,7 +18,7 @@
 - Backup branch BEFORE the merge: **`backup/uat-before-mobile-navigation-20261015`** at UAT source SHA `08828ee1358ead2e9d81d2985fe2e4b07020e355`.
 - PR final feature commit `176dbeb712e780aa1ce0b8630745da18f4025039` passed GitHub Actions **223/223 tests**, TypeScript, ESLint and Next.js build; no test failures.
 - Official Vercel UAT deployment `dpl_GGgg4EkaQF3bExfnzbfgRBK1GLhj` from UAT SHA `dad3a379...` READY. Alias `uat.directpilot.ir` confirmed on that deployment; commercial Production `directpilot.ir` alias remained `dpl_cRZsk7rndqFWH1KnKdhLVbNU1VxF`.
-- Official UAT Domain Smoke GitHub Actions run `38709714205` PASS and Official UAT HTTP Diagnostic run `38709713924` PASS. Both check protected HTTP/routing, not mobile browser layout. UAT Customer Journey Quality post-merge run `38709714016` was still in progress at initial checkpoint; confirm current result before claiming whole merge CI PASS.
+- Official UAT Domain Smoke GitHub Actions run `38709714205` PASS and Official UAT HTTP Diagnostic run `38709713924` PASS. Both check protected HTTP/routing, not mobile browser layout. UAT Customer Journey Quality post-merge run `38709714016` completed **SUCCESS** on the official UAT merged commit; user-level mobile browser acceptance remains PENDING.
 - Source-reviewed routes: public marketing/menu/login/register, customer dashboard navigation + billing/payment/receipt states, admin dashboard/payments/history, long automation modal, error and not-found pages. This is a **code and CI review**, not a complete visual/device-lab audit.
 
 ## Remaining physical-device acceptance — DO NOT report PASS yet
