@@ -12,4 +12,12 @@ The five canonical documents below are **exact copies of the original GitHub blo
 
 Additional evidence is retained in versioned GitHub PRs, CI workflow runs, Git history and `docs/runbooks/`, including `official_uat_acceptance_gate_20261014.md`, `uat_mobile_frontend_ux_audit_20261015.md`, `uat_customer_billing_acceptance_20261015.md`, and `uat_multichannel_mobile_acceptance_20261015.md`.
 
+
+## Additional supporting instructions preserved
+
+| Archived supporting file | Git blob SHA-1 | Reason |
+|---|---|---|
+| [PAYMENT_FLOW.md](./PAYMENT_FLOW.md) | `711552515a163e6f30788715e9e310db6ba86fe8` | Original payment flow included superseded pre-0027 and local-image-storage notes; current `PAYMENT_FLOW.md` corrects the present state while retaining every previous assertion here |
+| [AGENTS.md](./AGENTS.md) | `3cac197fc326d410760951f5c380cfab42489c17` | Preserves pre-register agent guidance; current `AGENTS.md` now points to Release Register and five concise source-of-truth documents |
+
 **Append-only rule:** never delete or rewrite these snapshots. Future consolidations create a NEW dated archive folder. No Production code, env variable, data, Render service, DNS alias or Meta callback was changed as part of this documentation operation.
