@@ -181,3 +181,5 @@ Owner ran read-only PowerShell Meta diagnostic. A no-token `GET https://graph.fa
 4. Owner eventually creates Manager Bot using official @BotFather and enables Manage Bots in its Mini App; no bot token in chat, issues, screenshots or GitHub.
 5. Validate `initData`, webhook header, tenant authorization, idempotent updates, encrypted token vault, rate limits, live end-to-end UAT before any public launch.
 6. Keep Meta integration paused, sends OFF, Render retained until owner separately resumes migration.
+
+**Test checkpoint:** 2026-10-17 isolated Telegram builder spike 8/8 tests PASS, [GitHub Actions #39030998351](https://github.com/namach2727-coder/Sales-Agent/actions/runs/39030998351); next practical step is independent UAT app+DB and owner-created Manager Bot, not Production deploy.
