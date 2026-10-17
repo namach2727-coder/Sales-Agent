@@ -65,3 +65,9 @@ Official sources:
 - Before T1, confirm final product name, isolation strategy and initial pricing/target market.
 - Only proceed to a real bot token/webhook after owner has a separate Telegram Manager Bot.
 - Meta work remains paused by owner request; preserve Vercel/Render/Neon environment, no integration teardown.
+
+## 2026-10-17 — Product name and database boundary for DirectPilot TelBot
+
+**Official name (owner):** DirectPilot TelBot / دایرکت‌پایلوت تل‌بات.
+
+**Database — current:** none. The isolated Telegram spike has no persistence. **Proposed:** create a NEW Neon PostgreSQL project named `directpilot-telbot`, not the Instagram DirectPilot Production project. Give TelBot UAT a distinct branch/database and TelBot Production its own production branch/database, with separate credentials per environment. Make production data inaccessible from UAT by default. Use a distinct TelBot Vercel backend and Mini App project. Keep bot tokens encrypted in TelBot database with encryption key outside Neon in secure Vercel environment variables; avoid plaintext token exposure. Implement tenant-level ownership, unique `(bot_id, update_id)` ingestion, backups and restore validation before any real customer data. **Not provisioned or deployed yet.**
