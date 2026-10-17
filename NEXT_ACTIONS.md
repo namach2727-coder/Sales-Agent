@@ -183,3 +183,7 @@ Owner ran read-only PowerShell Meta diagnostic. A no-token `GET https://graph.fa
 6. Keep Meta integration paused, sends OFF, Render retained until owner separately resumes migration.
 
 **Test checkpoint:** 2026-10-17 isolated Telegram builder spike 8/8 tests PASS, [GitHub Actions #39030998351](https://github.com/namach2727-coder/Sales-Agent/actions/runs/39030998351); next practical step is independent UAT app+DB and owner-created Manager Bot, not Production deploy.
+
+## 2026-10-17 — Product name and database boundary for DirectPilot TelBot
+
+**Owner-confirmed product name:** **DirectPilot TelBot** (دایرکت‌پایلوت تل‌بات); this is the separate Telegram no-code bot-builder product, not the existing Instagram DirectPilot service. **Current database status:** NOT CREATED (prototype is offline-only). **Target architecture, proposal not yet provisioned:** distinct Neon PostgreSQL project (suggested label `directpilot-telbot`) with dedicated **UAT and Production logical isolation** (separate databases/branches with no shared customer data or secrets); distinct Vercel TelBot API and Telegram Mini App projects. Do not use the existing DirectPilot Production Neon `directpilot_live` database or reuse its tokens/encryption keys. Encrypted child bot credentials, tenant scoping, webhook idempotency, Mini App initData verification, backup policy and least-privilege must be implemented before user onboarding. Naming was provided by owner; no Neon/Vercel infrastructure is created or changed by this documentation step. Meta migration remains PAUSED.
