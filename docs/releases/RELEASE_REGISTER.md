@@ -146,3 +146,8 @@ Owner reported successful `pg_dump 16.15 -Fc` against current Render Production 
 - **UAT Neon استعلام مستقیم:** ۸۳ جدول، Alembic `0027_traceable_receipt_versions`، ستون `product_media_assets.image_data` و جدول `manual_payment_receipt_versions` موجود. **Neon Production قدیمی:** ۸۲ جدول، Alembic `0025`؛ این نسخه جایگزین Render فعلی نیست.
 - **مهاجرت‌های منبع:** `0026_durable_product_media` (افزودن ستون BYTEA)، `0027_traceable_receipt_versions` (جدول نسخه رسید + backfill انتخابی)، در Branch `migration/vercel-uat-fastapi-20261014`. در `backend-main` Production هنوز فایل‌های این دو Migration وجود ندارند. **تا آماده‌شدن Backend سازگار، ارتقای دیتابیس زنده به 0027 ممکن است startup/migration برنامه قدیمی را مختل کند.**
 - **گیت باز:** آزمون dry-run واقعی Migration روی Restore ایزوله، سپس اجرای خود Alembic با کد منتخب، تطبیق سازگاری Backend/ORM و داده‌ها، نسخه پشتیبان رمزگذاری‌شده مستقل از کامپیوتر و پنجره انتشار/rollback. **No production write or cutover.** وضعیت: P0-07 RESTORE TEST PASS، حفاظت بکاپ مستقل PENDING؛ P0-08 MIGRATION NOT STARTED.
+
+
+## Neon staging update — 2026-10-17
+
+Neon `directpilot_live` backup restore: PASS (82 tables at revision 0025). Additive schema updates corresponding to UAT 0026 and 0027 were applied in transactions. Read-only verification: 83 tables, revision `0027_traceable_receipt_versions`, image BYTEA column present, receipt history table present. Live Render and production app configuration were not changed. Backend compatibility and final data synchronization remain pending; no production cutover approval. The Neon role credential must be rotated before go-live due to exposure in chat.
