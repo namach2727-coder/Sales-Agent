@@ -1,0 +1,53 @@
+name: Production website to Neon API smoke
+
+on:
+  push:
+    branches:
+      - release/prod-neon-0027-backend-20261017
+    paths:
+      - ".github/workflows/prod-frontend-neon-route-smoke-20261017.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web-api-route:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Check production website API routing without writing data
+        run: |
+          python - <<'PY'
+          import json, time, urllib.error, urllib.request, hashlib
+          def read(url, timeout=20):
+              req = urllib.request.Request(url, headers={"User-Agent":"DirectPilotCutoverSmoke/1.0","Accept":"application/json"})
+              try:
+                  with urllib.request.urlopen(req, timeout=timeout) as rsp:
+                      body = rsp.read(250000)
+                      return rsp.status, body
+              except urllib.error.HTTPError as exc:
+                  return exc.code, exc.read(3000)
+          origin = "https://directpilot-prod-api.vercel.app"
+          website = "https://directpilot.ir"
+          for attempt in range(1, 17):
+              try:
+                  bstatus, backend = read(origin + "/api/v1/plans")
+                  wstatus, frontend = read(website + "/api/v1/plans")
+                  bc=json.loads(backend) if bstatus==200 else None
+                  wc=json.loads(frontend) if wstatus==200 else None
+                  good=(bstatus==200 and wstatus==200 and isinstance(bc,list) and isinstance(wc,list) and len(bc)>0 and wc==bc)
+                  print("attempt",attempt,"backend",bstatus,"website",wstatus,"plans_equal",bool(good))
+                  if good: break
+              except (urllib.error.URLError,ValueError,TimeoutError) as exc:
+                  print("attempt",attempt,"request_issue",type(exc).__name__)
+              time.sleep(12)
+          else:
+              raise SystemExit("FAIL: site API proxy not yet reading expected backend")
+          for route in (website+"/api/v1/auth/me",origin+"/api/v1/auth/me"):
+              status,body=read(route)
+              print("unauthenticated /auth/me status",status)
+              if status not in (401,403):
+                  raise SystemExit("FAIL: unauthed identity access control")
+          print("DIRECTPILOT_PRODUCTION_NEON_ROUTE: PASS")
+          PY
