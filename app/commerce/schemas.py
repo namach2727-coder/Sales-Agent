@@ -256,6 +256,9 @@ class KPayPaymentRead(BaseModel):
 
 
 class AdminPaymentRead(PaymentRead):
+    customer_email: str
+    customer_display_name: str
+    tenant_public_id: str
     tenant_name: str
     store_name: str
     plan_code: str
@@ -266,6 +269,23 @@ class AdminPaymentRead(PaymentRead):
     account_name: str | None = None
     bank_name: str | None = None
     submitted_at: datetime | None
+
+
+class AdminReceiptVersionRead(BaseModel):
+    version: int
+    submitted_at: datetime
+    content_type: str
+    byte_size: int
+    sha256: str
+
+
+class AdminPaymentEventRead(BaseModel):
+    action: str
+    actor_email: str | None
+    occurred_at: datetime
+    details: dict[str, object]
+
+
 
 
 class CardTransferInstructions(BaseModel):

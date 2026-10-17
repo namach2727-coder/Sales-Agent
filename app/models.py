@@ -486,6 +486,11 @@ class ProductMediaAsset(Base):
     width: Mapped[int] = mapped_column(Integer)
     height: Mapped[int] = mapped_column(Integer)
     sha256: Mapped[str] = mapped_column(String(64), index=True)
+    # Durable PostgreSQL BYTEA for product images (like payment receipts).
+    # Deferred loading avoids reading image bytes for catalog/list operations.
+    image_data: Mapped[bytes | None] = mapped_column(
+        LargeBinary, nullable=True, deferred=True
+    )
     status: Mapped[str] = mapped_column(String(20), default="ready", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     product: Mapped[Product] = relationship()
@@ -1117,6 +1122,36 @@ class ManualPayment(Base):
     revision: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+
+class ManualPaymentReceiptVersion(Base):
+    """Preserved evidence for each uploaded manual-card-transfer receipt.
+
+    Every upload gets a distinct immutable byte copy and content hash. Reviewing
+    or resubmitting a payment must not destroy older receipt evidence.
+    """
+
+    __tablename__ = "manual_payment_receipt_versions"
+    __table_args__ = (
+        UniqueConstraint("payment_id", "version", name="uq_manual_receipt_payment_version"),
+        CheckConstraint("version >= 1", name="ck_manual_receipt_positive_version"),
+        CheckConstraint("byte_size > 0", name="ck_manual_receipt_positive_size"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    payment_id: Mapped[int] = mapped_column(ForeignKey("manual_payments.id"), index=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("subscription_orders.id"), index=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user_identities.id"), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    content_type: Mapped[str] = mapped_column(String(100))
+    byte_size: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(String(64))
+    receipt_data: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True)
+
 
 
 class TenantSubscription(Base):
