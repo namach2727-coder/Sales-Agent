@@ -72,3 +72,10 @@ Owner در گفتگو **تمام پنج ردیف P1-01 تا P1-05 از چک‌ل
 - **Backup outcome: BLOCKED / NOT CREATED. Restore test: NOT RUN.** Available Render connector methods list/read Postgres and execute read-only SQL but do not provide `pg_dump`/snapshot export; never treat schema inspection or copied Neon UAT as a recoverable Production backup.
 - **Safe next step:** use a credentialed runtime with authorized private/network DB access to run `pg_dump -Fc` to encrypted durable storage, checksum the archive, then restore to isolated scratch database and validate schema/data counts. Keep source Production unchanged; avoid publishing secrets or raw personal data in GitHub. Do not start P0-08 sync or shutdown until evidence exists.
 - **Owner's instruction:** perform work autonomously wherever connected tools permit, without requiring desktop interaction; only request a credential/network authorization if no automated connector route exists. **This entry is an execution blocker, not successful completion.**
+
+
+## P0-07 — Local Production backup evidence (2026-10-17)
+
+Owner reported successful `pg_dump 16.15 -Fc` against current Render Production database from their Windows computer after restricted network access was restored. Local file: `C:\Users\q\DirectPilotBackups\directpilot_prod_20261017_103343.dump`. A successful `pg_restore --list` confirmed the archive index is readable; SHA-256: `9E46745AA1D115EA74A0877ACEC28A53423ADE73DBEE9FD490842AAFC6D8D064`. **Evidence type: owner-supplied local command output (not an independently inspected file).**
+
+**Stage: BACKUP FILE CREATED / ARCHIVE INDEX PASS; P0-07 OVERALL STILL OPEN.** Full restore test in an isolated scratch database, record-count/schema parity checks, off-device encrypted backup copy and backup recovery plan are still PENDING. Keep local file private; do not upload it to GitHub or chat. No Production schema/data migration, deployment, DNS or service cutover is authorized by this backup evidence. The prior 2026-10-15 BLOCKED note remains as chronological history and is superseded only for backup creation.
