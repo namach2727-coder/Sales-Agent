@@ -151,3 +151,10 @@ Owner reported successful `pg_dump 16.15 -Fc` against current Render Production 
 ## Neon staging update — 2026-10-17
 
 Neon `directpilot_live` backup restore: PASS (82 tables at revision 0025). Additive schema updates corresponding to UAT 0026 and 0027 were applied in transactions. Read-only verification: 83 tables, revision `0027_traceable_receipt_versions`, image BYTEA column present, receipt history table present. Live Render and production app configuration were not changed. Backend compatibility and final data synchronization remain pending; no production cutover approval. The Neon role credential must be rotated before go-live due to exposure in chat.
+
+## 2026-10-17 — Neon role credential rotation after URI exposure
+
+- **COMPLETED:** Password reset for PostgreSQL role `neondb_owner` on Neon Production project `billowing-poetry-05589994`, branch `br-winter-water-argmnyru` after a connection URI was disclosed in chat. Never record or repeat the previous or new secret.
+- **Read-after-write checks PASS:** Neon connector connected to `directpilot_live` (Alembic `0027_traceable_receipt_versions`) and `neondb` (Alembic `0025_trial_three_days`); refreshed connection string for `directpilot_live` was retrievable. Password rotation thus confirmed at provider API level; external application reconnection is not yet proven.
+- **No linked deployment changed:** Render Production remains authoritative and uses Render PostgreSQL until cutover. Vercel `directpilot-uat-api` has a sensitive `DATABASE_URL` entry whose value cannot be inspected with current connector permissions; no verified active service was identified as using this Neon Production role. Therefore **no Render/Vercel environment secret was modified** and endpoint dependents cannot be declared fully verified.
+- **Follow-up before go-live:** re-copy current Neon connection string when configuring the selected Backend Production deployment, do not reuse leaked/stale local clipboard copies, verify authenticating from the actual backend runtime, then complete controlled final Render data sync, backup/rollback and owner GO.
