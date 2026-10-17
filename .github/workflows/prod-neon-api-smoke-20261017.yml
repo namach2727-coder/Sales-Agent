@@ -1,0 +1,51 @@
+name: Production Neon API readiness smoke (safe)
+
+on:
+  push:
+    branches:
+      - release/prod-neon-0027-backend-20261017
+    paths:
+      - ".github/workflows/prod-neon-api-smoke-20261017.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Verify isolated API responds and Neon migration is current
+        env:
+          API_BASE_URL: https://directpilot-prod-api.vercel.app
+        run: |
+          python - <<'PY'
+          import json, os, time, urllib.error, urllib.request
+          base = os.environ["API_BASE_URL"].rstrip("/")
+          ready = None
+          for attempt in range(1, 21):
+              try:
+                  req = urllib.request.Request(base + "/ready", headers={"User-Agent": "DirectPilotReleaseGate/1.0"})
+                  with urllib.request.urlopen(req, timeout=16) as response:
+                      raw = response.read(5000).decode("utf-8", errors="replace")
+                      data = json.loads(raw)
+                      print("readiness attempt", attempt, "http", response.status,
+                            "status", data.get("status"), "database", data.get("database"),
+                            "migration", data.get("migration"))
+                      if response.status == 200 and data.get("status") == "ready" and data.get("database") == "available" and data.get("migration") == "current":
+                          ready = data
+                          break
+              except (urllib.error.URLError, ValueError, TimeoutError) as exc:
+                  print("readiness attempt", attempt, "unavailable", type(exc).__name__)
+              time.sleep(12)
+          if ready is None:
+              raise SystemExit("BLOCKED: API /ready is not healthy; Production frontend MUST NOT be switched")
+          for ep in ("/live", "/version"):
+              req = urllib.request.Request(base + ep, headers={"User-Agent": "DirectPilotReleaseGate/1.0"})
+              with urllib.request.urlopen(req, timeout=16) as response:
+                  body = response.read(3000).decode("utf-8", errors="replace")
+                  print(ep, "HTTP", response.status)
+                  assert response.status == 200, ep
+          print("PROD_NEON_BACKEND_SMOKE: PASS")
+          PY
