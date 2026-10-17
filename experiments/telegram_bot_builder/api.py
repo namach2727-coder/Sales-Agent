@@ -18,8 +18,13 @@ from pydantic import BaseModel, Field
 import psycopg
 from psycopg.rows import dict_row
 
-from experiments.telegram_bot_builder.auth import TelegramAuthError, TelegramPrincipal, verify_init_data
-from experiments.telegram_bot_builder.core import check_webhook_secret
+try:
+    from experiments.telegram_bot_builder.auth import TelegramAuthError, TelegramPrincipal, verify_init_data
+    from experiments.telegram_bot_builder.core import check_webhook_secret
+except ModuleNotFoundError:
+    # Standalone Vercel UAT packaging keeps these source files in the same root.
+    from auth import TelegramAuthError, TelegramPrincipal, verify_init_data
+    from core import check_webhook_secret
 
 
 app = FastAPI(
