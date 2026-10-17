@@ -82,3 +82,7 @@ Password for shared Neon Production role `neondb_owner` rotated after URI exposu
 ## Backend readiness — PR #47 (2026-10-17)
 
 Selective backend and schema 0027 changes are prepared in Draft PR #47. CI is being checked. Neon restored candidate is independent; no live Render service or production traffic change was made. Final data parity and cutover approvals remain pending.
+
+### CI acceptance — PR #47 at 8762c37b (2026-10-17)
+
+GitHub Actions run `39017203961` confirmed **4/4 PASS** on selective release head `8762c37b6a41056b60123a63424901ba8a38199c`: `postgres-smoke`, `postgres18-neon-compatibility`, `docker-build`, and `test` (pytest). PR #47 remains **DRAFT / NOT MERGED**; CI PASS is not real-backend-to-Neon E2E and is not authorization for Production deployment. Live Render database remains the source of truth; fresh write-freeze/final backup/parity and protected cutover still pending.
