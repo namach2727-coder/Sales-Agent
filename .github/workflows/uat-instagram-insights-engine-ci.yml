@@ -1,0 +1,22 @@
+name: UAT Instagram Insights engine spike
+on:
+  push:
+    branches:
+      - "feature/uat-instagram-insights-engine-*"
+    paths:
+      - "experiments/instagram_insights_engine/**"
+      - ".github/workflows/uat-instagram-insights-engine-ci.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test isolated source-safe Instagram Insights engine
+        run: python -m unittest discover -s experiments/instagram_insights_engine -p 'test_*.py' -v
