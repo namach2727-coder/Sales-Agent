@@ -18,7 +18,7 @@ from app.commerce.kpay_provider import KPayCheckResult, KPayCreateResult, KPayCr
 from app.commerce.service import CommerceService
 from app.config import Settings, get_settings
 from app.database import get_db
-from app.models import AuthPlatformRoleAssignment, CommerceAdminAuditLog, ManualPayment, PaymentCard, SaasPlan, Store, StoreModule, SubscriptionOrder, Tenant, TenantSubscription, UserIdentity
+from app.models import AuthPlatformRoleAssignment, CommerceAdminAuditLog, ManualPayment, ManualPaymentReceiptVersion, PaymentCard, SaasPlan, Store, StoreModule, SubscriptionOrder, Tenant, TenantSubscription, UserIdentity
 from tools.seeding import SeedRunner, default_registry
 
 
@@ -1383,3 +1383,98 @@ def test_multi_month_manual_order_price_duration_and_validation(commerce_api) ->
         json={"plan_public_id": plan["public_id"], "months": "three"},
     )
     assert malformed.status_code == 422
+
+
+def test_receipt_versions_remain_traceable_after_rejection_and_four_months(commerce_api) -> None:
+    import hashlib
+
+    client, engine, _ = commerce_api
+    register(client, "trace-four-months")
+    customer = login(client, "trace-four-months")
+    admin = platform_admin_headers(client, engine, "trace-four-months")
+    order = create_paid_order(client, customer)
+    payment = create_payment(client, customer, order)
+    initial_bytes = b"%PDF-older-receipt"
+    revised_bytes = b"\x89PNG\r\n\x1a\nnewer-receipt"
+
+    first = client.post(
+        f"/api/v1/payments/{payment['public_id']}/receipt",
+        headers={**customer, "Content-Type": "application/pdf"},
+        content=initial_bytes,
+    )
+    assert first.status_code == 200, first.text
+    assert client.get(
+        f"/api/v1/admin/payments/{payment['public_id']}/receipts", headers=customer
+    ).status_code == 403
+
+    rejection = client.post(
+        f"/api/v1/admin/payments/{payment['public_id']}/reject",
+        headers=admin, json={"expected_revision": first.json()["revision"], "reason": "missing transfer reference"},
+    )
+    assert rejection.status_code == 200, rejection.text
+
+    second = client.post(
+        f"/api/v1/payments/{payment['public_id']}/receipt",
+        headers={**customer, "Content-Type": "image/png"},
+        content=revised_bytes,
+    )
+    assert second.status_code == 200, second.text
+    history_url = f"/api/v1/admin/payments/{payment['public_id']}/receipts"
+    history = client.get(history_url, headers=admin)
+    assert history.status_code == 200, history.text
+    assert [item["version"] for item in history.json()] == [1, 2]
+    assert [item["sha256"] for item in history.json()] == [
+        hashlib.sha256(initial_bytes).hexdigest(),
+        hashlib.sha256(revised_bytes).hexdigest(),
+    ]
+    first_file = client.get(f"{history_url}/1", headers=admin)
+    assert first_file.status_code == 200
+    assert first_file.content == initial_bytes
+    assert first_file.headers["cache-control"] == "private, no-store"
+    assert client.get(f"{history_url}/2", headers=admin).content == revised_bytes
+    assert client.get(f"{history_url}/1", headers=customer).status_code == 403
+    assert client.get(f"{history_url}/3", headers=admin).status_code == 404
+
+    timeline = client.get(
+        f"/api/v1/admin/payments/{payment['public_id']}/events", headers=admin,
+    )
+    assert timeline.status_code == 200
+    actions = [event["action"] for event in timeline.json()]
+    assert actions.count("payment.receipt_submitted") == 2
+    assert "payment.rejected" in actions
+
+    # Simulate four elapsed months in this TEMPORARY test DB only; do not
+    # mutate real data or rely on migration/restart retaining an open connection.
+    ago = datetime.now(UTC) - timedelta(days=125)
+    with Session(engine) as db, db.begin():
+        row = db.scalar(select(ManualPayment).where(ManualPayment.public_id == payment["public_id"]))
+        assert row is not None
+        row.created_at = ago
+        for version in db.scalars(select(ManualPaymentReceiptVersion).where(ManualPaymentReceiptVersion.payment_id == row.id)):
+            version.submitted_at = ago
+
+    from_date = (ago - timedelta(days=1)).isoformat()
+    to_date = (ago + timedelta(days=1)).isoformat()
+    archive = client.get(
+        "/api/v1/admin/payments",
+        params={
+            "customer_email": "trace-four-months@example.com",
+            "created_from": from_date,
+            "created_to": to_date,
+        },
+        headers=admin,
+    )
+    assert archive.status_code == 200, archive.text
+    assert len(archive.json()) == 1
+    assert archive.json()[0]["customer_email"] == "trace-four-months@example.com"
+    assert archive.json()[0]["public_id"] == payment["public_id"]
+    assert client.get(f"{history_url}/1", headers=admin).content == initial_bytes
+    assert client.get(
+        "/api/v1/admin/payments",
+        params={"customer_email": "nonexistent@example.com"}, headers=admin,
+    ).json() == []
+    with Session(engine) as db:
+        versions = list(db.scalars(select(ManualPaymentReceiptVersion)).all())
+        assert len(versions) == 2
+        assert {v.user_id for v in versions} == {versions[0].user_id}
+        assert all(v.payment_id == versions[0].payment_id for v in versions)
