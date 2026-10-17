@@ -120,3 +120,11 @@ PR **#47 MERGED** to `backend-main` at `df4da87a883c590fb649d8a9f5aff2f80de5fa28
 ## 2026-10-17 — Receipt upload and admin view PASS
 
 Owner verified that an experimental customer uploaded a receipt and the administrator received and viewed it successfully on the Production site. Independent Neon read-only checks confirm the new manual payment is approved, its associated order is paid, its subscription is active, and its stored receipt matches the version-history copy. Customer subscription UI after approval remains to be visually confirmed. Details are in docs/releases/RELEASE_REGISTER.md.
+
+## 2026-10-17 — Production manual card-transfer subscription lifecycle accepted
+
+**Owner final manual acceptance: PASS.** The user confirmed that, following the successfully tested experimental customer's order, manual receipt upload, Super Admin receipt viewing and payment approval, the customer portal displays the purchased plan as **active** with the **correct expiration date**. This closes the previously OPEN customer subscription UI acceptance criterion. Independent earlier read-only Neon checks established the matching `approved` manual payment, `paid` subscription order, `active` linked subscription and valid future `current_period_end`, plus intact receipt bytes and version history.
+
+**Scope of PASS:** the normal end-to-end test-only card-to-card purchase and subscription activation path, including customer subscription display. The user performed the browser interactions and gave acceptance; the assistant performed read-only database checks. No real money transfer or assistant-initiated payment approval. Not included: rejected receipt -> resubmission and version 2, concurrency/idempotency edge cases, actual bank settlement, third-party payment gateways, Meta DM/Story/Comment automations, AI request billing, independent backup/restore, or deletion of Render.
+
+**Release Register:** Record as final **Production (experimental) card-transfer E2E = PASS / OWNER ACCEPTED**; keep unrelated providers and exceptional cases as NOT TESTED. Current deploy topology stays Vercel frontend/backend -> Neon `directpilot_live`.
