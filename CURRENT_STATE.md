@@ -78,3 +78,7 @@ P0-07: بکاپ واقعی Production و Restore ایزوله روی کامپی�
 ## 2026-10-17 — Neon role credential rotation after URI exposure
 
 Password for shared Neon Production role `neondb_owner` rotated after URI exposure. Provider read queries on `directpilot_live` (0027) and `neondb` (0025) PASS; new URI retrievable. Old copied URL invalid. No confirmed dependent Render/Vercel environment variables were changed; Vercel sensitive `DATABASE_URL` value was not readable, so actual application connectivity still requires verification. Render live Production remains untouched. Details: `docs/releases/RELEASE_REGISTER.md`.
+
+## Backend readiness — PR #47 (2026-10-17)
+
+Selective backend and schema 0027 changes are prepared in Draft PR #47. CI is being checked. Neon restored candidate is independent; no live Render service or production traffic change was made. Final data parity and cutover approvals remain pending.
