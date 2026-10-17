@@ -1,0 +1,25 @@
+name: Telegram bot-builder isolated spike
+
+on:
+  push:
+    branches:
+      - "feature/telegram-managed-bots-spike-*"
+    paths:
+      - "experiments/telegram_bot_builder/**"
+      - ".github/workflows/telegram-bot-builder-spike.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run offline Telegram builder spike tests
+        run: python -m unittest discover -s experiments/telegram_bot_builder -p 'test_*.py' -v
