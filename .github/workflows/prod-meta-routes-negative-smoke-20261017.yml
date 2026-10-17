@@ -1,0 +1,46 @@
+name: Production Meta endpoints negative-path smoke (safe)
+
+on:
+  push:
+    branches:
+      - backend-main
+    paths:
+      - ".github/workflows/prod-meta-routes-negative-smoke-20261017.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm Meta verify & signature enforcement without valid credentials
+        run: |
+          python - <<'PY'
+          import json, urllib.parse, urllib.request, urllib.error
+          base="https://directpilot-prod-api.vercel.app"
+          webhook=base+"/api/v1/integrations/instagram/webhook"
+          def fetch(url, method="GET", data=None, headers=None):
+              req=urllib.request.Request(url, data=data, method=method, headers=headers or {})
+              try:
+                  with urllib.request.urlopen(req, timeout=16) as response:
+                      return response.status, response.read(2000)
+              except urllib.error.HTTPError as err:
+                  return err.code, err.read(2000)
+          # Invalid verification token must be rejected, not 200 or 503.
+          query=urllib.parse.urlencode({"hub.mode":"subscribe","hub.verify_token":"never-the-real-meta-verify-token","hub.challenge":"test-challenge"})
+          status,_=fetch(webhook+"?"+query)
+          print("webhook_verify_invalid_token",status)
+          assert status==403, f"verify token was not configured or invalid verification was not rejected: {status}"
+          # Invalid signature must be rejected BEFORE any webhook storage or dispatch.
+          status,_=fetch(webhook,method="POST",data=b'{"object":"instagram","entry":[]}',headers={"Content-Type":"application/json","X-Hub-Signature-256":"sha256="+("0"*64)})
+          print("webhook_invalid_signature",status)
+          assert status==401, f"Meta secret was not configured or invalid signature was not rejected: {status}"
+          # OAuth callback lacking code+state must be rejected by validation.
+          status,_=fetch(base+"/api/v1/integrations/instagram/callback")
+          print("oauth_missing_code_state",status)
+          assert status==422, f"callback endpoint missing or not validating query: {status}"
+          print("PROD_META_NEGATIVE_PATH_SMOKE: PASS")
+          PY
