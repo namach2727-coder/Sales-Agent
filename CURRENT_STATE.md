@@ -349,3 +349,26 @@ Read-only live connector audit, owner clarification: **UAT frontend is an isolat
 **Existing unrelated dependency:** UAT Backend Customer contact owner name/phone [draft PR #50](https://github.com/namach2727-coder/Sales-Agent/pull/50) still NOT DEPLOYED; do not claim resolved.
 
 **Live/current distinction:** source UAT 18fe645 merged, Vercel UAT remains 2e55a97 until manual preview deploy; Production main aa02ca0. Customer contact API still not published. Homepage release acceptance pending.
+
+## 2026-10-18 — Public visual redesign: UAT merged, delivery/browser evidence recorded
+
+| Gate | Verified state for `UAT-VISUAL-HUMANIZATION-20261018` |
+|---|---|
+| Source | [Frontend PR #43](https://github.com/namach2727-coder/directpilot-web/pull/43) merged 24 files to UAT `91f3e78033c839ff00b58856c864ef942cf36db0`; feature `b3ea53388fd9dfd0357a79d22eb8856bf7782702`; identical tested tree `f1af7c1d31d40d2676d0c8ea2f5ca356c6827294` |
+| Public UI/content | Scoped dark theme, three product identities, concise Persian copy, licensed inline logos/local font, responsive rules and reduced motion implemented |
+| Blogs | 8 new guides (4 TelBot + 4 Web Design); 12 service posts total; categories/read-time/related links; original Instagram article paths and prelaunch noindex preserved |
+| Local / CI tests | Both full frontend suites **264 PASS**; CI job `117669212984` logs checked |
+| Type-check / lint / webpack build / CI | **PASS** in all four CI workflows; lint 0 errors/3 existing unrelated warnings; build 60 static pages. Local dependency installation was blocked; CI is the executed evidence |
+| UAT deployments | Feature Preview `dpl_ZEQGzFC6gYzDqpYWo1bjXy6Rg9s2` Ready per Vercel bot; final UAT `dpl_Ecxj59VUegBCieR1s8jQ9wyShXAZ` official Vercel success/“Deployment has completed” |
+| Canonical UAT browser | New design visibly loads at `uat.directpilot.ir`; desktop/390px, exactly-three-product mobile menu and all twelve service article H1/canonical/noindex/no-overflow checks PASS |
+| Exact alias → deployment-ID API mapping | **UNVERIFIED** — connector 404/empty project access; isolated CLI auth failed. Browser content is verified separately |
+| Owner desktop/mobile visual acceptance | **PENDING** |
+| Production / backend / databases | **UNCHANGED** by this task; remote main `aa02ca0862ccef3eb44a02e7041ddb73e1e91498`; DB/ENV, auth/admin/payment behavior and service configuration untouched |
+
+TelBot remains unavailable for public commercial use; Web Design remains planning-only. No new proxy, polling, dynamic function, product activation or infrastructure resource was introduced. Next action is owner visual acceptance on UAT; no Production promotion. This six-document checkpoint is published through its own backend documentation PR; its commit and PR are recorded in PR metadata, separately from runtime releases.
+
+## 2026-10-18 — Independent Vercel alias verification after Codex report (PR #57 addendum)
+
+**Status correction (latest authoritative verification):** Earlier Codex/isolated CLI checks could not resolve the domain alias. That limitation applied only to those attempts; historical output above remains intact. A subsequent successful read using the connected Vercel API **get_alias(`uat.directpilot.ir`)** independently returned **deploymentId=`dpl_Ecxj59VUegBCieR1s8jQ9wyShXAZ`**, projectId=`prj_w46jn80pmeOpoIZ5KZmQiY7GfKDl`. **get_deployment(`dpl_Ecxj59VUegBCieR1s8jQ9wyShXAZ`)** independently returned **state=READY**, git ref=`UAT`, SHA=`91f3e78033c839ff00b58856c864ef942cf36db0`, target=Preview/null and aliases `uat.directpilot.ir` + `directpilot-web-git-uat-mohcenp-9857s-projects.vercel.app`. `list_deployments(branch=UAT)` also showed the identical latest Ready deployment. **Therefore canonical UAT alias → exact merged frontend SHA verification = PASS; DO NOT list this as a remaining blocker.** Separately, `get_alias(directpilot.ir)` returned original production deployment `dpl_HT2xaLJALCBAVqpwG6pLa5bYiz3r`; Production unchanged. Frontend [PR #43](https://github.com/namach2727-coder/directpilot-web/pull/43) merged, four feature-branch CI workflows all SUCCESS; no backend, DB, payments or infra mutation. **Owner's visual approval of the new PR #43 redesign is still PENDING** (owner's earlier menu acceptance applied to PR #41, not this new release). Keep no Production promotion unless explicitly approved.
+
+**Latest operational state:** UAT PR #43 has live Ready deployment, Git SHA and alias match. All stated CI gates green. Only owner visual sign-off (plus previously tracked unrelated backend tasks) remains open.
