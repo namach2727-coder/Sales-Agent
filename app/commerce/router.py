@@ -426,8 +426,17 @@ def admin_commerce_customers(
     capabilities_by_store = effective_capabilities_for_stores(
         db, stores=[store for _tenant, store in rows]
     )
+    # Batch load only the tenant creator identities. Avoid N+1 queries and do
+    # not expose these fields outside this permission-guarded admin endpoint.
+    creator_ids = {tenant.created_by_identity_id for tenant, _store in rows if tenant.created_by_identity_id is not None}
+    creators = {user.id: user for user in db.scalars(
+        select(UserIdentity).where(UserIdentity.id.in_(creator_ids))
+    ).all()} if creator_ids else {}
     return [AdminCustomerStoreRead(
         tenant_public_id=tenant.public_id, tenant_name=tenant.name,
+        customer_display_name=creators[tenant.created_by_identity_id].display_name if tenant.created_by_identity_id in creators else None,
+        customer_phone_number=creators[tenant.created_by_identity_id].phone_number if tenant.created_by_identity_id in creators else None,
+        customer_email=creators[tenant.created_by_identity_id].email if tenant.created_by_identity_id in creators else None,
         store_public_id=store.public_id, store_name=store.name, store_status=store.status,
         effective_capabilities=list(capabilities_by_store[store.id]),
     ) for tenant, store in rows]
