@@ -47,10 +47,63 @@ class FakeDB:
         self.manager_updates = set()
         self.inbound_updates = set()
         self.commits = 0
+        self.pending_requests = []
+        self.registered_bots = {}
+        self.receipt_states = []
 
     def execute(self, query, args=()):
         sql = " ".join(query.split())
         self.commands.append((sql, tuple(args)))
+        if "SELECT pg_advisory_xact_lock" in sql:
+            return Cursor(None)
+        if "FROM telbot.tenant_users tu" in sql and "tu.role='owner'" in sql:
+            return Cursor({"role": "owner"}) if args == (TENANT_A, 123456) else Cursor(None)
+        if "INSERT INTO telbot.managed_bot_requests" in sql:
+            tenant, request_id, user_id = args
+            row = {"id": UUID("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+                   "tenant_id": tenant, "request_id": request_id,
+                   "owner_telegram_user_id": user_id, "expires_at": "soon",
+                   "status": "pending"}
+            if any(x["tenant_id"] == tenant and x["request_id"] == request_id
+                   for x in self.pending_requests):
+                return Cursor(None)
+            self.pending_requests.append(row)
+            return Cursor(row)
+        if "FROM telbot.managed_bot_requests" in sql and "LIMIT 1" in sql:
+            user_id = args[0]
+            matches = [row for row in self.pending_requests
+                       if row["owner_telegram_user_id"] == user_id
+                       and row["status"] == "pending"]
+            return Cursor(matches[0] if matches else None)
+        if "FROM telbot.managed_bot_requests" in sql and "ORDER BY requested_at DESC" in sql:
+            tenant, user_id = args
+            return Cursor(rows=[x for x in self.pending_requests
+                                if x["tenant_id"] == tenant
+                                and x["owner_telegram_user_id"] == user_id])
+        if "SELECT r.id,r.tenant_id FROM telbot.managed_bot_requests r" in sql:
+            user_id = args[0]
+            return Cursor(rows=[x for x in self.pending_requests
+                                if x["owner_telegram_user_id"] == user_id
+                                and x["status"] == "pending"][:2])
+        if "INSERT INTO telbot.bots" in sql:
+            tenant, telegram_id, username, display_name, user_id, request_id = args
+            if telegram_id in self.registered_bots:
+                return Cursor(None)
+            self.registered_bots[telegram_id] = {
+                "tenant": tenant, "username": username,
+                "owner": user_id, "request_id": request_id,
+                "status": "pending", "credential_ciphertext": None,
+            }
+            return Cursor({"id": BOT_A})
+        if "UPDATE telbot.managed_bot_requests" in sql:
+            request_id, tenant = args
+            for item in self.pending_requests:
+                if item["id"] == request_id and item["tenant_id"] == tenant:
+                    item["status"] = "fulfilled"
+            return Cursor(None)
+        if "UPDATE telbot.manager_inbound_updates" in sql:
+            self.receipt_states.append(args[0])
+            return Cursor(None)
         if "FROM telbot.tenant_users tu" in sql:
             tenant, user_id = args
             if user_id == 123456 and tenant == TENANT_A:
@@ -157,6 +210,81 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(first.status_code, 200, first.text)
         self.assertEqual(first.json(), {"acknowledged": True, "duplicate": False})
         self.assertEqual(second.json(), {"acknowledged": True, "duplicate": True})
+
+    def test_only_tenant_owner_can_request_managed_bot(self):
+        route = f"/api/v1/tenants/{TENANT_A}/managed-bot-requests"
+        denied = self.client.post(route, json={"suggested_name": "My Store"}, headers=self.headers(user_id=111222))
+        self.assertEqual(denied.status_code, 403)
+        denied_tenant = self.client.post(
+            f"/api/v1/tenants/{TENANT_B}/managed-bot-requests",
+            json={"suggested_name": "My Store"}, headers=self.headers(),
+        )
+        self.assertEqual(denied_tenant.status_code, 403)
+        self.assertFalse(self.db.pending_requests)
+
+    def test_create_managed_request_is_only_a_draft_to_deliver(self):
+        route = f"/api/v1/tenants/{TENANT_A}/managed-bot-requests"
+        result = self.client.post(route, json={"suggested_name": "My Store"}, headers=self.headers())
+        self.assertEqual(result.status_code, 201, result.text)
+        response = result.json()
+        self.assertEqual(response["delivery_status"], "not_sent")
+        self.assertGreater(response["request_id"], 0)
+        self.assertLess(response["request_id"], 2**31)
+        self.assertEqual(response["reply_markup"]["keyboard"][0][0]["request_managed_bot"]["request_id"], response["request_id"])
+        self.assertNotIn("token", result.text.lower())
+        self.assertEqual(self.db.pending_requests[0]["owner_telegram_user_id"], 123456)
+        second = self.client.post(route, json={"suggested_name": "Another"}, headers=self.headers())
+        self.assertEqual(second.status_code, 409)
+
+    def test_request_invalid_username_fails_without_persistence(self):
+        result = self.client.post(f"/api/v1/tenants/{TENANT_A}/managed-bot-requests",
+                                  json={"suggested_name": "Store", "suggested_username": "not a bot"},
+                                  headers=self.headers())
+        self.assertEqual(result.status_code, 422)
+        self.assertEqual(self.db.pending_requests, [])
+
+    def test_verified_manager_event_links_only_one_owner_pending_request(self):
+        ticket = {"id": UUID("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+                  "tenant_id": TENANT_A, "request_id": 123,
+                  "owner_telegram_user_id": 123456, "status": "pending"}
+        self.db.pending_requests.append(ticket)
+        payload = {"update_id": 405, "managed_bot": {
+            "user": {"id": 123456}, "bot": {
+                "id": 456789, "is_bot": True, "username": "customer_example_bot"}}}
+        url = "/api/v1/webhooks/manager"
+        headers = {"X-Telegram-Bot-Api-Secret-Token": MANAGER_WEBHOOK_SECRET}
+        first = self.client.post(url, json=payload, headers=headers)
+        self.assertEqual(first.status_code, 200, first.text)
+        self.assertEqual(self.db.registered_bots[456789]["tenant"], TENANT_A)
+        self.assertEqual(self.db.registered_bots[456789]["status"], "pending")
+        self.assertIsNone(self.db.registered_bots[456789]["credential_ciphertext"])
+        self.assertEqual(ticket["status"], "fulfilled")
+        self.assertEqual(self.db.receipt_states, ["processed"])
+        second = self.client.post(url, json=payload, headers=headers)
+        self.assertTrue(second.json()["duplicate"])
+        self.assertEqual(len(self.db.registered_bots), 1)
+
+    def test_manager_update_ignores_uninvited_and_ambiguous_owner(self):
+        headers = {"X-Telegram-Bot-Api-Secret-Token": MANAGER_WEBHOOK_SECRET}
+        url = "/api/v1/webhooks/manager"
+        def event(update_id, owner, child):
+            return {"update_id": update_id, "managed_bot": {
+                "user": {"id": owner}, "bot": {"id": child, "is_bot": True}}}
+        uninvited = self.client.post(url, json=event(406, 999999, 88), headers=headers)
+        self.assertEqual(uninvited.status_code, 200)
+        self.assertFalse(self.db.registered_bots)
+        self.db.pending_requests.extend([
+            {"id": UUID("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+             "tenant_id": TENANT_A, "owner_telegram_user_id": 123456,
+             "status": "pending"},
+            {"id": UUID("dddddddd-dddd-4ddd-8ddd-dddddddddddd"),
+             "tenant_id": TENANT_B, "owner_telegram_user_id": 123456,
+             "status": "pending"},
+        ])
+        ambiguous = self.client.post(url, json=event(407, 123456, 89), headers=headers)
+        self.assertEqual(ambiguous.status_code, 200)
+        self.assertFalse(self.db.registered_bots)
+        self.assertEqual(self.db.receipt_states[-1], "ignored")
 
     def test_child_webhook_invalid_signature_rejected_and_deduplicated(self):
         url = "/api/v1/webhooks/bots/12345"
