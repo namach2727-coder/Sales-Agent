@@ -7,6 +7,12 @@ on:
     paths:
       - "experiments/telegram_bot_builder/**"
       - ".github/workflows/telegram-bot-builder-spike.yml"
+  pull_request:
+    branches:
+      - "feature/telegram-managed-bots-spike-20261017"
+    paths:
+      - "experiments/telegram_bot_builder/**"
+      - ".github/workflows/telegram-bot-builder-spike.yml"
   workflow_dispatch:
 
 permissions:

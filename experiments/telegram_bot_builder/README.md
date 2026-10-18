@@ -56,3 +56,16 @@ See `docs/telegram_bot_builder/MVP_BLUEPRINT.md` for the scoped plan.
 **CI:** 29/29 offline unit tests PASS ([GitHub Actions 39036439669](https://github.com/namach2727-coder/Sales-Agent/actions/runs/39036439669)). Vercel UAT packaging prepared (`api/index.py`, `vercel.json`, `requirements.txt`, `DEPLOYMENT.md`) and not deployed. Attempted new independent `directpilot-telbot-uat-api` project creation via Vercel connector returned HTTP 403 permission denied. Manual owner creation or Vercel project-create grant required before UAT deploy; no existing service modified.
 
 **Next gates:** owner creates standalone Telegram Manager Bot via @BotFather with bot-management enabled and configures its secret safely; complete managed-bot ownership validation and encrypted credential persistence, non-owner UAT role password bootstrap (without disclosure), UAT deploy, live webhook tests, Mini App UI, RLS/backup, no Production change.
+ 
+## 2026-10-18 — UAT-only managed-bot enrollment checkpoint
+
+This update extends the isolated T1 code with a **tenant-owner-only** management request endpoint and owner-verified webhook reconciliation:
+
+- `POST /api/v1/tenants/{tenant_id}/managed-bot-requests`: Telegram Mini App signed `initData` + verified active tenant owner required. Returns a 15-minute server-side request and Telegram keyboard markup with **delivery_status=not_sent** (the API does NOT message Telegram).
+- Locks the Telegram owner in the DB transaction and disallows ambiguous active requests across tenants.
+- Manager webhook checks its configured shared secret and update-ID deduplication, then links a Telegram-managed child bot **only when one unexpired authorized owner request exists**; stores the bot in **pending** with **no token**. Ambiguous, absent or uninvited events are durable but ignored.
+- Existing `telbot_ua_runtime` restricted DB identity and schema `0002` remain unchanged. There are **no new migrations, DB writes to Neon or live Bot API calls** from this patch.
+
+Important implementation limit: Telegram's `managed_bot` update provides owner/bot IDs but does **not** provide the creation request_id. Correlation therefore requires a single unexpired pending request per owner across tenants. The webhook cannot by itself prove a user approved an action without secret validation.
+
+**Next release gates:** BotFather Manager Bot with management enabled, dedicated UAT project/configuration/secrets and limited runtime role login, actual Telegram keyboard delivery and ownership confirmation, server-side `getManagedBotToken` encryption and safe rotation, child webhook registration, reply worker/queue, Mini App form, tenant isolation/E2E tests. Keep public purchase, commercial activation, AI and Production disabled pending acceptance.
