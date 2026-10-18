@@ -297,3 +297,12 @@ Owner ran read-only PowerShell Meta diagnostic. A no-token `GET https://graph.fa
 2. [ ] Segment Search Console **desktop** page/query/date before/after Sep 10: desktop 409→30 (-92.7%) while mobile 59→57 (-3.4%) in equal Sep 1–9/Sep 10–18 windows. Iran 457→72. Investigate historically deployed environment/dns/runtime around Sep 9, not just source: Vercel `d98a524` was deployed Sep 9 10:01 UTC with no SEO files modified relative to `7d909ea`.
 3. [ ] Verify exact `uat.directpilot.ir` mapped deployment SHA, login routes, UAT robots Disallow all / sitemap empty in live HTTP. Oct 18 deployment `3275c73` and two alias assignments recorded, but exact custom alias mapping not disclosed.
 4. [ ] Do NOT change Production indexing/robots/canonical or infer penalty without verified Google Inspection + owner GO; existing production trial copy is correct (3 days). [Evidence](docs/runbooks/gsc_daily_breakpoint_20261018.md), [draft #48](https://github.com/namach2727-coder/Sales-Agent/pull/48).
+
+## 2026-10-18 — Post-merge SEO Production verification (owner GO, source already merged)
+
+1. [x] Compare UAT vs Production and select only SEO from heavily diverged UAT; [PR #39](https://github.com/namach2727-coder/directpilot-web/pull/39) merged into Production `main` SHA `aa02ca0`, eight files.
+2. [x] CI npm tests, TypeScript, lint, build all PASS in [run 39102816874](https://github.com/namach2727-coder/directpilot-web/actions/runs/39102816874); preview Vercel SUCCESS.
+3. [ ] Verify merge SHA **Production Vercel READY**; Vercel project/env API 404, status initially pending; use linked [deployment](https://vercel.com/mohcenp-9857s-projects/directpilot-web/HT2xaLJALCBAVqpwG6pLa5bYiz3r) and check live `directpilot.ir` mapping.
+4. [ ] Smoke live homepage, /pricing, /solutions, /instagram-comment-automation, /blog/instagram-smart-direct, GA4 page view, authentication/payment, Production robots allowing public pages, nonempty sitemap, self-canonical, private noindex. Confirm 3-day trial and dynamic pricing.
+5. [ ] Finish GSC URL Inspection, desktop-vs-mobile diagnosis and settled-window monitoring. No traffic recovery attribution from mere code merge.
+6. [ ] Avoid importing UAT `SEO_INDEXING_ENABLED` opt-in until Vercel Production env verified; its absence after blind full UAT promotion would cause Production-wide noindex.
