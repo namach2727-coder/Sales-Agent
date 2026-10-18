@@ -21,11 +21,13 @@ from psycopg.rows import dict_row
 
 try:
     from experiments.telegram_bot_builder.auth import TelegramAuthError, TelegramPrincipal, verify_init_data
+    from experiments.telegram_bot_builder.deployment_guard import validate_uat_database_url
     from experiments.telegram_bot_builder.core import (check_webhook_secret, build_managed_bot_request_keyboard,
         parse_managed_bot_created)
 except ModuleNotFoundError:
     # Standalone Vercel UAT packaging keeps these source files in the same root.
     from auth import TelegramAuthError, TelegramPrincipal, verify_init_data
+    from deployment_guard import validate_uat_database_url
     from core import (check_webhook_secret, build_managed_bot_request_keyboard,
         parse_managed_bot_created)
 
@@ -42,6 +44,10 @@ def get_connection():
     url = os.getenv("TELBOT_UAT_DATABASE_URL", "")
     if not url or os.getenv("TELBOT_ENV") != "uat":
         raise HTTPException(status_code=503, detail="TelBot UAT database unavailable")
+    try:
+        validate_uat_database_url(url, os.getenv("TELBOT_UAT_DB_HOST", ""))
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail="TelBot UAT database configuration invalid") from exc
     try:
         with psycopg.connect(url, row_factory=dict_row, connect_timeout=5) as connection:
             if connection.info.dbname != "telbot" or connection.info.user != "telbot_ua_runtime":
