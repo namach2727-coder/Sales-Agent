@@ -139,6 +139,10 @@ class AdminSubscriptionRead(BaseModel):
 class AdminCustomerStoreRead(BaseModel):
     tenant_public_id: str
     tenant_name: str
+    # Admin-only contact fields; nullable for legacy tenants without a creator.
+    customer_display_name: str | None = None
+    customer_phone_number: str | None = None
+    customer_email: str | None = None
     store_public_id: str
     store_name: str
     store_status: str
