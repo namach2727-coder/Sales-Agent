@@ -290,3 +290,10 @@ Owner ran read-only PowerShell Meta diagnostic. A no-token `GET https://graph.fa
 3. [ ] Independently confirm `uat.directpilot.ir` alias points to the Vercel READY deployment for UAT SHA `3275c73b`, and authenticated /pricing, blog, comment and UAT noindex/empty sitemap work. Branch-domain association and GitHub SUCCESS alone insufficient; current Vercel read blocked 403/404.
 4. [ ] Do **not** release PR #38 SEO changes to Production unless Owner separately approves and exact Production project SEO_INDEXING_ENABLED/site canonical preflight plus post-deploy robots/sitemap QA PASS.
 5. [ ] Review [read-only report](docs/runbooks/gsc_daily_breakpoint_20261018.md) and [draft docs PR #48](https://github.com/namach2727-coder/Sales-Agent/pull/48); preserve accepted P0/P1/P2 closures and historical evidence.
+
+## 2026-10-18 — Focused SEO next-actions after Vercel event and GSC device audit (DRAFT #48)
+
+1. [ ] In authorized **Google Search Console UI**, URL Inspect six core Production pages (index verdict, Google/user canonical, robots, last crawl), inspect Pages/Crawled status and Manual Actions. GSC Wizard connection is `payment_required`; Windsor does not provide URL Inspection.
+2. [ ] Segment Search Console **desktop** page/query/date before/after Sep 10: desktop 409→30 (-92.7%) while mobile 59→57 (-3.4%) in equal Sep 1–9/Sep 10–18 windows. Iran 457→72. Investigate historically deployed environment/dns/runtime around Sep 9, not just source: Vercel `d98a524` was deployed Sep 9 10:01 UTC with no SEO files modified relative to `7d909ea`.
+3. [ ] Verify exact `uat.directpilot.ir` mapped deployment SHA, login routes, UAT robots Disallow all / sitemap empty in live HTTP. Oct 18 deployment `3275c73` and two alias assignments recorded, but exact custom alias mapping not disclosed.
+4. [ ] Do NOT change Production indexing/robots/canonical or infer penalty without verified Google Inspection + owner GO; existing production trial copy is correct (3 days). [Evidence](docs/runbooks/gsc_daily_breakpoint_20261018.md), [draft #48](https://github.com/namach2727-coder/Sales-Agent/pull/48).
