@@ -355,3 +355,11 @@ Read-only live connector audit, owner clarification: **UAT frontend is an isolat
 **Existing unrelated dependency:** UAT Backend Customer contact owner name/phone [draft PR #50](https://github.com/namach2727-coder/Sales-Agent/pull/50) still NOT DEPLOYED; do not claim resolved.
 
 **Roadmap milestone:** Corporate site-story and 3-product parity CODE DONE, 4/4 CI PASS. Manual Vercel UAT Preview Deployment + visual acceptance PENDING. No change to product onboarding or live TelBot/web design availability.
+
+## 2026-10-18 — UAT visual redesign milestone
+
+`UAT-VISUAL-HUMANIZATION-20261018`: frontend [PR #43](https://github.com/namach2727-coder/directpilot-web/pull/43) **MERGED to `UAT`**, SHA `91f3e78033c839ff00b58856c864ef942cf36db0` (feature `b3ea53388fd9dfd0357a79d22eb8856bf7782702`; identical tested tree `f1af7c1d31d40d2676d0c8ea2f5ca356c6827294`). The 24-file public redesign includes the three-service sales-journey homepage, scoped theme, licensed product SVGs/local font, reduced motion and shorter Persian copy. Four new guides per prelaunch product preserve article categories, reading metadata, related links, Instagram canonicals and noindex policy.
+
+**Validation/delivery:** local and CI suites **264 PASS**; four CI workflows PASS, including type-check, lint (0 errors/3 existing unrelated warnings) and webpack build (60 static pages). Final UAT Vercel deployment `dpl_Ecxj59VUegBCieR1s8jQ9wyShXAZ` has official success status “Deployment has completed”; feature Preview was Ready. Browser checks on `uat.directpilot.ir` PASS for desktop/390px, three-product mobile menu and all twelve service articles with H1/canonical/noindex and no overflow. Exact alias-to-deployment-ID API mapping remains **UNVERIFIED**; owner visual acceptance **PENDING**. These are separate from CI and deployment status.
+
+**Next:** obtain owner visual acceptance on UAT and retain the exact alias-ID lookup limitation in the separate documentation-only checkpoint. Production `main` remains `aa02ca0862ccef3eb44a02e7041ddb73e1e91498`; backend product code, DB/ENV, auth/admin/payment behavior and provider settings are unchanged. No Production promotion, paid service activation or new infrastructure is part of this milestone.

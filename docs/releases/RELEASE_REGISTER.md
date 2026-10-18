@@ -471,3 +471,37 @@ Read-only live connector audit, owner clarification: **UAT frontend is an isolat
 **Existing unrelated dependency:** UAT Backend Customer contact owner name/phone [draft PR #50](https://github.com/namach2727-coder/Sales-Agent/pull/50) still NOT DEPLOYED; do not claim resolved.
 
 **Release Register `UAT-CORPORATE-HOME-042`**: frontend [PR #42](https://github.com/namach2727-coder/directpilot-web/pull/42) merged `18fe645`, 4/4 CI PASS; Deployment UAT PENDING Hobby `build-rate-limit`, live UAT remains `2e55a97`; Production `aa02ca0` unchanged; user visual acceptance pending. Scope marketing homepage/SEO/contact disclosure only; no backend, billing, DB or activation changes.
+
+## 2026-10-18 — `UAT-VISUAL-HUMANIZATION-20261018`
+
+| Release field | Evidence/status |
+|---|---|
+| Owner scope | Frontend public visual redesign and Persian copy; controlled PR to `UAT`, existing Vercel Preview only; separate six-file backend documentation PR |
+| Frontend source | 24 files from `codex/uat-visual-humanization`, UAT base `18fe6456869e7a747ef27b91f60734a8e1198aa6` |
+| Frontend PR / source / merge | [PR #43](https://github.com/namach2727-coder/directpilot-web/pull/43) **MERGED to UAT**; feature `b3ea53388fd9dfd0357a79d22eb8856bf7782702`; final UAT `91f3e78033c839ff00b58856c864ef942cf36db0`; identical validated tree `f1af7c1d31d40d2676d0c8ea2f5ca356c6827294` |
+| Local / CI validation | Full suites **264 PASS**; focused public content/SEO/product-blog checks PASS. CI job `117669212984` logs checked |
+| Type-check / lint / `npx next build --webpack` / remote CI | **PASS — all four CI workflows**; lint 0 errors/3 existing unrelated admin/portal warnings; build 60 static pages. Local dependency installation was sandbox-blocked; CI supplies executed evidence |
+| Feature Preview | `dpl_ZEQGzFC6gYzDqpYWo1bjXy6Rg9s2` **Ready** per Vercel bot |
+| Final UAT deployment | `dpl_Ecxj59VUegBCieR1s8jQ9wyShXAZ`; official Vercel commit status **success**, “Deployment has completed” |
+| Canonical UAT browser smoke | `uat.directpilot.ir` shows new design; desktop/390px screenshots checked; exactly three mobile Solutions products; all twelve service article H1/UAT canonical/`noindex,nofollow`/no-overflow checks PASS |
+| Exact custom-domain → deployment-ID mapping | **UNVERIFIED** — connector access returned 404/empty projects and isolated CLI auth failed. Do not misstate browser evidence as authoritative alias API proof |
+| Owner desktop/mobile visual acceptance | **PENDING**, not inferred from code, CI or Ready |
+| Production / `main` | **UNCHANGED**, remote SHA `aa02ca0862ccef3eb44a02e7041ddb73e1e91498`; no Production deployment/promotion |
+| Backend / database / ENV / auth / admin / payments | Product behavior, schema, data and configuration **UNCHANGED** |
+
+**Implemented artifacts:** `app/public.css`, `components/public-site-surface.tsx`, `components/product-logo.tsx`; public homepage/layout/product navigation, product pages, public FAQ and editorial templates; `content/site.ts`, `content/blog.ts`, `content/service-blog.ts`; focused regressions; `docs/PUBLIC_VISUAL_ASSETS.md`, bundled Bootstrap Icons MIT license and Vazirmatn OFL license. Public styling excludes real auth/customer/admin/checkout/payment/settings surfaces. Replaced the obsolete corporate CSS block rather than accumulating a second conflicting homepage design. CSS logo motion honors reduced motion; no animation library, external runtime font/icon request, API proxy, polling or new dynamic function. Prices remain API-backed. Existing Instagram article paths/canonicals and UAT/prelaunch noindex stay intact.
+
+**Eight new guides, in addition to the four existing service articles:**
+
+| Product | Title | Canonical route |
+|---|---|---|
+| TelBot | پیام شروع ربات تلگرام چه بگوید که کاربر سردرگم نشود؟ | `/telbot/blog/telegram-welcome-message` |
+| TelBot | در فرم تلگرام چه اطلاعاتی از مشتری بگیریم؟ | `/telbot/blog/telegram-form-privacy` |
+| TelBot | درخواست نوبت در تلگرام را چطور بدون وعده اشتباه طراحی کنیم؟ | `/telbot/blog/telegram-booking-flow` |
+| TelBot | چه وقت ربات تلگرام باید گفتگو را به انسان بسپارد؟ | `/telbot/blog/telegram-human-support` |
+| Web Design | قبل از طراحی سایت، چه چیزهایی در شرح پروژه بنویسیم؟ | `/solutions/web-design/blog/website-project-brief` |
+| Web Design | صفحه خدمات سایت را برای مشتری موبایلی چطور بنویسیم؟ | `/solutions/web-design/blog/mobile-service-page` |
+| Web Design | چه محتوایی در سایت به اعتماد مشتری کمک می‌کند؟ | `/solutions/web-design/blog/website-trust-content` |
+| Web Design | هنگام تحویل سایت چه دسترسی‌ها و راهنمایی‌هایی بگیریم؟ | `/solutions/web-design/blog/website-handover-checklist` |
+
+The service blogs now contain six posts per product (twelve total), with category, reading time, H2/H3, breadcrumbs, same-product related reading and product-return links. TelBot remains in development and Web Design remains planning-only; no public commerce or automatic cross-product integration is claimed. **Next:** owner visual acceptance on UAT and review of the separate six-document backend checkpoint PR. Preserve the explicit alias-ID verification limitation and all historical evidence above; no Production promotion. This documentation commit and PR are recorded in PR metadata, separately from runtime release SHAs.
