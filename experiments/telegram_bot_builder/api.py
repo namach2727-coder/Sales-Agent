@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -20,11 +21,13 @@ from psycopg.rows import dict_row
 
 try:
     from experiments.telegram_bot_builder.auth import TelegramAuthError, TelegramPrincipal, verify_init_data
-    from experiments.telegram_bot_builder.core import check_webhook_secret
+    from experiments.telegram_bot_builder.core import (check_webhook_secret, build_managed_bot_request_keyboard,
+        parse_managed_bot_created)
 except ModuleNotFoundError:
     # Standalone Vercel UAT packaging keeps these source files in the same root.
     from auth import TelegramAuthError, TelegramPrincipal, verify_init_data
-    from core import check_webhook_secret
+    from core import (check_webhook_secret, build_managed_bot_request_keyboard,
+        parse_managed_bot_created)
 
 
 app = FastAPI(
@@ -96,6 +99,86 @@ def require_bot(db: Any, tenant: UUID, bot_id: UUID) -> dict[str, Any]:
     if not row:
         raise HTTPException(status_code=404, detail="Bot not found")
     return row
+
+
+class ManagedBotRequestInput(BaseModel):
+    suggested_name: str = Field(min_length=1, max_length=64)
+    suggested_username: str | None = Field(default=None, max_length=32)
+
+
+def require_owner(db: Any, tenant: UUID, actor: TelegramPrincipal) -> None:
+    """An editor/viewer must never enrol a new child bot."""
+    row = db.execute(
+        """SELECT tu.role FROM telbot.tenant_users tu
+           JOIN telbot.tenants t ON t.id=tu.tenant_id
+           WHERE tu.tenant_id=%s AND tu.telegram_user_id=%s
+             AND tu.role='owner' AND tu.status='active' AND t.status='active'""",
+        (tenant, actor.user_id),
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=403, detail="Tenant owner required")
+
+
+@app.post("/api/v1/tenants/{tenant_id}/managed-bot-requests", status_code=201)
+def request_managed_bot(
+    tenant_id: UUID, body: ManagedBotRequestInput, actor: Principal, db: Db,
+) -> dict[str, Any]:
+    """Create one 15-minute request, NOT a Telegram bot or sent message.
+
+    The reply_markup must later be delivered by the authenticated Manager Bot
+    to the same Telegram user via the official Bot API. No live send here.
+    """
+    require_owner(db, tenant_id, actor)
+    try:
+        keyboard = build_managed_bot_request_keyboard(
+            1, suggested_name=body.suggested_name,
+            suggested_username=body.suggested_username,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Invalid managed bot details") from exc
+    # Per-owner transaction lock prevents two ambiguous outstanding requests
+    # across tenants, and is also acquired while matching Telegram updates.
+    db.execute("SELECT pg_advisory_xact_lock(%s)", (actor.user_id,))
+    existing = db.execute(
+        """SELECT id FROM telbot.managed_bot_requests
+           WHERE owner_telegram_user_id=%s AND status='pending'
+             AND expires_at>now() LIMIT 1""",
+        (actor.user_id,),
+    ).fetchone()
+    if existing:
+        raise HTTPException(status_code=409, detail="Pending bot request already exists")
+    request_id = secrets.randbelow(2**31 - 1) + 1
+    saved = db.execute(
+        """INSERT INTO telbot.managed_bot_requests
+           (tenant_id,request_id,owner_telegram_user_id,expires_at)
+           VALUES (%s,%s,%s,now()+interval '15 minutes')
+           ON CONFLICT (tenant_id,request_id) DO NOTHING
+           RETURNING id,request_id,expires_at""",
+        (tenant_id, request_id, actor.user_id),
+    ).fetchone()
+    if not saved:
+        raise HTTPException(status_code=409, detail="Request conflict; retry")
+    db.commit()
+    keyboard["keyboard"][0][0]["request_managed_bot"]["request_id"] = request_id
+    return {
+        "id": saved["id"], "request_id": request_id,
+        "expires_at": saved["expires_at"], "delivery_status": "not_sent",
+        "reply_markup": keyboard,
+    }
+
+
+@app.get("/api/v1/tenants/{tenant_id}/managed-bot-requests")
+def list_managed_bot_requests(
+    tenant_id: UUID, actor: Principal, db: Db,
+) -> list[dict[str, Any]]:
+    require_owner(db, tenant_id, actor)
+    return db.execute(
+        """SELECT id,request_id,status,requested_at,expires_at,fulfilled_at
+           FROM telbot.managed_bot_requests
+           WHERE tenant_id=%s AND owner_telegram_user_id=%s
+           ORDER BY requested_at DESC LIMIT 30""",
+        (tenant_id, actor.user_id),
+    ).fetchall()
 
 
 class DraftInput(BaseModel):
@@ -250,16 +333,65 @@ async def manager_webhook(request: Request, db: Db) -> dict[str, bool]:
     event_type = "managed_bot" if ("managed_bot" in update or
         isinstance(update.get("message"), dict) and "managed_bot_created" in update["message"]
     ) else "other"
-    # Durable, idempotent receipt; managed-bot linking and Bot API calls remain disabled
-    # until BotFather manager is configured and owner authorization is tested.
+    # Durable receipt comes before any linking; duplicated updates never relink.
     inserted = db.execute(
         """INSERT INTO telbot.manager_inbound_updates(telegram_update_id,event_type)
              VALUES (%s,%s) ON CONFLICT (telegram_update_id) DO NOTHING
              RETURNING id""",
         (update["update_id"], event_type),
     ).fetchone()
+    if not inserted:
+        db.commit()
+        return {"acknowledged": True, "duplicate": True}
+    linked = False
+    created = parse_managed_bot_created(update)
+    if created is not None:
+        # Telegram's managed_bot update contains owner and bot, but NO
+        # request_id. Require exactly one unexpired pending request for that
+        # owner across all tenants, otherwise deliberately do not link.
+        db.execute("SELECT pg_advisory_xact_lock(%s)", (created.owner_user_id,))
+        pending = db.execute(
+            """SELECT r.id,r.tenant_id FROM telbot.managed_bot_requests r
+               JOIN telbot.tenant_users tu
+                 ON tu.tenant_id=r.tenant_id
+                AND tu.telegram_user_id=r.owner_telegram_user_id
+               JOIN telbot.tenants t ON t.id=r.tenant_id
+               WHERE r.owner_telegram_user_id=%s AND r.status='pending'
+                 AND r.expires_at>now() AND tu.role='owner'
+                 AND tu.status='active' AND t.status='active'
+               ORDER BY r.requested_at DESC LIMIT 2 FOR UPDATE OF r""",
+            (created.owner_user_id,),
+        ).fetchall()
+        if len(pending) == 1:
+            ticket = pending[0]
+            display_name = (created.bot_username or
+                            f"Telegram Bot {created.bot_id}")[:120]
+            bot = db.execute(
+                """INSERT INTO telbot.bots
+                   (tenant_id,telegram_bot_id,username,display_name,
+                    owner_telegram_user_id,managed_request_id,status)
+                   VALUES (%s,%s,%s,%s,%s,%s,'pending')
+                   ON CONFLICT (telegram_bot_id) DO NOTHING RETURNING id""",
+                (ticket["tenant_id"], created.bot_id, created.bot_username,
+                 display_name, created.owner_user_id, ticket["id"]),
+            ).fetchone()
+            if bot:
+                db.execute(
+                    """UPDATE telbot.managed_bot_requests
+                       SET status='fulfilled',fulfilled_at=now()
+                       WHERE id=%s AND tenant_id=%s AND status='pending'""",
+                    (ticket["id"], ticket["tenant_id"]),
+                )
+                linked = True
+    db.execute(
+        """UPDATE telbot.manager_inbound_updates
+           SET processing_status=%s,processed_at=now() WHERE id=%s""",
+        ("processed" if linked else "ignored", inserted["id"]),
+    )
     db.commit()
-    return {"acknowledged": True, "duplicate": inserted is None}
+    # No getManagedBotToken, webhook registration or activation until the
+    # dedicated secrets and Manager Bot have passed live UAT acceptance.
+    return {"acknowledged": True, "duplicate": False}
 
 
 @app.post("/api/v1/webhooks/bots/{telegram_bot_id}")
