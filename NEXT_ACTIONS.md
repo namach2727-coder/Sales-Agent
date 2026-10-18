@@ -282,3 +282,31 @@ Owner ran read-only PowerShell Meta diagnostic. A no-token `GET https://graph.fa
 **Next exact steps:** (1) Inspect six top URLs in Google Search Console interface: indexed verdict, Google canonical, robots and last crawl; compare Pages report. (2) Confirm new UAT SHA Vercel READY, test /pricing, comment, blog links and UAT noindex. (3) Reconcile Google search visibility decline against deploys and crawl issues; only then decide technical remedy. (4) Keep Production frozen without owner approval and correct explicit SEO flag.
 
 **2026-10-18 later deploy status check:** GitHub commit context for UAT merge `3275c73b3ef0e58132f2d6989f3efb57e1e15817` changed from pending to **Vercel SUCCESS — Deployment has completed**, Vercel deployment `Bvq7zXSTgG9wQbvf19QXyoFhz2P7`. This proves the GitHub-linked deployment completed, **not** that custom alias `uat.directpilot.ir` points to that SHA or that authenticated UI/crawling checks pass. Public UAT page/robots fetch through current web tool was inaccessible; UAT alias and authenticated QA remain **UNVERIFIED**. Production remains UNCHANGED.
+
+## 2026-10-18 — Immediate SEO diagnostic execution order (DRAFT PR #48)
+
+1. [ ] Open Google Search Console *site UI* URL Inspection for homepage, pricing, smart-direct blog, comment, direct and free-trial pages. Record Google-selected canonical, indexed verdict/reason, crawl date, robots and fetched page; correlate with Pages / Manual Actions.
+2. [ ] Audit Production deployment, robots/meta, DNS and redirect history around **2026-09-09/10**; GSC property Web Search impressions declined **468→87** across matched Sep 1–9 / Sep 10–18 windows (-81.4%). This establishes when to investigate **not why** it occurred.
+3. [ ] Independently confirm `uat.directpilot.ir` alias points to the Vercel READY deployment for UAT SHA `3275c73b`, and authenticated /pricing, blog, comment and UAT noindex/empty sitemap work. Branch-domain association and GitHub SUCCESS alone insufficient; current Vercel read blocked 403/404.
+4. [ ] Do **not** release PR #38 SEO changes to Production unless Owner separately approves and exact Production project SEO_INDEXING_ENABLED/site canonical preflight plus post-deploy robots/sitemap QA PASS.
+5. [ ] Review [read-only report](docs/runbooks/gsc_daily_breakpoint_20261018.md) and [draft docs PR #48](https://github.com/namach2727-coder/Sales-Agent/pull/48); preserve accepted P0/P1/P2 closures and historical evidence.
+
+## 2026-10-18 — Focused SEO next-actions after Vercel event and GSC device audit (DRAFT #48)
+
+1. [ ] In authorized **Google Search Console UI**, URL Inspect six core Production pages (index verdict, Google/user canonical, robots, last crawl), inspect Pages/Crawled status and Manual Actions. GSC Wizard connection is `payment_required`; Windsor does not provide URL Inspection.
+2. [ ] Segment Search Console **desktop** page/query/date before/after Sep 10: desktop 409→30 (-92.7%) while mobile 59→57 (-3.4%) in equal Sep 1–9/Sep 10–18 windows. Iran 457→72. Investigate historically deployed environment/dns/runtime around Sep 9, not just source: Vercel `d98a524` was deployed Sep 9 10:01 UTC with no SEO files modified relative to `7d909ea`.
+3. [ ] Verify exact `uat.directpilot.ir` mapped deployment SHA, login routes, UAT robots Disallow all / sitemap empty in live HTTP. Oct 18 deployment `3275c73` and two alias assignments recorded, but exact custom alias mapping not disclosed.
+4. [ ] Do NOT change Production indexing/robots/canonical or infer penalty without verified Google Inspection + owner GO; existing production trial copy is correct (3 days). [Evidence](docs/runbooks/gsc_daily_breakpoint_20261018.md), [draft #48](https://github.com/namach2727-coder/Sales-Agent/pull/48).
+
+## 2026-10-18 — Post-merge SEO Production verification (owner GO, source already merged)
+
+1. [x] Compare UAT vs Production and select only SEO from heavily diverged UAT; [PR #39](https://github.com/namach2727-coder/directpilot-web/pull/39) merged into Production `main` SHA `aa02ca0`, eight files.
+2. [x] CI npm tests, TypeScript, lint, build all PASS in [run 39102816874](https://github.com/namach2727-coder/directpilot-web/actions/runs/39102816874); preview Vercel SUCCESS.
+3. [ ] Verify merge SHA **Production Vercel READY**; Vercel project/env API 404, status initially pending; use linked [deployment](https://vercel.com/mohcenp-9857s-projects/directpilot-web/HT2xaLJALCBAVqpwG6pLa5bYiz3r) and check live `directpilot.ir` mapping.
+4. [ ] Smoke live homepage, /pricing, /solutions, /instagram-comment-automation, /blog/instagram-smart-direct, GA4 page view, authentication/payment, Production robots allowing public pages, nonempty sitemap, self-canonical, private noindex. Confirm 3-day trial and dynamic pricing.
+5. [ ] Finish GSC URL Inspection, desktop-vs-mobile diagnosis and settled-window monitoring. No traffic recovery attribution from mere code merge.
+6. [ ] Avoid importing UAT `SEO_INDEXING_ENABLED` opt-in until Vercel Production env verified; its absence after blind full UAT promotion would cause Production-wide noindex.
+
+### 2026-10-18 Vercel deploy milestone status update
+
+**2026-10-18 Production Vercel status follow-up (supersedes earlier PENDING):** GitHub combined commit status for frontend `main` merge **`aa02ca0862ccef3eb44a02e7041ddb73e1e91498`** is now **Vercel SUCCESS**; Vercel team audit has **2026-10-18 06:07:11 UTC** event “deployed directpilot-web (aa02ca0 in main) to production” and **06:07:51 UTC** “assigned 5 aliases” to deployment `directpilot-izlosfua2-mohcenp-9857s-projects.vercel.app`. Reference [Vercel deployment](https://vercel.com/mohcenp-9857s-projects/directpilot-web/HT2xaLJALCBAVqpwG6pLa5bYiz3r), [merged PR #39](https://github.com/namach2727-coder/directpilot-web/pull/39). **Production deploy SUCCESS (platform evidence)**, but Vercel API still does not resolve detailed alias mapping or current domain HTTP headers; external web snapshot was cached/mixed and is NOT a definitive post-deploy custom-domain smoke. Live robots.txt, sitemap.xml and canonical need browser/curl verification; GSC indexing not yet revalidated. Preserve already released user-facing SEO content; no further code changes without evidence.
