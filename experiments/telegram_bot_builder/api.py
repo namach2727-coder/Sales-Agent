@@ -44,7 +44,7 @@ def is_uat_host(db_url: str, expected: str) -> bool:
         return False
     try:
         uri = urlsplit(db_url)
-        if parse_qs(uri.query).get("hostaddr"):
+        if any(key in parse_qs(uri.query, keep_blank_values=True) for key in ("host", "hostaddr")):
             return False
         return uri.scheme in ("postgres", "postgresql") and uri.hostname in (expected, expected.replace("-pooler.", "."))
     except ValueError:
