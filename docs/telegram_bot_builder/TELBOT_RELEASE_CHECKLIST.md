@@ -1,4 +1,10 @@
 # DirectPilot TelBot — T0–T3 Master Checklist
+## 2026-10-19 — PR #71 Manual BotFather onboarding (UAT only)
+
+Management Mode unavailable (`can_manage_bots=false` for @MhnPdr_bot); maintain managed mode as future option. Implemented alternative manual connect: owner-authenticated endpoint, Telegram getMe validation, Fernet encrypted token, pending bot only, no webhook registration or send. Existing UAT database schema needs no migration. GitHub PR #71 pending CI and release review. Dedicated `TELBOT_TOKEN_FERNET_KEY` is required, no customer onboarding or production release permitted yet.
+
+---
+
 
 ## 2026-10-19 — Telegram Manager getMe identity PASS; Bot Management Mode BLOCKED
 
