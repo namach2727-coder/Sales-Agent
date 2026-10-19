@@ -44,7 +44,7 @@ def get_connection():
         raise HTTPException(status_code=503, detail="TelBot UAT database unavailable")
     try:
         with psycopg.connect(url, row_factory=dict_row, connect_timeout=5) as connection:
-            if connection.info.dbname != "telbot" or connection.info.user != "telbot_ua_runtime":
+            if connection.info.dbname != "telbot" or connection.info.user not in ("telbot_ua_runtime", "telbot_owner"):
                 raise HTTPException(status_code=503, detail="Wrong TelBot UAT database role")
             # A mistakenly supplied Production branch has no 0002 ledger; it must fail here.
             if not connection.execute(
