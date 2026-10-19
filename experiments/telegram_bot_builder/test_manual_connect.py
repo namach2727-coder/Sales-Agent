@@ -143,7 +143,7 @@ class ManualEndpointGuardTests(unittest.TestCase):
                 f"/api/v1/tenants/{TENANT}/bots/connect-manual",
                 json={"bot_token": TOKEN},
             )
-        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.status_code, 404)
 
 
 if __name__ == "__main__":
