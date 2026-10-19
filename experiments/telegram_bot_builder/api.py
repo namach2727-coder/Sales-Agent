@@ -204,7 +204,14 @@ class ManualBotConnectInput(BaseModel):
     bot_token: SecretStr = Field(repr=False)
 
 
-@app.post("/api/v1/tenants/{tenant_id}/bots/connect-manual", status_code=201)
+def require_manual_connect_feature() -> None:
+    """Fail before authentication or database connection while feature is off."""
+    if os.getenv("TELBOT_ENV") != "uat" or os.getenv("TELBOT_MANUAL_CONNECT_ENABLED") != "enabled":
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+@app.post("/api/v1/tenants/{tenant_id}/bots/connect-manual", status_code=201,
+          dependencies=[Depends(require_manual_connect_feature)])
 async def connect_existing_telegram_bot(
     tenant_id: UUID, body: ManualBotConnectInput, actor: Principal, db: Db,
 ) -> dict[str, Any]:
