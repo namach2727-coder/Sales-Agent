@@ -37,11 +37,27 @@ app = FastAPI(
 )
 
 
+def is_uat_host(db_url: str, expected: str) -> bool:
+    from urllib.parse import urlsplit, parse_qs
+    expected = expected.strip().lower()
+    if not expected or "/" in expected or ":" in expected:
+        return False
+    try:
+        uri = urlsplit(db_url)
+        if parse_qs(uri.query).get("hostaddr"):
+            return False
+        return uri.scheme in ("postgres", "postgresql") and uri.hostname in (expected, expected.replace("-pooler.", "."))
+    except ValueError:
+        return False
+
+
 def get_connection():
     """Scoped database connection; no production fallback, rollback on exceptions."""
     url = os.getenv("TELBOT_UAT_DATABASE_URL", "")
     if not url or os.getenv("TELBOT_ENV") != "uat":
         raise HTTPException(status_code=503, detail="TelBot UAT database unavailable")
+    if not is_uat_host(url, os.getenv("TELBOT_UAT_DB_HOST", "")):
+        raise HTTPException(status_code=503, detail="TelBot UAT database endpoint mismatch")
     try:
         with psycopg.connect(url, row_factory=dict_row, connect_timeout=5) as connection:
             if connection.info.dbname != "telbot" or connection.info.user not in ("telbot_ua_runtime", "telbot_owner"):
