@@ -1,5 +1,22 @@
 # DirectPilot — Release Register (مرجع واحد انتشار)
 
+## Latest TelBot project checkpoint — 2026-10-19
+
+**LATEST VERIFIED TELBOT CHECKPOINT — 2026-10-19.** All six canonical project files plus [TelBot release checklist](docs/telegram_bot_builder/TELBOT_RELEASE_CHECKLIST.md) must remain synchronized after every meaningful TelBot change. Historic statements below are preserved and may be outdated.
+
+- Product: DirectPilot TelBot. Source only on isolated branch `feature/telegram-managed-bots-spike-20261017`. **Never conflate** this with DirectPilot Instagram Production or the independent TelBot Neon Production branch.
+- [PR #64](https://github.com/namach2727-coder/Sales-Agent/pull/64) delivery contract/requirements, [PR #66](https://github.com/namach2727-coder/Sales-Agent/pull/66) FastAPI routing and [PR #67](https://github.com/namach2727-coder/Sales-Agent/pull/67) temporary Neon UAT owner role: all MERGED. #67 GitHub main CI and isolated TelBot CI both SUCCESS.
+- Operational source SHA `bd20c44a883a4de3f57ca2f9d009b8d981519c18`; independent Vercel TelBot UAT project `prj_kmClcJwNEibzo7s1Vrf5BzCg8W4L`, [deployment `dpl_DYjA434LnV79oYHDnXSHW36dXAL6`](https://vercel.com/mohcenp-9857s-projects/directpilot-telbot-uat-api/DYjA434LnV79oYHDnXSHW36dXAL6) READY; alias `directpilot-telbot-uat-api.vercel.app` mapped to this deployment.
+- After PR #66 owner received correct `/live` JSON: `{"status":"live","service":"directpilot-telbot-uat"}` — historical PASS. No post-PR #67 `/ready` HTTP result has been confirmed, so **DB connectivity remains PENDING**, regardless of Vercel READY.
+- Read-only Neon UAT: project `curly-cell-93038441`, branch `br-tiny-poetry-arz49v2o`, DB `telbot`: 14 tables; latest migration `0002_webhook_auth`; 0 tenants and 0 bots.
+- Vercel UAT-only project environment lists `TELBOT_ENV=uat`, Sensitive `TELBOT_UAT_DATABASE_URL`, and `TELBOT_UAT_DB_HOST`. **Secret presence != working connection**. PR#67 API guard temporarily permits `telbot_owner` or `telbot_ua_runtime`, still verifying database `telbot` and UAT schema; owner role has CREATEDB/CREATEROLE and must be replaced before real customer data.
+- Manager token/webhook secret/Fernet keys **not present** in last env inventory; real Manager Bot, Telegram outbound, Mini App UI, child token storage, commercial subscriptions, cross-tenant E2E and owner acceptance are NOT DONE. No Instagram Production or TelBot Neon Production deployment authorized.
+
+**TelBot release row — T1 PARTIAL:** PR#64 requirements/keyboard contract, #66 FastAPI routing, #67 temporary UAT owner role merged. GitHub CI successful; UAT Vercel READY on source `bd20c44a`, deployment `dpl_DYjA434LnV79oYHDnXSHW36dXAL6`; user `/live` PASS; Neon UAT 14 tables / migration 0002; post-#67 DB `/ready` unverified; Telegram E2E/Owner signoff PENDING; Production NO GO.
+
+---
+
+
 **آخرین تطبیق مستنداتی:** 2026-10-15 | **دامنه UAT:** https://uat.directpilot.ir | **دامنه Production:** https://directpilot.ir
 
 این ثبت، **وضعیت واقعی استقرار** را از **وجود کد**، **PASS تست خودکار**، **تأیید کسب‌وکار** و **اجازه انتقال Production** جدا می‌کند. تاریخچه اصلی بدون حذف در `docs/runbooks/history/20261015_pre_release_register/` نگهداری شده است. هیچ سطر این جدول مجوز انتشار Production نیست.

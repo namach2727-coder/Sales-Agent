@@ -1,4 +1,6 @@
 # Telegram No-Code AI Bot Builder — independent product track
+> **Current checkpoint — 2026-10-19:** T0 offline DONE; T1 isolated Neon UAT + Vercel native FastAPI infrastructure PARTIAL; PRs #64/#66/#67 merged, latest build READY, `/live` owner-observed PASS. Post-PR#67 `/ready` unverified; Manager Bot, live Telegram API and Mini App PENDING. Old entries below are dated history, not current state. See [TelBot Master Checklist](TELBOT_RELEASE_CHECKLIST.md).
+
 
 Date: 2026-10-17. Status: isolated code spike, **no production deployment**.
 

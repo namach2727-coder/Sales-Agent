@@ -1,4 +1,6 @@
 # Telegram No-Code Bot Builder — isolated technical spike
+> **Current checkpoint — 2026-10-19:** This README preserves historic prototype notes. Dedicated Neon UAT schema and Vercel FastAPI deployment now exist (PRs #64/#66/#67, READY at `bd20c44a`). `/live` user PASS; post-#67 `/ready` and Manager Bot still PENDING; no live child bot, Telegram send or Mini App. See [Master Checklist](../../docs/telegram_bot_builder/TELBOT_RELEASE_CHECKLIST.md) and [Deployment](DEPLOYMENT.md).
+
 
 **Development branch only**: `feature/telegram-managed-bots-spike-20261017`.
 This is a new product track; no DirectPilot Production route, environment variable, migration, secret, Vercel project, Neon project, or customer data is changed.
