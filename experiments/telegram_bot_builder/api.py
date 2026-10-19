@@ -212,6 +212,52 @@ def list_managed_bot_requests(
     ).fetchall()
 
 
+class ManualBotConnectInput(BaseModel):
+    token: str = Field(min_length=25, max_length=175, repr=False)
+
+
+@app.post("/api/v1/tenants/{tenant_id}/bots/connect-manual", status_code=201)
+async def connect_bot_manually(
+    tenant_id: UUID, body: ManualBotConnectInput, actor: Principal, db: Db,
+) -> dict[str, Any]:
+    """Verify owner's BotFather token and store encrypted. No webhook or outgoing messages."""
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    require_owner(db, tenant_id, actor)
+    try:
+        from experiments.telegram_bot_builder.manual_connect import validate_botfather_token
+        from experiments.telegram_bot_builder.vault import TokenVault, CredentialError
+    except ModuleNotFoundError:
+        from manual_connect import validate_botfather_token
+        from vault import TokenVault, CredentialError
+    try:
+        vault = TokenVault(os.getenv("TELBOT_TOKEN_FERNET_KEY", ""))
+    except CredentialError:
+        raise HTTPException(status_code=503, detail="TelBot credential vault unavailable") from None
+    identity = await validate_botfather_token(body.token)
+    encrypted = vault.encrypt(body.token)
+    db.execute("SELECT pg_advisory_xact_lock(%s)", (identity["telegram_bot_id"],))
+    existing = db.execute(
+        "SELECT id FROM telbot.bots WHERE telegram_bot_id=%s LIMIT 1",
+        (identity["telegram_bot_id"],),
+    ).fetchone()
+    if existing:
+        raise HTTPException(status_code=409, detail="Bot already connected")
+    saved = db.execute(
+        """INSERT INTO telbot.bots
+             (tenant_id,telegram_bot_id,username,display_name,
+              owner_telegram_user_id,credential_ciphertext,credential_key_version,status)
+           VALUES (%s,%s,%s,%s,%s,%s,1,'pending') RETURNING id""",
+        (tenant_id, identity["telegram_bot_id"], identity["username"],
+         identity["display_name"], actor.user_id, encrypted),
+    ).fetchone()
+    db.commit()
+    return {
+        "id": saved["id"], "username": identity["username"],
+        "status": "pending", "webhook_registered": False,
+    }
+
+
 class DraftInput(BaseModel):
     greeting: str = Field(min_length=1, max_length=4096)
     fallback_reply: str = Field(min_length=1, max_length=4096)
