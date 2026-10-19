@@ -37,18 +37,32 @@ app = FastAPI(
 )
 
 
-def is_uat_host(db_url: str, expected: str) -> bool:
+def uat_host_failure_reason(db_url: str, expected: str) -> str | None:
+    """Categorical, secret-free reason for rejecting a non-UAT URI."""
     from urllib.parse import urlsplit, parse_qs
+
     expected = expected.strip().lower()
     if not expected or "/" in expected or ":" in expected:
-        return False
+        return "uat_host_configuration_invalid"
+    if db_url != db_url.strip():
+        return "connection_string_has_extra_whitespace"
     try:
         uri = urlsplit(db_url)
+        if uri.scheme not in ("postgres", "postgresql"):
+            return "connection_string_format_invalid"
         if any(key in parse_qs(uri.query, keep_blank_values=True) for key in ("host", "hostaddr")):
-            return False
-        return uri.scheme in ("postgres", "postgresql") and uri.hostname in (expected, expected.replace("-pooler.", "."))
+            return "uri_host_override_disallowed"
+        if not uri.hostname:
+            return "connection_string_hostname_missing"
+        if uri.hostname not in (expected, expected.replace("-pooler.", ".")):
+            return "hostname_not_in_uat_allowlist"
+        return None
     except ValueError:
-        return False
+        return "connection_string_malformed"
+
+
+def is_uat_host(db_url: str, expected: str) -> bool:
+    return uat_host_failure_reason(db_url, expected) is None
 
 
 def get_connection():
@@ -56,8 +70,9 @@ def get_connection():
     url = os.getenv("TELBOT_UAT_DATABASE_URL", "")
     if not url or os.getenv("TELBOT_ENV") != "uat":
         raise HTTPException(status_code=503, detail="TelBot UAT database unavailable")
-    if not is_uat_host(url, os.getenv("TELBOT_UAT_DB_HOST", "")):
-        raise HTTPException(status_code=503, detail="TelBot UAT database endpoint mismatch")
+    endpoint_issue = uat_host_failure_reason(url, os.getenv("TELBOT_UAT_DB_HOST", ""))
+    if endpoint_issue:
+        raise HTTPException(status_code=503, detail=f"TelBot UAT database endpoint mismatch: {endpoint_issue}")
     try:
         with psycopg.connect(url, row_factory=dict_row, connect_timeout=5) as connection:
             if connection.info.dbname != "telbot" or connection.info.user not in ("telbot_ua_runtime", "telbot_owner"):
