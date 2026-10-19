@@ -15,7 +15,7 @@ from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 import psycopg
 from psycopg.rows import dict_row
 
@@ -196,6 +196,48 @@ def request_managed_bot(
         "expires_at": saved["expires_at"], "delivery_status": "not_sent",
         "reply_markup": keyboard,
     }
+
+
+
+class ManualBotConnectInput(BaseModel):
+    """Never include the credential in response or model repr."""
+    bot_token: SecretStr = Field(repr=False)
+
+
+def require_manual_connect_feature() -> None:
+    """Fail before authentication or database connection while feature is off."""
+    if os.getenv("TELBOT_ENV") != "uat" or os.getenv("TELBOT_MANUAL_CONNECT_ENABLED") != "enabled":
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+@app.post("/api/v1/tenants/{tenant_id}/bots/connect-manual", status_code=201,
+          dependencies=[Depends(require_manual_connect_feature)])
+async def connect_existing_telegram_bot(
+    tenant_id: UUID, body: ManualBotConnectInput, actor: Principal, db: Db,
+) -> dict[str, Any]:
+    """Owner-only UAT BotFather import. No webhook, no outbound message."""
+    if os.getenv("TELBOT_ENV") != "uat" or os.getenv("TELBOT_MANUAL_CONNECT_ENABLED") != "enabled":
+        raise HTTPException(status_code=404, detail="Not found")
+    require_owner(db, tenant_id, actor)
+    encryption_key = os.getenv("TELBOT_TOKEN_FERNET_KEY", "")
+    if not encryption_key:
+        raise HTTPException(status_code=503, detail="TelBot credential vault not configured")
+    try:
+        from experiments.telegram_bot_builder.manual_connect import manual_connect
+        from experiments.telegram_bot_builder.vault import CredentialError
+    except ModuleNotFoundError:
+        from manual_connect import manual_connect
+        from vault import CredentialError
+    try:
+        return await manual_connect(
+            db=db,
+            tenant_id=tenant_id,
+            owner_telegram_user_id=actor.user_id,
+            token=body.bot_token.get_secret_value(),
+            encryption_key=encryption_key,
+        )
+    except CredentialError:
+        raise HTTPException(status_code=503, detail="TelBot credential vault unavailable") from None
 
 
 @app.get("/api/v1/tenants/{tenant_id}/managed-bot-requests")
