@@ -6,11 +6,16 @@ Never disclose, log or return the token. No setWebhook or outbound messages.
 from __future__ import annotations
 
 import re
+import logging
 from typing import Any
 from uuid import UUID
 
 import httpx
 from fastapi import HTTPException
+
+# Bot API places the credential in the URL path; suppress httpx/httpcore request URL logs.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 try:
     from experiments.telegram_bot_builder.vault import TokenVault
