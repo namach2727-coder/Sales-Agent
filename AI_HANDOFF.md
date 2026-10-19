@@ -1,5 +1,16 @@
 # DirectPilot — AI Handoff (Current, concise)
 
+## 2026-10-19 — MANUAL BotFather bot connection: UAT code under review
+
+**Decision:** `@MhnPdr_bot` token tested by owner: `matches_expected=true`, `can_manage_bots=false`; Telegram BotFather UI on web/mobile does not expose Bot Management Mode to owner. Instead of blocking TelBot, implement optional manual child-bot onboarding. Customer creates/controls their own bot through official BotFather and submits the token **only through a future authenticated HTTPS TelBot UAT interface** (never chat, GitHub, screenshots or analytics). Preserve managed-bot capability as optional future path; do not delete old code.
+
+**Implementation under UAT feature branch** `feature/telbot-manual-bot-connect-uat-20261019`: add `POST /api/v1/tenants/{tenant_id}/bots/connect-manual`, guarded by `TELBOT_ENV=uat` AND `TELBOT_MANUAL_CONNECT_ENABLED=enabled` (disabled by default). Requires Telegram Mini App signed `initData` and tenant OWNER; does read-only Telegram `getMe` to validate owner-supplied credential, verifies bot identity, encrypts token server-side with independent `TELBOT_TOKEN_FERNET_KEY` Fernet secret, inserts into existing `telbot.bots` fields with `credential_key_version=1`, `status=pending`, and logs sanitized audit event. Unique `telegram_bot_id` blocks cross-tenant re-registration. API returns bot public username/ID record reference and `webhook_registered=false`/`message_sending_enabled=false`, never token, ciphertext or raw Telegram errors. HTTP client URL logging disabled to protect token-in-path. No new DB migration. Synthetic offline tests cover encryption and rejection. Verify CI/PR before merge.
+
+**Release gates:** Source code only until PR CI success and controlled UAT deployment. Feature flag must remain DISABLED and `TELBOT_TOKEN_FERNET_KEY` must not be generated in client or Git. UAT Neon has 0 tenants/bots, so customer-facing Mini App, tenant bootstrap and onboarding are **NOT READY** even if backend `/ready` PASS. Do NOT activate webhook, send messages, connect any real/customer bot, change TelBot Neon Production, or change Instagram DirectPilot Production. Only after UAT QA: provision cryptographic key (Sensitive), implement customer-facing input UI, tenant creation, least-privilege runtime role and operator-reviewed webhook/test.
+
+---
+
+
 ## 2026-10-19 — Telegram Manager getMe identity PASS; Bot Management Mode BLOCKED
 
 Owner ran the downloaded **read-only PowerShell getMe** diagnostic against the official Telegram Bot API, entering BotFather token locally (never shared in chat). **User-supplied observed result:** `{"status":"ENABLE_BOT_MANAGEMENT_MODE","username":"MhnPdr_bot","matches_expected":true,"can_manage_bots":false}`. This proves the **locally entered token** maps to the intended `@MhnPdr_bot` and Telegram accepted it. It does **not** prove the Sensitive `TELBOT_MANAGER_TOKEN` stored in Vercel is byte-for-byte identical. No token values, numeric IDs, URLs with embedded tokens, webhook calls, Telegram sends, or Neon writes are in this diagnostic.
