@@ -1,4 +1,10 @@
 # DirectPilot TelBot — current UAT deployment guide
+## 2026-10-19 — TelBot UAT manual BotFather connection PR #71
+
+Owner-approved alternative because Bot Management Mode is unavailable for @MhnPdr_bot (getMe can_manage_bots=false). PR #71 implements owner-authenticated manual token connection: backend getMe, dedicated Fernet encryption, a pending bot row with tenant membership and duplicate protection, no webhook registration and no Telegram sends. Existing Neon UAT bot schema already has encrypted-token storage; no migration required. Isolated test PASS; general CI and security gate under review. `TELBOT_TOKEN_FERNET_KEY` must be configured Sensitive on dedicated TelBot UAT before functional onboarding. Preserve Instagram Production and TelBot Neon Production. Do not announce customer-ready status until real UAT acceptance.
+
+---
+
 
 ## 2026-10-19 — Telegram Manager getMe identity PASS; Bot Management Mode BLOCKED
 
