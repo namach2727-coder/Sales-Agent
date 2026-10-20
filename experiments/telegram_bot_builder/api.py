@@ -248,7 +248,7 @@ def create_my_tenant(
 
 
 class ManualBotConnectInput(BaseModel):
-    bot_token: str = Field(min_length=32, max_length=256)
+    bot_token: str
 
 
 @app.post("/api/v1/tenants/{tenant_id}/bots/connect-manual", status_code=201)
@@ -343,7 +343,7 @@ def telbot_ui():
         headers={
             "Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
             "X-Content-Type-Options": "nosniff",
-            "Content-Security-Policy": "default-src 'none'; script-src 'self' https://telegram.org; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'self'; form-action 'none'",
+            "Content-Security-Policy": "default-src 'none'; script-src 'self' https://telegram.org; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'self' https://web.telegram.org; form-action 'none'",
         },
     )
 
