@@ -198,6 +198,55 @@ def request_managed_bot(
     }
 
 
+class SelfTenantInput(BaseModel):
+    display_name: str = Field(min_length=1, max_length=120)
+
+
+@app.get("/api/v1/me/tenants")
+def my_tenants(actor: Principal, db: Db) -> list[dict[str, Any]]:
+    """Only the caller's active Telegram tenant memberships."""
+    return db.execute(
+        """SELECT t.id,t.display_name,tu.role FROM telbot.tenant_users tu
+           JOIN telbot.tenants t ON t.id=tu.tenant_id
+           WHERE tu.telegram_user_id=%s AND tu.status='active' AND t.status='active'
+           ORDER BY t.created_at LIMIT 20""", (actor.user_id,),
+    ).fetchall()
+
+
+@app.post("/api/v1/me/tenants", status_code=201)
+def create_my_tenant(
+    body: SelfTenantInput, actor: Principal, db: Db,
+) -> dict[str, Any]:
+    """Explicit owner-initiated UAT tenant bootstrap; at most one per user."""
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    name = body.display_name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Tenant name required")
+    # Serialize concurrent creation for one Telegram account.
+    db.execute("SELECT pg_advisory_xact_lock(%s)", (actor.user_id,))
+    owner = db.execute(
+        """SELECT tu.tenant_id FROM telbot.tenant_users tu
+           JOIN telbot.tenants t ON t.id=tu.tenant_id
+           WHERE tu.telegram_user_id=%s AND tu.role='owner'
+             AND tu.status='active' AND t.status='active' LIMIT 1""",
+        (actor.user_id,),
+    ).fetchone()
+    if owner:
+        raise HTTPException(status_code=409, detail="Telegram account already has a tenant")
+    created = db.execute(
+        """INSERT INTO telbot.tenants (display_name) VALUES (%s)
+           RETURNING id,display_name,status""", (name,),
+    ).fetchone()
+    db.execute(
+        """INSERT INTO telbot.tenant_users(tenant_id,telegram_user_id,role)
+           VALUES (%s,%s,'owner')""",
+        (created["id"], actor.user_id),
+    )
+    db.commit()
+    return {"id":str(created["id"]), "display_name":created["display_name"], "role":"owner"}
+
+
 class ManualBotConnectInput(BaseModel):
     bot_token: str = Field(min_length=32, max_length=256)
 
