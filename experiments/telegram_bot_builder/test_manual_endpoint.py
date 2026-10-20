@@ -23,7 +23,7 @@ class ConnectManualTests(unittest.TestCase):
 
     def test_no_encryption_key_fails_before_telegram(self):
         with patch.dict(os.environ, {"TELBOT_ENV":"uat","TELBOT_MANAGER_TOKEN":MANAGER_TOKEN},clear=True):
-            init=signed_initdata(123456, MANAGER_TOKEN)
+            init=signed_initdata(MANAGER_TOKEN, user_id=123456)
             r=self.client.post(f"/api/v1/tenants/{TENANT_A}/bots/connect-manual",
                 headers={"X-Telegram-Init-Data":init},json={"bot_token":"123456789:"+"x"*35})
         self.assertEqual(r.status_code,503)
@@ -31,13 +31,13 @@ class ConnectManualTests(unittest.TestCase):
 
     def test_non_owner_rejected(self):
         with patch.dict(os.environ, {"TELBOT_ENV":"uat","TELBOT_MANAGER_TOKEN":MANAGER_TOKEN},clear=True):
-            init=signed_initdata(123456, MANAGER_TOKEN)
+            init=signed_initdata(MANAGER_TOKEN, user_id=123456)
             r=self.client.post(f"/api/v1/tenants/{TENANT_B}/bots/connect-manual",
                 headers={"X-Telegram-Init-Data":init},json={"bot_token":"123456789:"+"x"*35})
         self.assertEqual(r.status_code,403)
     def test_prod_disabled(self):
         with patch.dict(os.environ, {"TELBOT_ENV":"production","TELBOT_MANAGER_TOKEN":MANAGER_TOKEN},clear=True):
-            init=signed_initdata(123456, MANAGER_TOKEN)
+            init=signed_initdata(MANAGER_TOKEN, user_id=123456)
             r=self.client.post(f"/api/v1/tenants/{TENANT_A}/bots/connect-manual",
                 headers={"X-Telegram-Init-Data":init},json={"bot_token":"123456789:"+"x"*35})
         self.assertEqual(r.status_code,404)
