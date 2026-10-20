@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex,nofollow">
+  <title>DirectPilot TelBot · نسخه آزمایشی</title>
+  <link rel="stylesheet" href="/telbot/style.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="/telbot/app.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="masthead">
+      <div class="brand-mark">T</div>
+      <div>
+        <strong>DirectPilot <span>TelBot</span></strong>
+        <p>مدیریت ربات تلگرام، بدون کدنویسی</p>
+      </div>
+      <span class="env-pill">UAT</span>
+    </header>
+    <section class="hero">
+      <span class="eyebrow">راه‌اندازی ربات</span>
+      <h1>رباتت را به تل‌بات وصل کن</h1>
+      <p>رباتت را در BotFather بساز، توکن را فقط یک‌بار وارد کن و بعد از بررسی امنیتی آن را به حساب خودت متصل کن.</p>
+      <div class="hero-footer">اتصال امن و رمزگذاری‌شده <span>·</span> بدون نیاز به Bot Management Mode</div>
+    </section>
+    <section class="steps" aria-label="مراحل راه‌اندازی">
+      <div><b>۱</b><span>ساخت ربات در BotFather</span></div>
+      <div><b>۲</b><span>اتصال توکن به پنل</span></div>
+      <div><b>۳</b><span>آماده‌سازی تنظیمات</span></div>
+    </section>
+    <div id="notice" class="notice" role="status" aria-live="polite">در حال بررسی اتصال به تلگرام…</div>
+    <section id="telegram-help" class="panel hidden">
+      <h2>ورود از داخل تلگرام</h2>
+      <p>برای امنیت، این پنل باید از طریق دکمه Mini App ربات مدیریتی در تلگرام باز شود. بازکردن صفحه در مرورگر معمولی احراز هویت نمی‌کند.</p>
+      <a class="link" href="https://t.me/MhnPdr_bot" rel="noopener noreferrer">رفتن به ربات مدیریتی</a>
+      <p class="hint">اگر هنوز دکمه Mini App تنظیم نشده باشد، این مرحله باید در BotFather تکمیل شود.</p>
+    </section>
+    <section id="main-app" class="hidden">
+      <section id="create-tenant" class="panel hidden">
+        <div class="section-meta">مرحله اول</div>
+        <h2>حساب کاری‌ات را بساز</h2>
+        <p>یک نام برای کسب‌وکارت انتخاب کن تا ربات‌ها را در حساب خودت مدیریت کنی.</p>
+        <form id="tenant-form" autocomplete="off">
+          <label for="tenant-name">نام کسب‌وکار</label>
+          <input id="tenant-name" maxlength="120" minlength="1" required placeholder="مثلاً فروشگاه من">
+          <button type="submit">ساخت حساب و ادامه</button>
+        </form>
+      </section>
+      <section id="workspace" class="hidden">
+        <div class="workspace-title"><div><div class="section-meta">حساب شما</div><h2 id="tenant-display"></h2></div><span class="small-pill">نسخه آزمایشی</span></div>
+        <section class="panel">
+          <div class="section-meta">مرحله دوم</div>
+          <h2>اتصال ربات موجود</h2>
+          <p>در <a class="inline-link" href="https://t.me/BotFather" rel="noopener noreferrer">BotFather</a> ربات بساز و توکن API آن را در کادر زیر وارد کن. توکن در مرورگر ذخیره نخواهد شد.</p>
+          <form id="bot-form" autocomplete="off">
+            <label for="bot-token">توکن API ربات</label>
+            <input id="bot-token" type="password" maxlength="256" minlength="32" required spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="توکن BotFather">
+            <small>توکن را در چت، ایمیل یا پیام‌رسان دیگری ارسال نکن.</small>
+            <button type="submit">بررسی و اتصال امن ربات</button>
+          </form>
+        </section>
+        <section class="panel">
+          <div class="section-meta">ربات‌های متصل</div>
+          <h2>ربات‌های من</h2>
+          <div id="bots-list" class="bot-list">در حال دریافت اطلاعات…</div>
+          <p class="hint">ربات‌های جدید ابتدا در وضعیت «در انتظار فعال‌سازی» ذخیره می‌شوند. ارسال پیام خودکار فعلاً فعال نیست.</p>
+        </section>
+      </section>
+    </section>
+    <footer>DirectPilot TelBot · محیط آزمایشی مستقل</footer>
+  </main>
+</body>
+</html>
