@@ -69,6 +69,29 @@
       });
     } catch(error) { root.textContent = publicError(error); }
   }
+  async function describeAuthFailure(error) {
+    if (!error || error.message !== "Invalid Telegram Mini App authentication") {
+      return publicError(error);
+    }
+    try {
+      const response = await fetch("/api/v1/uat/manager-identity", {
+        method: "GET", credentials: "omit", cache: "no-store", redirect: "error",
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result.status === "mismatch") {
+          return "تنظیم ربات مدیریتی روی سرور با @MhnPdr_bot یکسان نیست. این خطا باید در تنظیمات UAT اصلاح شود.";
+        }
+        if (result.status === "match") {
+          return "ربات مدیریتی سرور درست است، اما نشست معتبر نیست. پنل را از دکمه Open TelBot داخل چت @MhnPdr_bot دوباره باز کن.";
+        }
+        if (result.status === "unavailable" || result.status === "missing") {
+          return "هویت ربات مدیریتی UAT قابل تأیید نیست. تنظیم توکن سرور نیاز به بررسی دارد.";
+        }
+      }
+    } catch (_) { /* diagnostics are optional; never expose raw transport errors */ }
+    return publicError(error);
+  }
   async function initialize() {
     if (!initData) {
       telegramHelp.classList.remove("hidden");
@@ -87,7 +110,7 @@
         await listBots();
       } else { tenantPanel.classList.remove("hidden"); }
       setNotice("به پنل امن تل‌بات خوش آمدی.", "success");
-    } catch(error) { setNotice(publicError(error), "error"); }
+    } catch(error) { setNotice(await describeAuthFailure(error), "error"); }
   }
   tenantForm.addEventListener("submit", async (event) => {
     event.preventDefault();
