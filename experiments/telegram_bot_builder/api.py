@@ -379,6 +379,21 @@ def live() -> dict[str, str]:
     return {"status": "live", "service": "directpilot-telbot-uat"}
 
 
+@app.get("/api/v1/uat/manager-identity")
+async def manager_identity_diagnostic() -> dict[str, str]:
+    """Read-only UAT support probe. Returns status only, never bot IDs or secrets."""
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    try:
+        from experiments.telegram_bot_builder.manager_identity import manager_identity_status
+    except ModuleNotFoundError:
+        from manager_identity import manager_identity_status
+    return await manager_identity_status(
+        token=os.getenv("TELBOT_MANAGER_TOKEN", ""),
+        expected_username="MhnPdr_bot",
+    )
+
+
 @app.get("/ready")
 def ready(db: Db) -> dict[str, str]:
     version = db.execute(
