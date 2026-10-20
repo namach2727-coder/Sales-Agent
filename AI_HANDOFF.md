@@ -1,5 +1,16 @@
 # DirectPilot — AI Handoff (Current, concise)
 
+## 2026-10-20 — Manual BotFather token onboarding alternative: UAT PR #72
+
+User approved continuing DirectPilot TelBot without Telegram Bot Management Mode because @MhnPdr_bot returned getMe `can_manage_bots=false` and the BotFather toggle could not be located on mobile or web. Do NOT treat automated managed-bot creation as currently available.
+
+PR https://github.com/namach2727-coder/Sales-Agent/pull/72 is an isolated feature proposal, **NOT YET MERGED or DEPLOYED to official TelBot UAT** at this checkpoint. Manual path added: owner-only authenticated `POST /api/v1/tenants/{tenant_id}/bots/connect-manual`, input `bot_token`, server-side Telegram Bot API `getMe` validation, dedicated `TokenVault` Fernet encryption, tenant-scoped `pending` bot persistence and audit event, global Telegram bot ID uniqueness. No user token returned; no Telegram `setWebhook`, messages, account activations, customer data manipulation or Neon schema migration. Missing `TELBOT_TOKEN_FERNET_KEY` causes intentional HTTP 503 before calling Telegram.
+
+New offline mocked Telegram and auth regression tests check invalid format, unauthorized/rejected token, network errors without leaked URI, Fernet nonplaintext storage, unauthorized users, wrong tenant and missing encryption key. Dedicated TelBot CI successful after fixing a signed_initdata test-fixture signature; general CI must also complete. Frontend self-serve UI, UAT Secret setup, actual live provider getMe, proof/ownership, webhook connection and child bot E2E remain blocked/pending. No modification of Instagram DirectPilot Production or TelBot Neon Production; do not call release GO.
+
+---
+
+
 ## 2026-10-19 — Telegram Manager getMe identity PASS; Bot Management Mode BLOCKED
 
 Owner ran the downloaded **read-only PowerShell getMe** diagnostic against the official Telegram Bot API, entering BotFather token locally (never shared in chat). **User-supplied observed result:** `{"status":"ENABLE_BOT_MANAGEMENT_MODE","username":"MhnPdr_bot","matches_expected":true,"can_manage_bots":false}`. This proves the **locally entered token** maps to the intended `@MhnPdr_bot` and Telegram accepted it. It does **not** prove the Sensitive `TELBOT_MANAGER_TOKEN` stored in Vercel is byte-for-byte identical. No token values, numeric IDs, URLs with embedded tokens, webhook calls, Telegram sends, or Neon writes are in this diagnostic.
