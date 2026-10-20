@@ -84,7 +84,7 @@ class ManualIntegrationTests(unittest.TestCase):
         self.assertEqual(response.json()["username"], "TestCustomerBot")
         self.assertNotIn(TOKEN, response.text)
         self.assertNotIn(TOKEN.encode(), self.db.saved_ciphertext)
-        self.assertTrue(self.audit_logged)
+        self.assertTrue(self.db.audit_logged)
         self.assertEqual(self.db.commits, 1)
         self.assertEqual(fake.await_count, 1)
         self.assertFalse(any("setWebhook" in query for query, _ in self.db.commands))
