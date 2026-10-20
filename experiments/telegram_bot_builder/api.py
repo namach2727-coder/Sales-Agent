@@ -331,6 +331,49 @@ class DraftInput(BaseModel):
     fallback_reply: str = Field(min_length=1, max_length=4096)
 
 
+@app.get("/telbot")
+def telbot_ui():
+    """Serve only the isolated UAT Telegram Mini App."""
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    return FileResponse(
+        Path(__file__).resolve().parent / "web" / "index.html",
+        headers={
+            "Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'; script-src 'self' https://telegram.org; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'self'; form-action 'none'",
+        },
+    )
+
+
+@app.get("/telbot/app.js")
+def telbot_ui_script():
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    return FileResponse(
+        Path(__file__).resolve().parent / "web" / "app.js",
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@app.get("/telbot/style.css")
+def telbot_ui_style():
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    return FileResponse(
+        Path(__file__).resolve().parent / "web" / "style.css",
+        media_type="text/css",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
+
+
 @app.get("/live")
 def live() -> dict[str, str]:
     return {"status": "live", "service": "directpilot-telbot-uat"}
