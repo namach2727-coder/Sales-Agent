@@ -1,5 +1,18 @@
 # DirectPilot TelBot — current UAT deployment guide
 
+## 2026-10-20 — UAT Telegram Mini App login 401; Manager identity diagnostic deployed
+
+Owner launched TelBot Mini App and could see the RTL onboarding form but received `Invalid Telegram Mini App authentication` (translated: `نشست تلگرام معتبر نیست`) when the app fetched tenants, so successful authentication must **NOT** be claimed. In a previous Mini App screenshot the Telegram header appeared to say `@SalesRobot`; verify launch originates from `@MhnPdr_bot` rather than another bot. No tenants or bots were observed at the last UAT Neon check.
+
+Source indicates FastAPI `authenticate()` HMAC-verifies Telegram WebApp `initData` against Sensitive `TELBOT_MANAGER_TOKEN`, with a 1-hour maximum age. Possible causes include mismatch between Vercel-configured manager token and actual launcher bot, expired/invalid initData. Exact cause is not yet proven. Vercel runtime logs returned 403, so no diagnostic logs could be fetched.
+
+**PR #73** https://github.com/namach2727-coder/Sales-Agent/pull/73 merged at SHA `8be18722bb1f6628f6ac405188d5e7409a201225` after dedicated TelBot CI PASS, and general CI later PASS. Vercel UAT deployment `dpl_BdNf1DPkf2sFqzd1bqb5GEjP3bz4` confirmed READY and official alias `https://directpilot-telbot-uat-api.vercel.app` points to it. Changes: GET `/api/v1/uat/manager-identity` calls Telegram Bot API `getMe` using server-side token, caches 5 minutes, returns **only** categorical `match/mismatch/unavailable/missing` (no raw bot token, ID, upstream responses); Persian Mini App now surfaces a targeted message after backend 401. Source/test validation PASS. Note: actual endpoint HTTP response could not be retrieved by assistant: public external fetch blocked and Vercel authenticated web fetch 403. **User must open the UAT diagnostic URL in a browser and share only JSON status**. `match` still does NOT imply valid initData. Do not expose the token or untrusted raw initialization payload. No changes to Instagram Production or TelBot Neon Production; no webhook or outbound messages.
+
+**Next:** open `https://directpilot-telbot-uat-api.vercel.app/api/v1/uat/manager-identity`, record status; if `mismatch`, have owner update Sensitive `TELBOT_MANAGER_TOKEN` privately on dedicated Vercel UAT to actual @MhnPdr_bot token, redeploy and re-test; if `match`, relaunch only from @MhnPdr_bot and analyze auth_date/cryptographic flow without leaking initData; if `unavailable`, investigate Telegram API reachability and validity. Do not declare login PASS until `GET /api/v1/me/tenants` returns 200 under signed Mini App session.
+
+---
+
+
 ## 2026-10-20 — Manual BotFather onboarding PR #72 MERGED, separate TelBot UAT DEPLOYED
 
 **DECISION:** Bot Management Mode was unavailable on the owner-side BotFather UI, and a locally run official Telegram getMe test for @MhnPdr_bot yielded `can_manage_bots=false`. Proceed with manual BotFather token connection instead of blocking product on managed-bot creation. Existing managed-bot flow remains behind its current unfinished gate.
