@@ -198,6 +198,120 @@ def request_managed_bot(
     }
 
 
+class SelfTenantInput(BaseModel):
+    display_name: str = Field(min_length=1, max_length=120)
+
+
+@app.get("/api/v1/me/tenants")
+def my_tenants(actor: Principal, db: Db) -> list[dict[str, Any]]:
+    """Only the caller's active Telegram tenant memberships."""
+    return db.execute(
+        """SELECT t.id,t.display_name,tu.role FROM telbot.tenant_users tu
+           JOIN telbot.tenants t ON t.id=tu.tenant_id
+           WHERE tu.telegram_user_id=%s AND tu.status='active' AND t.status='active'
+           ORDER BY t.created_at LIMIT 20""", (actor.user_id,),
+    ).fetchall()
+
+
+@app.post("/api/v1/me/tenants", status_code=201)
+def create_my_tenant(
+    body: SelfTenantInput, actor: Principal, db: Db,
+) -> dict[str, Any]:
+    """Explicit owner-initiated UAT tenant bootstrap; at most one per user."""
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    name = body.display_name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Tenant name required")
+    # Serialize concurrent creation for one Telegram account.
+    db.execute("SELECT pg_advisory_xact_lock(%s)", (actor.user_id,))
+    owner = db.execute(
+        """SELECT tu.tenant_id FROM telbot.tenant_users tu
+           JOIN telbot.tenants t ON t.id=tu.tenant_id
+           WHERE tu.telegram_user_id=%s AND tu.role='owner'
+             AND tu.status='active' AND t.status='active' LIMIT 1""",
+        (actor.user_id,),
+    ).fetchone()
+    if owner:
+        raise HTTPException(status_code=409, detail="Telegram account already has a tenant")
+    created = db.execute(
+        """INSERT INTO telbot.tenants (display_name) VALUES (%s)
+           RETURNING id,display_name,status""", (name,),
+    ).fetchone()
+    db.execute(
+        """INSERT INTO telbot.tenant_users(tenant_id,telegram_user_id,role)
+           VALUES (%s,%s,'owner')""",
+        (created["id"], actor.user_id),
+    )
+    db.commit()
+    return {"id":str(created["id"]), "display_name":created["display_name"], "role":"owner"}
+
+
+class ManualBotConnectInput(BaseModel):
+    bot_token: str
+
+
+@app.post("/api/v1/tenants/{tenant_id}/bots/connect-manual", status_code=201)
+async def connect_manual_bot(
+    tenant_id: UUID, body: ManualBotConnectInput, actor: Principal, db: Db,
+) -> dict[str, Any]:
+    """Add owner-provided BotFather child bot as pending; never set a webhook."""
+    require_owner(db, tenant_id, actor)
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    from fastapi import status
+    try:
+        from experiments.telegram_bot_builder.vault import TokenVault, CredentialError
+        from experiments.telegram_bot_builder.manual_onboarding import (
+            BotTokenValidationError, validate_botfather_token,
+        )
+    except ModuleNotFoundError:
+        from vault import TokenVault, CredentialError
+        from manual_onboarding import BotTokenValidationError, validate_botfather_token
+    try:
+        # Fail closed before contacting Telegram if encryption is unavailable.
+        vault = TokenVault(os.getenv("TELBOT_TOKEN_FERNET_KEY", ""))
+        encrypted = vault.encrypt(body.bot_token)
+    except CredentialError:
+        raise HTTPException(status_code=503, detail="Bot credential encryption unavailable") from None
+    try:
+        bot = await validate_botfather_token(body.bot_token)
+    except BotTokenValidationError as exc:
+        code = exc.code if exc.code in (
+            "invalid_token_format", "token_rejected", "telegram_unavailable",
+            "telegram_invalid_identity",
+        ) else "telegram_unavailable"
+        raise HTTPException(status_code=422 if code in (
+            "invalid_token_format", "token_rejected", "telegram_invalid_identity",
+        ) else 503, detail=code) from None
+    # Preserve global unique telegram_bot_id: do not transfer a claimed bot between tenants.
+    try:
+        row = db.execute(
+            """INSERT INTO telbot.bots
+              (tenant_id,telegram_bot_id,username,display_name,owner_telegram_user_id,
+               credential_ciphertext,credential_key_version,status)
+              VALUES (%s,%s,%s,%s,%s,%s,1,'pending')
+              ON CONFLICT (telegram_bot_id) DO NOTHING
+              RETURNING id,username,status""",
+            (tenant_id,bot["telegram_bot_id"],bot["username"],bot["display_name"],
+             actor.user_id,encrypted),
+        ).fetchone()
+        if not row:
+            db.rollback()
+            raise HTTPException(status_code=409, detail="Bot already connected")
+        db.execute(
+            """INSERT INTO telbot.audit_events
+              (tenant_id,bot_id,actor_telegram_user_id,event_type,metadata)
+              VALUES (%s,%s,%s,'bot.manual_connect_pending','{}'::jsonb)""",
+            (tenant_id,row["id"],actor.user_id),
+        )
+        db.commit()
+    except psycopg.errors.UniqueViolation:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Bot already connected") from None
+    return {"id": str(row["id"]), "username": row["username"], "status": "pending"}
+
+
 @app.get("/api/v1/tenants/{tenant_id}/managed-bot-requests")
 def list_managed_bot_requests(
     tenant_id: UUID, actor: Principal, db: Db,
@@ -215,6 +329,49 @@ def list_managed_bot_requests(
 class DraftInput(BaseModel):
     greeting: str = Field(min_length=1, max_length=4096)
     fallback_reply: str = Field(min_length=1, max_length=4096)
+
+
+@app.get("/telbot")
+def telbot_ui():
+    """Serve only the isolated UAT Telegram Mini App."""
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    return FileResponse(
+        Path(__file__).resolve().parent / "web" / "index.html",
+        headers={
+            "Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'; script-src 'self' https://telegram.org; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'self' https://web.telegram.org; form-action 'none'",
+        },
+    )
+
+
+@app.get("/telbot/app.js")
+def telbot_ui_script():
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    return FileResponse(
+        Path(__file__).resolve().parent / "web" / "app.js",
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@app.get("/telbot/style.css")
+def telbot_ui_style():
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    return FileResponse(
+        Path(__file__).resolve().parent / "web" / "style.css",
+        media_type="text/css",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 @app.get("/live")
