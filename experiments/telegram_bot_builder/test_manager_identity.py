@@ -26,7 +26,7 @@ class ManagerIdentityTests(unittest.TestCase):
         with patch.dict(os.environ,{"TELBOT_ENV":"uat","TELBOT_MANAGER_TOKEN":TOKEN},clear=True):
             with patch("experiments.telegram_bot_builder.manual_onboarding.validate_botfather_token",
                        new_callable=AsyncMock) as api:
-                api.return_value={"telegram_bot_id":999,"username":"MhnPdr_bot","display_name":"Manager"}
+                api.return_value={"telegram_bot_id":999,"username":"DirectPilotManagerBot","display_name":"Manager"}
                 first=self.client.get("/api/v1/uat/manager-identity")
                 second=self.client.get("/api/v1/uat/manager-identity")
                 self.assertEqual(first.json(),{"status":"match"})

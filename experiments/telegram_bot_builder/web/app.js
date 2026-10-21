@@ -80,10 +80,10 @@
       if (response.ok) {
         const result = await response.json();
         if (result.status === "mismatch") {
-          return "تنظیم ربات مدیریتی روی سرور با @MhnPdr_bot یکسان نیست. این خطا باید در تنظیمات UAT اصلاح شود.";
+          return "تنظیم ربات مدیریتی روی سرور با @DirectPilotManagerBot یکسان نیست. این خطا باید در تنظیمات UAT اصلاح شود.";
         }
         if (result.status === "match") {
-          return "ربات مدیریتی سرور درست است، اما نشست معتبر نیست. پنل را از دکمه Open TelBot داخل چت @MhnPdr_bot دوباره باز کن.";
+          return "ربات مدیریتی سرور درست است، اما نشست معتبر نیست. پنل را از دکمه Open TelBot داخل چت @DirectPilotManagerBot دوباره باز کن.";
         }
         if (result.status === "unavailable" || result.status === "missing") {
           return "هویت ربات مدیریتی UAT قابل تأیید نیست. تنظیم توکن سرور نیاز به بررسی دارد.";
