@@ -390,7 +390,7 @@ async def manager_identity_diagnostic() -> dict[str, str]:
         from manager_identity import manager_identity_status
     return await manager_identity_status(
         token=os.getenv("TELBOT_MANAGER_TOKEN", ""),
-        expected_username="MhnPdr_bot",
+        expected_username="DirectPilotManagerBot",
     )
 
 
