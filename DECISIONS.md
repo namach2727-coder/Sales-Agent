@@ -1,6 +1,16 @@
 > **DIRECTPILOT — MANDATORY CONTINUITY AND CHANGE-LOG RULE (owner decision, 2026-10-17).**
 > This file is one of the **six mandatory handoff/release artifacts**. On every DirectPilot / DirectPilot TelBot task, the assistant must read current `AI_HANDOFF.md`, `PROJECT_ROADMAP.md`, `DECISIONS.md`, `CURRENT_STATE.md`, `NEXT_ACTIONS.md`, and `docs/releases/RELEASE_REGISTER.md` **before making changes**; reconcile against actual GitHub/Vercel/Neon state, not chat memory. **After every meaningful change**, update all five main files **and the Release Register** coherently: scope and owner approval, PR/commit, changed artifacts, UAT/Production status, automated and manual evidence, unresolved risks, next action. Keep the current summary easy to scan, preserve history (archive older detail in runbooks; do not delete evidence), and never call code-merged "deployed" or a proposed feature "active". Never publish to Production, touch live data/secrets, or switch Meta/Telegram outbound functionality without specific owner approval. This rule itself MUST remain at the very TOP of each of the six files and must be propagated in any handoff to a new chat.
 
+
+## SEO CHANGE LOG — 2026-10-22 (implementation checkpoint)
+
+- Owner authorized SEO corrections and updating project documents.
+- Frontend repository `namach2727-coder/directpilot-web`, branch `UAT`: SEO fixes committed through `bef09a563a72c3f728b02842252a5f9b1728f4af` (`content/blog.ts`, `app/sitemap.ts`, `app/blog/[slug]/page.tsx`, `app/layout.tsx`, `SEO.md`).
+- Fixes: explicit article modifiedDate 2026-10-22; sitemap and Article schema use modifiedDate; FAQ extraction ends at next H2/separator; global schema now Organization/WebSite, not Instagram-only SoftwareApplication.
+- UAT Vercel build was QUEUED at last verification; **not yet verified READY or browser-tested**. Production **not changed by this task**. Do not infer deployment from GitHub commits.
+- Intentionally noindex TelBot and Web Design pages remain excluded from sitemap until approved launch.
+- Open verification: UAT READY, rendered FAQ JSON-LD, sitemap lastmod, canonical/robots and links; then targeted SEO-only Production PR and deployment. GSC connector/CrUX availability and pricing SSR require separate validation.
+
 # DirectPilot — Decisions (Current)
 
 **وضعیت as-of:** 2026-10-15. **مرجع حقیقت:** [Release Register](docs/releases/RELEASE_REGISTER.md). **منبع شواهد تاریخی بدون حذف:** [Archive Manifest](docs/runbooks/history/20261015_pre_release_register/README.md). برای تصمیم‌های انتشار، همیشه نتیجه GitHub، Vercel Alias، Neon و Render را دوباره بررسی کن.
