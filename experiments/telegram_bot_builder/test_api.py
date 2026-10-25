@@ -188,6 +188,7 @@ class ApiTests(unittest.TestCase):
                 "X-Telegram-Init-Data": signed_initdata(token="999:WRONG")
             })
             self.assertEqual(bad.status_code, 401)
+            self.assertEqual(bad.headers.get("X-TelBot-UAT-Auth-Shape"), "q0_c0_s0_u1_a1")
             self.assertEqual(bad.json(), {"detail": "invalid_signature"})
             self.assertNotIn("WRONG", bad.text)
         with patch.dict(os.environ, {"TELBOT_ENV": "production"}):
@@ -195,6 +196,7 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(result.json(), {
                 "detail": "Invalid Telegram Mini App authentication"
             })
+            self.assertNotIn("X-TelBot-UAT-Auth-Shape", result.headers)
 
     def test_different_tenant_not_readable(self):
         response = self.client.get(f"/api/v1/tenants/{TENANT_B}/bots", headers=self.headers())
