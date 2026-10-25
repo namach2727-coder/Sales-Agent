@@ -66,7 +66,7 @@ def diagnose_ed25519(raw: str, token: str) -> str:
         signature = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
         if len(signature) != 64:
             return "unavailable"
-        payload = str(int(bot_id)) + ":WebAppData\\n" + "\\n".join(
+        payload = str(int(bot_id)) + ":WebAppData\n" + "\n".join(
             f"{k}={v}" for k, v in sorted(fields.items()) if k not in ("hash", "signature")
         )
         Ed25519PublicKey.from_public_bytes(_TELEGRAM_ED25519_PROD).verify(
