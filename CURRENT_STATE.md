@@ -1,3 +1,11 @@
+> **TELBOT UAT — LOGIN ACCEPTANCE CHECKPOINT (2026-10-25, after PR #84)**
+>
+> **User-observed PASS:** `@DirectPilotManagerBot` Open TelBot launched the Mini App successfully after strict Telegram HMAC data-check-string fix (include `signature`, exclude only `hash`). Root-cause PR [#84](https://github.com/namach2727-coder/Sales-Agent/pull/84), merge `3ba23aefde7cae77e5c9df10653df53d6762c20e`, 3/3 CI PASS, Vercel TelBot UAT deployment SUCCESS. This is a real user-observed initial sign-in/UI-opening success, **not** a blanket pass for onboarding or bot management.
+>
+> **Acceptance matrix:** Mini App opens = PASS (owner observed). `GET /api/v1/me/tenants` successful from user UI = inferred from normal panel flow, not independently captured as HTTP evidence. Workspace create/retrieve = PENDING live UAT; manual child bot token validation/registration in `pending` state = PENDING live UAT; reopen with fresh Telegram auth = PENDING live UAT; tenant isolation/roles = offline tests exist, live UAT PENDING; Production = NOT PROMOTED. No DB write, token rotation, webhook activation or payment change authorized by this checkpoint.
+>
+> **Next sequence:** (1) visually validate workspace screen on mobile, (2) create workspace only with owner's explicit in-app action and verify persistence, (3) connect a dedicated child bot via manual onboarding and confirm status `pending` with no webhook/send side effects, (4) close/reopen Mini App and verify same workspace, (5) negative isolation/access checks, (6) capture acceptance evidence and update Release Register. Retain strict HMAC + auth_date and never log user initData or bot token. Historic `invalid_signature`, HTTP 500 NameError and Ed25519 diagnostics remain available in earlier dated entries.
+
 
 > **2026-10-25 / TELBOT STATUS UPDATE — current checkpoint**
 
