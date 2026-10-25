@@ -1,3 +1,21 @@
+
+> **2026-10-25 / TELBOT STATUS UPDATE — current checkpoint**
+
+## TelBot UAT — verified progress snapshot (2026-10-25)
+
+- **Scope:** isolated `feature/telegram-managed-bots-spike-20261017` / `directpilot-telbot-uat-api`; no approval or release of Instagram DirectPilot Production, no Neon schema change, no bot-token rotation.
+- **User-observed evidence:** Mini App launched via the `Open TelBot` button in `@DirectPilotManagerBot`; menu URL `https://directpilot-telbot-uat-api.vercel.app/telbot`. Identity endpoint returned `status: match` (getMe bot identity, not signed-login success).
+- **Defects and resolutions:** blank/invalid login surfaced as `invalid_signature` (PR #76/#77). PR #78 diagnostic metadata caused HTTP 500 via missing standalone fallback import `safe_initdata_shape`; Vercel ASGI traceback at Oct 25 18:03:29 established root cause, PR #80 fixed; user later confirmed original 401 returned with `q1_c0_s1_u1_a1`.
+- **Strong authentication evidence:** user-reported `Ed25519: valid` (PR #81); Telegram data is authentically signed for configured manager bot ID, but bot-token HMAC still fails. This does **not** authorize login. `chat_instance` absence in `q1_c0_s1_u1_a1` is not itself failure.
+- **PR lineage (TelBot isolated branch, no Instagram Production promotion):** #76 `aa7f5139` safe auth error categories; #77 `da094da4` preserve signature detail; #78 `bb9c0ed8` safe envelope shape; #79 `53f80cbd` HTTP categorization; #80 `5cfb8f3c` Vercel fallback import hotfix; #81 `a22a1e86` independent Ed25519 diagnosis; #82 `7cf35fe3` safe HMAC mismatch categorization. All associated PR CI gates observed PASS before merging each.
+- **PR #82 release status as checked:** 3/3 GitHub Actions PASS; merged to isolated TelBot branch at `7cf35fe37f5e5cb1775d145b5c8de32eb68f6438`; Vercel `directpilot-telbot-uat-api` status **PENDING** at documentation time: https://vercel.com/mohcenp-9857s-projects/directpilot-telbot-uat-api/3fYUjWZ3Loen3dtTVPEBtxTZYhNb . Do not claim UAT READY, auth PASS, or PROD deployed from CI/merge alone.
+- **Next gates:** verify this exact SHA is READY on TelBot UAT domain; user launches fresh Mini App and supplies safe HMAC category (`token_whitespace`, `signature_field_included`, `key_or_payload_mismatch`, or `unavailable`). Then identify real bot-token revision vs HMAC input divergence; correct cause without bypassing HMAC. Require protected `/api/v1/me/tenants` HTTP 200, session/navigation and tenant flow PASS before further rollout.
+- **Risks:** Vercel connector runtime logs and project details returned 403/404 despite visible GitHub-linked deployments. Owner supplied ASGI traceback; do not treat missing logs as clean. Do not expose `initData`, bot tokens, signature bytes, user IDs, or connection strings.
+
+**Cross-chat handoff:** Continue from PR #82 post-merge deployment verification, not from older diagnostic PR drafts. Preserve UAT/Production separation.
+
+---
+
 > **DIRECTPILOT — MANDATORY CONTINUITY AND CHANGE-LOG RULE (owner decision, 2026-10-17).**
 > This file is one of the **six mandatory handoff/release artifacts**. On every DirectPilot / DirectPilot TelBot task, the assistant must read current `AI_HANDOFF.md`, `PROJECT_ROADMAP.md`, `DECISIONS.md`, `CURRENT_STATE.md`, `NEXT_ACTIONS.md`, and `docs/releases/RELEASE_REGISTER.md` **before making changes**; reconcile against actual GitHub/Vercel/Neon state, not chat memory. **After every meaningful change**, update all five main files **and the Release Register** coherently: scope and owner approval, PR/commit, changed artifacts, UAT/Production status, automated and manual evidence, unresolved risks, next action. Keep the current summary easy to scan, preserve history (archive older detail in runbooks; do not delete evidence), and never call code-merged "deployed" or a proposed feature "active". Never publish to Production, touch live data/secrets, or switch Meta/Telegram outbound functionality without specific owner approval. This rule itself MUST remain at the very TOP of each of the six files and must be propagated in any handoff to a new chat.
 
