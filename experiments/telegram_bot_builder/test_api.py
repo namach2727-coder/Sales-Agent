@@ -57,6 +57,8 @@ class FakeDB:
         self.commands.append((sql, tuple(args)))
         if "SELECT pg_advisory_xact_lock" in sql:
             return Cursor(None)
+        if "SELECT t.id,t.display_name,tu.role FROM telbot.tenant_users tu" in sql:
+            return Cursor(rows=[])
         if "FROM telbot.tenant_users tu" in sql and "tu.role='owner'" in sql:
             return Cursor({"role": "owner"}) if args == (TENANT_A, 123456) else Cursor(None)
         if "INSERT INTO telbot.managed_bot_requests" in sql:
