@@ -4,6 +4,7 @@ These tests never call Telegram and never access the owner's Neon database.
 """
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import os
@@ -174,6 +175,17 @@ class ApiTests(unittest.TestCase):
 
     def headers(self, *, user_id=123456):
         return {"X-Telegram-Init-Data": signed_initdata(user_id=user_id)}
+
+    def test_standalone_vercel_imports_safe_auth_diagnostic(self):
+        """Protect the fallback import path used by /var/task/api.py on Vercel."""
+        from pathlib import Path
+        module_path = Path(__file__).with_name("api.py")
+        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+        fallback = [node for node in ast.walk(tree)
+                    if isinstance(node, ast.ImportFrom) and node.module == "auth"]
+        self.assertEqual(len(fallback), 1)
+        names = {alias.name for alias in fallback[0].names}
+        self.assertIn("safe_initdata_shape", names)
 
     def test_no_unverified_miniapp_read(self):
         result = self.client.get(f"/api/v1/tenants/{TENANT_A}/bots")
