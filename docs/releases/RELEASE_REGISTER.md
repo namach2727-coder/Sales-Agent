@@ -576,3 +576,7 @@ The service blogs now contain six posts per product (twelve total), with categor
 ### SEO promotion 2026-10-22
 
 Owner explicitly approved promotion. Frontend SEO-only PR [#47](https://github.com/namach2727-coder/directpilot-web/pull/47) merged to `main` as `ea86842c1a103eea4e7d00eef650ae70a37077a5`. Production Vercel deployment `dpl_AcFkdNAEcRW4sG4aZQ5z1J8B2WdL` created and QUEUED at verification. **PROD-PR MERGED / PROD-DEPLOY PENDING**; do not call live until READY and alias smoke checks. No unrelated UAT changes included.
+
+### SEO PR48 promotion 2026-10-25
+
+Frontend PR #48 MERGED into `main`, commit `3e263e5a208b0ab9be2ddf0cf872d2586daf4795`; production deployment `dpl_2nsyRVMpvHwT7h71T1QeAGfcZS2P` created QUEUED. UAT `45593d9` READY; isolated PR preview `2be4bad` READY. **Production runtime/alias not yet verified READY**. Public pricing SSR displays plan cards only when public API returns valid data; live cards/JSON-LD still need HTTP validation.
