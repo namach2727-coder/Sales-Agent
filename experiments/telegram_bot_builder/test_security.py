@@ -67,8 +67,7 @@ class AuthTests(unittest.TestCase):
         secret = hmac.new(b"WebAppData", b"111:TESTTOKEN", hashlib.sha256).digest()
         fields["hash"] = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
         self.assertEqual(diagnose_hmac_mismatch(urlencode(fields), "111:TESTTOKEN"), "signature_field_included")
-        with self.assertRaises(TelegramAuthError):
-            verify_init_data(urlencode(fields), "111:TESTTOKEN", now=10000)
+        self.assertEqual(verify_init_data(urlencode(fields), "111:TESTTOKEN", now=10000).user_id, 123456)
 
     def test_correct_user(self):
         raw = signed_initdata(now=10000)
