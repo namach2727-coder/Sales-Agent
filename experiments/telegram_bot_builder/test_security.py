@@ -6,7 +6,7 @@ import time
 import unittest
 from urllib.parse import urlencode
 
-from experiments.telegram_bot_builder.auth import TelegramAuthError, verify_init_data
+from experiments.telegram_bot_builder.auth import TelegramAuthError, verify_init_data, safe_initdata_shape
 
 
 def signed_initdata(token="111:TESTTOKEN", *, user_id=123456, now=None,
@@ -25,6 +25,15 @@ def signed_initdata(token="111:TESTTOKEN", *, user_id=123456, now=None,
 
 
 class AuthTests(unittest.TestCase):
+    def test_safe_envelope_shape_never_exposes_values(self):
+        raw = signed_initdata(token="111:TESTTOKEN", now=10000, signature=True)
+        result = safe_initdata_shape(raw)
+        self.assertEqual(result, "q0_c0_s1_u1_a1")
+        self.assertNotIn("TESTTOKEN", result)
+        self.assertNotIn("123456", result)
+        self.assertEqual(safe_initdata_shape(""), "absent_or_oversize")
+        self.assertEqual(safe_initdata_shape("user=a&user=b"), "duplicate_fields")
+
     def test_correct_user(self):
         raw = signed_initdata(now=10000)
         self.assertEqual(verify_init_data(raw, "111:TESTTOKEN", now=10000).user_id, 123456)

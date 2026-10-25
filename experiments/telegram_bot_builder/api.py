@@ -20,7 +20,7 @@ import psycopg
 from psycopg.rows import dict_row
 
 try:
-    from experiments.telegram_bot_builder.auth import TelegramAuthError, TelegramPrincipal, verify_init_data
+    from experiments.telegram_bot_builder.auth import TelegramAuthError, TelegramPrincipal, verify_init_data, safe_initdata_shape
     from experiments.telegram_bot_builder.core import (check_webhook_secret, build_managed_bot_request_keyboard,
         parse_managed_bot_created)
 except ModuleNotFoundError:
@@ -102,7 +102,8 @@ def authenticate(
     except TelegramAuthError as exc:
         # Detailed categories are UAT-only and contain no user data or secret material.
         detail = str(exc) if os.getenv("TELBOT_ENV") == "uat" else "Invalid Telegram Mini App authentication"
-        raise HTTPException(status_code=401, detail=detail) from None
+        headers = {"X-TelBot-UAT-Auth-Shape": safe_initdata_shape(init_data or "")} if os.getenv("TELBOT_ENV") == "uat" else None
+        raise HTTPException(status_code=401, detail=detail, headers=headers) from None
 
 
 Principal = Annotated[TelegramPrincipal, Depends(authenticate)]
