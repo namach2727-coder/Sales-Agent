@@ -43,6 +43,11 @@
       "telegram_unavailable": "ارتباط با تلگرام موقتاً برقرار نشد.",
       "Bot already connected": "این ربات قبلاً به یک حساب متصل شده است.",
       "Invalid Telegram Mini App authentication": "نشست تلگرام معتبر نیست؛ Mini App را دوباره باز کن.",
+      "missing_init_data": "اطلاعات ورود تلگرام ارسال نشده است. پنل را از دکمه Mini App ربات مدیریتی باز کن.",
+      "malformed_init_data": "ساختار اطلاعات ورود تلگرام معتبر نیست. Mini App را ببند و دوباره باز کن.",
+      "invalid_signature": "امضای نشست با ربات مدیریتی سرور مطابقت ندارد. تنظیمات ربات و دکمه Mini App باید بررسی شوند.",
+      "malformed_account": "شناسه حساب تلگرام در نشست معتبر نیست. Mini App را دوباره باز کن.",
+      "expired_auth_date": "اعتبار نشست تلگرام به پایان رسیده است. پنل را از داخل تلگرام دوباره باز کن.",
       "Tenant membership required": "به این حساب دسترسی نداری.",
     };
     return map[code] || "درخواست انجام نشد. برای ادامه Mini App را دوباره باز کن.";
@@ -70,7 +75,7 @@
     } catch(error) { root.textContent = publicError(error); }
   }
   async function describeAuthFailure(error) {
-    if (!error || error.message !== "Invalid Telegram Mini App authentication") {
+    if (!error || !["Invalid Telegram Mini App authentication", "invalid_signature"].includes(error.message)) {
       return publicError(error);
     }
     try {
