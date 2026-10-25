@@ -179,6 +179,23 @@ class ApiTests(unittest.TestCase):
         result = self.client.get(f"/api/v1/tenants/{TENANT_A}/bots")
         self.assertEqual(result.status_code, 401)
 
+    def test_unauthorized_reason_is_safe_and_uat_only(self):
+        with patch.dict(os.environ, {"TELBOT_ENV": "uat"}):
+            missing = self.client.get("/api/v1/me/tenants")
+            self.assertEqual(missing.status_code, 401)
+            self.assertEqual(missing.json(), {"detail": "missing_init_data"})
+            bad = self.client.get("/api/v1/me/tenants", headers={
+                "X-Telegram-Init-Data": signed_initdata(token="999:WRONG")
+            })
+            self.assertEqual(bad.status_code, 401)
+            self.assertEqual(bad.json(), {"detail": "invalid_signature"})
+            self.assertNotIn("WRONG", bad.text)
+        with patch.dict(os.environ, {"TELBOT_ENV": "production"}):
+            result = self.client.get("/api/v1/me/tenants")
+            self.assertEqual(result.json(), {
+                "detail": "Invalid Telegram Mini App authentication"
+            })
+
     def test_different_tenant_not_readable(self):
         response = self.client.get(f"/api/v1/tenants/{TENANT_B}/bots", headers=self.headers())
         self.assertEqual(response.status_code, 403)

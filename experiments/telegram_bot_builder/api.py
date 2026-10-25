@@ -100,7 +100,9 @@ def authenticate(
     try:
         return verify_init_data(init_data or "", manager_token)
     except TelegramAuthError as exc:
-        raise HTTPException(status_code=401, detail="Invalid Telegram Mini App authentication") from exc
+        # Detailed categories are UAT-only and contain no user data or secret material.
+        detail = str(exc) if os.getenv("TELBOT_ENV") == "uat" else "Invalid Telegram Mini App authentication"
+        raise HTTPException(status_code=401, detail=detail) from None
 
 
 Principal = Annotated[TelegramPrincipal, Depends(authenticate)]
