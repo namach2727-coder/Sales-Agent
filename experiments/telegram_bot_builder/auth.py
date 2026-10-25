@@ -122,9 +122,9 @@ def verify_init_data(raw_init_data: str, bot_token: str, *, now: int | None = No
     received_hash = fields.get("hash", "")
     if len(received_hash) != 64 or any(c not in "0123456789abcdefABCDEF" for c in received_hash):
         raise TelegramAuthError("malformed_init_data")
-    # Telegram hash verification uses fields other than hash. The optional 'signature'
-    # is used for third-party Ed25519 verification, not bot-token HMAC.
-    check = "\n".join(f"{k}={v}" for k, v in sorted(fields.items()) if k not in {"hash", "signature"})
+    # Telegram bot-token HMAC includes every received field except hash,
+    # including the newer third-party Ed25519 signature field.
+    check = "\n".join(f"{k}={v}" for k, v in sorted(fields.items()) if k != "hash")
     secret = hmac.new(b"WebAppData", bot_token.encode("utf-8"), hashlib.sha256).digest()
     expected = hmac.new(secret, check.encode("utf-8"), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(received_hash.lower(), expected):
