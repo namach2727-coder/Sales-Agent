@@ -25,7 +25,7 @@ try:
         parse_managed_bot_created)
 except ModuleNotFoundError:
     # Standalone Vercel UAT packaging keeps these source files in the same root.
-    from auth import TelegramAuthError, TelegramPrincipal, verify_init_data
+    from auth import TelegramAuthError, TelegramPrincipal, verify_init_data, safe_initdata_shape
     from core import (check_webhook_secret, build_managed_bot_request_keyboard,
         parse_managed_bot_created)
 
