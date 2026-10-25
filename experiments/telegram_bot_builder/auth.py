@@ -3,6 +3,7 @@
 Official protocol: https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
 """
 from __future__ import annotations
+import base64
 import hashlib
 import hmac
 import json
@@ -41,6 +42,41 @@ def safe_initdata_shape(raw_init_data: str) -> str:
         ("query_id", "chat_instance", "signature", "user", "auth_date")
     )
 
+
+
+_TELEGRAM_ED25519_PROD = bytes.fromhex(
+    "e7bf03a2fa4602af4580703d88dda5bb59f32ed8b02a56c187fe7d34caed242d"
+)
+
+def diagnose_ed25519(raw: str, token: str) -> str:
+    """Diagnostics only; never grants access and never exposes values."""
+    if not raw or len(raw) > 8192:
+        return "unavailable"
+    try:
+        from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+        bot_id = token.split(":", 1)[0]
+        if not bot_id.isascii() or not bot_id.isdecimal():
+            return "unavailable"
+        pairs = parse_qsl(raw, strict_parsing=True, keep_blank_values=True, max_num_fields=64)
+        fields = dict(pairs)
+        if len(fields) != len(pairs):
+            return "unavailable"
+        encoded = fields.get("signature", "")
+        signature = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+        if len(signature) != 64:
+            return "unavailable"
+        payload = str(int(bot_id)) + ":WebAppData\n" + "\n".join(
+            f"{k}={v}" for k, v in sorted(fields.items()) if k not in ("hash", "signature")
+        )
+        Ed25519PublicKey.from_public_bytes(_TELEGRAM_ED25519_PROD).verify(
+            signature, payload.encode("utf-8")
+        )
+        return "valid"
+    except InvalidSignature:
+        return "invalid"
+    except (ValueError, TypeError, UnicodeError):
+        return "unavailable"
 
 def verify_init_data(raw_init_data: str, bot_token: str, *, now: int | None = None,
                      max_age_seconds: int = 3600) -> TelegramPrincipal:

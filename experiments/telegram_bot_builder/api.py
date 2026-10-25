@@ -20,12 +20,12 @@ import psycopg
 from psycopg.rows import dict_row
 
 try:
-    from experiments.telegram_bot_builder.auth import TelegramAuthError, TelegramPrincipal, verify_init_data, safe_initdata_shape
+    from experiments.telegram_bot_builder.auth import TelegramAuthError, TelegramPrincipal, verify_init_data, safe_initdata_shape, diagnose_ed25519
     from experiments.telegram_bot_builder.core import (check_webhook_secret, build_managed_bot_request_keyboard,
         parse_managed_bot_created)
 except ModuleNotFoundError:
     # Standalone Vercel UAT packaging keeps these source files in the same root.
-    from auth import TelegramAuthError, TelegramPrincipal, verify_init_data, safe_initdata_shape
+    from auth import TelegramAuthError, TelegramPrincipal, verify_init_data, safe_initdata_shape, diagnose_ed25519
     from core import (check_webhook_secret, build_managed_bot_request_keyboard,
         parse_managed_bot_created)
 
@@ -102,7 +102,11 @@ def authenticate(
     except TelegramAuthError as exc:
         # Detailed categories are UAT-only and contain no user data or secret material.
         detail = str(exc) if os.getenv("TELBOT_ENV") == "uat" else "Invalid Telegram Mini App authentication"
-        headers = {"X-TelBot-UAT-Auth-Shape": safe_initdata_shape(init_data or "")} if os.getenv("TELBOT_ENV") == "uat" else None
+        headers = None
+        if os.getenv("TELBOT_ENV") == "uat":
+            headers = {"X-TelBot-UAT-Auth-Shape": safe_initdata_shape(init_data or "")}
+            if str(exc) == "invalid_signature":
+                headers["X-TelBot-UAT-Ed25519"] = diagnose_ed25519(init_data or "", manager_token)
         raise HTTPException(status_code=401, detail=detail, headers=headers) from None
 
 

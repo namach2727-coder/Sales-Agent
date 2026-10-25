@@ -31,6 +31,7 @@
         const error = new Error(detail);
         error.httpStatus = response.status;
         error.authShape = response.headers.get("X-TelBot-UAT-Auth-Shape") || "";
+        error.ed25519 = response.headers.get("X-TelBot-UAT-Ed25519") || "";
         throw error;
       }
       return payload;
@@ -55,7 +56,10 @@
     };
     const description = map[code] || "درخواست انجام نشد. برای ادامه Mini App را دوباره باز کن.";
     const shape = error && typeof error.authShape === "string" && /^q[01]_c[01]_s[01]_u[01]_a[01]$/.test(error.authShape) ? error.authShape : "";
-    if (shape && code === "invalid_signature") return description + " (کد تشخیصی: " + shape + ")";
+    if (shape && code === "invalid_signature") {
+      const check = error && ["valid", "invalid", "unavailable"].includes(error.ed25519) ? error.ed25519 : "unavailable";
+      return description + " (کد تشخیصی: " + shape + " | Ed25519: " + check + ")";
+    }
     if (!Object.prototype.hasOwnProperty.call(map, code)) {
       const status = error && Number.isInteger(error.httpStatus) && error.httpStatus >= 400 && error.httpStatus <= 599 ? error.httpStatus : 0;
       return description + (status ? " (HTTP " + status + ")" : " (خطای ارتباط با API)");
