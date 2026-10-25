@@ -14,13 +14,13 @@ def signed_initdata(token="111:TESTTOKEN", *, user_id=123456, now=None,
                     tamper=False, stale=0, duplicate=False, signature=False):
     now = int(time.time()) if now is None else now
     fields = {"auth_date": str(now - stale), "user": json.dumps({"id": user_id}, separators=(",", ":"))}
+    if signature:
+        fields["signature"] = "third-party-field"
     check = "\n".join(f"{k}={v}" for k, v in sorted(fields.items()))
     key = hmac.new(b"WebAppData", token.encode(), hashlib.sha256).digest()
     fields["hash"] = hmac.new(key, check.encode(), hashlib.sha256).hexdigest()
     if tamper:
         fields["user"] = json.dumps({"id": user_id + 5})
-    if signature:
-        fields["signature"] = "third-party-field"
     raw = urlencode(fields)
     return raw + ("&user=%7B%7D" if duplicate else "")
 
@@ -67,8 +67,7 @@ class AuthTests(unittest.TestCase):
         secret = hmac.new(b"WebAppData", b"111:TESTTOKEN", hashlib.sha256).digest()
         fields["hash"] = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
         self.assertEqual(diagnose_hmac_mismatch(urlencode(fields), "111:TESTTOKEN"), "signature_field_included")
-        with self.assertRaises(TelegramAuthError):
-            verify_init_data(urlencode(fields), "111:TESTTOKEN", now=10000)
+        self.assertEqual(verify_init_data(urlencode(fields), "111:TESTTOKEN", now=10000).user_id, 123456)
 
     def test_correct_user(self):
         raw = signed_initdata(now=10000)
@@ -93,9 +92,16 @@ class AuthTests(unittest.TestCase):
         with self.assertRaises(TelegramAuthError):
             verify_init_data(signed_initdata(), "")
 
-    def test_signature_field_ignored_for_hmac(self):
+    def test_signature_field_included_for_hmac(self):
         self.assertEqual(verify_init_data(signed_initdata(now=10000, signature=True),
                                           "111:TESTTOKEN", now=10000).user_id, 123456)
+
+    def test_reject_signed_data_if_signature_field_modified(self):
+        raw = signed_initdata(now=10000, signature=True)
+        altered = raw.replace("third-party-field", "tampered-field")
+        with self.assertRaises(TelegramAuthError) as ctx:
+            verify_init_data(altered, "111:TESTTOKEN", now=10000)
+        self.assertEqual(str(ctx.exception), "invalid_signature")
 
     def test_safe_auth_failure_categories(self):
         cases = [

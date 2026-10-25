@@ -57,6 +57,8 @@ class FakeDB:
         self.commands.append((sql, tuple(args)))
         if "SELECT pg_advisory_xact_lock" in sql:
             return Cursor(None)
+        if "SELECT t.id,t.display_name,tu.role FROM telbot.tenant_users tu" in sql:
+            return Cursor(rows=[])
         if "FROM telbot.tenant_users tu" in sql and "tu.role='owner'" in sql:
             return Cursor({"role": "owner"}) if args == (TENANT_A, 123456) else Cursor(None)
         if "INSERT INTO telbot.managed_bot_requests" in sql:
@@ -190,6 +192,14 @@ class ApiTests(unittest.TestCase):
     def test_no_unverified_miniapp_read(self):
         result = self.client.get(f"/api/v1/tenants/{TENANT_A}/bots")
         self.assertEqual(result.status_code, 401)
+
+    def test_signed_miniapp_with_ed25519_field_is_authorized(self):
+        with patch.dict(os.environ, {"TELBOT_ENV": "uat"}):
+            response = self.client.get("/api/v1/me/tenants", headers={
+                "X-Telegram-Init-Data": signed_initdata(signature=True)
+            })
+            self.assertEqual(response.status_code, 200)
+            self.assertIsInstance(response.json(), list)
 
     def test_unauthorized_reason_is_safe_and_uat_only(self):
         with patch.dict(os.environ, {"TELBOT_ENV": "uat"}):
