@@ -5,10 +5,8 @@
   const telegramHelp = document.getElementById("telegram-help");
   const tenantPanel = document.getElementById("create-tenant");
   const workspace = document.getElementById("workspace");
-  const botForm = document.getElementById("bot-form");
   const tenantForm = document.getElementById("tenant-form");
   const managedForm = document.getElementById("managed-bot-form");
-  const tokenField = document.getElementById("bot-token");
   const telegram = window.Telegram && window.Telegram.WebApp;
   const initData = telegram && telegram.initData ? telegram.initData : "";
   let activeTenant = null;
@@ -176,7 +174,9 @@
       setNotice("درخواست ایجاد شد؛ ساخت ربات را در صفحه رسمی تلگرام تأیید کن.", "success");
       // The official Telegram flow requires an explicit action by the owner.
       // No BotFather API token is requested, transmitted, or stored in the browser.
-      window.open(url.href, "_blank", "noopener,noreferrer");
+      const link = document.getElementById("managed-bot-link");
+      link.href = url.href;
+      link.classList.remove("hidden");
     } catch(error) {
       if (error.message === "Pending bot request already exists") {
         setNotice("یک درخواست ساخت ربات در انتظار تأیید داری. برای درخواست جدید، پس از انقضای قبلی اقدام کن.", "error");
@@ -184,25 +184,6 @@
         setNotice(publicError(error), "error");
       }
     } finally { button.disabled = false; }
-  });
-  botForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    if (!activeTenant) return;
-    const button = botForm.querySelector("button");
-    // Clear the input before the request; never persist the bearer credential.
-    const token = tokenField.value;
-    tokenField.value = "";
-    button.disabled = true;
-    setNotice("در حال اعتبارسنجی ربات و رمزگذاری توکن…");
-    try {
-      const bot = await api("/api/v1/tenants/" + activeTenant.id + "/bots/connect-manual", {
-        method:"POST", headers: {"Content-Type":"application/json"},
-        body:JSON.stringify({bot_token:token}),
-      });
-      setNotice("ربات @" + bot.username + " با موفقیت به‌صورت در انتظار فعال‌سازی ثبت شد.", "success");
-      await listBots();
-    } catch(error) { setNotice(publicError(error), "error"); }
-    finally { button.disabled = false; }
   });
   initialize();
 })();
