@@ -75,7 +75,7 @@
     } catch(error) { root.textContent = publicError(error); }
   }
   async function describeAuthFailure(error) {
-    if (!error || !["Invalid Telegram Mini App authentication", "invalid_signature"].includes(error.message)) {
+    if (!error || error.message !== "Invalid Telegram Mini App authentication") {
       return publicError(error);
     }
     try {
