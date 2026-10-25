@@ -21,6 +21,27 @@ class TelegramPrincipal:
     auth_date: int
 
 
+
+def safe_initdata_shape(raw_init_data: str) -> str:
+    """UAT-only coarse shape. Never return field values, hashes, IDs or timestamps."""
+    if not raw_init_data or len(raw_init_data) > 8192:
+        return "absent_or_oversize"
+    try:
+        items = parse_qsl(raw_init_data, strict_parsing=True, keep_blank_values=True,
+                          max_num_fields=64)
+    except ValueError:
+        return "invalid_encoding"
+    keys = [key for key, _ in items]
+    if len(keys) != len(set(keys)):
+        return "duplicate_fields"
+    present = set(keys)
+    # Explicitly allowlist indicators; no attacker-controlled strings in the result.
+    return "q%d_c%d_s%d_u%d_a%d" % tuple(
+        int(key in present) for key in
+        ("query_id", "chat_instance", "signature", "user", "auth_date")
+    )
+
+
 def verify_init_data(raw_init_data: str, bot_token: str, *, now: int | None = None,
                      max_age_seconds: int = 3600) -> TelegramPrincipal:
     if not bot_token or not raw_init_data or len(raw_init_data) > 8192:
