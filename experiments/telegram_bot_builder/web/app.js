@@ -29,6 +29,7 @@
       if (!response.ok) {
         const detail = payload && typeof payload.detail === "string" ? payload.detail : "request_failed";
         const error = new Error(detail);
+        error.httpStatus = response.status;
         error.authShape = response.headers.get("X-TelBot-UAT-Auth-Shape") || "";
         throw error;
       }
@@ -54,7 +55,12 @@
     };
     const description = map[code] || "درخواست انجام نشد. برای ادامه Mini App را دوباره باز کن.";
     const shape = error && typeof error.authShape === "string" && /^q[01]_c[01]_s[01]_u[01]_a[01]$/.test(error.authShape) ? error.authShape : "";
-    return shape && code === "invalid_signature" ? description + " (کد تشخیصی: " + shape + ")" : description;
+    if (shape && code === "invalid_signature") return description + " (کد تشخیصی: " + shape + ")";
+    if (!Object.prototype.hasOwnProperty.call(map, code)) {
+      const status = error && Number.isInteger(error.httpStatus) && error.httpStatus >= 400 && error.httpStatus <= 599 ? error.httpStatus : 0;
+      return description + (status ? " (HTTP " + status + ")" : " (خطای ارتباط با API)");
+    }
+    return description;
   }
   async function listBots() {
     const root = document.getElementById("bots-list");
