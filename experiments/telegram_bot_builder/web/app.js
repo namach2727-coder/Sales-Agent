@@ -28,7 +28,9 @@
       try { payload = await response.json(); } catch (_) { /* generic response */ }
       if (!response.ok) {
         const detail = payload && typeof payload.detail === "string" ? payload.detail : "request_failed";
-        throw new Error(detail);
+        const error = new Error(detail);
+        error.authShape = response.headers.get("X-TelBot-UAT-Auth-Shape") || "";
+        throw error;
       }
       return payload;
     });
@@ -50,7 +52,9 @@
       "expired_auth_date": "اعتبار نشست تلگرام به پایان رسیده است. پنل را از داخل تلگرام دوباره باز کن.",
       "Tenant membership required": "به این حساب دسترسی نداری.",
     };
-    return map[code] || "درخواست انجام نشد. برای ادامه Mini App را دوباره باز کن.";
+    const description = map[code] || "درخواست انجام نشد. برای ادامه Mini App را دوباره باز کن.";
+    const shape = error && typeof error.authShape === "string" && /^q[01]_c[01]_s[01]_u[01]_a[01]$/.test(error.authShape) ? error.authShape : "";
+    return shape && code === "invalid_signature" ? description + " (کد تشخیصی: " + shape + ")" : description;
   }
   async function listBots() {
     const root = document.getElementById("bots-list");
