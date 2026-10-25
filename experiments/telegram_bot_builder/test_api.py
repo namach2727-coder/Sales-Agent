@@ -191,6 +191,14 @@ class ApiTests(unittest.TestCase):
         result = self.client.get(f"/api/v1/tenants/{TENANT_A}/bots")
         self.assertEqual(result.status_code, 401)
 
+    def test_signed_miniapp_with_ed25519_field_is_authorized(self):
+        with patch.dict(os.environ, {"TELBOT_ENV": "uat"}):
+            response = self.client.get("/api/v1/me/tenants", headers={
+                "X-Telegram-Init-Data": signed_initdata(signature=True)
+            })
+            self.assertEqual(response.status_code, 200)
+            self.assertIsInstance(response.json(), list)
+
     def test_unauthorized_reason_is_safe_and_uat_only(self):
         with patch.dict(os.environ, {"TELBOT_ENV": "uat"}):
             missing = self.client.get("/api/v1/me/tenants")
