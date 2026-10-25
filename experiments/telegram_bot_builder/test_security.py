@@ -1,4 +1,5 @@
 """Offline cryptographic test fixtures; synthetic IDs and secrets only."""
+import base64
 import hashlib
 import hmac
 import json
@@ -6,7 +7,7 @@ import time
 import unittest
 from urllib.parse import urlencode
 
-from experiments.telegram_bot_builder.auth import TelegramAuthError, verify_init_data, safe_initdata_shape
+from experiments.telegram_bot_builder.auth import TelegramAuthError, verify_init_data, safe_initdata_shape, diagnose_ed25519
 
 
 def signed_initdata(token="111:TESTTOKEN", *, user_id=123456, now=None,
@@ -33,6 +34,28 @@ class AuthTests(unittest.TestCase):
         self.assertNotIn("123456", result)
         self.assertEqual(safe_initdata_shape(""), "absent_or_oversize")
         self.assertEqual(safe_initdata_shape("user=a&user=b"), "duplicate_fields")
+
+    def test_ed25519_diagnostic_with_synthetic_key(self):
+        from unittest.mock import patch
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from cryptography.hazmat.primitives import serialization
+        private_key = Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
+        public_key = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw
+        )
+        fields = {"auth_date": "10000", "user": '{"id":123456}', "query_id": "test"}
+        message = "111:WebAppData" + chr(10) + chr(10).join(
+            f"{k}={v}" for k, v in sorted(fields.items())
+        )
+        fields["signature"] = base64.urlsafe_b64encode(
+            private_key.sign(message.encode("utf-8"))
+        ).decode().rstrip("=")
+        raw = urlencode(fields)
+        with patch("experiments.telegram_bot_builder.auth._TELEGRAM_ED25519_PROD", public_key):
+            self.assertEqual(diagnose_ed25519(raw, "111:TESTTOKEN"), "valid")
+            self.assertEqual(diagnose_ed25519(raw, "222:OTHER"), "invalid")
+            self.assertEqual(diagnose_ed25519("", "111:TESTTOKEN"), "unavailable")
 
     def test_correct_user(self):
         raw = signed_initdata(now=10000)
