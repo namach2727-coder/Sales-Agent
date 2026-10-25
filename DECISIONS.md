@@ -11,6 +11,14 @@
 - Intentionally noindex TelBot and Web Design pages remain excluded from sitemap until approved launch.
 - Open verification: UAT READY, rendered FAQ JSON-LD, sitemap lastmod, canonical/robots and links; then targeted SEO-only Production PR and deployment. GSC connector/CrUX availability and pricing SSR require separate validation.
 
+
+## SEO 2026-10-25 — UAT READY, production promotion tracked
+
+- Owner authorized implementation on UAT and Production. Frontend UAT commit `45593d977c5f2cb516b3b94bdf46a81b5755d386` Vercel `dpl_Ex2BTr4fKwJti8K9R7nLZQbSym5H` READY on `uat.directpilot.ir`.
+- Scope: optional SSR public pricing summary sourced from `/api/v1/plans` (300-second revalidation, timeout and validation, no hardcoded price, checkout unchanged); FAQ parser restricted to named FAQ section; article visible modifiedDate; `SEO.md` updated.
+- Production isolated PR [#48](https://github.com/namach2727-coder/directpilot-web/pull/48), branch `release/seo-pricing-faq-20261025` head `2be4bad86c2b07f9d245e1039b00f664a48f5885`. At checkpoint PR OPEN; no Production merge/deploy verified yet. Do not mark live until deployment READY and aliases checked.
+- Remaining: verify actual SSR plan cards from environment backend and live structured data; GSC/CrUX, robots/sitemap, redirect crawl and stale free-plan Google snippets.
+
 # DirectPilot — Decisions (Current)
 
 **وضعیت as-of:** 2026-10-15. **مرجع حقیقت:** [Release Register](docs/releases/RELEASE_REGISTER.md). **منبع شواهد تاریخی بدون حذف:** [Archive Manifest](docs/runbooks/history/20261015_pre_release_register/README.md). برای تصمیم‌های انتشار، همیشه نتیجه GitHub، Vercel Alias، Neon و Render را دوباره بررسی کن.
