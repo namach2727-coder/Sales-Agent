@@ -20,12 +20,12 @@ import psycopg
 from psycopg.rows import dict_row
 
 try:
-    from experiments.telegram_bot_builder.auth import TelegramAuthError, TelegramPrincipal, verify_init_data, safe_initdata_shape, diagnose_ed25519
+    from experiments.telegram_bot_builder.auth import TelegramAuthError, TelegramPrincipal, verify_init_data, safe_initdata_shape, diagnose_ed25519, diagnose_hmac_mismatch
     from experiments.telegram_bot_builder.core import (check_webhook_secret, build_managed_bot_request_keyboard,
         parse_managed_bot_created)
 except ModuleNotFoundError:
     # Standalone Vercel UAT packaging keeps these source files in the same root.
-    from auth import TelegramAuthError, TelegramPrincipal, verify_init_data, safe_initdata_shape, diagnose_ed25519
+    from auth import TelegramAuthError, TelegramPrincipal, verify_init_data, safe_initdata_shape, diagnose_ed25519, diagnose_hmac_mismatch
     from core import (check_webhook_secret, build_managed_bot_request_keyboard,
         parse_managed_bot_created)
 
@@ -107,6 +107,7 @@ def authenticate(
             headers = {"X-TelBot-UAT-Auth-Shape": safe_initdata_shape(init_data or "")}
             if str(exc) == "invalid_signature":
                 headers["X-TelBot-UAT-Ed25519"] = diagnose_ed25519(init_data or "", manager_token)
+                headers["X-TelBot-UAT-HMAC-Diag"] = diagnose_hmac_mismatch(init_data or "", manager_token)
         raise HTTPException(status_code=401, detail=detail, headers=headers) from None
 
 

@@ -7,7 +7,7 @@ import time
 import unittest
 from urllib.parse import urlencode
 
-from experiments.telegram_bot_builder.auth import TelegramAuthError, verify_init_data, safe_initdata_shape, diagnose_ed25519
+from experiments.telegram_bot_builder.auth import TelegramAuthError, verify_init_data, safe_initdata_shape, diagnose_ed25519, diagnose_hmac_mismatch
 
 
 def signed_initdata(token="111:TESTTOKEN", *, user_id=123456, now=None,
@@ -56,6 +56,19 @@ class AuthTests(unittest.TestCase):
             self.assertEqual(diagnose_ed25519(raw, "111:TESTTOKEN"), "valid")
             self.assertEqual(diagnose_ed25519(raw, "222:OTHER"), "invalid")
             self.assertEqual(diagnose_ed25519("", "111:TESTTOKEN"), "unavailable")
+
+    def test_hmac_mismatch_diagnostics_are_non_authorizing(self):
+        raw = signed_initdata(token="111:TESTTOKEN", now=10000, signature=True)
+        self.assertEqual(diagnose_hmac_mismatch(raw, "999:WRONG"), "key_or_payload_mismatch")
+        self.assertEqual(diagnose_hmac_mismatch(raw, "999:WRONG "), "token_whitespace")
+        self.assertEqual(diagnose_hmac_mismatch("", "111:TESTTOKEN"), "unavailable")
+        fields = {"auth_date": "10000", "user": '{"id":123456}', "signature": "synthetic"}
+        check = chr(10).join(f"{k}={v}" for k, v in sorted(fields.items()))
+        secret = hmac.new(b"WebAppData", b"111:TESTTOKEN", hashlib.sha256).digest()
+        fields["hash"] = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
+        self.assertEqual(diagnose_hmac_mismatch(urlencode(fields), "111:TESTTOKEN"), "signature_field_included")
+        with self.assertRaises(TelegramAuthError):
+            verify_init_data(urlencode(fields), "111:TESTTOKEN", now=10000)
 
     def test_correct_user(self):
         raw = signed_initdata(now=10000)

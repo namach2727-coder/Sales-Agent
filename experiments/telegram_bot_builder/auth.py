@@ -78,6 +78,34 @@ def diagnose_ed25519(raw: str, token: str) -> str:
     except (ValueError, TypeError, UnicodeError):
         return "unavailable"
 
+
+def diagnose_hmac_mismatch(raw: str, token: str) -> str:
+    """UAT-only classifications; never used to authenticate a caller."""
+    if not token or not raw or len(raw) > 8192:
+        return "unavailable"
+    if token != token.strip():
+        return "token_whitespace"
+    try:
+        pairs = parse_qsl(raw, strict_parsing=True, keep_blank_values=True, max_num_fields=64)
+        fields = dict(pairs)
+        if len(fields) != len(pairs):
+            return "unavailable"
+        received = fields.get("hash", "")
+        if len(received) != 64 or any(c not in "0123456789abcdefABCDEF" for c in received):
+            return "unavailable"
+        secret = hmac.new(b"WebAppData", token.encode("utf-8"), hashlib.sha256).digest()
+        # Classify a common producer/consumer discrepancy without accepting it.
+        check_with_signature = chr(10).join(
+            f"{key}={value}" for key, value in sorted(fields.items()) if key != "hash"
+        )
+        alternative = hmac.new(secret, check_with_signature.encode("utf-8"), hashlib.sha256).hexdigest()
+        if hmac.compare_digest(received.lower(), alternative):
+            return "signature_field_included"
+        return "key_or_payload_mismatch"
+    except (ValueError, TypeError, UnicodeError):
+        return "unavailable"
+
+
 def verify_init_data(raw_init_data: str, bot_token: str, *, now: int | None = None,
                      max_age_seconds: int = 3600) -> TelegramPrincipal:
     if not bot_token or not raw_init_data or len(raw_init_data) > 8192:
