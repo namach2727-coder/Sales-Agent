@@ -52,6 +52,20 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(verify_init_data(signed_initdata(now=10000, signature=True),
                                           "111:TESTTOKEN", now=10000).user_id, 123456)
 
+    def test_safe_auth_failure_categories(self):
+        cases = [
+            ("", "111:TESTTOKEN", "missing_init_data", 10000),
+            (signed_initdata(now=10000), "WRONG", "invalid_signature", 10000),
+            (signed_initdata(now=10000, stale=7200), "111:TESTTOKEN", "expired_auth_date", 10000),
+            (signed_initdata(now=10000, duplicate=True), "111:TESTTOKEN", "malformed_init_data", 10000),
+        ]
+        for raw, token, reason, now in cases:
+            with self.subTest(reason=reason):
+                with self.assertRaises(TelegramAuthError) as ctx:
+                    verify_init_data(raw, token, now=now)
+                self.assertEqual(str(ctx.exception), reason)
+                self.assertNotIn("TESTTOKEN", str(ctx.exception))
+
     def test_reject_boolean_user_id(self):
         with self.assertRaises(TelegramAuthError):
             verify_init_data(signed_initdata(user_id=True), "111:TESTTOKEN")
