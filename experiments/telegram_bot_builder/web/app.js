@@ -204,5 +204,11 @@
       }
     } finally { button.disabled = false; }
   });
+  document.getElementById("refresh-bots").addEventListener("click", async () => {
+    if (activeTenant) await listBots();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && activeTenant) void listBots();
+  });
   initialize();
 })();

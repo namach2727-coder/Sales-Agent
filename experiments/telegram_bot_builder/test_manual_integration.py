@@ -98,6 +98,7 @@ class ManualIntegrationTests(unittest.TestCase):
         self.assertIn('id="managed-bot-form"', page.text)
         self.assertIn('id="managed-bot-username"', page.text)
         self.assertIn('id="managed-bot-link"', page.text)
+        self.assertIn('id="refresh-bots"', page.text)
         self.assertNotIn('id="bot-token"', page.text)
         self.assertEqual(self.client.get("/telbot/app.js").status_code, 200)
         with patch.dict(os.environ, {"TELBOT_ENV": "production"}):
