@@ -478,7 +478,9 @@ def ready(db: Db) -> dict[str, str]:
 def list_bots(tenant_id: UUID, actor: Principal, db: Db) -> list[dict[str, Any]]:
     require_member(db, tenant_id, actor)
     rows = db.execute(
-        """SELECT id, telegram_bot_id, username, display_name, status, created_at
+        """SELECT id, telegram_bot_id, username, display_name, status, created_at,
+                    (managed_request_id IS NOT NULL) AS is_managed,
+                    (credential_ciphertext IS NOT NULL) AS credential_ready
              FROM telbot.bots WHERE tenant_id=%s AND status<>'revoked'
              ORDER BY created_at DESC LIMIT 100""", (tenant_id,),
     ).fetchall()
