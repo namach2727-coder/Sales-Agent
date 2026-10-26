@@ -326,6 +326,60 @@ async def connect_manual_bot(
     return {"id": str(row["id"]), "username": row["username"], "status": "pending"}
 
 
+@app.post("/api/v1/tenants/{tenant_id}/bots/{bot_id}/prepare-managed-credential")
+async def prepare_managed_credential(
+    tenant_id: UUID, bot_id: UUID, actor: Principal, db: Db,
+) -> dict[str, str]:
+    """UAT: fetch managed token on server only; never send credential to browser."""
+    require_owner(db, tenant_id, actor)
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    try:
+        from experiments.telegram_bot_builder.vault import TokenVault, CredentialError
+        from experiments.telegram_bot_builder.managed_credentials import (
+            fetch_managed_bot_token, ManagedCredentialError,
+        )
+    except ModuleNotFoundError:
+        from vault import TokenVault, CredentialError
+        from managed_credentials import fetch_managed_bot_token, ManagedCredentialError
+    try:
+        vault = TokenVault(os.getenv("TELBOT_TOKEN_FERNET_KEY", ""))
+    except CredentialError:
+        raise HTTPException(status_code=503, detail="Bot credential encryption unavailable") from None
+    # A claimed, owner-matched bot is mandatory. No manual bots, no cross-tenant reads.
+    bot = db.execute(
+        """SELECT telegram_bot_id,credential_ciphertext FROM telbot.bots
+           WHERE id=%s AND tenant_id=%s AND owner_telegram_user_id=%s
+             AND managed_request_id IS NOT NULL AND status='pending'
+           FOR UPDATE""",
+        (bot_id, tenant_id, actor.user_id),
+    ).fetchone()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Managed bot not found")
+    if bot["credential_ciphertext"] is not None:
+        db.commit()
+        return {"status": "credential_stored"}
+    try:
+        token = await fetch_managed_bot_token(
+            os.getenv("TELBOT_MANAGER_TOKEN", ""), bot["telegram_bot_id"]
+        )
+        ciphertext = vault.encrypt(token)
+        del token
+    except ManagedCredentialError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from None
+    except CredentialError:
+        raise HTTPException(status_code=503, detail="Bot credential encryption unavailable") from None
+    db.execute(
+        """UPDATE telbot.bots SET credential_ciphertext=%s,credential_key_version=1
+           WHERE id=%s AND tenant_id=%s AND owner_telegram_user_id=%s
+             AND managed_request_id IS NOT NULL AND status='pending'
+             AND credential_ciphertext IS NULL""",
+        (ciphertext, bot_id, tenant_id, actor.user_id),
+    )
+    db.commit()
+    return {"status": "credential_stored"}
+
+
 @app.get("/api/v1/tenants/{tenant_id}/managed-bot-requests")
 def list_managed_bot_requests(
     tenant_id: UUID, actor: Principal, db: Db,
@@ -424,7 +478,9 @@ def ready(db: Db) -> dict[str, str]:
 def list_bots(tenant_id: UUID, actor: Principal, db: Db) -> list[dict[str, Any]]:
     require_member(db, tenant_id, actor)
     rows = db.execute(
-        """SELECT id, telegram_bot_id, username, display_name, status, created_at
+        """SELECT id, telegram_bot_id, username, display_name, status, created_at,
+                    (managed_request_id IS NOT NULL) AS is_managed,
+                    (credential_ciphertext IS NOT NULL) AS credential_ready
              FROM telbot.bots WHERE tenant_id=%s AND status<>'revoked'
              ORDER BY created_at DESC LIMIT 100""", (tenant_id,),
     ).fetchall()

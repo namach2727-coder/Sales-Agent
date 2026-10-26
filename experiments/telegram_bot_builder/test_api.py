@@ -114,6 +114,15 @@ class FakeDB:
             if user_id == 111222 and tenant == TENANT_A:
                 return Cursor({"role": "viewer"})
             return Cursor(None)
+        if "SELECT telegram_bot_id,credential_ciphertext FROM telbot.bots" in sql:
+            bot_id, tenant_id, user_id = args
+            if (bot_id, tenant_id, user_id) == (BOT_A, TENANT_A, 123456):
+                return Cursor({"telegram_bot_id": 123456, "credential_ciphertext": getattr(self, "managed_ciphertext", None)})
+            return Cursor(None)
+        if "UPDATE telbot.bots SET credential_ciphertext" in sql:
+            ciphertext, bot_id, tenant_id, user_id = args
+            self.managed_ciphertext = ciphertext
+            return Cursor(None)
         if "SELECT id, telegram_bot_id" in sql and "FROM telbot.bots" in sql:
             tenant = args[0]
             if tenant == TENANT_A:
@@ -255,6 +264,26 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(first.status_code, 200, first.text)
         self.assertEqual(first.json(), {"acknowledged": True, "duplicate": False})
         self.assertEqual(second.json(), {"acknowledged": True, "duplicate": True})
+
+    def test_prepare_managed_token_is_server_only_and_owner_scoped(self):
+        path = f"/api/v1/tenants/{TENANT_A}/bots/{BOT_A}/prepare-managed-credential"
+        with patch.dict(os.environ, {"TELBOT_ENV": "uat",
+                                     "TELBOT_TOKEN_FERNET_KEY": Fernet.generate_key().decode()}):
+            with patch("experiments.telegram_bot_builder.managed_credentials.fetch_managed_bot_token",
+                       return_value="123456:ABCDEFGHIJKLMNOPQRSTUVWXYZabc123456") as fetch:
+                denied = self.client.post(path, headers=self.headers(user_id=111222))
+                self.assertEqual(denied.status_code, 403)
+                self.assertEqual(fetch.call_count, 0)
+                response = self.client.post(path, headers=self.headers())
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(response.json(), {"status": "credential_stored"})
+                self.assertNotIn("ABCDEFGHIJKLMNOPQRSTUVWXYZ", response.text)
+                stored = self.db.managed_ciphertext
+                self.assertIsInstance(stored, bytes)
+                self.assertNotIn(b"ABCDEFGHIJKLMNOPQRSTUVWXYZ", stored)
+                again = self.client.post(path, headers=self.headers())
+                self.assertEqual(again.status_code, 200)
+                self.assertEqual(fetch.call_count, 1)
 
     def test_only_tenant_owner_can_request_managed_bot(self):
         route = f"/api/v1/tenants/{TENANT_A}/managed-bot-requests"
