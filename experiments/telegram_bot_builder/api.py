@@ -212,6 +212,27 @@ def request_managed_bot(
     }
 
 
+@app.post("/api/v1/tenants/{tenant_id}/managed-bot-requests/cancel-pending")
+def cancel_pending_managed_bot_request(
+    tenant_id: UUID, actor: Principal, db: Db,
+) -> dict[str, str]:
+    """Explicit owner cancellation to restart a stalled Telegram confirmation."""
+    require_owner(db, tenant_id, actor)
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    db.execute("SELECT pg_advisory_xact_lock(%s)", (actor.user_id,))
+    canceled = db.execute(
+        """UPDATE telbot.managed_bot_requests
+           SET status='canceled'
+           WHERE tenant_id=%s AND owner_telegram_user_id=%s
+             AND status='pending' AND expires_at>now()
+           RETURNING id""",
+        (tenant_id, actor.user_id),
+    ).fetchone()
+    db.commit()
+    return {"status": "canceled" if canceled else "none_active"}
+
+
 class SelfTenantInput(BaseModel):
     display_name: str = Field(min_length=1, max_length=120)
 

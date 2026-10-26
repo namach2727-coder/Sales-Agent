@@ -205,10 +205,26 @@
       };
     } catch(error) {
       if (error.message === "Pending bot request already exists") {
-        setNotice("یک درخواست ساخت ربات در انتظار تأیید داری. برای درخواست جدید، پس از انقضای قبلی اقدام کن.", "error");
+        document.getElementById("cancel-pending-request").classList.remove("hidden");
+        setNotice("درخواست قبلی هنوز فعال است. برای ثبت درخواست جدید، ابتدا آن را لغو کن.", "error");
       } else {
         setNotice(publicError(error), "error");
       }
+    } finally { button.disabled = false; }
+  });
+  document.getElementById("cancel-pending-request").addEventListener("click", async (event) => {
+    if (!activeTenant || activeTenant.role !== "owner") return;
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      await api("/api/v1/tenants/" + activeTenant.id +
+        "/managed-bot-requests/cancel-pending", {method: "POST"});
+      button.classList.add("hidden");
+      document.getElementById("managed-bot-pending").classList.add("hidden");
+      document.getElementById("managed-bot-link").classList.add("hidden");
+      setNotice("درخواست قبلی لغو شد. اکنون دوباره نام ربات را ثبت کن.", "success");
+    } catch (error) {
+      setNotice(publicError(error), "error");
     } finally { button.disabled = false; }
   });
   document.getElementById("refresh-bots").addEventListener("click", async () => {
