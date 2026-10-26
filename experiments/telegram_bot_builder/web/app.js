@@ -10,6 +10,7 @@
   const telegram = window.Telegram && window.Telegram.WebApp;
   const initData = telegram && telegram.initData ? telegram.initData : "";
   let activeTenant = null;
+  const attemptedCredentialSetup = new Set();
 
   function setNotice(message, kind) {
     notice.textContent = message;
@@ -75,6 +76,24 @@
       root.replaceChildren();
       if (!bots.length) { root.textContent = "هنوز رباتی متصل نکرده‌ای."; root.className = "bot-empty"; return; }
       root.className = "bot-list";
+      // Complete managed-bot credential setup on the server, with no user token input.
+      // One attempt per bot per page load; failures remain pending and retry on next opening.
+      for (const bot of bots) {
+        if (bot.is_managed === true && bot.credential_ready !== true &&
+            bot.status === "pending" && !attemptedCredentialSetup.has(bot.id) &&
+            activeTenant.role === "owner") {
+          attemptedCredentialSetup.add(bot.id);
+          try {
+            await api("/api/v1/tenants/" + activeTenant.id +
+              "/bots/" + bot.id + "/prepare-managed-credential", {method: "POST"});
+            setNotice("اطلاعات امن ربات دریافت شد؛ فعال‌سازی جداگانه انجام می‌شود.", "success");
+            await listBots();
+            return;
+          } catch (_) {
+            setNotice("ربات ثبت شد، ولی تکمیل اتصال امن هنوز ممکن نیست؛ پس از مدتی پنل را دوباره باز کن.", "error");
+          }
+        }
+      }
       bots.forEach(bot => {
         const row = document.createElement("div"); row.className = "bot-row";
         const meta = document.createElement("div");
