@@ -72,6 +72,13 @@ class FakeDB:
                 return Cursor(None)
             self.pending_requests.append(row)
             return Cursor(row)
+        if "UPDATE telbot.managed_bot_requests SET status='canceled'" in sql:
+            tenant, user_id = args
+            for item in self.pending_requests:
+                if item["tenant_id"] == tenant and item["owner_telegram_user_id"] == user_id and item["status"] == "pending":
+                    item["status"] = "canceled"
+                    return Cursor({"id": item["id"]})
+            return Cursor(None)
         if "FROM telbot.managed_bot_requests" in sql and "LIMIT 1" in sql:
             user_id = args[0]
             matches = [row for row in self.pending_requests
@@ -320,6 +327,21 @@ class ApiTests(unittest.TestCase):
         url = result.json()["creation_url"]
         self.assertEqual(url, "https://t.me/newbot/DirectPilotManagerBot/MyStoreBot?name=My%20Store%20%26%20Shop")
         self.assertNotIn("token", url.lower())
+
+    def test_owner_can_cancel_stalled_pending_request_then_retry(self):
+        route = f"/api/v1/tenants/{TENANT_A}/managed-bot-requests"
+        cancel = route + "/cancel-pending"
+        created = self.client.post(route, json={"suggested_name": "Store"}, headers=self.headers())
+        self.assertEqual(created.status_code, 201)
+        denied = self.client.post(cancel, headers=self.headers(user_id=111222))
+        self.assertEqual(denied.status_code, 403)
+        self.assertEqual(self.db.pending_requests[0]["status"], "pending")
+        response = self.client.post(cancel, headers=self.headers())
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json(), {"status": "canceled"})
+        self.assertEqual(self.client.post(cancel, headers=self.headers()).json(), {"status": "none_active"})
+        retry = self.client.post(route, json={"suggested_name": "New Store"}, headers=self.headers())
+        self.assertEqual(retry.status_code, 201, retry.text)
 
     def test_request_invalid_username_fails_without_persistence(self):
         result = self.client.post(f"/api/v1/tenants/{TENANT_A}/managed-bot-requests",
