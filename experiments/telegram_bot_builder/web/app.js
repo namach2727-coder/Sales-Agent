@@ -196,6 +196,13 @@
       const link = document.getElementById("managed-bot-link");
       link.href = url.href;
       link.classList.remove("hidden");
+      // Route Telegram deep links through the native Telegram client, not a browser preview.
+      link.onclick = (event) => {
+        if (telegram && typeof telegram.openTelegramLink === "function") {
+          event.preventDefault();
+          telegram.openTelegramLink(url.href);
+        }
+      };
     } catch(error) {
       if (error.message === "Pending bot request already exists") {
         setNotice("یک درخواست ساخت ربات در انتظار تأیید داری. برای درخواست جدید، پس از انقضای قبلی اقدام کن.", "error");
