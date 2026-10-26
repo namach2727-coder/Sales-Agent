@@ -95,7 +95,10 @@ class ManualIntegrationTests(unittest.TestCase):
         self.assertIn("no-store", page.headers.get("cache-control", ""))
         self.assertIn("default-src 'none'", page.headers.get("content-security-policy", ""))
         self.assertIn('dir="rtl"', page.text)
-        self.assertIn('id="bot-token"', page.text)
+        self.assertIn('id="managed-bot-form"', page.text)
+        self.assertIn('id="managed-bot-username"', page.text)
+        self.assertIn('id="managed-bot-link"', page.text)
+        self.assertNotIn('id="bot-token"', page.text)
         self.assertEqual(self.client.get("/telbot/app.js").status_code, 200)
         with patch.dict(os.environ, {"TELBOT_ENV": "production"}):
             self.assertEqual(self.client.get("/telbot").status_code, 404)

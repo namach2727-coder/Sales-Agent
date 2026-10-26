@@ -5,9 +5,8 @@
   const telegramHelp = document.getElementById("telegram-help");
   const tenantPanel = document.getElementById("create-tenant");
   const workspace = document.getElementById("workspace");
-  const botForm = document.getElementById("bot-form");
   const tenantForm = document.getElementById("tenant-form");
-  const tokenField = document.getElementById("bot-token");
+  const managedForm = document.getElementById("managed-bot-form");
   const telegram = window.Telegram && window.Telegram.WebApp;
   const initData = telegram && telegram.initData ? telegram.initData : "";
   let activeTenant = null;
@@ -145,29 +144,46 @@
       });
       document.getElementById("tenant-display").textContent = activeTenant.display_name;
       tenantPanel.classList.add("hidden"); workspace.classList.remove("hidden");
-      setNotice("حساب ساخته شد؛ اکنون رباتت را وصل کن.", "success");
+      setNotice("حساب ساخته شد؛ حالا ربات اختصاصی‌ات را بساز.", "success");
       await listBots();
     } catch(error) { setNotice(publicError(error), "error"); }
     finally { button.disabled = false; }
   });
-  botForm.addEventListener("submit", async (event) => {
+  managedForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!activeTenant) return;
-    const button = botForm.querySelector("button");
-    // Clear the input before the request; never persist the bearer credential.
-    const token = tokenField.value;
-    tokenField.value = "";
+    const button = managedForm.querySelector("button");
+    const suggested_name = document.getElementById("managed-bot-name").value.trim();
+    const suggested_username = document.getElementById("managed-bot-username").value.trim();
+    if (!suggested_name || !/^[A-Za-z0-9_]{5,32}$/.test(suggested_username) || !/bot$/i.test(suggested_username)) {
+      setNotice("نام کاربری باید ۵ تا ۳۲ کاراکتر انگلیسی/عدد/زیرخط و با پسوند bot باشد.", "error");
+      return;
+    }
     button.disabled = true;
-    setNotice("در حال اعتبارسنجی ربات و رمزگذاری توکن…");
     try {
-      const bot = await api("/api/v1/tenants/" + activeTenant.id + "/bots/connect-manual", {
-        method:"POST", headers: {"Content-Type":"application/json"},
-        body:JSON.stringify({bot_token:token}),
+      const ticket = await api("/api/v1/tenants/" + activeTenant.id + "/managed-bot-requests", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({suggested_name, suggested_username}),
       });
-      setNotice("ربات @" + bot.username + " با موفقیت به‌صورت در انتظار فعال‌سازی ثبت شد.", "success");
-      await listBots();
-    } catch(error) { setNotice(publicError(error), "error"); }
-    finally { button.disabled = false; }
+      const url = new URL(ticket.creation_url);
+      if (url.protocol !== "https:" || url.hostname !== "t.me" ||
+          !url.pathname.startsWith("/newbot/DirectPilotManagerBot/")) {
+        throw new Error("invalid_creation_url");
+      }
+      document.getElementById("managed-bot-pending").classList.remove("hidden");
+      setNotice("درخواست ایجاد شد؛ ساخت ربات را در صفحه رسمی تلگرام تأیید کن.", "success");
+      // The official Telegram flow requires an explicit action by the owner.
+      // No BotFather API token is requested, transmitted, or stored in the browser.
+      const link = document.getElementById("managed-bot-link");
+      link.href = url.href;
+      link.classList.remove("hidden");
+    } catch(error) {
+      if (error.message === "Pending bot request already exists") {
+        setNotice("یک درخواست ساخت ربات در انتظار تأیید داری. برای درخواست جدید، پس از انقضای قبلی اقدام کن.", "error");
+      } else {
+        setNotice(publicError(error), "error");
+      }
+    } finally { button.disabled = false; }
   });
   initialize();
 })();

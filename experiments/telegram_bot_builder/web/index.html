@@ -22,13 +22,13 @@
     </header>
     <section class="hero">
       <span class="eyebrow">راه‌اندازی ربات</span>
-      <h1>رباتت را به تل‌بات وصل کن</h1>
-      <p>رباتت را در BotFather بساز، توکن را فقط یک‌بار وارد کن و بعد از بررسی امنیتی آن را به حساب خودت متصل کن.</p>
-      <div class="hero-footer">اتصال امن و رمزگذاری‌شده <span>·</span> بدون نیاز به Bot Management Mode</div>
+      <h1>ربات اختصاصی کسب‌وکارت را بساز</h1>
+      <p>نام ربات را انتخاب کن؛ تلگرام ساخت ربات را با تأیید خودت انجام می‌دهد و DirectPilot آن را به فضای کاری وصل می‌کند. به توکن API نیازی نداری.</p>
+      <div class="hero-footer">ساخت رسمی Managed Bot <span>·</span> بدون دریافت توکن از مشتری</div>
     </section>
     <section class="steps" aria-label="مراحل راه‌اندازی">
-      <div><b>۱</b><span>ساخت ربات در BotFather</span></div>
-      <div><b>۲</b><span>اتصال توکن به پنل</span></div>
+      <div><b>۱</b><span>انتخاب نام ربات</span></div>
+      <div><b>۲</b><span>تأیید ساخت در تلگرام</span></div>
       <div><b>۳</b><span>آماده‌سازی تنظیمات</span></div>
     </section>
     <div id="notice" class="notice" role="status" aria-live="polite">در حال بررسی اتصال به تلگرام…</div>
@@ -53,14 +53,18 @@
         <div class="workspace-title"><div><div class="section-meta">حساب شما</div><h2 id="tenant-display"></h2></div><span class="small-pill">نسخه آزمایشی</span></div>
         <section class="panel">
           <div class="section-meta">مرحله دوم</div>
-          <h2>اتصال ربات موجود</h2>
-          <p>در <a class="inline-link" href="https://t.me/BotFather" rel="noopener noreferrer">BotFather</a> ربات بساز و توکن API آن را در کادر زیر وارد کن. توکن در مرورگر ذخیره نخواهد شد.</p>
-          <form id="bot-form" autocomplete="off">
-            <label for="bot-token">توکن API ربات</label>
-            <input id="bot-token" type="password" maxlength="256" minlength="32" required spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="توکن BotFather">
-            <small>توکن را در چت، ایمیل یا پیام‌رسان دیگری ارسال نکن.</small>
-            <button type="submit">بررسی و اتصال امن ربات</button>
+          <h2>ساخت ربات اختصاصی</h2>
+          <p>نام و نام کاربری ربات را وارد کن. ساخت ربات با تأیید حساب تلگرام خودت انجام می‌شود؛ هیچ توکن API از تو درخواست نخواهد شد.</p>
+          <form id="managed-bot-form" autocomplete="off">
+            <label for="managed-bot-name">نام نمایشی ربات</label>
+            <input id="managed-bot-name" maxlength="64" minlength="1" required placeholder="مثلاً پشتیبانی فروشگاه">
+            <label for="managed-bot-username">نام کاربری انگلیسی ربات</label>
+            <input id="managed-bot-username" maxlength="32" minlength="5" required dir="ltr" spellcheck="false" autocapitalize="off" placeholder="MyShopSupportBot" pattern="[A-Za-z0-9_]{5,32}">
+            <small>نام کاربری باید به bot ختم شود و ممکن است قبلاً توسط شخص دیگری انتخاب شده باشد.</small>
+            <button type="submit">ادامه و تأیید در تلگرام</button>
           </form>
+          <a id="managed-bot-link" class="link hidden" rel="noopener noreferrer" target="_blank">باز کردن صفحه ساخت ربات در تلگرام</a>
+          <p id="managed-bot-pending" class="hint hidden">درخواست ثبت شد. ربات را در تلگرام تأیید کن، سپس به این صفحه برگرد و فهرست ربات‌ها را بررسی کن.</p>
         </section>
         <section class="panel">
           <div class="section-meta">ربات‌های متصل</div>

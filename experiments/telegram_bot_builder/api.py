@@ -5,6 +5,7 @@ No external Telegram API calls, no bot-token or customer data in logs/responses.
 API requires a dedicated UAT database URL and official Manager Bot token.
 """
 from __future__ import annotations
+from urllib.parse import quote
 
 import hashlib
 import json
@@ -201,7 +202,12 @@ def request_managed_bot(
     keyboard["keyboard"][0][0]["request_managed_bot"]["request_id"] = request_id
     return {
         "id": saved["id"], "request_id": request_id,
-        "expires_at": saved["expires_at"], "delivery_status": "not_sent",
+        "expires_at": saved["expires_at"], "delivery_status": "user_confirmation_required",
+        "creation_url": (
+            "https://t.me/newbot/DirectPilotManagerBot/"
+            + quote(body.suggested_username or "")
+            + "?name=" + quote(body.suggested_name.strip())
+        ),
         "reply_markup": keyboard,
     }
 

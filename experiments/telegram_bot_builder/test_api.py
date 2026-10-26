@@ -272,7 +272,8 @@ class ApiTests(unittest.TestCase):
         result = self.client.post(route, json={"suggested_name": "My Store"}, headers=self.headers())
         self.assertEqual(result.status_code, 201, result.text)
         response = result.json()
-        self.assertEqual(response["delivery_status"], "not_sent")
+        self.assertEqual(response["delivery_status"], "user_confirmation_required")
+        self.assertTrue(response["creation_url"].startswith("https://t.me/newbot/DirectPilotManagerBot/"))
         self.assertGreater(response["request_id"], 0)
         self.assertLess(response["request_id"], 2**31)
         self.assertEqual(response["reply_markup"]["keyboard"][0][0]["request_managed_bot"]["request_id"], response["request_id"])
@@ -280,6 +281,16 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.db.pending_requests[0]["owner_telegram_user_id"], 123456)
         second = self.client.post(route, json={"suggested_name": "Another"}, headers=self.headers())
         self.assertEqual(second.status_code, 409)
+
+    def test_managed_creation_url_urlencodes_only_public_name(self):
+        route = f"/api/v1/tenants/{TENANT_A}/managed-bot-requests"
+        result = self.client.post(route, json={
+            "suggested_name": "My Store & Shop", "suggested_username": "MyStoreBot"
+        }, headers=self.headers())
+        self.assertEqual(result.status_code, 201, result.text)
+        url = result.json()["creation_url"]
+        self.assertEqual(url, "https://t.me/newbot/DirectPilotManagerBot/MyStoreBot?name=My%20Store%20%26%20Shop")
+        self.assertNotIn("token", url.lower())
 
     def test_request_invalid_username_fails_without_persistence(self):
         result = self.client.post(f"/api/v1/tenants/{TENANT_A}/managed-bot-requests",
