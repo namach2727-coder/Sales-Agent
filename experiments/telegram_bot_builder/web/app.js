@@ -222,6 +222,25 @@
       }
     } finally { button.disabled = false; }
   });
+  document.getElementById("check-manager-webhook").addEventListener("click", async () => {
+    if (!activeTenant) return;
+    try {
+      const w = await api("/api/v1/tenants/" + activeTenant.id + "/uat/manager-webhook");
+      setNotice("Webhook UAT: " + (w.configured_for_uat ? "درست" : "ثبت‌نشده یا متفاوت") +
+        " | managed_bot: " + (w.allowed_managed_bot || w.allowed_updates_default ? "مجاز" : "غیرفعال") +
+        " | رویدادهای معوق: " + w.pending_delivery_count +
+        " | سابقه خطای ارسال: " + (w.delivery_error_present ? "دارد" : "ندارد"), "info");
+    } catch(error) { setNotice(publicError(error), "error"); }
+  });
+  document.getElementById("repair-manager-webhook").addEventListener("click", async () => {
+    if (!activeTenant) return;
+    try {
+      const w = await api("/api/v1/tenants/" + activeTenant.id + "/uat/manager-webhook/repair", {method:"POST"});
+      setNotice(w.status === "registered_for_uat"
+        ? "Webhook مدیریتی UAT ثبت شد؛ رویدادهای قبلیِ منقضی‌شده الزاماً بازیابی نمی‌شوند."
+        : "وضعیت نامشخص", "success");
+    } catch(error) { setNotice(publicError(error), "error"); }
+  });
   document.getElementById("refresh-bots").addEventListener("click", async () => {
     if (activeTenant) await listBots();
   });
