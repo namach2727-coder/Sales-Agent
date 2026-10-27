@@ -72,6 +72,10 @@ class FakeDB:
                 return Cursor(None)
             self.pending_requests.append(row)
             return Cursor(row)
+        if "SELECT request_id FROM telbot.managed_bot_requests" in sql:
+            tenant, request_id, owner = args
+            matches = [r for r in self.pending_requests if r["tenant_id"] == tenant and r["request_id"] == request_id and r["owner_telegram_user_id"] == owner and r["status"] == "pending"]
+            return Cursor(matches[0] if matches else None)
         if "FROM telbot.managed_bot_requests" in sql and "LIMIT 1" in sql:
             user_id = args[0]
             matches = [row for row in self.pending_requests
@@ -284,6 +288,28 @@ class ApiTests(unittest.TestCase):
                 again = self.client.post(path, headers=self.headers())
                 self.assertEqual(again.status_code, 200)
                 self.assertEqual(fetch.call_count, 1)
+
+    def test_native_managed_keyboard_is_owner_only(self):
+        import httpx
+        route = f"/api/v1/tenants/{TENANT_A}/managed-bot-requests"
+        created = self.client.post(route, json={"suggested_name": "Test Bot"}, headers=self.headers())
+        request_id = created.json()["request_id"]
+        url = route + f"/{request_id}/send-keyboard"
+        denied = self.client.post(url, headers=self.headers(user_id=111222))
+        self.assertEqual(denied.status_code, 403)
+        with patch.dict(os.environ, {"TELBOT_ENV": "uat", "TELBOT_MANAGER_TOKEN": MANAGER_TOKEN}):
+            async def answer(request):
+                body = json.loads(request.content)
+                self.assertEqual(body["chat_id"], 123456)
+                self.assertEqual(body["reply_markup"]["keyboard"][0][0]["request_managed_bot"]["request_id"], request_id)
+                return httpx.Response(200, json={"ok": True, "result": {"message_id": 3}})
+            with patch("httpx.AsyncClient") as factory:
+                client = factory.return_value.__aenter__.return_value
+                client.post.side_effect = answer
+                result = self.client.post(url, headers=self.headers())
+                self.assertEqual(result.status_code, 200, result.text)
+                self.assertEqual(result.json(), {"status": "sent_in_private_chat"})
+                self.assertNotIn(MANAGER_TOKEN, result.text)
 
     def test_only_tenant_owner_can_request_managed_bot(self):
         route = f"/api/v1/tenants/{TENANT_A}/managed-bot-requests"
