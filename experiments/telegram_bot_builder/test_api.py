@@ -298,20 +298,21 @@ class ApiTests(unittest.TestCase):
         denied = self.client.post(url, headers=self.headers(user_id=111222))
         self.assertEqual(denied.status_code, 403)
         with patch.dict(os.environ, {"TELBOT_ENV": "uat", "TELBOT_MANAGER_TOKEN": MANAGER_TOKEN}):
-            async def answer(request):
-                body = json.loads(request.content)
-                self.assertEqual(body["chat_id"], 123456)
-                self.assertEqual(body["reply_markup"]["keyboard"][0][0]["request_managed_bot"]["request_id"], request_id)
-                return httpx.Response(200, json={"ok": True, "result": {"message_id": 3}})
-            original_client = httpx.AsyncClient
-            def mock_client(*args, **kwargs):
-                kwargs["transport"] = httpx.MockTransport(answer)
-                return original_client(*args, **kwargs)
-            with patch("httpx.AsyncClient", side_effect=mock_client):
+            from unittest.mock import AsyncMock, MagicMock
+            reply = MagicMock()
+            reply.status_code = 200
+            reply.json.return_value = {"ok": True, "result": {"message_id": 3}}
+            with patch("httpx.AsyncClient") as factory:
+                async_client = factory.return_value.__aenter__.return_value
+                async_client.post = AsyncMock(return_value=reply)
                 result = self.client.post(url, headers=self.headers())
                 self.assertEqual(result.status_code, 200, result.text)
                 self.assertEqual(result.json(), {"status": "sent_in_private_chat"})
                 self.assertNotIn(MANAGER_TOKEN, result.text)
+                args = async_client.post.call_args
+                body = args.kwargs["json"]
+                self.assertEqual(body["chat_id"], 123456)
+                self.assertEqual(body["reply_markup"]["keyboard"][0][0]["request_managed_bot"]["request_id"], request_id)
 
     def test_only_tenant_owner_can_request_managed_bot(self):
         route = f"/api/v1/tenants/{TENANT_A}/managed-bot-requests"
