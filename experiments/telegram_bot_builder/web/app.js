@@ -190,7 +190,18 @@
         throw new Error("invalid_creation_url");
       }
       document.getElementById("managed-bot-pending").classList.remove("hidden");
-      setNotice("درخواست ایجاد شد؛ ساخت ربات را در صفحه رسمی تلگرام تأیید کن.", "success");
+      try {
+        await api("/api/v1/tenants/" + activeTenant.id +
+          "/managed-bot-requests/" + ticket.request_id + "/send-keyboard",
+          {method: "POST"});
+        setNotice("دکمه رسمی Create Bot در چت خصوصی ربات مدیریتی ارسال شد. آن را داخل تلگرام بزن.", "success");
+        if (telegram && typeof telegram.openTelegramLink === "function") {
+          telegram.openTelegramLink("https://t.me/DirectPilotManagerBot");
+        }
+      } catch (_) {
+        setNotice("ارسال دکمه تلگرام ممکن نشد؛ لینک جایگزین پایین را امتحان کن.", "error");
+      }
+      // The private-chat request button is preferred; deep link remains fallback.
       // The official Telegram flow requires an explicit action by the owner.
       // No BotFather API token is requested, transmitted, or stored in the browser.
       const link = document.getElementById("managed-bot-link");

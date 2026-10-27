@@ -212,6 +212,54 @@ def request_managed_bot(
     }
 
 
+@app.post("/api/v1/tenants/{tenant_id}/managed-bot-requests/{request_id}/send-keyboard")
+async def send_managed_bot_keyboard(
+    tenant_id: UUID, request_id: int, actor: Principal, db: Db,
+) -> dict[str, str]:
+    """Send official reply-keyboard creation request in the manager's private chat."""
+    require_owner(db, tenant_id, actor)
+    if os.getenv("TELBOT_ENV") != "uat" or not 0 < request_id < 2**31:
+        raise HTTPException(status_code=404, detail="Not found")
+    ticket = db.execute(
+        """SELECT request_id FROM telbot.managed_bot_requests
+           WHERE tenant_id=%s AND request_id=%s AND owner_telegram_user_id=%s
+             AND status='pending' AND expires_at>now()""",
+        (tenant_id, request_id, actor.user_id),
+    ).fetchone()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Pending request not found")
+    token = os.getenv("TELBOT_MANAGER_TOKEN", "")
+    if not token:
+        raise HTTPException(status_code=503, detail="Manager bot unavailable")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=httpx.Timeout(8, connect=4),
+                                     follow_redirects=False) as client:
+            response = await client.post(
+                "https://api.telegram.org/bot" + token + "/sendMessage",
+                json={
+                    "chat_id": actor.user_id,
+                    "text": "برای ساخت ربات اختصاصی، دکمه زیر را داخل همین چت بزن.",
+                    "reply_markup": {
+                        "keyboard": [[{
+                            "text": "Create Bot",
+                            "request_managed_bot": {"request_id": request_id},
+                        }]],
+                        "resize_keyboard": True, "one_time_keyboard": True,
+                    },
+                },
+            )
+            payload = response.json() if response.status_code == 200 else {}
+            if not isinstance(payload, dict) or payload.get("ok") is not True:
+                raise HTTPException(status_code=503, detail="Manager message unavailable")
+    except HTTPException:
+        raise
+    except Exception:
+        # Never echo Telegram HTTP errors: the request URL contains the manager token.
+        raise HTTPException(status_code=503, detail="Manager message unavailable") from None
+    return {"status": "sent_in_private_chat"}
+
+
 class SelfTenantInput(BaseModel):
     display_name: str = Field(min_length=1, max_length=120)
 
