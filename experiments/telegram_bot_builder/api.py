@@ -644,6 +644,73 @@ async def parse_update(request: Request) -> dict[str, Any]:
     return update
 
 
+async def _manager_webhook_api(method: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+    """UAT-only manager API; never include secret-bearing URLs or upstream errors in responses."""
+    token = os.getenv("TELBOT_MANAGER_TOKEN", "")
+    if not token:
+        raise HTTPException(status_code=503, detail="Manager bot not configured")
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10, connect=4), follow_redirects=False) as client:
+            response = await client.post("https://api.telegram.org/bot" + token + "/" + method, json=body or {})
+            if response.status_code != 200:
+                raise ValueError("telegram_unavailable")
+            data = response.json()
+            if data.get("ok") is not True:
+                raise ValueError("telegram_not_ok")
+            return data
+    except Exception:
+        raise HTTPException(status_code=503, detail="Telegram manager API unavailable") from None
+
+
+@app.get("/api/v1/tenants/{tenant_id}/uat/manager-webhook")
+async def get_manager_webhook_diagnostic(
+    tenant_id: UUID, actor: Principal, db: Db,
+) -> dict[str, Any]:
+    require_owner(db, tenant_id, actor)
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    data = await _manager_webhook_api("getWebhookInfo")
+    info = data.get("result") or {}
+    expected = "https://directpilot-telbot-uat-api.vercel.app/api/v1/webhooks/manager"
+    updates = info.get("allowed_updates")
+    return {
+        "configured_for_uat": info.get("url") == expected,
+        "allowed_managed_bot": isinstance(updates, list) and "managed_bot" in updates,
+        "allowed_message": isinstance(updates, list) and "message" in updates,
+        "allowed_updates_default": updates is None,
+        "pending_delivery_count": int(info.get("pending_update_count") or 0),
+        "delivery_error_present": bool(info.get("last_error_date")),
+        "webhook_present": bool(info.get("url")),
+    }
+
+
+@app.post("/api/v1/tenants/{tenant_id}/uat/manager-webhook/repair")
+async def repair_manager_webhook(
+    tenant_id: UUID, actor: Principal, db: Db,
+) -> dict[str, str]:
+    """Explicit UAT owner action; preserve queued updates; never affect another bot."""
+    require_owner(db, tenant_id, actor)
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    secret = os.getenv("TELBOT_MANAGER_WEBHOOK_SECRET", "")
+    import re
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,256}", secret):
+        raise HTTPException(status_code=503, detail="Webhook secret not configured")
+    info = (await _manager_webhook_api("getWebhookInfo")).get("result") or {}
+    current = info.get("url") or ""
+    expected = "https://directpilot-telbot-uat-api.vercel.app/api/v1/webhooks/manager"
+    if current and current != expected:
+        # Never silently hijack a manager bot webhook owned by another environment.
+        raise HTTPException(status_code=409, detail="Manager bot webhook points to a different endpoint")
+    await _manager_webhook_api("setWebhook", {
+        "url": expected, "secret_token": secret,
+        "allowed_updates": ["message", "managed_bot"],
+        "drop_pending_updates": False,
+    })
+    return {"status": "registered_for_uat"}
+
+
 @app.post("/api/v1/webhooks/manager")
 async def manager_webhook(request: Request, db: Db) -> dict[str, bool]:
     expected = os.getenv("TELBOT_MANAGER_WEBHOOK_SECRET", "")
