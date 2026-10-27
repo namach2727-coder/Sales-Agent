@@ -1,3 +1,5 @@
+2026-10-27 TelBot UAT PR #93: CI 3/3 PASS; merged 5baabd12; Vercel TelBot UAT deployment SUCCESS. New owner-only webhook diagnostic and guarded repair deployed. Live manager webhook status and child-bot linking still unverified. No Instagram Production changes.
+
 > **2026-10-26 TelBot UAT release blocker:** PR #89 native Telegram managed-creation deep link fix merged into isolated branch as `274fa3a70fe2c37428a55084af6d6466c044b39f` with 3/3 CI PASS. Vercel status for `directpilot-telbot-uat-api` returned FAILURE with `upgradeToPro=build-rate-limit` (team build rate limit), so **DO NOT report deployed**, ready, or UAT accepted. Existing UAT remains on preceding deployed commit until a verifiable successful deploy of exact SHA. Do not retry builds in a loop or change Production. Next: after build capacity is available, redeploy and verify exact GitHub commit status/alias; then owner opens Mini App and tests creation native Telegram link. Telegram Bot Management Mode and live managed bot creation remain unverified. Prior customer screenshot documented generic bot preview instead of creation prompt. No bot tokens exposed.
 
 
