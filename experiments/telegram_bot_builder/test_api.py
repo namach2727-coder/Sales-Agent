@@ -303,9 +303,11 @@ class ApiTests(unittest.TestCase):
                 self.assertEqual(body["chat_id"], 123456)
                 self.assertEqual(body["reply_markup"]["keyboard"][0][0]["request_managed_bot"]["request_id"], request_id)
                 return httpx.Response(200, json={"ok": True, "result": {"message_id": 3}})
-            with patch("httpx.AsyncClient") as factory:
-                client = factory.return_value.__aenter__.return_value
-                client.post.side_effect = answer
+            original_client = httpx.AsyncClient
+            def mock_client(*args, **kwargs):
+                kwargs["transport"] = httpx.MockTransport(answer)
+                return original_client(*args, **kwargs)
+            with patch("httpx.AsyncClient", side_effect=mock_client):
                 result = self.client.post(url, headers=self.headers())
                 self.assertEqual(result.status_code, 200, result.text)
                 self.assertEqual(result.json(), {"status": "sent_in_private_chat"})
