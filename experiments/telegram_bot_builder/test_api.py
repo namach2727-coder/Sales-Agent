@@ -118,6 +118,20 @@ class FakeDB:
             if user_id == 111222 and tenant == TENANT_A:
                 return Cursor({"role": "viewer"})
             return Cursor(None)
+        if "SELECT telegram_bot_id,credential_ciphertext,status,webhook_secret_digest" in sql:
+            bot_id, tenant_id, user_id = args
+            if (bot_id, tenant_id, user_id) == (BOT_A, TENANT_A, 123456):
+                return Cursor({"telegram_bot_id": 123456,
+                               "credential_ciphertext": getattr(self, "managed_ciphertext", None),
+                               "webhook_secret_digest": getattr(self, "child_secret_digest", None),
+                               "status": getattr(self, "managed_status", "pending")})
+            return Cursor(None)
+        if "UPDATE telbot.bots SET webhook_secret_digest=" in sql:
+            digest, bot_id, tenant_id, user_id = args
+            assert (bot_id, tenant_id, user_id) == (BOT_A, TENANT_A, 123456)
+            self.child_secret_digest = digest
+            self.managed_status = "active"
+            return Cursor(None)
         if "SELECT telegram_bot_id,credential_ciphertext FROM telbot.bots" in sql:
             bot_id, tenant_id, user_id = args
             if (bot_id, tenant_id, user_id) == (BOT_A, TENANT_A, 123456):
@@ -248,6 +262,51 @@ class ApiTests(unittest.TestCase):
         self.assertNotIn("credential", result.text.lower())
         self.assertNotIn("webhook_secret", result.text.lower())
         self.assertTrue(any(TENANT_A in args for _, args in self.db.commands))
+
+    def test_managed_activation_owner_only_and_verified(self):
+        from unittest.mock import AsyncMock, MagicMock
+        token = "123456:synthetic_child_only"
+        key = Fernet.generate_key().decode()
+        self.db.managed_ciphertext = TokenVault(key).encrypt(token)
+        url = f"/api/v1/tenants/{TENANT_A}/bots/{BOT_A}/activate-managed"
+        with patch.dict(os.environ, {"TELBOT_ENV": "uat", "TELBOT_TOKEN_FERNET_KEY": key}):
+            self.assertEqual(self.client.post(url, headers=self.headers(user_id=111222)).status_code, 403)
+            def reply(method, **kwargs):
+                result = ({"id": 123456} if method == "getMe" else
+                          {"url": "https://directpilot-telbot-uat-api.vercel.app/api/v1/webhooks/bots/123456"}
+                          if method == "getWebhookInfo" and getattr(self.db, "seen_set_hook", False) else
+                          {"url": ""} if method == "getWebhookInfo" else True)
+                if method == "setWebhook":
+                    self.db.seen_set_hook = True
+                    body = kwargs["json"]
+                    self.assertEqual(body["drop_pending_updates"], False)
+                    self.assertEqual(body["allowed_updates"], ["message"])
+                    self.assertNotEqual(body["secret_token"], token)
+                response = MagicMock()
+                response.status_code = 200
+                response.json.return_value = {"ok": True, "result": result}
+                return response
+            with patch("httpx.AsyncClient") as mock:
+                client = mock.return_value.__aenter__.return_value
+                async def fake_post(url, **kwargs):
+                    method = url.rsplit("/", 1)[-1]
+                    self.assertIn(token, url)
+                    return reply(method, **kwargs)
+                client.post = AsyncMock(side_effect=fake_post)
+                accepted = self.client.post(url, headers=self.headers())
+                self.assertEqual(accepted.status_code, 200, accepted.text)
+                self.assertEqual(accepted.json(), {"status": "active"})
+                self.assertEqual(self.db.managed_status, "active")
+                self.assertEqual(len(self.db.child_secret_digest), 32)
+                self.assertNotIn(token, accepted.text)
+                repeat = self.client.post(url, headers=self.headers())
+                self.assertEqual(repeat.json(), {"status": "active"})
+
+    def test_managed_activation_fails_closed_without_credential(self):
+        url = f"/api/v1/tenants/{TENANT_A}/bots/{BOT_A}/activate-managed"
+        with patch.dict(os.environ, {"TELBOT_ENV": "uat"}):
+            response = self.client.post(url, headers=self.headers())
+        self.assertEqual(response.status_code, 409)
 
     def test_viewer_cannot_create_draft(self):
         result = self.client.post(
