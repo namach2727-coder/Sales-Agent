@@ -473,6 +473,16 @@ class ApiTests(unittest.TestCase):
         self.assertFalse(first.json()["duplicate"])
         self.assertTrue(second.json()["duplicate"])
 
+    def test_duplicate_child_update_never_invokes_runtime_twice(self):
+        from unittest.mock import AsyncMock
+        with patch('experiments.telegram_bot_builder.reply_runtime.process_reply', new_callable=AsyncMock) as runtime:
+            body = {"update_id": 999, "message": {"text": "/start"}}
+            headers = {"X-Telegram-Bot-Api-Secret-Token": "child-secret-123"}
+            for _ in range(2):
+                response = self.client.post('/api/v1/webhooks/bots/12345', json=body, headers=headers)
+                self.assertEqual(response.status_code, 200)
+            self.assertEqual(runtime.call_count, 1)
+
     def test_child_webhook_rejects_oversized_payload(self):
         response = self.client.post(
             "/api/v1/webhooks/bots/12345",

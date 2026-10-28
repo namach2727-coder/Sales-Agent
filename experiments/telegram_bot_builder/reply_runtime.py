@@ -19,7 +19,7 @@ async def send_text(token, payload, *, transport=None):
         data = response.json()
         result = data.get('result') if isinstance(data, dict) else None
         mid = result.get('message_id') if isinstance(result, dict) else None
-        if response.status_code == 200 and data.get('ok') is True and type(mid) is int and mid > 0:
+        if response.status_code == 200 and isinstance(data, dict) and data.get('ok') is True and type(mid) is int and mid > 0:
             return mid, None
         return None, 'telegram_rejected'
     except (httpx.HTTPError, ValueError, TypeError):
@@ -43,6 +43,8 @@ async def process_reply(db, bot, update, inbound_id):
     try:
         token = TokenVault(os.getenv('TELBOT_TOKEN_FERNET_KEY', '')).decrypt(bytes(bot['credential_ciphertext']))
     except (CredentialError, TypeError):
+        return
+    if token.split(':', 1)[0] != str(update['_bot_id']):
         return
     # Inbound insertion is unique. Only its winning request calls this function.
     # Persist attempts BEFORE network: a timeout/crash must never trigger a blind resend.

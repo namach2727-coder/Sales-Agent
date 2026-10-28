@@ -869,7 +869,8 @@ async def child_webhook(telegram_bot_id: int, request: Request, db: Db) -> dict[
         raise HTTPException(status_code=404, detail="Bot not found")
     bot = db.execute(
         """SELECT id,tenant_id,webhook_secret_digest,credential_ciphertext FROM telbot.bots
-             WHERE telegram_bot_id=%s AND status='active'""",
+             WHERE telegram_bot_id=%s AND status='active'
+             AND EXISTS (SELECT 1 FROM telbot.tenants t WHERE t.id=telbot.bots.tenant_id AND t.status='active')""",
         (telegram_bot_id,),
     ).fetchone()
     if not bot or not bot["webhook_secret_digest"]:
