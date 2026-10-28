@@ -36,3 +36,15 @@ class DraftInput(BaseModel):
     def check_draft(self):
         if not self.greeting.strip() or not self.fallback_reply.strip(): raise ValueError('Blank message')
         return self
+
+
+class PreviewInput(DraftInput):
+    """An explicit unsaved snapshot; never loads saved API credentials."""
+    rules: list[RuleInput] = Field(max_length=100)
+    text: str = Field(min_length=1, max_length=4096)
+
+    @model_validator(mode='after')
+    def check_preview(self):
+        if not self.text.strip():
+            raise ValueError('Blank test message')
+        return self

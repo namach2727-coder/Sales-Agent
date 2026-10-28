@@ -443,11 +443,13 @@ def list_managed_bot_requests(
 
 
 try:
-    from .builder_models import DraftInput
+    from .builder_models import DraftInput, PreviewInput
     from .builder_storage import api_schema_ready, read_rules, add_snapshot_rules
+    from .response_preview import preview_response
 except ImportError:
-    from builder_models import DraftInput
+    from builder_models import DraftInput, PreviewInput
     from builder_storage import api_schema_ready, read_rules, add_snapshot_rules
+    from response_preview import preview_response
 
 
 from fastapi.exceptions import RequestValidationError
@@ -456,7 +458,7 @@ from fastapi.exception_handlers import request_validation_exception_handler
 
 @app.exception_handler(RequestValidationError)
 async def hide_builder_credentials(request: Request, exc: RequestValidationError):
-    if request.url.path.endswith('/configs'):
+    if request.url.path.endswith(('/configs', '/preview')):
         # Validation errors can contain the complete submitted credential-bearing body.
         return JSONResponse(status_code=422, content={'detail': 'Invalid bot configuration'})
     return await request_validation_exception_handler(request, exc)
@@ -567,6 +569,16 @@ def get_published_config(
     return {"published": row, "rules": rules, "api_actions_ready": schema_ready,
             "external_api_enabled": os.getenv("TELBOT_EXTERNAL_API_ENABLED") == "true"}
 
+
+
+@app.post("/api/v1/tenants/{tenant_id}/bots/{bot_id}/preview")
+def preview_builder_response(
+    tenant_id: UUID, bot_id: UUID, body: PreviewInput, actor: Principal, db: Db,
+) -> dict[str, Any]:
+    """Select from an unsaved snapshot with membership/bot reads only."""
+    require_member(db, tenant_id, actor, write=True)
+    require_bot(db, tenant_id, bot_id)
+    return preview_response(body)
 
 
 @app.post("/api/v1/tenants/{tenant_id}/bots/{bot_id}/configs", status_code=201)

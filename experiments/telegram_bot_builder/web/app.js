@@ -183,10 +183,21 @@
     const close = document.createElement("button"); close.type = "button"; close.textContent = "بستن تنظیمات"; close.className = "button-secondary";
     close.addEventListener("click", () => { panel.remove(); opener.disabled = false; opener.focus(); });
     const buttons = document.createElement("div"); buttons.className = "editor-actions"; buttons.append(save, close); form.append(buttons);
-    panel.append(title, status, form); row.append(panel);
+    const previewPanel = document.createElement("details"); previewPanel.className = "response-preview";
+    const previewTitle = document.createElement("summary"); previewTitle.textContent = "آزمایش پاسخ";
+    const previewHint = document.createElement("p"); previewHint.className = "hint";
+    previewHint.textContent = "پاسخِ همین فرم را قبل از انتشار بررسی کن. این آزمایش چیزی ذخیره نمی‌کند و پیامی به تلگرام یا API نمی‌فرستد؛ فعال‌بودن ارسال زنده را هم تأیید نمی‌کند.";
+    previewPanel.append(previewTitle, previewHint);
+    const previewText = field(previewPanel, "پیام آزمایشی", "textarea"); previewText.maxLength = 4096; previewText.placeholder = "مثلاً قیمت یا /start";
+    const previewButton = document.createElement("button"); previewButton.type = "button"; previewButton.className = "button-secondary"; previewButton.textContent = "نمایش پیش‌نمایش"; previewButton.disabled = true;
+    const previewOutput = document.createElement("p"); previewOutput.className = "preview-output"; previewOutput.setAttribute("role", "status"); previewOutput.setAttribute("aria-live", "polite"); previewOutput.hidden = true;
+    previewPanel.append(previewButton, previewOutput);
+    panel.append(title, status, form, previewPanel); row.append(panel);
     const base = "/api/v1/tenants/" + activeTenant.id + "/bots/" + bot.id;
-    let rules = [], schemaReady = false, baseVersion = 0, draftId = null, busy = false, refreshRequired = false;
-    function dirty() { draftId = null; }
+    let rules = [], schemaReady = false, baseVersion = 0, draftId = null, busy = false, refreshRequired = false, previewBusy = false, previewRevision = 0;
+    function invalidatePreview() { previewRevision += 1; previewOutput.hidden = true; previewOutput.textContent = ""; }
+    function dirty() { draftId = null; invalidatePreview(); }
+    previewText.addEventListener("input", invalidatePreview);
     function reorder() {
       rules.forEach((rule, index) => { rule.summary.textContent = "پاسخ " + (index + 1) + (rule.keyword.value ? " — " + rule.keyword.value : ""); rulesRoot.append(rule.card); });
       add.disabled = busy || rules.length >= 100 || refreshRequired;
@@ -244,7 +255,7 @@
       greeting.value = current.published?.greeting || ""; fallback.value = current.published?.fallback_reply || "";
       rules = []; rulesRoot.replaceChildren(); (current.rules || []).forEach(addRule);
       apiNote.textContent = !schemaReady ? "پاسخ‌های متنی قابل تنظیم‌اند؛ بخش API هنوز روی سرویس آماده نیست." : current.external_api_enabled ? "اتصال API آماده است؛ پاسخ زنده به فعال‌بودن سرویس ارسال ربات نیز وابسته است." : "تنظیم API ذخیره می‌شود؛ اجرای واقعی API هنوز در سرویس آزمایشی روشن نشده است.";
-      refreshRequired = false; save.disabled = false; reorder();
+      refreshRequired = false; save.disabled = false; previewButton.disabled = busy || previewBusy; invalidatePreview(); reorder();
     }
     status.textContent = "در حال دریافت تنظیمات…";
     try { await load(); status.textContent = "تنظیمات فعلی بارگذاری شد؛ می‌توانی پاسخ جدید اضافه کنی."; greeting.focus(); }
@@ -254,24 +265,53 @@
       if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(label + " باید یک شیء JSON باشد.");
       return value;
     }
-    form.addEventListener("submit", async event => {
-      event.preventDefault(); if (busy || refreshRequired) return;
-      let snapshot;
-      try {
+    function readSnapshot(includeCredentials = true) {
         if (!greeting.value.trim() || !fallback.value.trim()) throw new Error("پیام شروع و پاسخ پیش‌فرض را بنویس.");
-        snapshot = {greeting: greeting.value, fallback_reply: fallback.value, base_version: baseVersion, rules: rules.map(rule => {
+        return {greeting: greeting.value, fallback_reply: fallback.value, base_version: baseVersion, rules: rules.map(rule => {
           if (!rule.keyword.value.trim() || !rule.response.value.trim()) throw new Error("کلمهٔ محرک و متن هر پاسخ را بنویس.");
           const item = {keyword: rule.keyword.value, match_mode: rule.match.value, response_text: rule.response.value, action_type: rule.action.value, enabled: rule.enabled.checked};
           if (rule.action.value === "api") {
             item.source_rule_id = rule.sourceId;
             item.api = {url: rule.url.value, method: rule.method.value, params: jsonObject(rule.params, "پارامترها"), json_body: rule.method.value === "POST" ? jsonObject(rule.body, "بدنه") : {},
-              response_path: rule.path.value, auth_mode: rule.auth.value, auth_header: rule.header.value, include_message: rule.share.checked, message_field: rule.messageField.value,
-              credential: rule.credential.value || null};
+              response_path: rule.path.value, auth_mode: rule.auth.value, auth_header: rule.header.value, include_message: rule.share.checked, message_field: rule.messageField.value};
+            if (includeCredentials) item.api.credential = rule.credential.value || null;
           }
           return item;
         })};
+    }
+    previewButton.addEventListener("click", async () => {
+      if (busy || previewBusy || refreshRequired) return;
+      previewOutput.hidden = false;
+      let snapshot;
+      try {
+        if (!previewText.value.trim()) throw new Error("یک پیام آزمایشی بنویس.");
+        snapshot = {...readSnapshot(false), text: previewText.value};
+      } catch (error) { previewOutput.textContent = error.message; return; }
+      const revision = previewRevision; previewBusy = true; previewButton.disabled = true; save.disabled = true;
+      previewPanel.setAttribute("aria-busy", "true"); previewOutput.textContent = "در حال انتخاب پاسخ…";
+      try {
+        const result = await api(base + "/preview", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(snapshot)});
+        if (!panel.isConnected) return;
+        previewOutput.hidden = false;
+        if (revision !== previewRevision) { previewOutput.textContent = "متن یا تنظیمات تغییر کرد؛ پیش‌نمایش را دوباره بگیر."; return; }
+        if (result.action === "api") {
+          previewOutput.textContent = "قانون " + result.rule_index + " انتخاب شد: اتصال API. در این آزمایش API فراخوانی نشد.\nپیام جایگزین در خطا یا غیرفعال‌بودن API:\n" + result.fallback_text;
+        } else {
+          const source = result.action === "greeting" ? "پاسخ شروع" : result.action === "text" ? "پاسخ قانون " + result.rule_index : "پاسخ پیش‌فرض";
+          previewOutput.textContent = source + ":\n" + result.response_text;
+        }
+      } catch (error) {
+        if (panel.isConnected && revision === previewRevision) { previewOutput.hidden = false; previewOutput.textContent = "پیش‌نمایش انجام نشد: " + publicError(error); }
+      } finally {
+        previewBusy = false; previewPanel.removeAttribute("aria-busy"); previewButton.disabled = busy || refreshRequired; save.disabled = busy || refreshRequired;
+      }
+    });
+    form.addEventListener("submit", async event => {
+      event.preventDefault(); if (busy || previewBusy || refreshRequired) return;
+      let snapshot;
+      try { snapshot = readSnapshot();
       } catch (error) { status.textContent = error.message; return; }
-      busy = true; form.setAttribute("aria-busy", "true");
+      busy = true; form.setAttribute("aria-busy", "true"); previewButton.disabled = true;
       const controls = Array.from(form.querySelectorAll("input,select,textarea,button")); const disabledBefore = controls.map(input => input.disabled);
       controls.forEach(input => { input.disabled = true; }); status.textContent = "در حال ذخیره و انتشار…";
       let published = false;
@@ -287,7 +327,7 @@
         busy = false; form.removeAttribute("aria-busy");
         // Newly loaded rule controls have their own visibility/disabled state.
         controls.forEach((input, index) => { if (input.isConnected) input.disabled = disabledBefore[index]; });
-        save.disabled = refreshRequired; close.disabled = false; reorder();
+        save.disabled = refreshRequired; previewButton.disabled = refreshRequired; close.disabled = false; reorder();
         if (published) rules.forEach(rule => { rule.credential.value = ""; });
       }
     });
