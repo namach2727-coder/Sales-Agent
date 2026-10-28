@@ -1,6 +1,9 @@
 """Pure reply planning; callers load only the authorized published configuration."""
 from typing import Any, Mapping
-from .core import BotConfiguration, resolve_text_reply
+try:
+    from .core import BotConfiguration, resolve_text_reply
+except ImportError:
+    from core import BotConfiguration, resolve_text_reply
 
 
 def plan_private_reply(config: BotConfiguration, update: Mapping[str, Any], *, tenant_id: str, bot_id: int) -> dict[str, Any] | None:
