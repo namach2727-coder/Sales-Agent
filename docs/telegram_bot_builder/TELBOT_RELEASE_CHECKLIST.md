@@ -231,3 +231,7 @@ Vercel production-target variables on this TelBot-only UAT project: `TELBOT_ENV=
 
 ## Continuity protocol
 On every material change update this checklist AND the six canonical files: AI_HANDOFF.md, PROJECT_ROADMAP.md, DECISIONS.md, CURRENT_STATE.md, NEXT_ACTIONS.md and docs/releases/RELEASE_REGISTER.md. Keep PR/SHA/CI/Deployment/browser/owner evidence separately; never publish connection strings or Telegram tokens.
+
+
+## 2026-10-28 — Private reply planner implementation checkpoint
+Owner requested continued TelBot builder development. Fresh read-only Neon UAT verification recorded 1 active bot and 2 /start inbound updates, status received: inbound Telegram→Webhook→Neon PASS. Added pure private-chat reply planner with tenant/bot scope validation, bot/group/edited-message suppression, keyword/fallback/start selection and /start payload support. Focused tests: 19 PASS via system Python. This is source preparation only: not wired to live child webhook, no sendMessage transport, no deployment, no outbound acceptance, no Production changes. Next: durable outbound idempotency and transport, published-config integration, editor and live UAT verification.

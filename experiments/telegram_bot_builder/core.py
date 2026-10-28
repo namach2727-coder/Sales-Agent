@@ -149,7 +149,8 @@ def _normalize(message: str) -> str:
 def resolve_text_reply(config: BotConfiguration, text: str) -> str:
     """Deterministic text rules for a single authorized tenant/bot configuration."""
     normalized = _normalize(text)
-    if normalized.split("@", 1)[0] == "/start":
+    command = normalized.split(maxsplit=1)[0] if normalized else ""
+    if command.split("@", 1)[0] == "/start":
         return config.start_message
     for rule in config.rules:
         keyword = _normalize(rule.keyword)
