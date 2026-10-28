@@ -11,7 +11,7 @@ function field(scope, text) { const label = [...scope.querySelectorAll('label')]
 function button(scope, text) { const b=[...scope.querySelectorAll('button')].find(b => b.textContent===text); assert(b,text); return b; }
 async function main() {
   const dom = new JSDOM(html, {runScripts:'outside-only', url:'https://telbot.invalid', pretendToBeVisual:true});
-  const w=dom.window; const requests=[];
+  const w=dom.window; const requests=[]; let releasePreview;
   let saved, config={published:{version:2,greeting:'Hello',fallback_reply:'Fallback'},api_actions_ready:true,external_api_enabled:false,rules:[
     {id:'text-old',keyword:'قیمت',response_text:'Price',match_mode:'exact',action_type:'text',enabled:true},
     {id:'api-old',keyword:'موجودی',response_text:'Unavailable',match_mode:'contains',action_type:'api',enabled:true,
@@ -23,6 +23,13 @@ async function main() {
     if (url.endsWith('/me/tenants')) body=[{id:'tenant',display_name:'Synthetic workspace',role:'owner'}];
     else if (url.endsWith('/bots')) body=[{id:'bot',username:'ExampleBot',status:'active',is_managed:true,credential_ready:true}];
     else if (url.endsWith('/config')) body=config;
+    else if (url.endsWith('/preview')) {
+      const snapshot=JSON.parse(options.body);
+      if (snapshot.text==='منتظر') await new Promise(resolve=>{releasePreview=resolve;});
+      body=snapshot.text==='موجودی' ? {action:'api',rule_index:3,fallback_text:'Unavailable',executed:false} :
+        snapshot.text==='/start' ? {action:'greeting',response_text:snapshot.greeting,executed:false} :
+        {action:'text',rule_index:2,response_text:'<b>Unsaved address</b>',executed:false};
+    }
     else if (url.endsWith('/configs')) { saved=JSON.parse(options.body); body={id:'draft',version:3}; }
     else if (url.includes('/publish?expected_version=2')) {
       config={...config,published:{version:3,greeting:saved.greeting,fallback_reply:saved.fallback_reply},rules:saved.rules.map((r,i)=>{
@@ -47,6 +54,34 @@ async function main() {
   field(newCard,'کلمه یا عبارت محرک').dispatchEvent(new w.Event('input',{bubbles:true}));
   button(newCard,'بالاتر').click();
   assert.deepEqual([...panel.querySelectorAll('.rule-card')].map(c=>field(c,'کلمه یا عبارت محرک').value),['قیمت','آدرس','موجودی']);
+  const preview=panel.querySelector('.response-preview'); preview.open=true;
+  const previewText=field(preview,'پیام آزمایشی'), previewButton=button(preview,'نمایش پیش‌نمایش'), output=preview.querySelector('.preview-output');
+  assert.equal(previewText.closest('form'),null);
+  field(panel,'پیام شروع /start').value='Unsaved greeting';
+  field(existingApi,'کلید اتصال — در پاسخ سرور نمایش داده نمی‌شود').value='synthetic-new-key';
+  previewText.value='/start'; previewButton.click();
+  await until(()=>!previewButton.disabled && output.textContent.includes('Unsaved greeting'));
+  let previewBody=JSON.parse(requests.filter(r=>r.url.endsWith('/preview')).at(-1).options.body);
+  assert.equal(previewBody.greeting,'Unsaved greeting');
+  assert.equal(previewBody.rules[2].source_rule_id,'api-old');
+  assert.equal(Object.hasOwn(previewBody.rules[2].api,'credential'),false);
+  assert.equal(field(existingApi,'کلید اتصال — در پاسخ سرور نمایش داده نمی‌شود').value,'synthetic-new-key');
+  assert.equal(saved,undefined); // preview neither creates a draft nor publishes
+  previewText.value='آدرس'; previewText.dispatchEvent(new w.Event('input',{bubbles:true})); previewButton.click();
+  await until(()=>!previewButton.disabled && output.textContent.includes('Unsaved address'));
+  assert.equal(output.querySelector('b'),null); // response content remains plain text
+  previewText.value='موجودی'; previewText.dispatchEvent(new w.Event('input',{bubbles:true})); previewButton.click();
+  await until(()=>!previewButton.disabled && output.textContent.includes('فراخوانی نشد'));
+  assert.match(output.textContent,/Unavailable/); assert.match(output.textContent,/قانون 3/);
+  previewText.value='منتظر'; previewText.dispatchEvent(new w.Event('input',{bubbles:true})); previewButton.click();
+  await until(()=>releasePreview);
+  field(newCard,'متن پاسخ / پیام جایگزین در خطای API').dispatchEvent(new w.Event('input',{bubbles:true}));
+  releasePreview();
+  await until(()=>!previewButton.disabled && output.textContent.includes('تغییر کرد'));
+  previewText.value=''; previewText.dispatchEvent(new w.Event('input',{bubbles:true})); previewButton.click();
+  assert.match(output.textContent,/پیام آزمایشی بنویس/);
+  assert.equal(requests.filter(r=>r.url.endsWith('/preview')).length,4);
+  field(existingApi,'کلید اتصال — در پاسخ سرور نمایش داده نمی‌شود').value='';
   const form=panel.querySelector('form'); form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
   await until(()=>saved && field(panel,'پیام شروع /start').disabled===false && panel.textContent.includes('همهٔ پاسخ‌ها منتشر شدند'));
   assert.equal(saved.rules.length,3);assert.equal(saved.base_version,2);
