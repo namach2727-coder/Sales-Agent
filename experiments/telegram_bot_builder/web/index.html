@@ -6,9 +6,9 @@
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex,nofollow">
   <title>DirectPilot TelBot · نسخه آزمایشی</title>
-  <link rel="stylesheet" href="/telbot/style.css">
+  <link rel="stylesheet" href="/telbot/style.css?v=20261028-layout-2">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="/telbot/app.js?v=20261028-reply-editor-1" defer></script>
+  <script src="/telbot/app.js?v=20261028-layout-2" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -51,9 +51,15 @@
       </section>
       <section id="workspace" class="hidden">
         <div class="workspace-title"><div><div class="section-meta">حساب شما</div><h2 id="tenant-display"></h2></div><span class="small-pill">نسخه آزمایشی</span></div>
-        <section class="panel">
-          <div class="section-meta">مرحله دوم</div>
-          <h2>ساخت ربات اختصاصی</h2>
+        <section class="panel bots-panel">
+          <div class="section-meta">ربات‌های متصل</div>
+          <h2>ربات‌های من</h2>
+          <button class="button-secondary" type="button" id="refresh-bots">بررسی وضعیت ربات‌ها</button>
+          <div id="bots-list" class="bot-list">در حال دریافت اطلاعات…</div>
+          <p class="hint">ربات‌های جدید ابتدا در وضعیت «در انتظار فعال‌سازی» ذخیره می‌شوند. ارسال پیام خودکار فعلاً فعال نیست.</p>
+        </section>
+        <details class="panel creation-panel">
+          <summary>ساخت ربات جدید <span>افزودن ربات به حساب</span></summary>
           <p>نام و نام کاربری ربات را وارد کن. ساخت ربات با تأیید حساب تلگرام خودت انجام می‌شود؛ هیچ توکن API از تو درخواست نخواهد شد.</p>
           <form id="managed-bot-form" autocomplete="off">
             <label for="managed-bot-name">نام نمایشی ربات</label>
@@ -65,17 +71,16 @@
           </form>
           <a id="managed-bot-link" class="link hidden" rel="noopener noreferrer">باز کردن صفحه ساخت ربات در تلگرام</a>
           <p id="managed-bot-pending" class="hint hidden">درخواست ثبت شد. ربات را در تلگرام تأیید کن، سپس به این صفحه برگرد و فهرست ربات‌ها را بررسی کن.</p>
-        </section>
-        <section class="panel">
-          <div class="section-meta">ربات‌های متصل</div>
-          <h2>ربات‌های من</h2>
-          <button type="button" id="refresh-bots">بررسی وضعیت ربات‌ها</button>
-          <button type="button" id="check-manager-webhook">تشخیص اتصال تلگرام</button>
-          <button type="button" id="repair-manager-webhook">اصلاح Webhook مدیریتی</button>
+        </details>
+        <details class="panel diagnostics-panel">
+          <summary>بررسی اتصال تلگرام <span>عیب‌یابی و تنظیمات فنی</span></summary>
+          <div class="diagnostic-actions">
+          <button class="button-secondary" type="button" id="check-manager-webhook">تشخیص اتصال تلگرام</button>
+          <button class="button-secondary" type="button" id="repair-manager-webhook">اصلاح Webhook مدیریتی</button>
           <p id="manager-webhook-status" class="hint" role="status" aria-live="polite">وضعیت Webhook: هنوز بررسی نشده</p>
-          <div id="bots-list" class="bot-list">در حال دریافت اطلاعات…</div>
-          <p class="hint">ربات‌های جدید ابتدا در وضعیت «در انتظار فعال‌سازی» ذخیره می‌شوند. ارسال پیام خودکار فعلاً فعال نیست.</p>
-        </section>
+          </div>
+        </details>
+
       </section>
     </section>
     <footer>DirectPilot TelBot · محیط آزمایشی مستقل</footer>
