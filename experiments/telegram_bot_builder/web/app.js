@@ -223,7 +223,8 @@
     } finally { button.disabled = false; }
   });
   document.getElementById("check-manager-webhook").addEventListener("click", async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) { setNotice("حساب فعال شناسایی نشد؛ پنل را مجدداً از ربات مدیریتی باز کن.", "error"); return; }
+    setNotice("در حال بررسی Webhook مدیریتی…", "info");
     try {
       const w = await api("/api/v1/tenants/" + activeTenant.id + "/uat/manager-webhook");
       setNotice("Webhook UAT: " + (w.configured_for_uat ? "درست" : "ثبت‌نشده یا متفاوت") +
@@ -233,7 +234,8 @@
     } catch(error) { setNotice(publicError(error), "error"); }
   });
   document.getElementById("repair-manager-webhook").addEventListener("click", async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) { setNotice("حساب فعال شناسایی نشد؛ پنل را مجدداً از ربات مدیریتی باز کن.", "error"); return; }
+    setNotice("در حال ثبت Webhook مدیریتی…", "info");
     try {
       const w = await api("/api/v1/tenants/" + activeTenant.id + "/uat/manager-webhook/repair", {method:"POST"});
       setNotice(w.status === "registered_for_uat"
