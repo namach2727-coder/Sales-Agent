@@ -104,7 +104,30 @@
         meta.append(name, detail);
         const state = document.createElement("span"); state.className = "pending";
         state.textContent = bot.status === "pending" ? "در انتظار فعال‌سازی" : bot.status === "active" ? "فعال" : "متوقف";
-        row.append(meta, state); root.append(row);
+        row.append(meta, state);
+        if (bot.status === "pending" && bot.is_managed === true &&
+            bot.credential_ready === true && activeTenant.role === "owner") {
+          const activate = document.createElement("button");
+          activate.type = "button";
+          activate.textContent = "فعال‌سازی ربات";
+          activate.addEventListener("click", async () => {
+            activate.disabled = true;
+            activate.textContent = "در حال بررسی و فعال‌سازی…";
+            try {
+              const result = await api("/api/v1/tenants/" + activeTenant.id +
+                "/bots/" + bot.id + "/activate-managed", {method:"POST"});
+              setNotice(result.status === "active" ?
+                "Webhook اختصاصی ربات با موفقیت تأیید شد. وضعیت ربات فعال است." :
+                "پاسخ فعال‌سازی نامشخص است.", "success");
+              await listBots();
+            } catch(error) {
+              setNotice("خطای فعال‌سازی: " + publicError(error), "error");
+              activate.textContent = "تلاش دوباره برای فعال‌سازی";
+            } finally { activate.disabled = false; }
+          });
+          row.append(activate);
+        }
+        root.append(row);
       });
     } catch(error) { root.textContent = publicError(error); }
   }
