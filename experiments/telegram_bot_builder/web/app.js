@@ -222,26 +222,31 @@
       }
     } finally { button.disabled = false; }
   });
+  function webhookStatus(message) {
+    const target = document.getElementById("manager-webhook-status");
+    if (target) target.textContent = message;
+    setNotice(message, "info");
+  }
   document.getElementById("check-manager-webhook").addEventListener("click", async () => {
-    if (!activeTenant) { setNotice("حساب فعال شناسایی نشد؛ پنل را مجدداً از ربات مدیریتی باز کن.", "error"); return; }
-    setNotice("در حال بررسی Webhook مدیریتی…", "info");
+    if (!activeTenant) { webhookStatus("خطا: حساب فعال در پنل شناسایی نشد."); return; }
+    webhookStatus("در حال دریافت وضعیت اتصال مدیریتی تلگرام…");
     try {
       const w = await api("/api/v1/tenants/" + activeTenant.id + "/uat/manager-webhook");
-      setNotice("Webhook UAT: " + (w.configured_for_uat ? "درست" : "ثبت‌نشده یا متفاوت") +
+      webhookStatus("Webhook UAT: " + (w.configured_for_uat ? "درست" : "تنظیم‌نشده یا متفاوت") +
         " | managed_bot: " + (w.allowed_managed_bot || w.allowed_updates_default ? "مجاز" : "غیرفعال") +
-        " | رویدادهای معوق: " + w.pending_delivery_count +
-        " | سابقه خطای ارسال: " + (w.delivery_error_present ? "دارد" : "ندارد"), "info");
-    } catch(error) { setNotice(publicError(error), "error"); }
+        " | رویداد معوق: " + w.pending_delivery_count +
+        " | خطای تحویل: " + (w.delivery_error_present ? "دارد" : "ندارد"));
+    } catch(error) { webhookStatus("خطای تشخیص Webhook: " + publicError(error)); }
   });
   document.getElementById("repair-manager-webhook").addEventListener("click", async () => {
-    if (!activeTenant) { setNotice("حساب فعال شناسایی نشد؛ پنل را مجدداً از ربات مدیریتی باز کن.", "error"); return; }
-    setNotice("در حال ثبت Webhook مدیریتی…", "info");
+    if (!activeTenant) { webhookStatus("خطا: حساب فعال در پنل شناسایی نشد."); return; }
+    webhookStatus("در حال بررسی و ثبت Webhook مدیریتی UAT…");
     try {
       const w = await api("/api/v1/tenants/" + activeTenant.id + "/uat/manager-webhook/repair", {method:"POST"});
-      setNotice(w.status === "registered_for_uat"
-        ? "Webhook مدیریتی UAT ثبت شد؛ رویدادهای قبلیِ منقضی‌شده الزاماً بازیابی نمی‌شوند."
-        : "وضعیت نامشخص", "success");
-    } catch(error) { setNotice(publicError(error), "error"); }
+      webhookStatus(w.status === "registered_for_uat"
+        ? "Webhook مدیریتی UAT ثبت شد؛ لطفاً وضعیت را مجدد بررسی کن."
+        : "پاسخ ناشناخته از API ثبت Webhook");
+    } catch(error) { webhookStatus("خطای اصلاح Webhook: " + publicError(error)); }
   });
   document.getElementById("refresh-bots").addEventListener("click", async () => {
     if (activeTenant) await listBots();
