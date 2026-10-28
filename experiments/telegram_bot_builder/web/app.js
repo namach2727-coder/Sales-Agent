@@ -127,9 +127,72 @@
           });
           row.append(activate);
         }
+        if (activeTenant.role === "owner" || activeTenant.role === "editor") {
+          const edit = document.createElement("button");
+          edit.type = "button";
+          edit.textContent = "تنظیم پیام‌های ربات";
+          edit.addEventListener("click", () => openReplyEditor(bot, row, edit));
+          row.append(edit);
+        }
         root.append(row);
       });
     } catch(error) { root.textContent = publicError(error); }
+  }
+  async function openReplyEditor(bot, row, opener) {
+    opener.disabled = true;
+    const panel = document.createElement("section"); panel.className = "panel";
+    const title = document.createElement("h3"); title.textContent = "پیام‌های ربات";
+    const status = document.createElement("p"); status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    const form = document.createElement("form");
+    const fields = [
+      ["greeting", "پیام شروع /start"],
+      ["fallback_reply", "پاسخ به پیام‌های دیگر"],
+    ].map(([key, labelText]) => {
+      const label = document.createElement("label"); label.textContent = labelText;
+      const input = document.createElement("textarea");
+      input.name = key; input.maxLength = 4096; input.required = true; input.rows = 4;
+      label.append(input); form.append(label); return input;
+    });
+    const save = document.createElement("button"); save.type = "submit";
+    save.textContent = "ذخیره و انتشار پیام‌ها"; save.disabled = true;
+    const close = document.createElement("button"); close.type = "button"; close.textContent = "بستن تنظیمات";
+    close.addEventListener("click", () => { panel.remove(); opener.disabled = false; opener.focus(); });
+    const hint = document.createElement("p");
+    hint.textContent = "انتشار پیام‌ها با فعال‌شدن ارسال خودکار متفاوت است؛ پاسخ زنده نیاز به فعال‌بودن سرویس آزمایشی دارد. این فرم فقط پیام شروع و پاسخ پیش‌فرض را منتشر می‌کند.";
+    form.append(save, close); panel.append(title, hint, status, form); row.append(panel);
+    const base = "/api/v1/tenants/" + activeTenant.id + "/bots/" + bot.id;
+    status.textContent = "در حال دریافت تنظیمات…";
+    let draftId = null;
+    try {
+      const current = await api(base + "/config");
+      if (current.rules && current.rules.length) {
+        status.textContent = "این نسخه قانون کلیدواژه دارد؛ برای حفظ قوانین، ویرایش پیام‌ها در این فرم فعلاً غیرفعال است.";
+        return;
+      }
+      fields[0].value = current.published ? current.published.greeting : "";
+      fields[1].value = current.published ? current.published.fallback_reply : "";
+      status.textContent = current.published ? "نسخه منتشرشده بارگذاری شد." : "هنوز نسخه‌ای منتشر نشده است.";
+      save.disabled = false; fields[0].focus();
+    } catch (error) { status.textContent = "خطای دریافت: " + publicError(error); }
+    fields.forEach(field => field.addEventListener("input", () => { draftId = null; }));
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (fields.some(field => !field.value.trim())) { status.textContent = "هر دو پیام را بنویس."; return; }
+      save.disabled = true; close.disabled = true; fields.forEach(field => { field.disabled = true; });
+      status.textContent = "در حال ذخیره و انتشار…";
+      try {
+        if (!draftId) {
+          const draft = await api(base + "/configs", {method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({greeting: fields[0].value, fallback_reply: fields[1].value})});
+          draftId = draft.id;
+        }
+        await api(base + "/configs/" + draftId + "/publish", {method: "POST"});
+        draftId = null;
+        status.textContent = "پیام‌ها منتشر شدند. برای آزمون پاسخ زنده، سرویس ارسال آزمایشی نیز باید فعال باشد.";
+      } catch (error) { status.textContent = "ذخیره یا انتشار تأیید نشد: " + publicError(error); }
+      finally { save.disabled = false; close.disabled = false; fields.forEach(field => { field.disabled = false; }); }
+    });
   }
   async function describeAuthFailure(error) {
     if (!error || error.message !== "Invalid Telegram Mini App authentication") {

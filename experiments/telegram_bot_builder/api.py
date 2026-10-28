@@ -868,8 +868,9 @@ async def child_webhook(telegram_bot_id: int, request: Request, db: Db) -> dict[
     if telegram_bot_id <= 0:
         raise HTTPException(status_code=404, detail="Bot not found")
     bot = db.execute(
-        """SELECT id,tenant_id,webhook_secret_digest FROM telbot.bots
-             WHERE telegram_bot_id=%s AND status='active'""",
+        """SELECT id,tenant_id,webhook_secret_digest,credential_ciphertext FROM telbot.bots
+             WHERE telegram_bot_id=%s AND status='active'
+             AND EXISTS (SELECT 1 FROM telbot.tenants t WHERE t.id=telbot.bots.tenant_id AND t.status='active')""",
         (telegram_bot_id,),
     ).fetchone()
     if not bot or not bot["webhook_secret_digest"]:
@@ -894,5 +895,11 @@ async def child_webhook(telegram_bot_id: int, request: Request, db: Db) -> dict[
         (bot["tenant_id"], bot["id"], update["update_id"], text),
     ).fetchone()
     db.commit()
-    # No automated sending here: awaiting explicit live integration acceptance.
+    if inserted is not None:
+        try:
+            from .reply_runtime import process_reply
+        except ImportError:
+            from reply_runtime import process_reply
+        update["_bot_id"] = telegram_bot_id
+        await process_reply(db, bot, update, inserted["id"])
     return {"acknowledged": True, "duplicate": inserted is None}
