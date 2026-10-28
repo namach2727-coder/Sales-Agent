@@ -782,6 +782,87 @@ async def manager_webhook(request: Request, db: Db) -> dict[str, bool]:
     return {"acknowledged": True, "duplicate": False}
 
 
+@app.post("/api/v1/tenants/{tenant_id}/bots/{bot_id}/activate-managed")
+async def activate_managed_bot(
+    tenant_id: UUID, bot_id: UUID, actor: Principal, db: Db,
+) -> dict[str, str]:
+    """Owner-authorized UAT-only activation after Telegram registration verification."""
+    require_owner(db, tenant_id, actor)
+    if os.getenv("TELBOT_ENV") != "uat":
+        raise HTTPException(status_code=404, detail="Not found")
+    bot = db.execute(
+        """SELECT telegram_bot_id,credential_ciphertext,status,webhook_secret_digest
+           FROM telbot.bots WHERE id=%s AND tenant_id=%s
+             AND owner_telegram_user_id=%s AND managed_request_id IS NOT NULL
+           FOR UPDATE""",
+        (bot_id, tenant_id, actor.user_id),
+    ).fetchone()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Managed bot not found")
+    if bot["status"] == "active":
+        return {"status": "active"}
+    if bot["status"] != "pending" or bot["credential_ciphertext"] is None:
+        raise HTTPException(status_code=409, detail="Managed bot is not ready")
+    try:
+        from experiments.telegram_bot_builder.vault import TokenVault, CredentialError
+    except ModuleNotFoundError:
+        from vault import TokenVault, CredentialError
+    try:
+        token = TokenVault(os.getenv("TELBOT_TOKEN_FERNET_KEY", "")).decrypt(
+            bytes(bot["credential_ciphertext"])
+        )
+    except CredentialError:
+        raise HTTPException(status_code=503, detail="Managed credential unavailable") from None
+    import httpx
+    import re
+    from secrets import token_urlsafe
+    webhook_secret = token_urlsafe(32)
+    expected_url = (
+        "https://directpilot-telbot-uat-api.vercel.app/api/v1/webhooks/bots/"
+        + str(bot["telegram_bot_id"])
+    )
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10, connect=4),
+                                     follow_redirects=False) as client:
+            identity = await client.post("https://api.telegram.org/bot" + token + "/getMe")
+            if identity.status_code != 200 or not identity.json().get("ok"):
+                raise ValueError("invalid_bot")
+            observed = identity.json().get("result") or {}
+            if observed.get("id") != bot["telegram_bot_id"]:
+                raise ValueError("bot_identity_mismatch")
+            current = await client.post("https://api.telegram.org/bot" + token + "/getWebhookInfo")
+            if current.status_code != 200 or not current.json().get("ok"):
+                raise ValueError("webhook_unavailable")
+            existing_url = (current.json().get("result") or {}).get("url", "")
+            if existing_url and existing_url != expected_url:
+                raise HTTPException(status_code=409, detail="Child bot webhook belongs to another endpoint")
+            registered = await client.post(
+                "https://api.telegram.org/bot" + token + "/setWebhook",
+                json={"url": expected_url, "secret_token": webhook_secret,
+                      "allowed_updates": ["message"], "drop_pending_updates": False},
+            )
+            if registered.status_code != 200 or registered.json().get("ok") is not True:
+                raise ValueError("webhook_registration_failed")
+            verified = await client.post("https://api.telegram.org/bot" + token + "/getWebhookInfo")
+            if verified.status_code != 200 or not verified.json().get("ok") or (
+                verified.json().get("result") or {}
+            ).get("url") != expected_url:
+                raise ValueError("webhook_verification_failed")
+    except HTTPException:
+        raise
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        raise HTTPException(status_code=503, detail="Managed bot activation unavailable") from None
+    finally:
+        del token
+    db.execute(
+        """UPDATE telbot.bots SET webhook_secret_digest=%s,status='active',updated_at=now()
+           WHERE id=%s AND tenant_id=%s AND owner_telegram_user_id=%s AND status='pending'""",
+        (hashlib.sha256(webhook_secret.encode()).digest(), bot_id, tenant_id, actor.user_id),
+    )
+    db.commit()
+    return {"status": "active"}
+
+
 @app.post("/api/v1/webhooks/bots/{telegram_bot_id}")
 async def child_webhook(telegram_bot_id: int, request: Request, db: Db) -> dict[str, bool]:
     if telegram_bot_id <= 0:
