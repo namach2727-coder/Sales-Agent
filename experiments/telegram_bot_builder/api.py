@@ -1,7 +1,7 @@
 """DirectPilot TelBot -- isolated, fail-closed FastAPI UAT backend.
 
 This module is not imported by the Instagram DirectPilot production app.
-No external Telegram API calls, no bot-token or customer data in logs/responses.
+External calls are gated UAT actions; no bot tokens or customer content in logs.
 API requires a dedicated UAT database URL and official Manager Bot token.
 """
 from __future__ import annotations
@@ -442,9 +442,24 @@ def list_managed_bot_requests(
     ).fetchall()
 
 
-class DraftInput(BaseModel):
-    greeting: str = Field(min_length=1, max_length=4096)
-    fallback_reply: str = Field(min_length=1, max_length=4096)
+try:
+    from .builder_models import DraftInput
+    from .builder_storage import api_schema_ready, read_rules, add_snapshot_rules
+except ImportError:
+    from builder_models import DraftInput
+    from builder_storage import api_schema_ready, read_rules, add_snapshot_rules
+
+
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
+
+
+@app.exception_handler(RequestValidationError)
+async def hide_builder_credentials(request: Request, exc: RequestValidationError):
+    if request.url.path.endswith('/configs'):
+        # Validation errors can contain the complete submitted credential-bearing body.
+        return JSONResponse(status_code=422, content={'detail': 'Invalid bot configuration'})
+    return await request_validation_exception_handler(request, exc)
 
 
 @app.get("/telbot")
@@ -515,7 +530,7 @@ def ready(db: Db) -> dict[str, str]:
     version = db.execute(
         "SELECT version FROM telbot.schema_migrations ORDER BY version DESC LIMIT 1"
     ).fetchone()
-    if not version or version["version"] != "0002_webhook_auth":
+    if not version or version["version"] not in ("0002_webhook_auth", "0003_rule_api_calls"):
         raise HTTPException(status_code=503, detail="TelBot schema not ready")
     if not os.getenv("TELBOT_MANAGER_TOKEN") or not os.getenv("TELBOT_MANAGER_WEBHOOK_SECRET"):
         raise HTTPException(status_code=503, detail="Telegram manager not configured")
@@ -547,15 +562,11 @@ def get_published_config(
              WHERE tenant_id=%s AND bot_id=%s AND state='published' LIMIT 1""",
         (tenant_id, bot_id),
     ).fetchone()
-    if not row:
-        return {"published": None, "rules": []}
-    rules = db.execute(
-        """SELECT keyword, match_mode,response_text,priority FROM telbot.reply_rules
-             WHERE tenant_id=%s AND configuration_id=%s AND enabled=true
-             ORDER BY priority ASC LIMIT 100""",
-        (tenant_id, row["id"]),
-    ).fetchall()
-    return {"published": row, "rules": rules}
+    schema_ready = api_schema_ready(db)
+    rules = read_rules(db, tenant_id, row["id"], public=True, ready=schema_ready) if row else []
+    return {"published": row, "rules": rules, "api_actions_ready": schema_ready,
+            "external_api_enabled": os.getenv("TELBOT_EXTERNAL_API_ENABLED") == "true"}
+
 
 
 @app.post("/api/v1/tenants/{tenant_id}/bots/{bot_id}/configs", status_code=201)
@@ -572,6 +583,12 @@ def create_draft(
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Bot not found")
+    previous = db.execute(
+        """SELECT id,version FROM telbot.configuration_versions
+             WHERE tenant_id=%s AND bot_id=%s AND state='published' LIMIT 1""", (tenant_id, bot_id),
+    ).fetchone()
+    if body.base_version is not None and body.base_version != (previous['version'] if previous else 0):
+        raise HTTPException(status_code=409, detail='Published configuration changed; reload before saving')
     next_version = db.execute(
         """SELECT COALESCE(MAX(version),0)+1 AS n FROM telbot.configuration_versions
              WHERE bot_id=%s""", (bot_id,),
@@ -582,6 +599,7 @@ def create_draft(
              VALUES (%s,%s,%s,%s,%s,%s) RETURNING id,version,state""",
         (tenant_id, bot_id, next_version, body.greeting, body.fallback_reply, actor.user_id),
     ).fetchone()
+    add_snapshot_rules(db, tenant_id, bot_id, new['id'], previous, body)
     db.commit()
     return new
 
@@ -589,6 +607,7 @@ def create_draft(
 @app.post("/api/v1/tenants/{tenant_id}/bots/{bot_id}/configs/{config_id}/publish")
 def publish_draft(
     tenant_id: UUID, bot_id: UUID, config_id: UUID, actor: Principal, db: Db,
+    expected_version: int | None = None,
 ) -> dict[str, Any]:
     require_member(db, tenant_id, actor, write=True)
     # Lock at bot level: prevents concurrent publish/create races.
@@ -605,6 +624,12 @@ def publish_draft(
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Draft not found")
+    current = db.execute(
+        """SELECT id,version FROM telbot.configuration_versions
+             WHERE tenant_id=%s AND bot_id=%s AND state='published' LIMIT 1""", (tenant_id, bot_id),
+    ).fetchone()
+    if expected_version is not None and expected_version != (current['version'] if current else 0):
+        raise HTTPException(status_code=409, detail='Published configuration changed; reload before publishing')
     if row["state"] != "draft":
         raise HTTPException(status_code=409, detail="Only draft configuration can be published")
     db.execute(

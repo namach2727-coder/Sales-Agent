@@ -1,0 +1,50 @@
+# Versioned replies and HTTP/JSON actions — UAT implementation
+
+Owner request: allow more than a start/fallback message and connect bots to APIs. This is the independent TelBot track; no Instagram/Production changes.
+
+## User behavior
+
+- Up to 100 rules per version. Each has a keyword, exact/contains match, enabled state and ordered priority. First enabled matching rule wins; /start always uses greeting.
+- Text replies and HTTP/JSON replies. API failure uses that rule's configured replacement text.
+- Add, reorder, disable and remove rules from a new snapshot. Archived published versions remain intact. Legacy clients omitting rules copy existing rules; menu buttons and FAQs are copied to the new configuration rather than silently discarded.
+- Editor preserves API credentials without readback using a scoped source-rule ID. Changing endpoint/auth mechanism requires entering a credential again. No key in browser storage, logs or returned configuration.
+- Save and publish check the loaded base version to reject concurrent stale edits. A successful publish remains successful if optional refresh fails; re-open to continue editing.
+
+## Supported HTTP adapter
+
+- HTTPS public DNS domains, port 443; GET query parameters or POST JSON body. No query strings/userinfo/fragment in endpoint URL; use explicit query fields.
+- No auth, Bearer token, or X-* API key header. Header secrets are encrypted with the dedicated TelBot vault key and a distinct API-config envelope.
+- Static query values are strings; JSON body is an object limited to 8 KiB/depth 6. Optional user-message forwarding uses a chosen field name. It is OFF by default and clearly disclosed in the editor.
+- Simple dotted response path, including array indices, selects a scalar text/number/bool. No script/template evaluation. Selected text must be nonempty and at most 4096 characters.
+- This is NOT universal API compatibility: OAuth consent/refresh, SOAP/XML, gRPC, streaming, file uploads and nonpublic intranet APIs are not implemented.
+
+## Security and delivery
+
+- Validates HTTPS host syntax; resolves all A/AAAA answers at connection time and rejects private/reserved/loopback/link-local/multicast/mapped/tunnel destinations. Pins the actual TCP connection to a validated public IP, preserving original Host header, TLS SNI and certificate verification. No second unchecked DNS lookup.
+- No proxy inheritance, redirects, application retries or cookie reuse. 8-second total request deadline, 64 KiB response cap, JSON content only, no compressed responses. Only static safe error codes escape the adapter.
+- Credentials are never returned to the form. New-config validation errors omit submitted bodies. Credentials cannot be silently reused against a different URL/auth mechanism. Echo of the configured credential in selected response is rejected.
+- Both TELBOT_REPLIES_ENABLED=true and TELBOT_ENV=uat are required for replies. TELBOT_EXTERNAL_API_ENABLED=true is separately required to call configured external APIs. These flags are NOT enabled by saving/publishing.
+- Durable attempt is committed before API or Telegram network. Duplicate update does not repeat API POST. At-most-once attempt can lose a reply on crash/timeout; no exactly-once promise or automatic retry/recovery worker.
+- Per-bot API budget: 20 attempts/minute, reserved under a PostgreSQL advisory lock and recorded as content-free audit events. Disabled/paused/budget-exhausted actions do not call the provider.
+
+## Migration and verification
+
+- Additive 0003_rule_api_calls adds action_type and encrypted API configuration to reply_rules; existing text rules default to text.
+- Development database branch br-curly-fire-ar5mdqwv derives from a VERIFIED EMPTY parent (zero app tables), not UAT customer/bot credentials. It expires 2026-10-29T18:00:00Z. Migrations 0001–0003 applied there; SQL smoke verified default text, cipher constraint, tenant FK, ordering uniqueness and immutable historical copies; test fixture rollback left zero tenants/rules.
+- Python tests cover input limits, network destination/connection pinning/TLS hostname, opt-in message forwarding, response limits, errors/no retries, encrypted round-trip/no key readback, scope checks, version conflict and runtime gating.
+- DOM simulation executes the actual app.js with synthetic Telegram identity/fetch: existing rules, adding/reordering/removing, preserving secret reference, publishing once, reload and close. It is NOT a mobile visual/browser acceptance test.
+- CI includes disposable PostgreSQL 18 to verify upgrades of legacy rows and actual HTTP draft/publish storage. It accepts only an explicitly named loopback test database, never live Neon credentials.
+
+## Release order and acceptance
+
+1. Require focused and CI tests. Deploy UAT code with both outbound flags unchanged/OFF; code supports 0002 while API schema is absent.
+2. Verify exact UAT deployment SHA/alias and /ready. Apply checked-in 0003 transactionally ONLY to UAT after isolated migration tests. Verify old published configuration and bot counts are unchanged.
+3. Owner reopens Mini App: start/fallback plus two text rules, reorder, disable, publish/reload, old versions retained, viewer denied.
+4. Configure one owner-chosen API and select a safe response path. Do not collect its key in chat. No live provider calls until explicit acceptance/enablement; do not claim a particular provider works without its documented contract and real test.
+5. Validate one real API response, provider failure fallback and duplicate update after controlled enablement. Record separate owner mobile/functional acceptance. No commercial/Production release is implied.
+
+## Reference implementation guidance
+
+- OWASP SSRF prevention: https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html
+- HTTPX custom transport interface: https://www.python-httpx.org/advanced/transports/
+- HTTPcore 1.x and HTTPX 0.27–0.28 interfaces are bounded in requirements and verified by fake network-stream tests; review these tests when upgrading the transport dependencies.
