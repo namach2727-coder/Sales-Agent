@@ -8,7 +8,7 @@
   <title>DirectPilot TelBot · نسخه آزمایشی</title>
   <link rel="stylesheet" href="/telbot/style.css">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="/telbot/app.js?v=20261027-webhook-buttons-2" defer></script>
+  <script src="/telbot/app.js?v=20261028-inline-webhook-3" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -72,6 +72,7 @@
           <button type="button" id="refresh-bots">بررسی وضعیت ربات‌ها</button>
           <button type="button" id="check-manager-webhook">تشخیص اتصال تلگرام</button>
           <button type="button" id="repair-manager-webhook">اصلاح Webhook مدیریتی</button>
+          <p id="manager-webhook-status" class="hint" role="status" aria-live="polite">وضعیت Webhook: هنوز بررسی نشده</p>
           <div id="bots-list" class="bot-list">در حال دریافت اطلاعات…</div>
           <p class="hint">ربات‌های جدید ابتدا در وضعیت «در انتظار فعال‌سازی» ذخیره می‌شوند. ارسال پیام خودکار فعلاً فعال نیست.</p>
         </section>
