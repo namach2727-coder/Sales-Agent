@@ -95,7 +95,7 @@
         }
       }
       bots.forEach(bot => {
-        const row = document.createElement("div"); row.className = "bot-row";
+        const row = document.createElement("article"); row.className = "bot-row";
         const meta = document.createElement("div");
         const name = document.createElement("strong");
         name.textContent = bot.username ? "@" + bot.username : "ربات تلگرام";
@@ -104,7 +104,11 @@
         meta.append(name, detail);
         const state = document.createElement("span"); state.className = "pending";
         state.textContent = bot.status === "pending" ? "در انتظار فعال‌سازی" : bot.status === "active" ? "فعال" : "متوقف";
-        row.append(meta, state);
+        const header = document.createElement("div"); header.className = "bot-card-header";
+        meta.className = "bot-identity";
+        header.append(meta, state);
+        const actions = document.createElement("div"); actions.className = "bot-actions";
+        row.append(header, actions);
         if (bot.status === "pending" && bot.is_managed === true &&
             bot.credential_ready === true && activeTenant.role === "owner") {
           const activate = document.createElement("button");
@@ -125,14 +129,14 @@
               activate.textContent = "تلاش دوباره برای فعال‌سازی";
             } finally { activate.disabled = false; }
           });
-          row.append(activate);
+          actions.append(activate);
         }
         if (activeTenant.role === "owner" || activeTenant.role === "editor") {
           const edit = document.createElement("button");
           edit.type = "button";
           edit.textContent = "تنظیم پیام‌های ربات";
           edit.addEventListener("click", () => openReplyEditor(bot, row, edit));
-          row.append(edit);
+          actions.append(edit);
         }
         root.append(row);
       });
@@ -140,7 +144,7 @@
   }
   async function openReplyEditor(bot, row, opener) {
     opener.disabled = true;
-    const panel = document.createElement("section"); panel.className = "panel";
+    const panel = document.createElement("section"); panel.className = "reply-editor";
     const title = document.createElement("h3"); title.textContent = "پیام‌های ربات";
     const status = document.createElement("p"); status.setAttribute("role", "status");
     status.setAttribute("aria-live", "polite");
@@ -156,11 +160,13 @@
     });
     const save = document.createElement("button"); save.type = "submit";
     save.textContent = "ذخیره و انتشار پیام‌ها"; save.disabled = true;
-    const close = document.createElement("button"); close.type = "button"; close.textContent = "بستن تنظیمات";
+    const close = document.createElement("button"); close.type = "button"; close.textContent = "بستن تنظیمات"; close.className = "button-secondary";
     close.addEventListener("click", () => { panel.remove(); opener.disabled = false; opener.focus(); });
     const hint = document.createElement("p");
     hint.textContent = "انتشار پیام‌ها با فعال‌شدن ارسال خودکار متفاوت است؛ پاسخ زنده نیاز به فعال‌بودن سرویس آزمایشی دارد. این فرم فقط پیام شروع و پاسخ پیش‌فرض را منتشر می‌کند.";
-    form.append(save, close); panel.append(title, hint, status, form); row.append(panel);
+    const buttons = document.createElement("div"); buttons.className = "editor-actions";
+    buttons.append(save, close); form.append(buttons);
+    panel.append(title, hint, status, form); row.append(panel);
     const base = "/api/v1/tenants/" + activeTenant.id + "/bots/" + bot.id;
     status.textContent = "در حال دریافت تنظیمات…";
     let draftId = null;
