@@ -32,3 +32,15 @@ details[open] > summary { padding-bottom: 14px; margin-bottom: 12px; border-bott
   .bot-actions button, .editor-actions button { flex: auto; width: 100%; }
   .workspace-title { gap: 10px; flex-wrap: wrap; }
 }
+
+.rules-list { display:grid; gap:12px; min-width:0; }
+.rule-card { border:1px solid var(--line); border-radius:12px; background:white; padding:12px; min-width:0; }
+.rule-fields, .api-fields { display:grid; gap:12px; min-width:0; }
+.api-fields { padding:12px; border:1px solid #dad6fb; border-radius:10px; background:#f7f6ff; }
+.api-fields[hidden] { display:none; }
+.reply-editor select { font:inherit; font-size:13px; color:var(--ink); width:100%; min-width:0; padding:12px; border:1px solid #d6dceb; border-radius:10px; background:white; }
+.reply-editor input[type="checkbox"] { width:20px; height:20px; justify-self:start; accent-color:var(--primary); }
+.reply-editor textarea[dir="ltr"], .reply-editor input[dir="ltr"] { direction:ltr; text-align:left; }
+.reply-editor h4 { font-size:15px; margin:16px 0 0; }
+.rule-card summary { overflow-wrap:anywhere; }
+.reply-editor [hidden] { display:none; }

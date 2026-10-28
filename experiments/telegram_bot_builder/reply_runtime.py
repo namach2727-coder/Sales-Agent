@@ -2,13 +2,17 @@
 import os
 import httpx
 try:
-    from .core import BotConfiguration, ReplyRule
+    from .core import BotConfiguration, ReplyRule, is_start_command, keyword_matches
     from .reply_planner import plan_private_reply
     from .vault import TokenVault, CredentialError
+    from .builder_storage import read_rules
+    from .api_actions import open_call, invoke_api, ApiActionError
 except ImportError:
-    from core import BotConfiguration, ReplyRule
+    from core import BotConfiguration, ReplyRule, is_start_command, keyword_matches
     from reply_planner import plan_private_reply
     from vault import TokenVault, CredentialError
+    from builder_storage import read_rules
+    from api_actions import open_call, invoke_api, ApiActionError
 
 
 async def send_text(token, payload, *, transport=None):
@@ -26,6 +30,23 @@ async def send_text(token, payload, *, transport=None):
         return None, 'delivery_unknown'
 
 
+def reserve_api_budget(db, tenant, bot_id):
+    """Serialize a small per-bot budget; store only aggregate audit metadata."""
+    lock = db.execute("SELECT pg_try_advisory_xact_lock(hashtextextended(%s,0)) AS acquired", ('telbot-api:' + str(bot_id),)).fetchone()
+    if not lock or not lock['acquired']:
+        db.commit()
+        return False
+    used = db.execute("""SELECT count(*) AS n FROM telbot.audit_events
+        WHERE tenant_id=%s AND bot_id=%s AND event_type='api_action_attempt'
+          AND created_at>=now()-interval '1 minute'""", (tenant, bot_id)).fetchone()
+    allowed = int(used['n']) < 20
+    if allowed:
+        db.execute("""INSERT INTO telbot.audit_events(tenant_id,bot_id,event_type)
+            VALUES (%s,%s,'api_action_attempt')""", (tenant, bot_id))
+    db.commit()
+    return allowed
+
+
 async def process_reply(db, bot, update, inbound_id):
     if os.getenv('TELBOT_ENV') != 'uat' or os.getenv('TELBOT_REPLIES_ENABLED') != 'true':
         return
@@ -34,8 +55,7 @@ async def process_reply(db, bot, update, inbound_id):
         WHERE tenant_id=%s AND bot_id=%s AND state='published' LIMIT 1""", (tenant, bid)).fetchone()
     if not config:
         return
-    rules = db.execute("""SELECT keyword,response_text,match_mode FROM telbot.reply_rules
-        WHERE tenant_id=%s AND configuration_id=%s AND enabled=true ORDER BY priority LIMIT 100""", (tenant, config['id'])).fetchall()
+    rules = [rule for rule in read_rules(db, tenant, config['id']) if rule.get('enabled', True)]
     cfg = BotConfiguration(str(tenant), update['_bot_id'], config['greeting'], config['fallback_reply'], tuple(ReplyRule(r['keyword'], r['response_text'], r['match_mode']) for r in rules))
     payload = plan_private_reply(cfg, update, tenant_id=str(tenant), bot_id=update['_bot_id'])
     if payload is None:
@@ -57,10 +77,29 @@ async def process_reply(db, bot, update, inbound_id):
         (tenant_id,bot_id,session_id,source_update_id,response_text,attempts,error_code)
         VALUES (%s,%s,%s,%s,%s,1,'delivery_unknown') RETURNING id""", (tenant,bid,session['id'],inbound_id,payload['text'])).fetchone()
     db.commit()
+    # The committed attempt covers BOTH the optional API action and Telegram send.
+    # Replayed inbound updates must never repeat a POST to a customer API.
+    api_error = None
+    if not is_start_command(update['message']['text']):
+        matched = next((r for r in rules if keyword_matches(r['keyword'], r['match_mode'], update['message']['text'])), None)
+        if matched and matched.get('action_type') == 'api':
+            if os.getenv('TELBOT_EXTERNAL_API_ENABLED') == 'true' and reserve_api_budget(db, tenant, bid):
+                try:
+                    value = open_call(matched['api_request_ciphertext'], os.getenv('TELBOT_TOKEN_FERNET_KEY', ''))
+                    payload['text'] = await invoke_api(value, update['message']['text'])
+                except ApiActionError as exc:
+                    api_error = str(exc)
+            else:
+                api_error = 'api_actions_disabled' if os.getenv('TELBOT_EXTERNAL_API_ENABLED') != 'true' else 'api_rate_limited'
+            # Persist the actual outgoing text or configured failure response before sending.
+            db.execute("""UPDATE telbot.outbound_messages SET response_text=%s,error_code=%s
+                WHERE id=%s AND tenant_id=%s AND bot_id=%s""",
+                (payload['text'], api_error, outbound['id'], tenant, bid))
+            db.commit()
     mid, error = await send_text(token, payload)
     db.execute("""UPDATE telbot.outbound_messages SET delivery_status=%s,
         telegram_message_id=%s,error_code=%s,sent_at=CASE WHEN %s THEN now() ELSE NULL END
-        WHERE id=%s AND tenant_id=%s AND bot_id=%s""", ('sent' if mid else 'failed',mid,error,bool(mid),outbound['id'],tenant,bid))
+        WHERE id=%s AND tenant_id=%s AND bot_id=%s""", ('sent' if mid else 'failed',mid,error or api_error,bool(mid),outbound['id'],tenant,bid))
     db.execute("""UPDATE telbot.inbound_updates SET processing_status=%s,processed_at=now()
         WHERE id=%s AND tenant_id=%s AND bot_id=%s""", ('processed' if mid else 'failed',inbound_id,tenant,bid))
     db.commit()

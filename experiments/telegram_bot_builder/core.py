@@ -146,14 +146,22 @@ def _normalize(message: str) -> str:
     ).casefold().strip()
 
 
-def resolve_text_reply(config: BotConfiguration, text: str) -> str:
-    """Deterministic text rules for a single authorized tenant/bot configuration."""
+def is_start_command(text: str) -> bool:
     normalized = _normalize(text)
     command = normalized.split(maxsplit=1)[0] if normalized else ""
-    if command.split("@", 1)[0] == "/start":
+    return command.split("@", 1)[0] == "/start"
+
+
+def keyword_matches(keyword: str, mode: str, text: str) -> bool:
+    keyword, text = _normalize(keyword), _normalize(text)
+    return text == keyword or (mode == 'contains' and keyword in text)
+
+
+def resolve_text_reply(config: BotConfiguration, text: str) -> str:
+    """Deterministic text rules for a single authorized tenant/bot configuration."""
+    if is_start_command(text):
         return config.start_message
     for rule in config.rules:
-        keyword = _normalize(rule.keyword)
-        if normalized == keyword or (rule.match_mode == "contains" and keyword in normalized):
+        if keyword_matches(rule.keyword, rule.match_mode, text):
             return rule.reply
     return config.fallback_message

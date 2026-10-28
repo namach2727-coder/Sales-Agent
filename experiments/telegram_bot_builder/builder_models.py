@@ -1,0 +1,38 @@
+"""Bounded no-code rules and full version snapshots."""
+from typing import Literal
+from uuid import UUID
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+try:
+    from .api_actions import ApiCallInput
+except ImportError:
+    from api_actions import ApiCallInput
+
+
+class RuleInput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    keyword: str = Field(min_length=1, max_length=120)
+    match_mode: Literal['exact', 'contains'] = 'exact'
+    response_text: str = Field(min_length=1, max_length=4096)
+    action_type: Literal['text', 'api'] = 'text'
+    enabled: bool = True
+    api: ApiCallInput | None = None
+    source_rule_id: UUID | None = None
+
+    @model_validator(mode='after')
+    def check_rule(self):
+        if not self.keyword.strip() or not self.response_text.strip(): raise ValueError('Blank rule')
+        if (self.action_type == 'api') != (self.api is not None): raise ValueError('Action settings mismatch')
+        return self
+
+
+class DraftInput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    greeting: str = Field(min_length=1, max_length=4096)
+    fallback_reply: str = Field(min_length=1, max_length=4096)
+    rules: list[RuleInput] | None = Field(default=None, max_length=100)
+    base_version: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode='after')
+    def check_draft(self):
+        if not self.greeting.strip() or not self.fallback_reply.strip(): raise ValueError('Blank message')
+        return self
