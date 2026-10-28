@@ -31,3 +31,9 @@ At-most-once attempts, not exactly-once Telegram delivery. Attempt is committed 
 ## Stop/rollback
 
 Disable the UAT reply flag for future invocations and restore the verified prior deployment if necessary; already-started sends may finish. Do not delete inbound/outbound audit evidence or change credentials/Production. Investigate cross-tenant behavior, any credential disclosure, duplicate sends or regressions before re-enabling.
+
+
+## 2026-10-28 — PR #100 UAT deployment VERIFIED READY
+Supersedes the preceding PENDING/build-rate-limit status for this release. Read-only Vercel alias and deployment checks confirm directpilot-telbot-uat-api.vercel.app -> dpl_6SQyfMv4J5oMxdDRP6YTMvvMJXmf, READY, exact Git SHA 250fb4d3960e5a8b7095689d2363d465ab8d38ff, isolated TelBot branch/project. Basic message editor and default-disabled reply runtime are DEPLOYED to UAT. No reply flag enabled or actual outbound send performed. Owner Telegram mobile/editor save-publish and live reply acceptance are still PENDING. Do not re-deploy solely due historical quota failures. Next: owner opens fresh Mini App, uses تنظیم پیام‌های ربات to publish greeting/fallback; verify persisted version, then controlled live-send acceptance separately.
+
+Runtime HTTP smoke after PR #100 deploy: GET /ready returned {"status":"ready","database":"available","migration":"current"}. This verifies runtime DB readiness, not editor save/publish or outbound acceptance.

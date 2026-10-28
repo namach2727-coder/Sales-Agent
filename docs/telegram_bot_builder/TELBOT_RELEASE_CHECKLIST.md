@@ -254,3 +254,14 @@ Validation: 94 TelBot unittest tests PASS; node --check app.js PASS. Visual/Tele
 
 ## 2026-10-28 — PR #100 UAT release evidence and acceptance runbook
 Read-only Vercel alias/deployment lookup confirmed official TelBot UAT still READY on dpl_9CpPG3S682sh1PJMN5awe2ZWmY3G / f31249005fee63017e25185fab5f533a1d6fd86f (#98), not reply/editor candidate a9da4f28. Candidate dedicated unit-test, Docker and PostgreSQL checks PASS; generic backend test still running at checkpoint. Vercel candidate status build-rate-limit; no new deployment attempted and no reply flag enabled. Added docs/telegram_bot_builder/PRIVATE_REPLY_UAT_ACCEPTANCE_20261028.md with exact baseline, separate editor/live-send gates, privacy-preserving evidence, at-most-once caveats and rollback. No claim of live editor/reply acceptance.
+
+
+## 2026-10-28 — TelBot PR #100 merged after final CI PASS
+Owner requested continued development. PR #100 merged ONLY into feature/telegram-managed-bots-spike-20261017 as 250fb4d3960e5a8b7095689d2363d465ab8d38ff. Reviewed head 9f5b5b7426b0f6d8c446715b3c684aab5c7da1ba: all 10 reported GitHub checks completed SUCCESS (including duplicate push/PR checks, TelBot unit-test, generic backend suites, Docker and PostgreSQL). Local TelBot suite 94 PASS. Includes greeting/fallback Mini App editor and guarded private reply runtime. No rule editor; existing rule-bearing versions cannot be overwritten through basic form.
+Vercel status for merged SHA is deploying/PENDING at checkpoint; do not claim deployed until exact alias READY verification. Replies default OFF; no live send, environment flag change, schema migration or Production promotion performed. Next: verify merged deployment exact SHA and owner/editor UI save-publish on UAT, then separately approved live response acceptance. At-most-once attempts and crash/timeout loss caveats remain. Acceptance runbook: docs/telegram_bot_builder/PRIVATE_REPLY_UAT_ACCEPTANCE_20261028.md.
+
+
+## 2026-10-28 — PR #100 UAT deployment VERIFIED READY
+Supersedes the preceding PENDING/build-rate-limit status for this release. Read-only Vercel alias and deployment checks confirm directpilot-telbot-uat-api.vercel.app -> dpl_6SQyfMv4J5oMxdDRP6YTMvvMJXmf, READY, exact Git SHA 250fb4d3960e5a8b7095689d2363d465ab8d38ff, isolated TelBot branch/project. Basic message editor and default-disabled reply runtime are DEPLOYED to UAT. No reply flag enabled or actual outbound send performed. Owner Telegram mobile/editor save-publish and live reply acceptance are still PENDING. Do not re-deploy solely due historical quota failures. Next: owner opens fresh Mini App, uses تنظیم پیام‌های ربات to publish greeting/fallback; verify persisted version, then controlled live-send acceptance separately.
+
+Runtime HTTP smoke after PR #100 deploy: GET /ready returned {"status":"ready","database":"available","migration":"current"}. This verifies runtime DB readiness, not editor save/publish or outbound acceptance.
