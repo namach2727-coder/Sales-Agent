@@ -1,3 +1,11 @@
+## 2026-10-29 — TelBot editor usability and typing fix (release pending)
+
+Release candidate: feature/telbot-editor-usability-20261029 based on baa11ea3798c7a6d0e569daef6190a802faeece3; PR/merge/UAT deployment pending. Local checks: actual app.js DOM regression/behavior PASS, 123 Python PASS + 2 CI-only skips, JS syntax and whitespace PASS. Production unchanged. Owner usability/device acceptance PENDING.
+
+Owner rejected the previous editor as confusing and reported keyboard dismissal while typing. A regression test reproduced keyword-input focus changing to BODY because reorder() re-appended every card on each input event. Typing now updates captions only; card insertion/movement occurs on explicit add/reorder/undo actions. Real Telegram/iOS keyboard and visual acceptance are still pending; DOM focus tests are not a device acceptance claim.
+
+---
+
 ## 2026-10-29 — CURRENT TelBot checkpoint: PR #103 deployed to UAT
 
 | PR | Git ref / SHA | UAT deployment | Production | Customer acceptance | Evidence |

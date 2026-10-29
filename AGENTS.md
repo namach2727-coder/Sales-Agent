@@ -1,3 +1,11 @@
+## 2026-10-29 — TelBot editor usability and typing fix (release pending)
+
+Preserve focused input ancestors during input/composition events. Do not rebuild the bot list while any editor is open, including visibility-return refresh. Maintain unsaved field state across the three editor tabs. Details and acceptance: docs/telegram_bot_builder/EDITOR_USABILITY_20261029.md.
+
+Owner rejected the previous editor as confusing and reported keyboard dismissal while typing. A regression test reproduced keyword-input focus changing to BODY because reorder() re-appended every card on each input event. Typing now updates captions only; card insertion/movement occurs on explicit add/reorder/undo actions. Real Telegram/iOS keyboard and visual acceptance are still pending; DOM focus tests are not a device acceptance claim.
+
+---
+
 ## 2026-10-29 — CURRENT TelBot checkpoint: PR #103 deployed to UAT
 
 This checkpoint supersedes the historical 2026-10-28 preview deployment quota blocker. Vercel directpilot-telbot-uat-api / team_Cu7IBomJgSNCXUMp3sILUUD4 is READY on dpl_Hy4hsuSi9PzhGNLcoZsqCDejkdYY, exact reviewed merge c08a3c26422ad2d28036946c274b035216fff8c0. Canonical alias https://directpilot-telbot-uat-api.vercel.app points to this deployment. The project target label production belongs ONLY to this isolated UAT project; it is not a business Production promotion.

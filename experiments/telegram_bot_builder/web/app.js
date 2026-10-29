@@ -77,10 +77,16 @@
     return description;
   }
   async function listBots() {
+    // Returning to the app must not replace an editor or discard unsaved input.
+    if (document.querySelector(".reply-editor")) return;
     const root = document.getElementById("bots-list");
     root.textContent = "در حال دریافت ربات‌ها…";
     try {
       const bots = await api("/api/v1/tenants/" + activeTenant.id + "/bots");
+      if (document.querySelector(".reply-editor")) return;
+      ["onboarding-intro", "onboarding-steps"].forEach(id => {
+        const element = document.getElementById(id); if (element) element.hidden = bots.length > 0;
+      });
       root.replaceChildren();
       if (!bots.length) { root.textContent = "هنوز رباتی متصل نکرده‌ای."; root.className = "bot-empty"; return; }
       root.className = "bot-list";
@@ -153,131 +159,237 @@
   async function openReplyEditor(bot, row, opener) {
     opener.disabled = true;
     const panel = document.createElement("section"); panel.className = "reply-editor";
-    const title = document.createElement("h3"); title.textContent = "پیام‌ها و پاسخ‌های ربات";
-    const status = document.createElement("p"); status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
-    const form = document.createElement("form");
+    const title = document.createElement("h3"); title.textContent = "پاسخ‌های ربات";
+    const intro = document.createElement("p"); intro.className = "hint";
+    intro.textContent = "پیام‌های رایج مشتریان را بنویس و برای هرکدام یک پاسخ تعیین کن.";
+    const status = document.createElement("p"); status.className = "editor-status";
+    status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
+    const form = document.createElement("form"); form.id = "reply-form-" + bot.id; form.noValidate = true;
     function field(parent, labelText, type = "text", value = "") {
-      const label = document.createElement("label"); label.textContent = labelText;
+      const label = document.createElement("label"), caption = document.createElement("span"); caption.textContent = labelText;
       const input = document.createElement(type === "textarea" ? "textarea" : "input");
       if (type !== "textarea") input.type = type;
       input.value = value; input.autocomplete = "off";
+      if (type === "checkbox") label.className = "checkbox-label";
       if (type === "textarea") input.rows = 3;
-      label.append(input); parent.append(label); return input;
+      label.append(caption, input); parent.append(label); return input;
     }
     function select(parent, labelText, values, value) {
-      const label = document.createElement("label"); label.textContent = labelText;
+      const label = document.createElement("label"), caption = document.createElement("span"); caption.textContent = labelText;
       const input = document.createElement("select");
       values.forEach(([key, text]) => { const option = document.createElement("option"); option.value = key; option.textContent = text; input.append(option); });
-      input.value = value; label.append(input); parent.append(label); return input;
+      input.value = value; label.append(caption, input); parent.append(label); return input;
     }
-    const greeting = field(form, "پیام شروع /start", "textarea");
-    const fallback = field(form, "پاسخ به پیام‌های بدون قانون", "textarea");
-    [greeting, fallback].forEach(input => { input.required = true; input.maxLength = 4096; });
-    const heading = document.createElement("h4"); heading.textContent = "پاسخ‌های بیشتر";
-    const hint = document.createElement("p"); hint.textContent = "برای هر موضوع یک قانون بساز؛ مثلاً «قیمت» یا «آدرس». اولین قانون فعال که با پیام تطبیق کند اجرا می‌شود. پیام /start همیشه پاسخ شروع را می‌گیرد.";
+    function explanation(parent, text) {
+      const hint = document.createElement("p"); hint.className = "hint"; hint.textContent = text; parent.append(hint); return hint;
+    }
+    function disclosure(parent, text) {
+      const details = document.createElement("details"), summary = document.createElement("summary");
+      summary.textContent = text; details.append(summary); parent.append(details); return details;
+    }
+    const tabs = document.createElement("div"); tabs.className = "editor-tabs"; tabs.setAttribute("role", "tablist"); tabs.setAttribute("aria-label", "تنظیم پاسخ‌های ربات");
+    const welcomePane = document.createElement("section"), rulesPane = document.createElement("section"), previewPanel = document.createElement("section");
+    previewPanel.className = "response-preview";
+    const views = [["welcome", "پیام شروع", welcomePane], ["rules", "پاسخ‌ها", rulesPane], ["preview", "آزمایش", previewPanel]];
+    const tabButtons = [];
+    function showView(key, focusTab = false) {
+      views.forEach(([name, , pane], index) => {
+        const selected = name === key; pane.hidden = !selected;
+        tabButtons[index].setAttribute("aria-selected", String(selected)); tabButtons[index].tabIndex = selected ? 0 : -1;
+        if (selected && focusTab) tabButtons[index].focus();
+      });
+    }
+    views.forEach(([key, text, pane], index) => {
+      pane.classList.add("editor-pane"); pane.id = "reply-" + bot.id + "-" + key; pane.setAttribute("role", "tabpanel");
+      const tab = document.createElement("button"); tab.type = "button"; tab.className = "editor-tab"; tab.textContent = text;
+      tab.id = pane.id + "-tab"; tab.setAttribute("role", "tab"); tab.setAttribute("aria-controls", pane.id); pane.setAttribute("aria-labelledby", tab.id);
+      tab.addEventListener("click", () => showView(key));
+      tab.addEventListener("keydown", event => {
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === "Home" ? 0 : event.key === "End" ? views.length - 1 : (index + (event.key === "ArrowLeft" ? 1 : -1) + views.length) % views.length;
+        showView(views[next][0], true);
+      });
+      tabButtons.push(tab); tabs.append(tab);
+    });
+    const greeting = field(welcomePane, "پیام خوش‌آمدگویی", "textarea"); greeting.placeholder = "مثلاً سلام! به فروشگاه ما خوش آمدی.";
+    explanation(welcomePane, "وقتی کاربر دکمهٔ شروع یا /start را می‌زند، این پیام را می‌بیند.");
+    const heading = document.createElement("h4"); heading.textContent = "پیام‌های رایج و پاسخ‌ها";
+    const count = document.createElement("span"); count.className = "rules-count"; heading.append(count);
     const rulesRoot = document.createElement("div"); rulesRoot.className = "rules-list";
-    const add = document.createElement("button"); add.type = "button"; add.className = "button-secondary"; add.textContent = "+ افزودن پاسخ"; add.disabled = true;
-    const apiNote = document.createElement("p"); apiNote.className = "hint";
-    form.append(heading, hint, rulesRoot, add, apiNote);
-    const save = document.createElement("button"); save.type = "submit"; save.textContent = "ذخیره و انتشار همه پاسخ‌ها"; save.disabled = true;
-    const close = document.createElement("button"); close.type = "button"; close.textContent = "بستن تنظیمات"; close.className = "button-secondary";
-    close.addEventListener("click", () => { panel.remove(); opener.disabled = false; opener.focus(); });
-    const buttons = document.createElement("div"); buttons.className = "editor-actions"; buttons.append(save, close); form.append(buttons);
-    const previewPanel = document.createElement("details"); previewPanel.className = "response-preview";
-    const previewTitle = document.createElement("summary"); previewTitle.textContent = "آزمایش پاسخ";
-    const previewHint = document.createElement("p"); previewHint.className = "hint";
-    previewHint.textContent = "پاسخِ همین فرم را قبل از انتشار بررسی کن. این آزمایش چیزی ذخیره نمی‌کند و پیامی به تلگرام یا API نمی‌فرستد؛ فعال‌بودن ارسال زنده را هم تأیید نمی‌کند.";
-    previewPanel.append(previewTitle, previewHint);
+    const empty = document.createElement("p"); empty.className = "rules-empty"; empty.textContent = "هنوز پاسخی نساخته‌ای. با «افزودن پاسخ» شروع کن؛ مثلاً برای قیمت یا آدرس.";
+    const add = document.createElement("button"); add.type = "button"; add.className = "add-rule"; add.textContent = "+ افزودن پاسخ"; add.disabled = true;
+    const undoBar = document.createElement("div"); undoBar.className = "undo-bar"; undoBar.hidden = true;
+    const undoText = document.createElement("span"); undoText.textContent = "پاسخ از این فرم حذف شد.";
+    const undo = document.createElement("button"); undo.type = "button"; undo.className = "button-secondary"; undo.textContent = "بازگردانی"; undoBar.append(undoText, undo);
+    rulesPane.append(heading); explanation(rulesPane, "مثال: مشتری می‌نویسد «آدرس» و ربات آدرس فروشگاه را می‌فرستد. اگر چند پاسخ تطبیق داشت، پاسخ بالاتر انتخاب می‌شود.");
+    rulesPane.append(empty, rulesRoot, add, undoBar);
+    const fallbackBox = disclosure(rulesPane, "اگر پیام کاربر را نشناختیم"); fallbackBox.className = "fallback-settings";
+    const fallback = field(fallbackBox, "پاسخ به پیام‌های دیگر", "textarea"); fallback.placeholder = "مثلاً برای دریافت اطلاعات، قیمت یا آدرس را بنویس.";
+    explanation(fallbackBox, "اگر هیچ‌کدام از عبارت‌ها با پیام کاربر تطبیق نداشت، این پاسخ فرستاده می‌شود.");
+    [greeting, fallback].forEach(input => { input.required = true; input.maxLength = 4096; input.disabled = true; });
+    form.append(welcomePane, rulesPane);
+    const previewHint = explanation(previewPanel, "یک پیام بنویس تا ببینی با تنظیمات همین فرم چه پاسخی انتخاب می‌شود. لازم نیست اول ذخیره کنی. این آزمایش پیامی نمی‌فرستد و به API وصل نمی‌شود.");
+    previewHint.className = "hint";
     const previewText = field(previewPanel, "پیام آزمایشی", "textarea"); previewText.maxLength = 4096; previewText.placeholder = "مثلاً قیمت یا /start";
     const previewButton = document.createElement("button"); previewButton.type = "button"; previewButton.className = "button-secondary"; previewButton.textContent = "نمایش پیش‌نمایش"; previewButton.disabled = true;
     const previewOutput = document.createElement("p"); previewOutput.className = "preview-output"; previewOutput.setAttribute("role", "status"); previewOutput.setAttribute("aria-live", "polite"); previewOutput.hidden = true;
     previewPanel.append(previewButton, previewOutput);
-    panel.append(title, status, form, previewPanel); row.append(panel);
+    const save = document.createElement("button"); save.type = "submit"; save.setAttribute("form", form.id); save.textContent = "ذخیره پاسخ‌ها"; save.disabled = true;
+    const close = document.createElement("button"); close.type = "button"; close.textContent = "بستن تنظیمات"; close.className = "button-secondary";
+    const buttons = document.createElement("div"); buttons.className = "editor-actions editor-footer"; buttons.append(save, close);
+    const apiNote = document.createElement("p"); apiNote.className = "hint live-status";
+    const discard = document.createElement("div"); discard.className = "discard-confirm"; discard.hidden = true;
+    explanation(discard, "تغییرات این فرم هنوز ذخیره نشده است.");
+    const keepEditing = document.createElement("button"); keepEditing.type = "button"; keepEditing.textContent = "ادامهٔ ویرایش";
+    const discardChanges = document.createElement("button"); discardChanges.type = "button"; discardChanges.className = "button-secondary"; discardChanges.textContent = "بستن بدون ذخیره";
+    discard.append(keepEditing, discardChanges);
+    panel.append(title, intro, tabs, status, form, previewPanel, buttons, discard, apiNote); row.append(panel);
     const base = "/api/v1/tenants/" + activeTenant.id + "/bots/" + bot.id;
-    let rules = [], schemaReady = false, baseVersion = 0, draftId = null, busy = false, refreshRequired = false, previewBusy = false, previewRevision = 0;
+    let rules = [], schemaReady = false, baseVersion = 0, draftId = null, busy = false, refreshRequired = false, previewBusy = false, previewRevision = 0, hasChanges = false, removedRule = null;
+    showView("rules");
+    function closeEditor() { panel.remove(); opener.disabled = false; opener.focus(); }
+    close.addEventListener("click", () => { if (hasChanges) { discard.hidden = false; keepEditing.focus(); } else closeEditor(); });
+    keepEditing.addEventListener("click", () => { discard.hidden = true; close.focus(); });
+    discardChanges.addEventListener("click", closeEditor);
     function invalidatePreview() { previewRevision += 1; previewOutput.hidden = true; previewOutput.textContent = ""; }
-    function dirty() { draftId = null; invalidatePreview(); }
+    function dirty() {
+      draftId = null; hasChanges = true; discard.hidden = true; invalidatePreview();
+      const message = "تغییرات ذخیره نشده است؛ در پایان «ذخیره پاسخ‌ها» را بزن.";
+      if (status.textContent !== message) status.textContent = message;
+    }
     previewText.addEventListener("input", invalidatePreview);
-    function reorder() {
-      rules.forEach((rule, index) => { rule.summary.textContent = "پاسخ " + (index + 1) + (rule.keyword.value ? " — " + rule.keyword.value : ""); rulesRoot.append(rule.card); });
+    function updateRules() {
+      // Typing updates captions only. Never detach/reinsert an input's ancestors.
+      rules.forEach((rule, index) => {
+        rule.caption.textContent = (index + 1) + ". " + (rule.keyword.value || "پاسخ جدید");
+        rule.badge.textContent = !rule.enabled.checked ? "غیرفعال" : rule.action.value === "api" ? "سرویس بیرونی" : "متن";
+        rule.up.disabled = busy || index === 0; rule.down.disabled = busy || index === rules.length - 1;
+      });
+      count.textContent = rules.length ? " · " + rules.length + " پاسخ" : "";
+      empty.hidden = rules.length > 0;
       add.disabled = busy || rules.length >= 100 || refreshRequired;
+      undo.disabled = busy || rules.length >= 100;
+    }
+    function syncOrder() {
+      // Only explicit add/reorder/undo actions may move cards.
+      rules.forEach((rule, index) => { if (rulesRoot.children[index] !== rule.card) rulesRoot.insertBefore(rule.card, rulesRoot.children[index] || null); });
+      updateRules();
     }
     function addRule(value = {}) {
       if (rules.length >= 100) return;
       const card = document.createElement("details"); card.className = "rule-card"; card.open = !value.id;
-      const summary = document.createElement("summary"); card.append(summary);
+      const summary = document.createElement("summary"), caption = document.createElement("span"), badge = document.createElement("small"); badge.className = "rule-badge"; summary.append(caption, badge); card.append(summary);
       const content = document.createElement("div"); content.className = "rule-fields"; card.append(content);
-      const keyword = field(content, "کلمه یا عبارت محرک", "text", value.keyword || ""); keyword.required = true; keyword.maxLength = 120; keyword.placeholder = "مثلاً قیمت";
-      const match = select(content, "زمان اجرای پاسخ", [["exact", "پیام دقیقاً برابر این عبارت باشد"], ["contains", "این عبارت در پیام وجود داشته باشد"]], value.match_mode || "exact");
-      const action = select(content, "نوع پاسخ", [["text", "پاسخ متنی"], ["api", "دریافت پاسخ از API"]], value.action_type || "text");
+      const keyword = field(content, "کاربر چه می‌نویسد؟", "text", value.keyword || ""); keyword.required = true; keyword.maxLength = 120; keyword.placeholder = "مثلاً قیمت";
+      const action = select(content, "نوع پاسخ", [["text", "متنی که من می‌نویسم"], ["api", "دریافت از سرویس بیرونی (API)"]], value.action_type || "text");
       if (!schemaReady) action.options[1].disabled = true;
-      const enabled = field(content, "این پاسخ فعال باشد", "checkbox"); enabled.checked = value.enabled !== false;
-      const response = field(content, "متن پاسخ / پیام جایگزین در خطای API", "textarea", value.response_text || ""); response.required = true; response.maxLength = 4096;
+      const response = field(content, "ربات چه پاسخی بدهد؟", "textarea", value.response_text || ""); response.required = true; response.maxLength = 4096; response.placeholder = "متن پاسخ به مشتری";
       const apiFields = document.createElement("div"); apiFields.className = "api-fields";
-      const url = field(apiFields, "نشانی HTTPS سرویس", "url", value.api?.url || ""); url.dir = "ltr"; url.placeholder = "https://api.example.com/lookup"; url.maxLength = 2048;
-      const method = select(apiFields, "روش درخواست", [["GET", "GET — دریافت اطلاعات"], ["POST", "POST — ارسال JSON"]], value.api?.method || "GET");
-      const path = field(apiFields, "مسیر متن در پاسخ JSON؛ مثلاً data.answer", "text", value.api?.response_path || ""); path.dir = "ltr"; path.maxLength = 200;
-      const auth = select(apiFields, "احراز هویت API", [["none", "بدون کلید"], ["bearer", "Bearer Token"], ["header", "کلید در Header اختصاصی"]], value.api?.auth_mode || "none");
-      const header = field(apiFields, "نام Header کلید؛ مثلاً X-API-Key", "text", value.api?.auth_header || "X-API-Key"); header.dir = "ltr";
-      const credential = field(apiFields, "کلید اتصال — در پاسخ سرور نمایش داده نمی‌شود", "password"); credential.autocomplete = "new-password"; credential.maxLength = 2048;
-      credential.placeholder = value.api?.credential_present ? "ذخیره شده؛ خالی بماند تا حفظ شود" : "کلید API";
-      const share = field(apiFields, "متن پیام کاربر به همین API ارسال شود", "checkbox"); share.checked = value.api?.include_message === true;
-      const messageField = field(apiFields, "نام فیلد متن پیام در API", "text", value.api?.message_field || "message"); messageField.dir = "ltr";
-      const advanced = document.createElement("details"); const advancedTitle = document.createElement("summary"); advancedTitle.textContent = "پارامترها و بدنهٔ درخواست"; advanced.append(advancedTitle);
-      const params = field(advanced, "پارامترهای Query به صورت JSON", "textarea", JSON.stringify(value.api?.params || {}, null, 2)); params.dir = "ltr"; params.maxLength = 12000;
-      const body = field(advanced, "بدنهٔ JSON فقط برای POST", "textarea", JSON.stringify(value.api?.json_body || {}, null, 2)); body.dir = "ltr"; body.maxLength = 8192;
-      apiFields.append(advanced);
-      const privacy = document.createElement("p"); privacy.className = "hint"; privacy.textContent = "کلید را فقط در کادر کلید وارد کن. API باید HTTPS عمومی با پاسخ JSON باشد؛ نشانی بدون Query وارد می‌شود. متن کاربر فقط با انتخاب گزینهٔ بالا ارسال می‌شود. POST ممکن است در سرویس مقصد داده ایجاد کند؛ فقط API مجاز خودت را تنظیم کن.";
-      apiFields.append(privacy); content.append(apiFields);
-      const rule = {card, summary, keyword, match, action, enabled, response, url, method, path, auth, header, credential, share, messageField, params, body, sourceId: value.id || null};
+      explanation(apiFields, "این قسمت برای اتصال به سرویس خودت است. نشانی و مشخصات را از راهنمای همان سرویس بردار؛ پاسخ باید JSON باشد.");
+      const url = field(apiFields, "نشانی سرویس (HTTPS)", "url", value.api?.url || ""); url.dir = "ltr"; url.placeholder = "https://api.example.com/lookup"; url.maxLength = 2048;
+      const path = field(apiFields, "کدام بخش پاسخ سرویس نمایش داده شود؟", "text", value.api?.response_path || ""); path.dir = "ltr"; path.maxLength = 200; path.placeholder = "data.answer";
+      explanation(apiFields, "مثلاً اگر متن جواب در data.answer است، همین مسیر را وارد کن.");
+      const authBox = disclosure(apiFields, "کلید دسترسی به سرویس"); authBox.open = value.api?.auth_mode && value.api.auth_mode !== "none";
+      const auth = select(authBox, "روش استفاده از کلید", [["none", "این سرویس کلید نمی‌خواهد"], ["bearer", "Bearer Token"], ["header", "Header اختصاصی"]], value.api?.auth_mode || "none");
+      const header = field(authBox, "نام Header کلید", "text", value.api?.auth_header || "X-API-Key"); header.dir = "ltr";
+      const credential = field(authBox, "کلید دسترسی", "password"); credential.autocomplete = "new-password"; credential.maxLength = 2048;
+      credential.placeholder = value.api?.credential_present ? "ذخیره شده؛ برای حفظ آن خالی بگذار" : "کلید را اینجا وارد کن";
+      explanation(authBox, "کلید ذخیره‌شده نمایش داده نمی‌شود. کلید را فقط در همین کادر وارد کن.");
+      const requestBox = disclosure(apiFields, "تنظیمات بیشتر اتصال"); requestBox.open = value.api?.method === "POST";
+      const method = select(requestBox, "روش درخواست", [["GET", "GET — دریافت اطلاعات"], ["POST", "POST — ارسال اطلاعات"]], value.api?.method || "GET");
+      const share = field(requestBox, "متن پیام کاربر به این سرویس فرستاده شود", "checkbox"); share.checked = value.api?.include_message === true;
+      const messageField = field(requestBox, "نام فیلد پیام در سرویس", "text", value.api?.message_field || "message"); messageField.dir = "ltr";
+      const params = field(requestBox, "پارامترهای Query (JSON)", "textarea", JSON.stringify(value.api?.params || {}, null, 2)); params.dir = "ltr"; params.maxLength = 12000;
+      const body = field(requestBox, "بدنهٔ درخواست POST (JSON)", "textarea", JSON.stringify(value.api?.json_body || {}, null, 2)); body.dir = "ltr"; body.maxLength = 8192;
+      explanation(requestBox, "نشانی را بدون Query بنویس. متن کاربر فقط با انتخاب گزینهٔ بالا ارسال می‌شود. POST ممکن است در سرویس مقصد اطلاعات ایجاد کند.");
+      content.append(apiFields);
+      const options = disclosure(content, "تنظیمات بیشتر این پاسخ"); options.className = "rule-options";
+      const match = select(options, "چه پیام‌هایی این پاسخ را بگیرند؟", [["exact", "فقط همین عبارت"], ["contains", "هر پیامی که این عبارت را دارد"]], value.match_mode || "exact");
+      const enabled = field(options, "این پاسخ فعال باشد", "checkbox"); enabled.checked = value.enabled !== false;
       const actions = document.createElement("div"); actions.className = "editor-actions";
-      [["بالاتر", -1], ["پایین‌تر", 1]].forEach(([text, step]) => {
-        const button = document.createElement("button"); button.type = "button"; button.className = "button-secondary"; button.textContent = text;
-        button.addEventListener("click", () => { const index = rules.indexOf(rule), next = index + step; if (next < 0 || next >= rules.length) return; [rules[index], rules[next]] = [rules[next], rules[index]]; dirty(); reorder(); }); actions.append(button);
+      const up = document.createElement("button"), down = document.createElement("button");
+      const rule = {card, caption, badge, keyword, match, action, enabled, response, url, method, path, auth, header, credential, share, messageField, params, body, up, down, sourceId: value.id || null};
+      [[up, "بالاتر", -1], [down, "پایین‌تر", 1]].forEach(([button, text, step]) => {
+        button.type = "button"; button.className = "button-secondary"; button.textContent = text;
+        button.addEventListener("click", () => {
+          const index = rules.indexOf(rule), next = index + step; if (next < 0 || next >= rules.length) return;
+          [rules[index], rules[next]] = [rules[next], rules[index]]; dirty(); syncOrder(); button.focus();
+        }); actions.append(button);
       });
-      const remove = document.createElement("button"); remove.type = "button"; remove.className = "button-secondary"; remove.textContent = "حذف از نسخهٔ جدید";
-      remove.addEventListener("click", () => { rules = rules.filter(item => item !== rule); card.remove(); dirty(); reorder(); }); actions.append(remove); content.append(actions);
+      const remove = document.createElement("button"); remove.type = "button"; remove.className = "button-danger"; remove.textContent = "حذف پاسخ";
+      remove.addEventListener("click", () => {
+        removedRule = {rule, index: rules.indexOf(rule)}; rules = rules.filter(item => item !== rule); card.remove();
+        undoBar.hidden = false; dirty(); updateRules(); undo.focus();
+      }); actions.append(remove); options.append(actions);
       function visibility() {
         const isApi = action.value === "api"; apiFields.hidden = !isApi;
         apiFields.querySelectorAll("input,select,textarea").forEach(input => { input.disabled = !isApi; });
+        response.parentElement.firstChild.textContent = isApi ? "اگر سرویس پاسخ نداد، چه بگوییم؟" : "ربات چه پاسخی بدهد؟";
         url.required = isApi; header.parentElement.hidden = auth.value !== "header";
         credential.parentElement.hidden = auth.value === "none";
         messageField.parentElement.hidden = !share.checked; body.parentElement.hidden = method.value !== "POST";
       }
-      [action, auth, share, method].forEach(input => input.addEventListener("change", visibility));
-      keyword.addEventListener("input", reorder); visibility(); rules.push(rule); reorder();
+      [action, auth, share, method].forEach(input => input.addEventListener("change", () => { visibility(); updateRules(); }));
+      enabled.addEventListener("change", updateRules); keyword.addEventListener("input", updateRules);
+      visibility(); rules.push(rule); rulesRoot.append(card); updateRules();
     }
+    undo.addEventListener("click", () => {
+      if (!removedRule || rules.length >= 100 || busy) return;
+      const {rule, index} = removedRule; rules.splice(Math.min(index, rules.length), 0, rule);
+      removedRule = null; undoBar.hidden = true; dirty(); syncOrder(); rule.card.open = true; rule.keyword.focus();
+    });
     add.addEventListener("click", () => { addRule(); dirty(); rules[rules.length - 1]?.keyword.focus(); });
     form.addEventListener("input", dirty); form.addEventListener("change", dirty);
     async function load() {
       const current = await api(base + "/config"); schemaReady = current.api_actions_ready === true;
       baseVersion = current.published?.version || 0;
       greeting.value = current.published?.greeting || ""; fallback.value = current.published?.fallback_reply || "";
+      greeting.disabled = busy; fallback.disabled = busy;
       rules = []; rulesRoot.replaceChildren(); (current.rules || []).forEach(addRule);
-      apiNote.textContent = !schemaReady ? "پاسخ‌های متنی قابل تنظیم‌اند؛ بخش API هنوز روی سرویس آماده نیست." : current.external_api_enabled ? "اتصال API آماده است؛ پاسخ زنده به فعال‌بودن سرویس ارسال ربات نیز وابسته است." : "تنظیم API ذخیره می‌شود؛ اجرای واقعی API هنوز در سرویس آزمایشی روشن نشده است.";
-      refreshRequired = false; save.disabled = false; previewButton.disabled = busy || previewBusy; invalidatePreview(); reorder();
+      removedRule = null; undoBar.hidden = true; hasChanges = false; discard.hidden = true;
+      apiNote.textContent = !schemaReady ? "تنظیم پاسخ متنی در دسترس است؛ اتصال سرویس هنوز آماده نیست." : current.external_api_enabled ? "تنظیم اتصال سرویس در دسترس است. ارسال زندهٔ پاسخ باید جداگانه فعال باشد." : "ذخیره و آزمایش در دسترس است؛ اتصال واقعی سرویس بیرونی هنوز فعال نشده است.";
+      refreshRequired = false; save.disabled = false; previewButton.disabled = busy || previewBusy; invalidatePreview(); updateRules();
+      return !!current.published;
     }
-    status.textContent = "در حال دریافت تنظیمات…";
-    try { await load(); status.textContent = "تنظیمات فعلی بارگذاری شد؛ می‌توانی پاسخ جدید اضافه کنی."; greeting.focus(); }
-    catch (error) { status.textContent = "خطای دریافت: " + publicError(error); }
+    status.textContent = "در حال دریافت پاسخ‌های فعلی…";
+    try { const published = await load(); showView(published ? "rules" : "welcome"); status.textContent = "پاسخ‌های فعلی آمادهٔ ویرایش‌اند."; }
+    catch (error) { status.textContent = "دریافت پاسخ‌ها انجام نشد: " + publicError(error); }
+    function inputError(message, input) { const error = new Error(message); error.input = input; throw error; }
+    function revealError(error) {
+      status.textContent = error.message;
+      if (!error.input) return;
+      const pane = error.input.closest(".editor-pane");
+      const view = views.find(item => item[2] === pane); if (view) showView(view[0]);
+      let parent = error.input.parentElement;
+      while (parent && parent !== panel) { if (parent.tagName === "DETAILS") parent.open = true; parent = parent.parentElement; }
+      error.input.focus();
+    }
     function jsonObject(input, label) {
-      let value; try { value = JSON.parse(input.value || "{}"); } catch (_) { throw new Error(label + " باید JSON معتبر باشد."); }
-      if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(label + " باید یک شیء JSON باشد.");
+      let value; try { value = JSON.parse(input.value || "{}"); } catch (_) { inputError(label + " باید JSON معتبر باشد.", input); }
+      if (!value || typeof value !== "object" || Array.isArray(value)) inputError(label + " باید یک شیء JSON باشد.", input);
       return value;
     }
     function readSnapshot(includeCredentials = true) {
-        if (!greeting.value.trim() || !fallback.value.trim()) throw new Error("پیام شروع و پاسخ پیش‌فرض را بنویس.");
-        return {greeting: greeting.value, fallback_reply: fallback.value, base_version: baseVersion, rules: rules.map(rule => {
-          if (!rule.keyword.value.trim() || !rule.response.value.trim()) throw new Error("کلمهٔ محرک و متن هر پاسخ را بنویس.");
-          const item = {keyword: rule.keyword.value, match_mode: rule.match.value, response_text: rule.response.value, action_type: rule.action.value, enabled: rule.enabled.checked};
-          if (rule.action.value === "api") {
-            item.source_rule_id = rule.sourceId;
-            item.api = {url: rule.url.value, method: rule.method.value, params: jsonObject(rule.params, "پارامترها"), json_body: rule.method.value === "POST" ? jsonObject(rule.body, "بدنه") : {},
-              response_path: rule.path.value, auth_mode: rule.auth.value, auth_header: rule.header.value, include_message: rule.share.checked, message_field: rule.messageField.value};
-            if (includeCredentials) item.api.credential = rule.credential.value || null;
-          }
-          return item;
-        })};
+      if (!greeting.value.trim()) inputError("متن پیام خوش‌آمدگویی را بنویس.", greeting);
+      if (!fallback.value.trim()) inputError("پاسخ به پیام‌های دیگر را بنویس.", fallback);
+      for (const rule of rules) {
+        if (!rule.keyword.value.trim()) inputError("عبارتی را که مشتری می‌فرستد بنویس.", rule.keyword);
+        if (!rule.response.value.trim()) inputError("متن پاسخ را بنویس.", rule.response);
+      }
+      for (const input of form.querySelectorAll("input,textarea,select")) {
+        if (!input.disabled && !input.checkValidity()) inputError("این کادر را کامل و با قالب درست وارد کن.", input);
+      }
+      return {greeting: greeting.value, fallback_reply: fallback.value, base_version: baseVersion, rules: rules.map(rule => {
+        const item = {keyword: rule.keyword.value, match_mode: rule.match.value, response_text: rule.response.value, action_type: rule.action.value, enabled: rule.enabled.checked};
+        if (rule.action.value === "api") {
+          item.source_rule_id = rule.sourceId;
+          item.api = {url: rule.url.value, method: rule.method.value, params: jsonObject(rule.params, "پارامترها"), json_body: rule.method.value === "POST" ? jsonObject(rule.body, "بدنه") : {},
+            response_path: rule.path.value, auth_mode: rule.auth.value, auth_header: rule.header.value, include_message: rule.share.checked, message_field: rule.messageField.value};
+          if (includeCredentials) item.api.credential = rule.credential.value || null;
+        }
+        return item;
+      })};
     }
     previewButton.addEventListener("click", async () => {
       if (busy || previewBusy || refreshRequired) return;
@@ -286,22 +398,22 @@
       try {
         if (!previewText.value.trim()) throw new Error("یک پیام آزمایشی بنویس.");
         snapshot = {...readSnapshot(false), text: previewText.value};
-      } catch (error) { previewOutput.textContent = error.message; return; }
+      } catch (error) { if (error.input) revealError(error); else previewOutput.textContent = error.message; return; }
       const revision = previewRevision; previewBusy = true; previewButton.disabled = true; save.disabled = true;
       previewPanel.setAttribute("aria-busy", "true"); previewOutput.textContent = "در حال انتخاب پاسخ…";
       try {
         const result = await api(base + "/preview", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(snapshot)});
         if (!panel.isConnected) return;
         previewOutput.hidden = false;
-        if (revision !== previewRevision) { previewOutput.textContent = "متن یا تنظیمات تغییر کرد؛ پیش‌نمایش را دوباره بگیر."; return; }
+        if (revision !== previewRevision) { previewOutput.textContent = "متن یا تنظیمات تغییر کرد؛ دوباره آزمایش کن."; return; }
         if (result.action === "api") {
-          previewOutput.textContent = "قانون " + result.rule_index + " انتخاب شد: اتصال API. در این آزمایش API فراخوانی نشد.\nپیام جایگزین در خطا یا غیرفعال‌بودن API:\n" + result.fallback_text;
+          previewOutput.textContent = "پاسخ " + result.rule_index + " انتخاب شد: سرویس بیرونی. در این آزمایش API فراخوانی نشد.\nپیام جایگزین در صورت خطا:\n" + result.fallback_text;
         } else {
-          const source = result.action === "greeting" ? "پاسخ شروع" : result.action === "text" ? "پاسخ قانون " + result.rule_index : "پاسخ پیش‌فرض";
+          const source = result.action === "greeting" ? "پیام شروع" : result.action === "text" ? "پاسخ " + result.rule_index : "پاسخ به پیام‌های دیگر";
           previewOutput.textContent = source + ":\n" + result.response_text;
         }
       } catch (error) {
-        if (panel.isConnected && revision === previewRevision) { previewOutput.hidden = false; previewOutput.textContent = "پیش‌نمایش انجام نشد: " + publicError(error); }
+        if (panel.isConnected && revision === previewRevision) { previewOutput.hidden = false; previewOutput.textContent = "آزمایش انجام نشد: " + publicError(error); }
       } finally {
         previewBusy = false; previewPanel.removeAttribute("aria-busy"); previewButton.disabled = busy || refreshRequired; save.disabled = busy || refreshRequired;
       }
@@ -309,25 +421,22 @@
     form.addEventListener("submit", async event => {
       event.preventDefault(); if (busy || previewBusy || refreshRequired) return;
       let snapshot;
-      try { snapshot = readSnapshot();
-      } catch (error) { status.textContent = error.message; return; }
-      busy = true; form.setAttribute("aria-busy", "true"); previewButton.disabled = true;
-      const controls = Array.from(form.querySelectorAll("input,select,textarea,button")); const disabledBefore = controls.map(input => input.disabled);
-      controls.forEach(input => { input.disabled = true; }); status.textContent = "در حال ذخیره و انتشار…";
+      try { snapshot = readSnapshot(); } catch (error) { revealError(error); return; }
+      busy = true; panel.setAttribute("aria-busy", "true");
+      const controls = Array.from(panel.querySelectorAll("input,select,textarea,button")), disabledBefore = controls.map(input => input.disabled);
+      controls.forEach(input => { input.disabled = true; }); status.textContent = "در حال ذخیرهٔ پاسخ‌ها…";
       let published = false;
       try {
         if (!draftId) { const draft = await api(base + "/configs", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(snapshot)}); draftId = draft.id; }
         await api(base + "/configs/" + draftId + "/publish?expected_version=" + baseVersion, {method: "POST"});
         published = true; draftId = null;
-        status.textContent = "همهٔ پاسخ‌ها منتشر شدند. فعال‌سازی پاسخ زنده جداگانه انجام می‌شود.";
-        try { await load(); }
-        catch (_) { refreshRequired = true; status.textContent = "پاسخ‌ها منتشر شدند؛ برای ادامهٔ ویرایش، فرم را ببند و دوباره باز کن."; }
-      } catch (error) { status.textContent = "ذخیره یا انتشار تأیید نشد: " + publicError(error); }
+        try { await load(); status.textContent = "همهٔ پاسخ‌ها ذخیره شدند."; }
+        catch (_) { hasChanges = false; refreshRequired = true; status.textContent = "پاسخ‌ها ذخیره شدند؛ برای ادامهٔ ویرایش، فرم را ببند و دوباره باز کن."; }
+      } catch (error) { status.textContent = "ذخیره تأیید نشد: " + publicError(error); }
       finally {
-        busy = false; form.removeAttribute("aria-busy");
-        // Newly loaded rule controls have their own visibility/disabled state.
+        busy = false; panel.removeAttribute("aria-busy");
         controls.forEach((input, index) => { if (input.isConnected) input.disabled = disabledBefore[index]; });
-        save.disabled = refreshRequired; previewButton.disabled = refreshRequired; close.disabled = false; reorder();
+        save.disabled = refreshRequired; previewButton.disabled = refreshRequired; close.disabled = false; updateRules();
         if (published) rules.forEach(rule => { rule.credential.value = ""; });
       }
     });
@@ -473,6 +582,10 @@
     } catch(error) { webhookStatus("خطای اصلاح Webhook: " + publicError(error)); }
   });
   document.getElementById("refresh-bots").addEventListener("click", async () => {
+    if (document.querySelector(".reply-editor")) {
+      setNotice("برای تازه‌سازی فهرست، ابتدا تنظیمات باز ربات را ذخیره کن و ببند.");
+      return;
+    }
     if (activeTenant) await listBots();
   });
   document.addEventListener("visibilitychange", () => {
