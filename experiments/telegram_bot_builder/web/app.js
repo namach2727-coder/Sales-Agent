@@ -41,6 +41,8 @@
   function publicError(error) {
     const code = error && error.message ? error.message : "";
     const map = {
+      "Bot must be activated before reply control": "ابتدا ربات را فعال کن.",
+      "Bot reply state changed; refresh before retrying": "وضعیت پاسخ‌گویی تغییر کرده؛ تنظیمات را ببند و فهرست ربات‌ها را تازه کن.",
       "Invalid bot configuration": "تنظیمات پاسخ‌ها معتبر نیست؛ کادرهای متن و API را بررسی کن.",
       "Published configuration changed; reload before saving": "نسخهٔ ربات تغییر کرده؛ فرم را ببند و دوباره باز کن.",
       "Published configuration changed; reload before publishing": "نسخهٔ تازه‌ای منتشر شده؛ قبل از انتشار دوباره تنظیمات را بارگذاری کن.",
@@ -117,7 +119,7 @@
         detail.textContent = bot.display_name || "";
         meta.append(name, detail);
         const state = document.createElement("span"); state.className = "pending";
-        state.textContent = bot.status === "pending" ? "در انتظار فعال‌سازی" : bot.status === "active" ? "فعال" : "متوقف";
+        state.textContent = bot.status === "pending" ? "در انتظار فعال‌سازی" : bot.status === "active" ? "فعال" : bot.status === "paused" ? "پاسخ‌گویی متوقف" : "متوقف";
         const header = document.createElement("div"); header.className = "bot-card-header";
         meta.className = "bot-identity";
         header.append(meta, state);
@@ -155,6 +157,24 @@
         const activity = document.createElement("button"); activity.type = "button";
         activity.className = "button-secondary"; activity.textContent = "گزارش عملکرد";
         activity.addEventListener("click", () => openActivity(bot, row, activity)); actions.append(activity);
+        if (["owner","editor"].includes(activeTenant.role) && ["active","paused"].includes(bot.status)) {
+          const toggle = document.createElement("button"); toggle.type = "button"; toggle.className = "button-secondary reply-toggle";
+          const feedback = document.createElement("p"); feedback.className = "reply-state-status hint"; feedback.setAttribute("role", "status"); feedback.setAttribute("aria-live", "polite");
+          function label() { toggle.textContent = bot.status === "paused" ? "ادامهٔ پاسخ خودکار" : "توقف پاسخ خودکار"; }
+          label(); feedback.textContent = "توقف برای پیام‌های بعدی است؛ پاسخِ در حال ارسال ممکن است کامل شود.";
+          toggle.addEventListener("click", async () => {
+            if (toggle.disabled) return;
+            const paused = bot.status === "active"; toggle.disabled = true;
+            feedback.textContent = paused ? "در حال توقف پاسخ خودکار…" : "در حال ادامهٔ پاسخ خودکار…";
+            try {
+              const result = await api("/api/v1/tenants/" + activeTenant.id + "/bots/" + bot.id + "/reply-state", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({paused,expected_status:bot.status})});
+              if (!row.isConnected) return;
+              bot.status = result.status; state.textContent = bot.status === "paused" ? "پاسخ‌گویی متوقف" : "فعال"; label();
+              feedback.textContent = bot.status === "paused" ? "پاسخ خودکار متوقف شد؛ پیام‌های ورودی همچنان ثبت می‌شوند." : result.runtime_enabled ? "پاسخ خودکار برای پیام‌های جدید ادامه یافت؛ پیام‌های زمان توقف دوباره ارسال نمی‌شوند." : "ربات آماده است؛ ارسال خودکار روی سرویس هنوز فعال نشده است.";
+            } catch (error) { if (row.isConnected) feedback.textContent = "تغییر وضعیت تأیید نشد: " + publicError(error); }
+            finally { toggle.disabled = false; }
+          }); actions.append(toggle); row.append(feedback);
+        }
         root.append(row);
       });
     } catch(error) { root.textContent = publicError(error); }
