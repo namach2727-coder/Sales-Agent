@@ -1,8 +1,10 @@
-## 2026-10-29 — TelBot editor usability and typing fix (release pending)
+## 2026-10-29 — CURRENT PR #104 editor usability and typing fix: UAT READY
 
-Use a persistent DOM and three tabs instead of a long mixed form. Never refocus or reorder cards on each letter. Technical API options stay in disclosures; ordinary text replies use customer-message and bot-answer labels. Closing a changed form requires an inline discard choice; deletion can be undone before saving.
+Ordinary text replies use customer-message/bot-answer labels. Technical matching/API/request options are optional disclosures. Tabs retain DOM/value state. Only explicit add/reorder/undo actions may insert/move cards. No automatic text-input focus on editor open; no secret-bearing browser storage. Physical keyboard acceptance must be recorded separately from DOM tests.
 
-Owner rejected the previous editor as confusing and reported keyboard dismissal while typing. A regression test reproduced keyword-input focus changing to BODY because reorder() re-appended every card on each input event. Typing now updates captions only; card insertion/movement occurs on explicit add/reorder/undo actions. Real Telegram/iOS keyboard and visual acceptance are still pending; DOM focus tests are not a device acceptance claim.
+PR #104 merged ONLY into feature/telegram-managed-bots-spike-20261017 as 17b2545849f8391291f14a46a7b6c18ed443ab22 after all 11 reported GitHub checks SUCCESS on reviewed head b45bdf9b0985464f3621a5792c17d9b62b4730b6. Merge tree exactly equals the reviewed tree. Vercel deployment dpl_DZDzon4PcrDYzGfvLa8rEP9VqJFD is READY on that exact merge; canonical https://directpilot-telbot-uat-api.vercel.app points to it. This project target label production is the isolated TelBot UAT project, not business Production.
+
+Verified 2026-10-29 10:57 Asia/Tehran / 07:27 UTC: /ready 200 ready/database available/migration current; HTML, JS and CSS 200 and byte-identical to the reviewed local assets (20261029-editor-ux-1); unauthenticated synthetic POST /preview 401 missing_init_data. Dedicated CI ran 123 Python cases PASS, with the other 2 PostgreSQL cases PASS in schema-test; actual app.js DOM behavior/focus regression PASS. Both outbound flags remain absent/default OFF. No schema, stored customer-setting, credential, provider-call or Telegram-send change. Owner real Telegram/iOS keyboard and visual acceptance remains PENDING.
 
 ---
 

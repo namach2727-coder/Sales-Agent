@@ -1,8 +1,12 @@
-## 2026-10-29 — TelBot editor usability and typing fix (release pending)
+## 2026-10-29 — CURRENT PR #104 editor usability and typing fix: UAT READY
 
-Complete CI and merge only to feature/telegram-managed-bots-spike-20261017, verify exact deployed SHA and editor-ux-1 HTML/JS/CSS. Record owner acceptance of continuous typing, tab navigation and save/reopen on Telegram mobile. Do not claim physical-keyboard acceptance from JSDOM.
+1. Owner reopens the Telegram Mini App and tests continuous typing in the customer phrase, reply text and API-key fields; verify no keyboard dismissal, cursor jump or app-return data loss.
+2. Verify the three tabs, advanced disclosures, hidden-field errors, undo/discard and save/reopen on the physical device; record owner acceptance.
+3. Resume the separate provider/Telegram live-test gate after usability acceptance; neither outbound flag was enabled by this fix.
 
-Owner rejected the previous editor as confusing and reported keyboard dismissal while typing. A regression test reproduced keyword-input focus changing to BODY because reorder() re-appended every card on each input event. Typing now updates captions only; card insertion/movement occurs on explicit add/reorder/undo actions. Real Telegram/iOS keyboard and visual acceptance are still pending; DOM focus tests are not a device acceptance claim.
+PR #104 merged ONLY into feature/telegram-managed-bots-spike-20261017 as 17b2545849f8391291f14a46a7b6c18ed443ab22 after all 11 reported GitHub checks SUCCESS on reviewed head b45bdf9b0985464f3621a5792c17d9b62b4730b6. Merge tree exactly equals the reviewed tree. Vercel deployment dpl_DZDzon4PcrDYzGfvLa8rEP9VqJFD is READY on that exact merge; canonical https://directpilot-telbot-uat-api.vercel.app points to it. This project target label production is the isolated TelBot UAT project, not business Production.
+
+Verified 2026-10-29 10:57 Asia/Tehran / 07:27 UTC: /ready 200 ready/database available/migration current; HTML, JS and CSS 200 and byte-identical to the reviewed local assets (20261029-editor-ux-1); unauthenticated synthetic POST /preview 401 missing_init_data. Dedicated CI ran 123 Python cases PASS, with the other 2 PostgreSQL cases PASS in schema-test; actual app.js DOM behavior/focus regression PASS. Both outbound flags remain absent/default OFF. No schema, stored customer-setting, credential, provider-call or Telegram-send change. Owner real Telegram/iOS keyboard and visual acceptance remains PENDING.
 
 ---
 
