@@ -1,3 +1,11 @@
+## 2026-10-29 — Save-click and persisted readback correction (release pending)
+
+Save correction source is ready. Local DOM/focus suite and new validation/expired-session/conflict/readback-failure scenarios PASS. Python: 126 discovered, 123 PASS and 3 PostgreSQL-only cases deferred to CI. The schema job now installs the same isolated JSDOM dependency and runs a real two-save/reopen roundtrip against loopback PostgreSQL; CI/release pending.
+
+Owner reports that Save has no visible reaction. Read-only UAT verification found published version 4 with zero rules and no newer drafts; schema 0003 is present and both allowed runtime roles have SELECT/INSERT/UPDATE on builder tables. The UI now handles Save clicks directly, registers handlers before enabling loaded controls, shows feedback beside Save and verifies the published snapshot before claiming success. A specific WebKit/native-submit defect has NOT been reproduced; device acceptance remains pending.
+
+---
+
 ## 2026-10-29 — CURRENT PR #105 mobile-first layout: UAT READY
 
 Mobile-first sizing and compact menus are now deployed. Existing three-tab/focus correction remains intact. Next step is owner acceptance on Telegram phone, not another duplicate deployment. Ordinary and expanded settings were reviewed offline; physical device and native dropdown acceptance remain separate.

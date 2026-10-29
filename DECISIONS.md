@@ -1,3 +1,11 @@
+## 2026-10-29 — Save-click and persisted readback correction (release pending)
+
+Use explicit JavaScript Save clicks rather than external form default submission. Show progress/errors near the clicked control, preserve typed fields on failure, and verify persisted greeting/fallback/ordered rules before success. Do not weaken Telegram auth TTL, retrieve credentials, add secret-bearing browser storage or automatically retry publication.
+
+Owner reports that Save has no visible reaction. Read-only UAT verification found published version 4 with zero rules and no newer drafts; schema 0003 is present and both allowed runtime roles have SELECT/INSERT/UPDATE on builder tables. The UI now handles Save clicks directly, registers handlers before enabling loaded controls, shows feedback beside Save and verifies the published snapshot before claiming success. A specific WebKit/native-submit defect has NOT been reproduced; device acceptance remains pending.
+
+---
+
 ## 2026-10-29 — CURRENT PR #105 mobile-first layout: UAT READY
 
 Keep mobile as the design baseline. Minimum touch height is 48px; regular input text is 16px. Use compact nested padding, fluid-width controls, short option captions, two-line rule captions and safe-area padding. Do not disable zoom or add viewport-resize/automatic-focus handlers. Dropdown display text may change without changing backend values.

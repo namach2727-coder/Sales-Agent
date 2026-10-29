@@ -1,3 +1,11 @@
+## 2026-10-29 — Save-click and persisted readback correction (release pending)
+
+Candidate feature/telbot-save-click-20261029 based on f0edc4655ff082b549bea4fc2738e5403f81936b; PR/merge/deployment pending. Local 123 Python PASS + 3 PostgreSQL skips; existing DOM/focus and 5 save-failure modes PASS. Live data inspected read-only; no customer or Production mutation.
+
+Owner reports that Save has no visible reaction. Read-only UAT verification found published version 4 with zero rules and no newer drafts; schema 0003 is present and both allowed runtime roles have SELECT/INSERT/UPDATE on builder tables. The UI now handles Save clicks directly, registers handlers before enabling loaded controls, shows feedback beside Save and verifies the published snapshot before claiming success. A specific WebKit/native-submit defect has NOT been reproduced; device acceptance remains pending.
+
+---
+
 ## 2026-10-29 — CURRENT PR #105 mobile-first layout: UAT READY
 
 | PR | Git ref / SHA | UAT deployment | Production | Owner acceptance | Evidence |

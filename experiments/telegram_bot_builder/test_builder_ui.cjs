@@ -12,7 +12,7 @@ function button(scope, text) { const b=[...scope.querySelectorAll('button')].fin
 async function main() {
   const dom = new JSDOM(html, {runScripts:'outside-only', url:'https://telbot.invalid', pretendToBeVisual:true});
   const w=dom.window; const requests=[]; let releasePreview;
-  let saved, config={published:{version:2,greeting:'Hello',fallback_reply:'Fallback'},api_actions_ready:true,external_api_enabled:false,rules:[
+  let saved, config={published:{id:'published-two',version:2,greeting:'Hello',fallback_reply:'Fallback'},api_actions_ready:true,external_api_enabled:false,rules:[
     {id:'text-old',keyword:'قیمت',response_text:'Price',match_mode:'exact',action_type:'text',enabled:true},
     {id:'api-old',keyword:'موجودی',response_text:'Unavailable',match_mode:'contains',action_type:'api',enabled:true,
       api:{url:'https://api.example.com/stock',method:'GET',params:{},json_body:{},response_path:'data.text',auth_mode:'bearer',auth_header:'X-API-Key',credential_present:true}},
@@ -32,7 +32,7 @@ async function main() {
     }
     else if (url.endsWith('/configs')) { saved=JSON.parse(options.body); body={id:'draft',version:3}; }
     else if (url.includes('/publish?expected_version=2')) {
-      config={...config,published:{version:3,greeting:saved.greeting,fallback_reply:saved.fallback_reply},rules:saved.rules.map((r,i)=>{
+      config={...config,published:{id:'draft',version:3,greeting:saved.greeting,fallback_reply:saved.fallback_reply},rules:saved.rules.map((r,i)=>{
         const result={...r,id:'new-'+i}; if(result.api){result.api={...result.api,credential_present:true};delete result.api.credential;} return result;
       })};body={id:'draft',version:3,state:'published'};
     } else throw new Error('Unexpected fetch '+url);
@@ -43,6 +43,8 @@ async function main() {
   button(w.document,'تنظیم پیام‌های ربات').click();
   await until(()=>w.document.querySelectorAll('.rule-card').length===2);
   const panel=w.document.querySelector('.reply-editor');
+  assert.equal(button(panel,'ذخیره پاسخ‌ها').type,'button','Save must use its direct click handler');
+  assert.equal(button(panel,'ذخیره پاسخ‌ها').hasAttribute('form'),false);
   const tabs=[...panel.querySelectorAll('[role="tab"]')];
   assert.deepEqual(tabs.map(tab=>tab.textContent),['پیام شروع','پاسخ‌ها','آزمایش']);
   assert.equal(tabs.filter(tab=>tab.getAttribute('aria-selected')==='true').length,1);
@@ -142,8 +144,10 @@ async function main() {
   assert.equal(requests.filter(r=>r.url.endsWith('/preview')).length,4);
   field(existingApi,'کلید دسترسی').value='';
   const form=panel.querySelector('form'); button(panel,'ذخیره پاسخ‌ها').click();
+  assert.match(panel.querySelector('.save-feedback').textContent,/در حال ذخیره/);
   await until(()=>saved && field(panel,'پیام خوش‌آمدگویی').disabled===false && panel.textContent.includes('همهٔ پاسخ‌ها ذخیره شدند'));
   assert.equal(saved.rules.length,3);assert.equal(saved.base_version,2);
+  assert.equal(panel.querySelector('.save-feedback').classList.contains('success'),true);
   assert.equal(saved.rules[2].source_rule_id,'api-old');assert.equal(saved.rules[2].api.credential,null);
   assert.equal(saved.rules[2].api.include_message,false);
   assert.equal(panel.querySelectorAll('.rule-card').length,3);

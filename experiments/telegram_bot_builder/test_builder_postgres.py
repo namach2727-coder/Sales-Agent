@@ -2,6 +2,10 @@
 import os
 from pathlib import Path
 import unittest
+import socket
+import subprocess
+import threading
+import time
 from uuid import uuid4
 from urllib.parse import urlsplit
 from unittest.mock import patch
@@ -40,6 +44,53 @@ class BuilderPostgresTests(unittest.TestCase):
                 db.execute('SAVEPOINT constraints')
                 db.execute((Path(__file__).parent/'migrations'/'0003_rule_api_calls_smoke.sql').read_text())
                 db.execute('ROLLBACK TO SAVEPOINT constraints')
+
+    @unittest.skipUnless(os.getenv('TELBOT_TEST_UI_ROUNDTRIP') == 'true', 'Disposable UI/HTTP roundtrip not enabled')
+    def test_ui_add_save_close_reopen_against_real_api_and_database(self):
+        import uvicorn
+        tenant, bot, actor = uuid4(), uuid4(), 333555
+        with psycopg.connect(self.url, row_factory=dict_row) as db:
+            db.execute("INSERT INTO telbot.tenants(id,display_name) VALUES (%s,'Synthetic UI workspace')", (tenant,))
+            db.execute('INSERT INTO telbot.tenant_users(tenant_id,telegram_user_id) VALUES (%s,%s)', (tenant,actor))
+            db.execute("INSERT INTO telbot.bots(id,tenant_id,telegram_bot_id,display_name,owner_telegram_user_id) VALUES (%s,%s,12340002,'Synthetic UI bot',%s)", (bot,tenant,actor))
+            db.execute("INSERT INTO telbot.configuration_versions(tenant_id,bot_id,version,state,greeting,fallback_reply,created_by_telegram_user_id,published_at) VALUES (%s,%s,1,'published','Hello','Fallback',%s,now())", (tenant,bot,actor))
+
+        def connection():
+            with psycopg.connect(self.url, row_factory=dict_row) as db:
+                yield db
+
+        app.dependency_overrides[get_connection] = connection
+        sock = socket.socket(); sock.bind(('127.0.0.1', 0)); sock.listen(128)
+        server = uvicorn.Server(uvicorn.Config(app, log_level='error', lifespan='off', proxy_headers=False))
+        thread = threading.Thread(target=server.run, kwargs={'sockets':[sock]}, daemon=True)
+        try:
+            with patch.dict(os.environ, {'TELBOT_MANAGER_TOKEN':'111:TESTTOKEN', 'TELBOT_ENV':'uat'}):
+                thread.start()
+                for _ in range(300):
+                    if server.started:
+                        break
+                    time.sleep(.01)
+                self.assertTrue(server.started, 'Loopback API did not start')
+                result = subprocess.run(
+                    ['node', str(Path(__file__).with_name('test_builder_ui_roundtrip.cjs'))],
+                    env={**os.environ, 'TELBOT_UI_TEST_ORIGIN':f'http://127.0.0.1:{sock.getsockname()[1]}',
+                         'TELBOT_UI_TEST_INIT_DATA':signed_initdata(user_id=actor)},
+                    capture_output=True, text=True, timeout=45,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn('save/reopen: PASS', result.stdout)
+                print(result.stdout.strip())
+            with psycopg.connect(self.url, row_factory=dict_row) as db:
+                current = db.execute("SELECT id,version FROM telbot.configuration_versions WHERE tenant_id=%s AND bot_id=%s AND state='published'", (tenant,bot)).fetchone()
+                self.assertEqual(current['version'], 3)
+                self.assertEqual(db.execute('SELECT count(*) AS n FROM telbot.reply_rules WHERE configuration_id=%s', (current['id'],)).fetchone()['n'], 2)
+                self.assertEqual(db.execute('SELECT count(*) AS n FROM telbot.configuration_versions WHERE bot_id=%s', (bot,)).fetchone()['n'], 3)
+        finally:
+            server.should_exit = True
+            if thread.ident is not None:
+                thread.join(timeout=5)
+            sock.close()
+            app.dependency_overrides.clear()
 
     def test_real_snapshot_publish_and_credential_preservation(self):
         tenant,bot=uuid4(),uuid4();key=Fernet.generate_key().decode()

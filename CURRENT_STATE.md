@@ -1,3 +1,11 @@
+## 2026-10-29 — Save-click and persisted readback correction (release pending)
+
+Live baseline is PR #105 (plus documentation). UAT still has published v4 and zero rules at the read-only diagnostic checkpoint. No customer configuration was edited during diagnosis. Source-only Save correction and tests are ready; flags and backend contracts unchanged.
+
+Owner reports that Save has no visible reaction. Read-only UAT verification found published version 4 with zero rules and no newer drafts; schema 0003 is present and both allowed runtime roles have SELECT/INSERT/UPDATE on builder tables. The UI now handles Save clicks directly, registers handlers before enabling loaded controls, shows feedback beside Save and verifies the published snapshot before claiming success. A specific WebKit/native-submit defect has NOT been reproduced; device acceptance remains pending.
+
+---
+
 ## 2026-10-29 — CURRENT PR #105 mobile-first layout: UAT READY
 
 UAT now serves PR #105 mobile-first layout with cache revision 20261029-mobile-first-1. Three editor tabs, saved configuration/API/version semantics and the typing focus fix are preserved. No claim of owner device acceptance or actual provider delivery follows from this release.

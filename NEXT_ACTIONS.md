@@ -1,3 +1,11 @@
+## 2026-10-29 — Save-click and persisted readback correction (release pending)
+
+Complete CI including the real Node DOM -> FastAPI HTTP -> PostgreSQL two-save/reopen test, then merge ONLY to the isolated TelBot branch and verify exact canonical UAT assets/health/auth. Preserve owner v4 while deploying. Record physical-device Save behavior after release; do not claim the customer has already saved new rules.
+
+Owner reports that Save has no visible reaction. Read-only UAT verification found published version 4 with zero rules and no newer drafts; schema 0003 is present and both allowed runtime roles have SELECT/INSERT/UPDATE on builder tables. The UI now handles Save clicks directly, registers handlers before enabling loaded controls, shows feedback beside Save and verifies the published snapshot before claiming success. A specific WebKit/native-submit defect has NOT been reproduced; device acceptance remains pending.
+
+---
+
 ## 2026-10-29 — CURRENT PR #105 mobile-first layout: UAT READY
 
 1. Owner reopens the Telegram Mini App and checks phone menu sizes, long bot/rule names, dropdowns, expanded reply/API settings and save/close touch areas.
