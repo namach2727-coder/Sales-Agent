@@ -1,3 +1,11 @@
+## 2026-10-29 — Mobile-first TelBot layout (release pending)
+
+Mobile-first is an owner requirement. Preserve narrow-screen layout at 320/360/390/430 CSS px, 48px touch areas, 16px input text, safe-area padding, and no per-character DOM moves. Desktop spacing is opt-in at min-width:600px. Use explicit zero-minimum grid tracks so native controls do not force container overflow.
+
+Owner decision: design TelBot for phones first. Default layout is a single column for narrow screens; only screens >=600px opt into wider spacing. Touch controls/disclosures are at least 48px high, inputs stay at 16px, nested padding is reduced, long labels fit/wrap and short option labels preserve the same values. Focus-preserving editor behavior and API/runtime contracts are unchanged.
+
+---
+
 ## 2026-10-29 — CURRENT PR #104 editor usability and typing fix: UAT READY
 
 Preserve input ancestors while typing/composing: update captions without moving cards. Guard list refresh while any reply editor is open. Maintain the persistent three-tab DOM, optional technical settings, hidden-field validation and unsaved-close guard. Full evidence: docs/telegram_bot_builder/EDITOR_USABILITY_20261029.md.

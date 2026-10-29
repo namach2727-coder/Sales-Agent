@@ -1,3 +1,11 @@
+## 2026-10-29 — Mobile-first TelBot layout (release pending)
+
+PASS locally: persistent DOM/focus and save/preview tests; static sizing at 320/360/390/430px in both text/API states; regular controls fit and button/disclosure touch heights >=48px. PENDING: CI, exact UAT deployment and physical Telegram/iOS layout/keyboard acceptance. Safe-area behavior requires a real device.
+
+Owner decision: design TelBot for phones first. Default layout is a single column for narrow screens; only screens >=600px opt into wider spacing. Touch controls/disclosures are at least 48px high, inputs stay at 16px, nested padding is reduced, long labels fit/wrap and short option labels preserve the same values. Focus-preserving editor behavior and API/runtime contracts are unchanged.
+
+---
+
 ## 2026-10-29 — CURRENT PR #104 editor usability and typing fix: UAT READY
 
 PASS: before/after DOM focus regression; caret/composition and API-field focus; zero rule-list moves while typing; tab/refresh preservation; hidden-field error focus; undo/discard; credential-free preview and one save/publish; all CI checks; exact UAT alias, source assets, health and 401 auth smoke. PENDING: owner physical Telegram/iOS typing and visual acceptance. No live-provider test claimed.
