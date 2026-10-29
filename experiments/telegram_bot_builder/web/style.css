@@ -160,3 +160,12 @@ footer { text-align: center; color: #8c96ad; font-size: 11px; line-height: 1.8; 
 .menu-preview-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
 .menu-preview-grid span { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 8px; border-radius: 8px; background: white; border: 1px solid var(--line); overflow-wrap: anywhere; text-align: center; font-size: 14px; }
 .menu-preview-grid .menu-wide { grid-column: 1 / -1; }
+
+.activity-panel { margin-top: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fafbff; min-width: 0; }
+.activity-stats { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.activity-stats > div { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: white; min-width: 0; }
+.activity-stats dt { font-size: 13px; overflow-wrap: anywhere; }
+.activity-stats dd { margin: 6px 0 0; font-size: 22px; font-weight: 700; }
+.activity-events { list-style: none; padding: 0; margin: 0; }
+.activity-events li { display: grid; grid-template-columns: minmax(0,1fr); gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; font-size: 14px; }
+.activity-events time, .activity-status { font-size: 13px; color: var(--muted); }

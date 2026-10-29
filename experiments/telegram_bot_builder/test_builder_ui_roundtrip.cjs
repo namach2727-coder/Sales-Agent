@@ -56,6 +56,13 @@ async function main(){
     assert.equal(panel.querySelectorAll('.menu-preview-grid span').length,2);
     assert.equal(field(panel,'پیام خوش‌آمدگویی').value,'Hello');
     assert.equal(field(panel,'پاسخ به پیام‌های دیگر').value,'Fallback');
+    const typed=field(panel.querySelector('.rule-card'),'کاربر چه می‌نویسد؟');typed.focus();
+    button(w.document,'گزارش عملکرد').click();
+    await until(()=>w.document.querySelector('.activity-stats'));
+    assert.equal(w.document.querySelectorAll('.activity-events li').length,0);
+    assert.match(w.document.querySelector('.activity-result').textContent,/پیامی دریافت نشده/);
+    assert.equal(w.document.activeElement,typed,'Read-only report must preserve editor focus');
+    button(w.document,'بستن گزارش').click();
     assert.equal(requests.filter(n=>n.method==='POST').length,4);
     console.log('TelBot real UI -> FastAPI -> PostgreSQL save/reopen: PASS');
   } finally {dom.window.close();}

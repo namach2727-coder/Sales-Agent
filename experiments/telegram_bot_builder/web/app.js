@@ -152,9 +152,57 @@
           edit.addEventListener("click", () => openReplyEditor(bot, row, edit));
           actions.append(edit);
         }
+        const activity = document.createElement("button"); activity.type = "button";
+        activity.className = "button-secondary"; activity.textContent = "گزارش عملکرد";
+        activity.addEventListener("click", () => openActivity(bot, row, activity)); actions.append(activity);
         root.append(row);
       });
     } catch(error) { root.textContent = publicError(error); }
+  }
+  async function openActivity(bot, row, opener) {
+    opener.disabled = true;
+    const panel = document.createElement("section"); panel.className = "activity-panel";
+    const title = document.createElement("h3"); title.textContent = "عملکرد ربات در ۲۴ ساعت گذشته";
+    const hint = document.createElement("p"); hint.className = "hint";
+    hint.textContent = "فقط تعداد و وضعیت پیام‌ها نمایش داده می‌شود. پیام‌های قبل از فعال‌شدن پاسخ خودکار ممکن است پاسخی نداشته باشند.";
+    const status = document.createElement("p"); status.className = "activity-status"; status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
+    const result = document.createElement("div"); result.className = "activity-result";
+    const actions = document.createElement("div"); actions.className = "editor-actions";
+    const refresh = document.createElement("button"); refresh.type = "button"; refresh.textContent = "به‌روزرسانی گزارش";
+    const close = document.createElement("button"); close.type = "button"; close.className = "button-secondary"; close.textContent = "بستن گزارش";
+    actions.append(refresh, close); panel.append(title, hint, status, result, actions); row.append(panel);
+    close.addEventListener("click", () => { panel.remove(); opener.disabled = false; opener.focus(); });
+    function time(value) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? "زمان نامشخص" : new Intl.DateTimeFormat("fa-IR", {hour:"2-digit",minute:"2-digit",month:"short",day:"numeric"}).format(date);
+    }
+    async function load() {
+      if (refresh.disabled) return;
+      refresh.disabled = true; status.textContent = "در حال دریافت گزارش…"; panel.setAttribute("aria-busy", "true");
+      try {
+        const data = await api("/api/v1/tenants/" + activeTenant.id + "/bots/" + bot.id + "/activity");
+        if (!panel.isConnected) return;
+        const fragment = document.createDocumentFragment(), stats = document.createElement("dl"); stats.className = "activity-stats";
+        [["received","پیام دریافتی"],["sent","پاسخ ارسال‌شده"],["failed","ارسال ناموفق"],["pending","ارسال در انتظار تعیین نتیجه"]].forEach(([key,label]) => {
+          const card = document.createElement("div"), name = document.createElement("dt"), value = document.createElement("dd");
+          name.textContent = label; value.textContent = Number(data.summary[key]).toLocaleString("fa-IR"); card.append(name,value); stats.append(card);
+        }); fragment.append(stats);
+        const heading = document.createElement("h4"); heading.textContent = "آخرین پیام‌ها · حداکثر ۲۰ مورد"; fragment.append(heading);
+        const list = document.createElement("ul"); list.className = "activity-events";
+        data.events.forEach(event => {
+          const item = document.createElement("li"), at = document.createElement("time"), state = document.createElement("span");
+          at.textContent = time(event.received_at);
+          state.textContent = event.delivery_status === "sent" && event.telegram_acknowledged ? "پاسخ ارسال شد" : event.delivery_status === "sent" ? "ارسال ثبت شده؛ تأیید تلگرام موجود نیست" : event.delivery_status === "failed" ? "ارسال پاسخ ناموفق بود" : event.delivery_status === "queued" ? "نتیجهٔ ارسال هنوز مشخص نیست" : "دریافت شد؛ پاسخی ثبت نشده";
+          item.append(at,state); list.append(item);
+        });
+        if (data.events.length) fragment.append(list);
+        else { const empty = document.createElement("p"); empty.textContent = "در ۲۴ ساعت گذشته پیامی دریافت نشده است."; fragment.append(empty); }
+        result.replaceChildren(fragment); status.textContent = "آخرین بررسی: " + time(data.summary.checked_at);
+      } catch (error) {
+        if (panel.isConnected) status.textContent = "دریافت گزارش انجام نشد: " + publicError(error);
+      } finally { refresh.disabled = false; panel.removeAttribute("aria-busy"); }
+    }
+    refresh.addEventListener("click", load); await load();
   }
   async function openReplyEditor(bot, row, opener) {
     opener.disabled = true;

@@ -11,7 +11,7 @@ function field(scope, text) { const label = [...scope.querySelectorAll('label')]
 function button(scope, text) { const b=[...scope.querySelectorAll('button')].find(b => b.textContent===text); assert(b,text); return b; }
 async function main() {
   const dom = new JSDOM(html, {runScripts:'outside-only', url:'https://telbot.invalid', pretendToBeVisual:true});
-  const w=dom.window; const requests=[]; let releasePreview;
+  const w=dom.window; const requests=[]; let releasePreview, releaseActivity, activityMode="success";
   let saved, config={published:{id:'published-two',version:2,greeting:'Hello',fallback_reply:'Fallback'},api_actions_ready:true,external_api_enabled:false,rules:[
     {id:'text-old',keyword:'قیمت',response_text:'Price',match_mode:'exact',action_type:'text',enabled:true},
     {id:'api-old',keyword:'موجودی',response_text:'Unavailable',match_mode:'contains',action_type:'api',enabled:true,
@@ -22,6 +22,15 @@ async function main() {
     requests.push({url,options}); let body;
     if (url.endsWith('/me/tenants')) body=[{id:'tenant',display_name:'Synthetic workspace',role:'owner'}];
     else if (url.endsWith('/bots')) body=[{id:'bot',username:'ExampleBot',status:'active',is_managed:true,credential_ready:true}];
+    else if (url.endsWith('/activity')) {
+      if(activityMode==='error')throw new Error('synthetic-unavailable');
+      if(activityMode==='delayed')await new Promise(resolve=>{releaseActivity=resolve;});
+      body={window_hours:24,summary:{received:4,sent:1,failed:1,pending:1,checked_at:'2026-10-29T16:00:00Z'},events:[
+        {received_at:'2026-10-29T16:00:00Z',delivery_status:'sent',telegram_acknowledged:true},
+        {received_at:'2026-10-29T16:00:00Z',delivery_status:'failed',telegram_acknowledged:false},
+        {received_at:'2026-10-29T16:00:00Z',delivery_status:'queued',telegram_acknowledged:false},
+        {received_at:'2026-10-29T16:00:00Z',delivery_status:null,telegram_acknowledged:false}]};
+    }
     else if (url.endsWith('/config')) body=config;
     else if (url.endsWith('/preview')) {
       const snapshot=JSON.parse(options.body);
@@ -182,6 +191,25 @@ async function main() {
   assert.equal(button(w.document,'تنظیم پیام‌های ربات').disabled,false);
   assert.equal(requests.filter(r=>r.url.endsWith('/configs')).length,1);
   assert.equal(requests.filter(r=>r.url.includes('/publish?')).length,1);
+  const postsBeforeReport=requests.filter(r=>r.options.method==='POST').length;
+  button(w.document,'گزارش عملکرد').click();
+  assert.match(w.document.querySelector('.activity-status').textContent,/در حال دریافت/);
+  await until(()=>w.document.querySelectorAll('.activity-events li').length===4);
+  const report=w.document.querySelector('.activity-panel');
+  assert.equal(report.querySelectorAll('.activity-stats > div').length,4);
+  assert.match(report.textContent,/پاسخ ارسال شد/);assert.match(report.textContent,/ارسال پاسخ ناموفق/);
+  assert.match(report.textContent,/نتیجهٔ ارسال هنوز مشخص نیست/);assert.match(report.textContent,/پاسخی ثبت نشده/);
+  const priorResult=report.querySelector('.activity-result').innerHTML;
+  activityMode='error';button(report,'به‌روزرسانی گزارش').click();
+  await until(()=>report.querySelector('.activity-status').textContent.includes('انجام نشد'));
+  assert.equal(report.querySelector('.activity-result').innerHTML,priorResult,'Failed refresh retains previous timestamped result');
+  activityMode='delayed';button(report,'به‌روزرسانی گزارش').click();button(report,'به‌روزرسانی گزارش').click();
+  await until(()=>releaseActivity);
+  button(report,'بستن گزارش').click();releaseActivity();await new Promise(setImmediate);
+  assert.equal(w.document.querySelector('.activity-panel'),null,'Closing before response must not recreate the panel');
+  assert.equal(button(w.document,'گزارش عملکرد').disabled,false);
+  assert.equal(requests.filter(r=>r.url.endsWith('/activity')).length,3);
+  assert.equal(requests.filter(r=>r.options.method==='POST').length,postsBeforeReport,'Report never writes or sends');
   const botFetches=requests.filter(r=>r.url.endsWith('/bots')).length;
   w.document.dispatchEvent(new w.Event('visibilitychange'));
   await until(()=>requests.filter(r=>r.url.endsWith('/bots')).length===botFetches+1);

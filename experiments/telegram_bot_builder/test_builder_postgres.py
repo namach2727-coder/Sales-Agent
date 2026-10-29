@@ -130,3 +130,33 @@ class BuilderPostgresTests(unittest.TestCase):
                     self.assertEqual(db.execute('SELECT count(*) AS n FROM telbot.reply_rules WHERE configuration_id=%s',(first_id,)).fetchone()['n'],2)
                     self.assertEqual(db.execute('SELECT count(*) AS n FROM telbot.reply_rules WHERE configuration_id=%s',(second_id,)).fetchone()['n'],2)
         finally:app.dependency_overrides.clear()
+
+
+    def test_real_activity_counts_time_window_tenant_isolation_and_privacy(self):
+        tenant,other,bot,foreign=uuid4(),uuid4(),uuid4(),uuid4();actor=777888
+        with psycopg.connect(self.url,row_factory=dict_row) as db:
+            for t,b,number in [(tenant,bot,12340003),(other,foreign,12340004)]:
+                db.execute("INSERT INTO telbot.tenants(id,display_name) VALUES (%s,'Synthetic report')",(t,))
+                db.execute("INSERT INTO telbot.tenant_users(tenant_id,telegram_user_id) VALUES (%s,%s)",(t,actor))
+                db.execute("INSERT INTO telbot.bots(id,tenant_id,telegram_bot_id,display_name,owner_telegram_user_id) VALUES (%s,%s,%s,'Synthetic report bot',%s)",(b,t,number,actor))
+            ids=[]
+            for i in range(25):
+                ids.append(db.execute("INSERT INTO telbot.inbound_updates(tenant_id,bot_id,telegram_update_id,incoming_text) VALUES (%s,%s,%s,'synthetic-private-body') RETURNING id",(tenant,bot,i)).fetchone()['id'])
+            for i,state in enumerate(['sent','sent','failed','queued']):
+                db.execute("INSERT INTO telbot.outbound_messages(tenant_id,bot_id,source_update_id,response_text,delivery_status,telegram_message_id,sent_at) VALUES (%s,%s,%s,'synthetic-private-answer',%s,%s,CASE WHEN %s THEN now() ELSE NULL END)",(tenant,bot,ids[i],state,42+i if state=='sent' else None,state=='sent'))
+            db.execute("INSERT INTO telbot.outbound_messages(tenant_id,bot_id,response_text,delivery_status,telegram_message_id,sent_at) VALUES (%s,%s,'synthetic-other-tenant','sent',99,now())",(other,foreign))
+            db.execute("INSERT INTO telbot.inbound_updates(tenant_id,bot_id,telegram_update_id,received_at) VALUES (%s,%s,999,now()-interval '25 hours')",(tenant,bot))
+            db.execute("INSERT INTO telbot.outbound_messages(tenant_id,bot_id,response_text,delivery_status,telegram_message_id,sent_at,created_at) VALUES (%s,%s,'synthetic-old','sent',1,now()-interval '25 hours',now()-interval '25 hours')",(tenant,bot))
+        def connection():
+            with psycopg.connect(self.url,row_factory=dict_row) as db:yield db
+        app.dependency_overrides[get_connection]=connection
+        try:
+            with patch.dict(os.environ,{'TELBOT_MANAGER_TOKEN':'111:TESTTOKEN','TELBOT_ENV':'uat'}),TestClient(app) as client:
+                headers={'X-Telegram-Init-Data':signed_initdata(user_id=actor)}
+                result=client.get(f'/api/v1/tenants/{tenant}/bots/{bot}/activity',headers=headers)
+                self.assertEqual(result.status_code,200,result.text)
+                data=result.json();self.assertEqual(len(data['events']),20)
+                self.assertEqual({k:data['summary'][k] for k in ['received','sent','failed','pending']},{'received':25,'sent':2,'failed':1,'pending':1})
+                self.assertNotIn('synthetic-private',result.text);self.assertNotIn('synthetic-other',result.text)
+                self.assertEqual(client.get(f'/api/v1/tenants/{tenant}/bots/{foreign}/activity',headers=headers).status_code,404)
+        finally:app.dependency_overrides.clear()
