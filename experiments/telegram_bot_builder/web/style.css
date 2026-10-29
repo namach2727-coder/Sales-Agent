@@ -155,3 +155,8 @@ footer { text-align: center; color: #8c96ad; font-size: 11px; line-height: 1.8; 
   .bot-actions button, .editor-footer button { flex: 1 1 160px; width: auto; }
   #refresh-bots { width: auto; }
 }
+
+.menu-preview { margin-top: 16px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: #f1f3fa; min-width: 0; }
+.menu-preview-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.menu-preview-grid span { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 8px; border-radius: 8px; background: white; border: 1px solid var(--line); overflow-wrap: anywhere; text-align: center; font-size: 14px; }
+.menu-preview-grid .menu-wide { grid-column: 1 / -1; }

@@ -60,7 +60,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         async def sent(credential, payload):
             self.assertEqual(db.events[-1], 'commit')
             self.assertEqual(credential, token)
-            self.assertEqual(payload, {'chat_id': 123, 'text': 'Hello'})
+            self.assertEqual(payload, {'chat_id': 123, 'text': 'Hello', 'reply_markup': {'remove_keyboard': True}})
             return 7, None
         with patch.dict(os.environ, {'TELBOT_ENV': 'uat', 'TELBOT_REPLIES_ENABLED': 'true', 'TELBOT_TOKEN_FERNET_KEY': key}):
             with patch('experiments.telegram_bot_builder.reply_runtime.send_text', side_effect=sent) as sender:

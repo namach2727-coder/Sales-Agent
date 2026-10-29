@@ -1,3 +1,15 @@
+## 2026-10-29 — CURRENT: mobile reply-menu buttons (source, release pending)
+
+Owner accepted the optional-reply UI and requested further development. Next feature: opt-in keyword buttons inside the customer bot. Each reply has a checkbox; selected enabled rules form a resizeable Telegram reply keyboard, at most two short labels per row, one long label per row. Limits are product bounds: 12 selections, 64 characters per label; ordinary keyword-only rules still allow 120. Current-form visual preview is inert, no provider/Telegram calls. Unticking all buttons removes a previously shown keyboard on the next eligible private reply. Existing UAT reply flag stays enabled; external API stays OFF.
+
+Uses existing versioned menu_buttons storage, no migration. Public rules derive show_button only from tenant/configuration/keyword-matched reply entries. Explicit replace_reply_buttons plus rule selections replaces keyword-backed menu entries in a NEW snapshot; unrelated URL/callback/custom menus and FAQs are retained. Older clients omitting the new fields copy the full previous menu. Published history is never edited. Save readback includes button selections; never show success for mismatched menu state. Runtime attaches only published enabled selections, retains private-message/tenant/paused-chat/dedupe/pre-network-attempt guards; no unsolicited send is made by release.
+
+Local validation: 131 Python discovered, 128 PASS + 3 disposable PostgreSQL skips; actual app.js DOM/focus and seven Save scenarios PASS. CI real UI/HTTP/PostgreSQL tests now assert button choices persist through two saves and reopen, with optional blank next cards; storage test covers removing a selected button, preserving archived menu and unrelated legacy reply. CI, PR, merge, exact UAT deployment and actual Telegram keyboard acceptance PENDING. Runbook: docs/telegram_bot_builder/REPLY_MENU_20261029.md.
+
+Read-only real UAT before this release now confirms published v6 with TWO saved keyword rules and zero menu buttons. This supersedes the earlier v4/zero-rules persistence uncertainty; owner said the previous fix is excellent. Real keyword matching/keyboard appearance still require their own live acceptance. No customer configuration changed by the agent.
+
+---
+
 ## 2026-10-29 — CURRENT PR #107 optional next reply: UAT READY
 
 PR #107 https://github.com/namach2727-coder/Sales-Agent/pull/107 reviewed head 3bbf3d3c21e395f13531d8eb7fc8348c7f0862aa passed all 11 reported checks. Squash merge 1dddb7c65ab8324f94feda52854fc497e7434971 ONLY into feature/telegram-managed-bots-spike-20261017 matches the reviewed tree. Automatic Vercel deployment dpl_6uGhE51M7rFgUmsc2K5EPdhM9Ub8 READY on exact merge; canonical https://directpilot-telbot-uat-api.vercel.app points to it. HTML and optional-replies-1 JS/CSS returned 200 and matched reviewed source byte-for-byte; /ready 200 database available/migration current. Isolated UAT project target production is not business Production.

@@ -3,13 +3,13 @@ import os
 import httpx
 try:
     from .core import BotConfiguration, ReplyRule, is_start_command, keyword_matches
-    from .reply_planner import plan_private_reply
+    from .reply_planner import plan_private_reply, reply_keyboard
     from .vault import TokenVault, CredentialError
     from .builder_storage import read_rules
     from .api_actions import open_call, invoke_api, ApiActionError
 except ImportError:
     from core import BotConfiguration, ReplyRule, is_start_command, keyword_matches
-    from reply_planner import plan_private_reply
+    from reply_planner import plan_private_reply, reply_keyboard
     from vault import TokenVault, CredentialError
     from builder_storage import read_rules
     from api_actions import open_call, invoke_api, ApiActionError
@@ -60,6 +60,7 @@ async def process_reply(db, bot, update, inbound_id):
     payload = plan_private_reply(cfg, update, tenant_id=str(tenant), bot_id=update['_bot_id'])
     if payload is None:
         return
+    payload['reply_markup'] = reply_keyboard(rules)
     try:
         token = TokenVault(os.getenv('TELBOT_TOKEN_FERNET_KEY', '')).decrypt(bytes(bot['credential_ciphertext']))
     except (CredentialError, TypeError):

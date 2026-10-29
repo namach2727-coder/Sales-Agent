@@ -24,3 +24,28 @@ def plan_private_reply(config: BotConfiguration, update: Mapping[str, Any], *, t
     if not isinstance(text, str) or not text.strip() or len(text) > 4096:
         return None
     return {'chat_id': chat_id, 'text': resolve_text_reply(config, text)}
+
+
+def reply_keyboard(rules) -> dict[str, Any]:
+    """Only enabled keyword-backed choices; one column for long mobile labels."""
+    labels, seen = [], set()
+    for rule in rules:
+        label = rule['keyword']
+        key = label.strip().casefold()
+        if not rule.get('show_button') or not rule.get('enabled', True) or key in seen or not 0 < len(label) <= 64:
+            continue
+        seen.add(key); labels.append(label)
+        if len(labels) == 12:
+            break
+    if not labels:
+        return {'remove_keyboard': True}
+    rows, short = [], []
+    for label in labels:
+        if len(label) > 16:
+            if short: rows.append(short); short = []
+            rows.append([{'text': label}])
+        else:
+            short.append({'text': label})
+            if len(short) == 2: rows.append(short); short = []
+    if short: rows.append(short)
+    return {'keyboard': rows, 'resize_keyboard': True, 'one_time_keyboard': False}

@@ -1,6 +1,6 @@
 import unittest
 from experiments.telegram_bot_builder.core import BotConfiguration, ReplyRule
-from experiments.telegram_bot_builder.reply_planner import plan_private_reply
+from experiments.telegram_bot_builder.reply_planner import plan_private_reply, reply_keyboard
 
 
 def configuration():
@@ -32,3 +32,17 @@ class PlannerTests(unittest.TestCase):
             if case == 'edited': event['edited_message'] = event.pop('message')
             with self.subTest(case=case):
                 self.assertIsNone(plan_private_reply(configuration(), event, tenant_id='tenant-a', bot_id=42))
+
+
+class ReplyKeyboardTests(unittest.TestCase):
+    def test_mobile_rows_and_disabled_duplicate_filter(self):
+        rules=[{'keyword':k,'show_button':True,'enabled':True} for k in ['قیمت','آدرس','عنوان طولانی برای دکمه','تماس','قیمت']]
+        rules.append({'keyword':'Hidden','show_button':True,'enabled':False})
+        result=reply_keyboard(rules)
+        self.assertEqual(result['keyboard'],[[{'text':'قیمت'},{'text':'آدرس'}],[{'text':'عنوان طولانی برای دکمه'}],[{'text':'تماس'}]])
+        self.assertTrue(result['resize_keyboard']);self.assertFalse(result['one_time_keyboard'])
+
+    def test_empty_menu_removes_previous_keyboard_and_bounds_defensive_input(self):
+        self.assertEqual(reply_keyboard([]),{'remove_keyboard':True})
+        self.assertEqual(reply_keyboard([{'keyword':'x'*65,'show_button':True}]),{'remove_keyboard':True})
+        self.assertEqual(sum(map(len,reply_keyboard([{'keyword':str(i),'show_button':True} for i in range(20)])['keyboard'])),12)
