@@ -1,3 +1,13 @@
+## 2026-10-29 — CURRENT TelBot checkpoint: PR #103 deployed to UAT
+
+This checkpoint supersedes the historical 2026-10-28 preview deployment quota blocker. Vercel directpilot-telbot-uat-api / team_Cu7IBomJgSNCXUMp3sILUUD4 is READY on dpl_Hy4hsuSi9PzhGNLcoZsqCDejkdYY, exact reviewed merge c08a3c26422ad2d28036946c274b035216fff8c0. Canonical alias https://directpilot-telbot-uat-api.vercel.app points to this deployment. The project target label production belongs ONLY to this isolated UAT project; it is not a business Production promotion.
+
+PASS: reviewed source, prior CI, UAT READY, exact alias SHA, health, HTML/JS/CSS revision and unauthenticated preview 401. PENDING: owner device/unsaved preview interactions, provider contract and real delivery acceptance. Do not equate deployed preview with a successful API request or Telegram reply.
+
+Verified 2026-10-29 06:52 UTC (10:22 Asia/Tehran): /ready 200 ready/database available/migration current; /telbot 200 with response-preview-1 asset revision; JS 200 with preview and multi-rule controls; CSS 200 with preview layout; POST /preview with a synthetic body and no Telegram session returns 401 missing_init_data. Environment metadata still has six keys; TELBOT_REPLIES_ENABLED and TELBOT_EXTERNAL_API_ENABLED are absent/default OFF. No migration, customer-setting mutation, Telegram send, API-provider call or billing change performed. Owner mobile/preview interaction and live provider acceptance remain PENDING.
+
+---
+
 # DirectPilot TelBot — T0–T3 Master Checklist
 
 ## 2026-10-20 — UAT Telegram Mini App login 401; Manager identity diagnostic deployed

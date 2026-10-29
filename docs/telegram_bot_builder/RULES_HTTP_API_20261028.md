@@ -1,3 +1,15 @@
+## 2026-10-29 — CURRENT TelBot checkpoint: PR #103 deployed to UAT
+
+This checkpoint supersedes the historical 2026-10-28 preview deployment quota blocker. Vercel directpilot-telbot-uat-api / team_Cu7IBomJgSNCXUMp3sILUUD4 is READY on dpl_Hy4hsuSi9PzhGNLcoZsqCDejkdYY, exact reviewed merge c08a3c26422ad2d28036946c274b035216fff8c0. Canonical alias https://directpilot-telbot-uat-api.vercel.app points to this deployment. The project target label production belongs ONLY to this isolated UAT project; it is not a business Production promotion.
+
+Verified 2026-10-29 06:52 UTC (10:22 Asia/Tehran): /ready 200 ready/database available/migration current; /telbot 200 with response-preview-1 asset revision; JS 200 with preview and multi-rule controls; CSS 200 with preview layout; POST /preview with a synthetic body and no Telegram session returns 401 missing_init_data. Environment metadata still has six keys; TELBOT_REPLIES_ENABLED and TELBOT_EXTERNAL_API_ENABLED are absent/default OFF. No migration, customer-setting mutation, Telegram send, API-provider call or billing change performed. Owner mobile/preview interaction and live provider acceptance remain PENDING.
+
+The previous quota blocker is resolved for this deployment: one authenticated Vercel Git deployment request of the exact reviewed merge succeeded. No repeated or parallel deployment was created. Existing CI evidence was reused because no executable code changed. Authenticated owner preview behavior remains a device acceptance step; server rule-selection/security cases were already covered offline.
+
+Owner path: reopen Mini App -> تنظیم پیام‌های ربات -> آزمایش پاسخ -> enter a test message -> نمایش پیش‌نمایش. Use an API-rule test to verify that the panel identifies the selected rule and explicitly labels fallback, without calling the provider.
+
+---
+
 # Versioned replies and HTTP/JSON actions — UAT implementation
 
 Owner request: allow more than a start/fallback message and connect bots to APIs. This is the independent TelBot track; no Instagram/Production changes.
