@@ -1,8 +1,10 @@
-## 2026-10-29 — Save-click and persisted readback correction (release pending)
+## 2026-10-29 — CURRENT PR #106 Save click/readback fix: UAT READY
 
-Use explicit JavaScript Save clicks rather than external form default submission. Show progress/errors near the clicked control, preserve typed fields on failure, and verify persisted greeting/fallback/ordered rules before success. Do not weaken Telegram auth TTL, retrieve credentials, add secret-bearing browser storage or automatically retry publication.
+Use explicit Save clicks and feedback next to the control. Publication acknowledgement alone is insufficient: verify a fresh matching persisted snapshot before success/form replacement. Validation/auth/conflict/readback failures retain typed fields. No weakened auth TTL, secret-bearing browser storage, automatic publication retry, backend/schema or outbound changes.
 
-Owner reports that Save has no visible reaction. Read-only UAT verification found published version 4 with zero rules and no newer drafts; schema 0003 is present and both allowed runtime roles have SELECT/INSERT/UPDATE on builder tables. The UI now handles Save clicks directly, registers handlers before enabling loaded controls, shows feedback beside Save and verifies the published snapshot before claiming success. A specific WebKit/native-submit defect has NOT been reproduced; device acceptance remains pending.
+PR #106 reviewed head 174acbb2ee5b8e630ec08724c3b9f66137186efc passed all 11 reported GitHub checks. Squash merge 4bd44451a08cded6e6ecf93f91036ad7782722b0 ONLY into feature/telegram-managed-bots-spike-20261017 exactly matches the reviewed tree. Vercel dpl_GWCqrTgAXucDZyEpWYYmPo3xphs9 is READY on that merge and canonical https://directpilot-telbot-uat-api.vercel.app points to it. The project target label production is the isolated TelBot UAT service, not business Production promotion.
+
+Verified 2026-10-29 13:15 Asia/Tehran / 09:45 UTC: /ready 200 (database available/migration current), HTML/JS/CSS 200 and byte-identical to reviewed assets, save-click-1 revision, unauthenticated synthetic preview POST 401. CI unit: 126 discovered, 123 PASS + 3 PostgreSQL skips; schema job ran all 3 PASS, including the actual JS UI through HTTP/FastAPI/PostgreSQL add-save-close-reopen twice (3 versions total, 2 current replies, duplicate-submit guard). Both DOM behavior/focus and 5 save-error/readback scenarios PASS. Read-only UAT after deployment still shows published v4, 4 versions total and 0 rules; no customer configuration was written by deployment/testing. Both outbound flags remain absent/default OFF. Actual owner phone Save acceptance remains PENDING.
 
 ---
 
