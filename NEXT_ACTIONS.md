@@ -1,3 +1,11 @@
+## 2026-10-29 — Mobile-first TelBot layout (release pending)
+
+Finish CI, merge only into feature/telegram-managed-bots-spike-20261017, verify canonical UAT exact SHA and mobile-first-1 assets. Then record real Telegram phone acceptance, including long bot/rule names, tabs, dropdowns, one-handed taps and continuous typing. Static layout review cannot establish physical device acceptance.
+
+Owner decision: design TelBot for phones first. Default layout is a single column for narrow screens; only screens >=600px opt into wider spacing. Touch controls/disclosures are at least 48px high, inputs stay at 16px, nested padding is reduced, long labels fit/wrap and short option labels preserve the same values. Focus-preserving editor behavior and API/runtime contracts are unchanged.
+
+---
+
 ## 2026-10-29 — CURRENT PR #104 editor usability and typing fix: UAT READY
 
 1. Owner reopens the Telegram Mini App and tests continuous typing in the customer phrase, reply text and API-key fields; verify no keyboard dismissal, cursor jump or app-return data loss.

@@ -1,3 +1,11 @@
+## 2026-10-29 — Mobile-first TelBot layout (release pending)
+
+PR #104 remains the deployed editor/focus baseline. New mobile-first stylesheet and compact labels are source-only pending release. No backend, persisted setting, migration, secret or outbound-flag changes.
+
+Owner decision: design TelBot for phones first. Default layout is a single column for narrow screens; only screens >=600px opt into wider spacing. Touch controls/disclosures are at least 48px high, inputs stay at 16px, nested padding is reduced, long labels fit/wrap and short option labels preserve the same values. Focus-preserving editor behavior and API/runtime contracts are unchanged.
+
+---
+
 ## 2026-10-29 — CURRENT PR #104 editor usability and typing fix: UAT READY
 
 Current UAT runs the three-tab editor (پیام شروع / پاسخ‌ها / آزمایش), with readable mobile inputs, local undo/discard protection and no per-character card moves. Existing saved settings and API secret/version contracts are preserved. Earlier claims of an acceptable prior layout do not establish acceptance of this new editor.

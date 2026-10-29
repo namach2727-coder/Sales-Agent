@@ -1,3 +1,11 @@
+## 2026-10-29 — Mobile-first TelBot layout (release pending)
+
+Candidate feature/telbot-mobile-first-20261029 based on 3c232142afe5dbe0ebe0aa6982cb22c49a56bcbd; PR/merge/UAT deployment pending. Local DOM, Python, syntax and whitespace checks PASS. Offline renderer: 2 states x 4 widths, no horizontal control overflow, button/disclosure targets >=48px. Production unchanged; owner phone acceptance pending.
+
+Owner decision: design TelBot for phones first. Default layout is a single column for narrow screens; only screens >=600px opt into wider spacing. Touch controls/disclosures are at least 48px high, inputs stay at 16px, nested padding is reduced, long labels fit/wrap and short option labels preserve the same values. Focus-preserving editor behavior and API/runtime contracts are unchanged.
+
+---
+
 ## 2026-10-29 — CURRENT PR #104 editor usability and typing fix: UAT READY
 
 | PR | Git ref / SHA | UAT deployment | Production | Owner acceptance | Evidence |

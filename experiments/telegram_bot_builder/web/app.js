@@ -263,7 +263,8 @@
       // Typing updates captions only. Never detach/reinsert an input's ancestors.
       rules.forEach((rule, index) => {
         rule.caption.textContent = (index + 1) + ". " + (rule.keyword.value || "پاسخ جدید");
-        rule.badge.textContent = !rule.enabled.checked ? "غیرفعال" : rule.action.value === "api" ? "سرویس بیرونی" : "متن";
+        rule.caption.title = rule.keyword.value;
+        rule.badge.textContent = !rule.enabled.checked ? "غیرفعال" : rule.action.value === "api" ? "API" : "متن";
         rule.up.disabled = busy || index === 0; rule.down.disabled = busy || index === rules.length - 1;
       });
       count.textContent = rules.length ? " · " + rules.length + " پاسخ" : "";
@@ -282,7 +283,7 @@
       const summary = document.createElement("summary"), caption = document.createElement("span"), badge = document.createElement("small"); badge.className = "rule-badge"; summary.append(caption, badge); card.append(summary);
       const content = document.createElement("div"); content.className = "rule-fields"; card.append(content);
       const keyword = field(content, "کاربر چه می‌نویسد؟", "text", value.keyword || ""); keyword.required = true; keyword.maxLength = 120; keyword.placeholder = "مثلاً قیمت";
-      const action = select(content, "نوع پاسخ", [["text", "متنی که من می‌نویسم"], ["api", "دریافت از سرویس بیرونی (API)"]], value.action_type || "text");
+      const action = select(content, "نوع پاسخ", [["text", "پاسخ متنی"], ["api", "اتصال به API"]], value.action_type || "text");
       if (!schemaReady) action.options[1].disabled = true;
       const response = field(content, "ربات چه پاسخی بدهد؟", "textarea", value.response_text || ""); response.required = true; response.maxLength = 4096; response.placeholder = "متن پاسخ به مشتری";
       const apiFields = document.createElement("div"); apiFields.className = "api-fields";
@@ -291,13 +292,13 @@
       const path = field(apiFields, "کدام بخش پاسخ سرویس نمایش داده شود؟", "text", value.api?.response_path || ""); path.dir = "ltr"; path.maxLength = 200; path.placeholder = "data.answer";
       explanation(apiFields, "مثلاً اگر متن جواب در data.answer است، همین مسیر را وارد کن.");
       const authBox = disclosure(apiFields, "کلید دسترسی به سرویس"); authBox.open = value.api?.auth_mode && value.api.auth_mode !== "none";
-      const auth = select(authBox, "روش استفاده از کلید", [["none", "این سرویس کلید نمی‌خواهد"], ["bearer", "Bearer Token"], ["header", "Header اختصاصی"]], value.api?.auth_mode || "none");
+      const auth = select(authBox, "روش استفاده از کلید", [["none", "بدون کلید"], ["bearer", "Bearer Token"], ["header", "Header اختصاصی"]], value.api?.auth_mode || "none");
       const header = field(authBox, "نام Header کلید", "text", value.api?.auth_header || "X-API-Key"); header.dir = "ltr";
       const credential = field(authBox, "کلید دسترسی", "password"); credential.autocomplete = "new-password"; credential.maxLength = 2048;
       credential.placeholder = value.api?.credential_present ? "ذخیره شده؛ برای حفظ آن خالی بگذار" : "کلید را اینجا وارد کن";
       explanation(authBox, "کلید ذخیره‌شده نمایش داده نمی‌شود. کلید را فقط در همین کادر وارد کن.");
       const requestBox = disclosure(apiFields, "تنظیمات بیشتر اتصال"); requestBox.open = value.api?.method === "POST";
-      const method = select(requestBox, "روش درخواست", [["GET", "GET — دریافت اطلاعات"], ["POST", "POST — ارسال اطلاعات"]], value.api?.method || "GET");
+      const method = select(requestBox, "روش درخواست", [["GET", "GET — دریافت"], ["POST", "POST — ارسال"]], value.api?.method || "GET");
       const share = field(requestBox, "متن پیام کاربر به این سرویس فرستاده شود", "checkbox"); share.checked = value.api?.include_message === true;
       const messageField = field(requestBox, "نام فیلد پیام در سرویس", "text", value.api?.message_field || "message"); messageField.dir = "ltr";
       const params = field(requestBox, "پارامترهای Query (JSON)", "textarea", JSON.stringify(value.api?.params || {}, null, 2)); params.dir = "ltr"; params.maxLength = 12000;
@@ -305,7 +306,7 @@
       explanation(requestBox, "نشانی را بدون Query بنویس. متن کاربر فقط با انتخاب گزینهٔ بالا ارسال می‌شود. POST ممکن است در سرویس مقصد اطلاعات ایجاد کند.");
       content.append(apiFields);
       const options = disclosure(content, "تنظیمات بیشتر این پاسخ"); options.className = "rule-options";
-      const match = select(options, "چه پیام‌هایی این پاسخ را بگیرند؟", [["exact", "فقط همین عبارت"], ["contains", "هر پیامی که این عبارت را دارد"]], value.match_mode || "exact");
+      const match = select(options, "چه پیام‌هایی این پاسخ را بگیرند؟", [["exact", "فقط همین عبارت"], ["contains", "شامل این عبارت"]], value.match_mode || "exact");
       const enabled = field(options, "این پاسخ فعال باشد", "checkbox"); enabled.checked = value.enabled !== false;
       const actions = document.createElement("div"); actions.className = "editor-actions";
       const up = document.createElement("button"), down = document.createElement("button");

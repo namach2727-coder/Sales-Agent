@@ -1,3 +1,11 @@
+## 2026-10-29 — Mobile-first TelBot layout (release pending)
+
+Mobile-first layout requirement implemented: compact padding, stacked primary actions, equal editor tabs, compact reorder controls, shorter dropdown options and safe-area viewport. CI, exact UAT deployment and owner phone acceptance remain pending.
+
+Owner decision: design TelBot for phones first. Default layout is a single column for narrow screens; only screens >=600px opt into wider spacing. Touch controls/disclosures are at least 48px high, inputs stay at 16px, nested padding is reduced, long labels fit/wrap and short option labels preserve the same values. Focus-preserving editor behavior and API/runtime contracts are unchanged.
+
+---
+
 ## 2026-10-29 — CURRENT PR #104 editor usability and typing fix: UAT READY
 
 Usability milestone: simplified editor and continuous-typing focus correction implemented, CI PASS, UAT READY, exact live asset/health/auth smoke PASS. Owner physical-device usability/keyboard acceptance remains pending. No backend or database change.

@@ -1,3 +1,11 @@
+## 2026-10-29 — Mobile-first TelBot layout (release pending)
+
+Mobile is the baseline, not an extra desktop max-width patch. Never disable zoom or add viewport resize/focus handlers to achieve sizing. Use fluid widths and minimum touch heights; text may wrap rather than overlap. Short dropdown labels preserve the existing API payload values.
+
+Owner decision: design TelBot for phones first. Default layout is a single column for narrow screens; only screens >=600px opt into wider spacing. Touch controls/disclosures are at least 48px high, inputs stay at 16px, nested padding is reduced, long labels fit/wrap and short option labels preserve the same values. Focus-preserving editor behavior and API/runtime contracts are unchanged.
+
+---
+
 ## 2026-10-29 — CURRENT PR #104 editor usability and typing fix: UAT READY
 
 Ordinary text replies use customer-message/bot-answer labels. Technical matching/API/request options are optional disclosures. Tabs retain DOM/value state. Only explicit add/reorder/undo actions may insert/move cards. No automatic text-input focus on editor open; no secret-bearing browser storage. Physical keyboard acceptance must be recorded separately from DOM tests.

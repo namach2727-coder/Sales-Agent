@@ -1,3 +1,11 @@
+## 2026-10-29 — Mobile-first TelBot layout (release pending)
+
+Mobile sizing follows the new owner requirement: compact default spacing, single-column main actions, equal phone tabs and short option captions. Semantics, saved values, keyboard focus invariants and three-tab navigation are preserved. See MOBILE_FIRST_20261029.md for sizing evidence and release gates.
+
+Owner decision: design TelBot for phones first. Default layout is a single column for narrow screens; only screens >=600px opt into wider spacing. Touch controls/disclosures are at least 48px high, inputs stay at 16px, nested padding is reduced, long labels fit/wrap and short option labels preserve the same values. Focus-preserving editor behavior and API/runtime contracts are unchanged.
+
+---
+
 # TelBot editor usability correction — 2026-10-29
 
 ## Owner feedback and verified cause
