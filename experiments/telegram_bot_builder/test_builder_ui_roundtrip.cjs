@@ -26,7 +26,13 @@ async function main(){
       return w.document.querySelector('.reply-editor');
     }
     async function addAndSave(panel,keyword,response){
-      button(panel,'پاسخ‌ها').click();button(panel,'+ افزودن پاسخ').click();
+      button(panel,'پاسخ‌ها').click();
+      if(keyword==='جدید دوم') {
+        button(panel.querySelector('.rule-card'),'کپی پاسخ').click();
+        const copy=[...panel.querySelectorAll('.rule-card')].at(-1);
+        assert.equal(field(copy,'کاربر چه می‌نویسد؟').value,'');
+        assert.equal(field(copy,'ربات چه پاسخی بدهد؟').value,'پاسخ اول');
+      } else button(panel,'+ افزودن پاسخ').click();
       const card=[...panel.querySelectorAll('.rule-card')].at(-1);
       field(card,'کاربر چه می‌نویسد؟').value=keyword;
       field(card,'ربات چه پاسخی بدهد؟').value=response;
@@ -37,6 +43,7 @@ async function main(){
       button(panel,'+ افزودن پاسخ').click();
       button(panel,'+ افزودن پاسخ').click();
       assert.equal(panel.querySelectorAll('.rule-card').length,keyword==='جدید اول'?2:3,'Do not stack blank rows');
+      const query=field(panel,'جست‌وجو در پاسخ‌ها');query.value=keyword;query.dispatchEvent(new w.Event('input',{bubbles:true}));
       const save=button(panel,'ذخیره پاسخ‌ها');assert.equal(save.type,'button');save.click();
       assert.match(panel.querySelector('.save-feedback').textContent,/در حال ذخیره/);
       // A second submit while the first request is pending must not duplicate versions.
