@@ -1,3 +1,11 @@
+## 2026-10-29 — Save-click and persisted readback correction (release pending)
+
+PASS locally: explicit Save click, immediate footer feedback, native/form double-submit guard, validation, expired-auth/conflict visibility, failed/mismatched readback with form preservation and no false success/republish; focus/mobileness preserved. PENDING: PostgreSQL/real-HTTP UI test in CI, full CI, exact UAT deployment, owner physical-device Save acceptance.
+
+Owner reports that Save has no visible reaction. Read-only UAT verification found published version 4 with zero rules and no newer drafts; schema 0003 is present and both allowed runtime roles have SELECT/INSERT/UPDATE on builder tables. The UI now handles Save clicks directly, registers handlers before enabling loaded controls, shows feedback beside Save and verifies the published snapshot before claiming success. A specific WebKit/native-submit defect has NOT been reproduced; device acceptance remains pending.
+
+---
+
 ## 2026-10-29 — CURRENT PR #105 mobile-first layout: UAT READY
 
 PASS: persistent DOM/focus tests; ordinary and expanded settings at four phone widths in the offline renderer; 48px button/disclosure targets; all CI; exact alias/merge/source assets; health 200 and unauthenticated preview 401. PENDING: real Telegram phone layout, native dropdown, safe-area and keyboard acceptance. Static review is not device acceptance.

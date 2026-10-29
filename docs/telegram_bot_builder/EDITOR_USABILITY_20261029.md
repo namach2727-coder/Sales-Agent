@@ -1,3 +1,11 @@
+## 2026-10-29 — Save-click and persisted readback correction (release pending)
+
+The Save action is being corrected to use a direct click handler and feedback beside its footer. Success requires a matching fresh published snapshot; errors leave form text available. Three tabs, compact mobile controls and focus-stable inputs remain unchanged. Details: SAVE_ROUNDTRIP_20261029.md.
+
+Owner reports that Save has no visible reaction. Read-only UAT verification found published version 4 with zero rules and no newer drafts; schema 0003 is present and both allowed runtime roles have SELECT/INSERT/UPDATE on builder tables. The UI now handles Save clicks directly, registers handlers before enabling loaded controls, shows feedback beside Save and verifies the published snapshot before claiming success. A specific WebKit/native-submit defect has NOT been reproduced; device acceptance remains pending.
+
+---
+
 ## 2026-10-29 — CURRENT PR #105 mobile-first layout: UAT READY
 
 The owner mobile-first requirement is implemented on UAT: compact default spacing, full-width primary actions, equal tabs and short native-option captions. Focus stability, three-tab navigation, preview isolation and saved-value contracts are unchanged. Detailed sizing evidence: MOBILE_FIRST_20261029.md.

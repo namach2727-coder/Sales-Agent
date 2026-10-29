@@ -235,16 +235,22 @@
     const previewButton = document.createElement("button"); previewButton.type = "button"; previewButton.className = "button-secondary"; previewButton.textContent = "نمایش پیش‌نمایش"; previewButton.disabled = true;
     const previewOutput = document.createElement("p"); previewOutput.className = "preview-output"; previewOutput.setAttribute("role", "status"); previewOutput.setAttribute("aria-live", "polite"); previewOutput.hidden = true;
     previewPanel.append(previewButton, previewOutput);
-    const save = document.createElement("button"); save.type = "submit"; save.setAttribute("form", form.id); save.textContent = "ذخیره پاسخ‌ها"; save.disabled = true;
+    const save = document.createElement("button"); save.type = "button"; save.textContent = "ذخیره پاسخ‌ها"; save.disabled = true;
     const close = document.createElement("button"); close.type = "button"; close.textContent = "بستن تنظیمات"; close.className = "button-secondary";
     const buttons = document.createElement("div"); buttons.className = "editor-actions editor-footer"; buttons.append(save, close);
+    const saveFeedback = document.createElement("p"); saveFeedback.className = "save-feedback"; saveFeedback.hidden = true;
+    saveFeedback.setAttribute("role", "status"); saveFeedback.setAttribute("aria-live", "polite");
+    function saveMessage(message, kind = "progress") {
+      status.textContent = message; saveFeedback.hidden = false; saveFeedback.className = "save-feedback " + kind;
+      if (saveFeedback.textContent !== message) saveFeedback.textContent = message;
+    }
     const apiNote = document.createElement("p"); apiNote.className = "hint live-status";
     const discard = document.createElement("div"); discard.className = "discard-confirm"; discard.hidden = true;
-    explanation(discard, "تغییرات این فرم هنوز ذخیره نشده است.");
+    explanation(discard, "ذخیرهٔ این تغییرات هنوز تأیید نشده است.");
     const keepEditing = document.createElement("button"); keepEditing.type = "button"; keepEditing.textContent = "ادامهٔ ویرایش";
     const discardChanges = document.createElement("button"); discardChanges.type = "button"; discardChanges.className = "button-secondary"; discardChanges.textContent = "بستن بدون ذخیره";
     discard.append(keepEditing, discardChanges);
-    panel.append(title, intro, tabs, status, form, previewPanel, buttons, discard, apiNote); row.append(panel);
+    panel.append(title, intro, tabs, status, form, previewPanel, buttons, saveFeedback, discard, apiNote); row.append(panel);
     const base = "/api/v1/tenants/" + activeTenant.id + "/bots/" + bot.id;
     let rules = [], schemaReady = false, baseVersion = 0, draftId = null, busy = false, refreshRequired = false, previewBusy = false, previewRevision = 0, hasChanges = false, removedRule = null;
     showView("rules");
@@ -255,8 +261,12 @@
     function invalidatePreview() { previewRevision += 1; previewOutput.hidden = true; previewOutput.textContent = ""; }
     function dirty() {
       draftId = null; hasChanges = true; discard.hidden = true; invalidatePreview();
+      if (refreshRequired) return;
       const message = "تغییرات ذخیره نشده است؛ در پایان «ذخیره پاسخ‌ها» را بزن.";
       if (status.textContent !== message) status.textContent = message;
+      if (!saveFeedback.hidden && saveFeedback.textContent !== message) {
+        saveFeedback.className = "save-feedback"; saveFeedback.textContent = message;
+      }
     }
     previewText.addEventListener("input", invalidatePreview);
     function updateRules() {
@@ -342,8 +352,9 @@
     });
     add.addEventListener("click", () => { addRule(); dirty(); rules[rules.length - 1]?.keyword.focus(); });
     form.addEventListener("input", dirty); form.addEventListener("change", dirty);
-    async function load() {
-      const current = await api(base + "/config"); schemaReady = current.api_actions_ready === true;
+    async function load(current = null) {
+      if (!current) current = await api(base + "/config");
+      schemaReady = current.api_actions_ready === true;
       baseVersion = current.published?.version || 0;
       greeting.value = current.published?.greeting || ""; fallback.value = current.published?.fallback_reply || "";
       greeting.disabled = busy; fallback.disabled = busy;
@@ -353,9 +364,6 @@
       refreshRequired = false; save.disabled = false; previewButton.disabled = busy || previewBusy; invalidatePreview(); updateRules();
       return !!current.published;
     }
-    status.textContent = "در حال دریافت پاسخ‌های فعلی…";
-    try { const published = await load(); showView(published ? "rules" : "welcome"); status.textContent = "پاسخ‌های فعلی آمادهٔ ویرایش‌اند."; }
-    catch (error) { status.textContent = "دریافت پاسخ‌ها انجام نشد: " + publicError(error); }
     function inputError(message, input) { const error = new Error(message); error.input = input; throw error; }
     function revealError(error) {
       status.textContent = error.message;
@@ -419,28 +427,52 @@
         previewBusy = false; previewPanel.removeAttribute("aria-busy"); previewButton.disabled = busy || refreshRequired; save.disabled = busy || refreshRequired;
       }
     });
-    form.addEventListener("submit", async event => {
-      event.preventDefault(); if (busy || previewBusy || refreshRequired) return;
+    function snapshotMatches(current, snapshot, published) {
+      const stored = current.published;
+      if (!stored || stored.id !== published.id || stored.version !== published.version ||
+          stored.greeting !== snapshot.greeting || stored.fallback_reply !== snapshot.fallback_reply ||
+          !Array.isArray(current.rules) || current.rules.length !== snapshot.rules.length) return false;
+      const fields = ["keyword", "match_mode", "response_text", "action_type", "enabled"];
+      return snapshot.rules.every((rule, index) => fields.every(key => rule[key] === current.rules[index][key]));
+    }
+    async function saveReplies(event) {
+      event.preventDefault();
+      if (busy || previewBusy) return;
+      if (refreshRequired) { saveMessage("تأیید نهایی ذخیره در دسترس نیست؛ متن‌های فرم حفظ شده‌اند. برای ادامه تنظیمات را دوباره باز کن.", "error"); return; }
+      saveMessage("در حال بررسی پاسخ‌ها…");
       let snapshot;
-      try { snapshot = readSnapshot(); } catch (error) { revealError(error); return; }
+      try { snapshot = readSnapshot(); } catch (error) { revealError(error); saveMessage(error.message, "error"); return; }
       busy = true; panel.setAttribute("aria-busy", "true");
       const controls = Array.from(panel.querySelectorAll("input,select,textarea,button")), disabledBefore = controls.map(input => input.disabled);
-      controls.forEach(input => { input.disabled = true; }); status.textContent = "در حال ذخیرهٔ پاسخ‌ها…";
+      controls.forEach(input => { input.disabled = true; }); saveMessage("در حال ذخیرهٔ پاسخ‌ها…");
       let published = false;
       try {
         if (!draftId) { const draft = await api(base + "/configs", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(snapshot)}); draftId = draft.id; }
-        await api(base + "/configs/" + draftId + "/publish?expected_version=" + baseVersion, {method: "POST"});
+        const result = await api(base + "/configs/" + draftId + "/publish?expected_version=" + baseVersion, {method: "POST"});
         published = true; draftId = null;
-        try { await load(); status.textContent = "همهٔ پاسخ‌ها ذخیره شدند."; }
-        catch (_) { hasChanges = false; refreshRequired = true; status.textContent = "پاسخ‌ها ذخیره شدند؛ برای ادامهٔ ویرایش، فرم را ببند و دوباره باز کن."; }
-      } catch (error) { status.textContent = "ذخیره تأیید نشد: " + publicError(error); }
+        saveMessage("ذخیره انجام شد؛ در حال بررسی نسخهٔ ثبت‌شده…");
+        try {
+          const current = await api(base + "/config");
+          if (!snapshotMatches(current, snapshot, result)) throw new Error("readback_mismatch");
+          await load(current); saveMessage("همهٔ پاسخ‌ها ذخیره شدند.", "success");
+        } catch (_) {
+          refreshRequired = true;
+          saveMessage("انتشار انجام شد، اما تأیید نهایی ذخیره ممکن نشد. متن‌های این فرم حفظ شده‌اند؛ قبل از بستن آن‌ها را بررسی کن.", "error");
+        }
+      } catch (error) { saveMessage("ذخیره تأیید نشد: " + publicError(error), "error"); }
       finally {
         busy = false; panel.removeAttribute("aria-busy");
         controls.forEach((input, index) => { if (input.isConnected) input.disabled = disabledBefore[index]; });
-        save.disabled = refreshRequired; previewButton.disabled = refreshRequired; close.disabled = false; updateRules();
+        save.disabled = false; previewButton.disabled = refreshRequired; close.disabled = false; updateRules();
         if (published) rules.forEach(rule => { rule.credential.value = ""; });
       }
-    });
+    }
+    // Explicit clicks do not depend on native external-form submission in WebViews.
+    save.addEventListener("click", saveReplies);
+    form.addEventListener("submit", saveReplies);
+    status.textContent = "در حال دریافت پاسخ‌های فعلی…";
+    try { const published = await load(); showView(published ? "rules" : "welcome"); status.textContent = "پاسخ‌های فعلی آمادهٔ ویرایش‌اند."; }
+    catch (error) { saveMessage("دریافت پاسخ‌ها انجام نشد: " + publicError(error), "error"); }
   }
   async function describeAuthFailure(error) {
     if (!error || error.message !== "Invalid Telegram Mini App authentication") {

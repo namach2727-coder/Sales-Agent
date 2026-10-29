@@ -1,3 +1,11 @@
+## 2026-10-29 — Save-click and persisted readback correction (release pending)
+
+Keep Save bound to an explicit button click plus the shared form-submit handler; do not rely on external native form association. Preserve typed text on failure and confirm saved snapshot/version/rules via readback before resetting the form. Keep mobile-first sizes and typing focus invariants. CI must exercise the actual UI -> HTTP API -> disposable PostgreSQL save/close/reopen flow.
+
+Owner reports that Save has no visible reaction. Read-only UAT verification found published version 4 with zero rules and no newer drafts; schema 0003 is present and both allowed runtime roles have SELECT/INSERT/UPDATE on builder tables. The UI now handles Save clicks directly, registers handlers before enabling loaded controls, shows feedback beside Save and verifies the published snapshot before claiming success. A specific WebKit/native-submit defect has NOT been reproduced; device acceptance remains pending.
+
+---
+
 ## 2026-10-29 — CURRENT PR #105 mobile-first layout: UAT READY
 
 Owner requirement: mobile is the baseline. Preserve 320/360/390/430px sizing, minimum 48px touch areas, 16px input text, safe-area padding and focus-stable input ancestors. Use fluid widths/zero-minimum grid tracks; desktop spacing is opt-in from 600px. Do not replace this with desktop-first overrides or viewport/focus workarounds. Full evidence: docs/telegram_bot_builder/MOBILE_FIRST_20261029.md.

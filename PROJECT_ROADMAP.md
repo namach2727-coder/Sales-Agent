@@ -1,3 +1,11 @@
+## 2026-10-29 — Save-click and persisted readback correction (release pending)
+
+After mobile layout, fix functional saving and distinguish acknowledgement from verified persistence. Direct click, immediate local feedback and preserved failure state implemented; real UI/API/PostgreSQL roundtrip added. CI, exact UAT release and physical owner Save acceptance pending.
+
+Owner reports that Save has no visible reaction. Read-only UAT verification found published version 4 with zero rules and no newer drafts; schema 0003 is present and both allowed runtime roles have SELECT/INSERT/UPDATE on builder tables. The UI now handles Save clicks directly, registers handlers before enabling loaded controls, shows feedback beside Save and verifies the published snapshot before claiming success. A specific WebKit/native-submit defect has NOT been reproduced; device acceptance remains pending.
+
+---
+
 ## 2026-10-29 — CURRENT PR #105 mobile-first layout: UAT READY
 
 Mobile-first owner requirement implemented, all CI PASS and exact UAT deployment/health/assets/auth smoke PASS. Main actions are stacked and full-width; menus fit narrow columns. Real Telegram phone layout/keyboard acceptance remains pending.
