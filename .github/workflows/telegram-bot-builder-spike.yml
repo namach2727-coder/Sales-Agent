@@ -59,7 +59,6 @@ jobs:
     env:
       TELBOT_TEST_DATABASE_URL: postgresql://telbot_test:synthetic_ci_only@127.0.0.1:5432/telbot
       TELBOT_TEST_UI_ROUNDTRIP: "true"
-      NODE_PATH: ${{ runner.temp }}/telbot-dom/node_modules
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -72,4 +71,4 @@ jobs:
       - name: Install isolated UI roundtrip dependency
         run: npm install --prefix "$RUNNER_TEMP/telbot-dom" --no-audit --no-fund jsdom@26.1.0
       - name: Verify migrations and real versioned rule/API storage
-        run: python -m unittest experiments.telegram_bot_builder.test_builder_postgres -v
+        run: NODE_PATH="$RUNNER_TEMP/telbot-dom/node_modules" python -m unittest experiments.telegram_bot_builder.test_builder_postgres -v
