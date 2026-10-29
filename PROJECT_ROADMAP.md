@@ -1,3 +1,13 @@
+## 2026-10-29 — CURRENT: real Telegram automatic reply acceptance VERIFIED
+
+Owner reported test completed. Direct read-only Neon UAT evidence: three new private updates at 15:24:56–15:25:10 UTC (18:54:56–18:55:10 Asia/Tehran), all processed; three outbound rows sent, all with Telegram message IDs, one attempt each, no error codes. One /start and two other text messages were answered. This confirms real inbound-to-backend-to-Telegram reply delivery; it does not establish a replay or paused-chat live test.
+
+Persistence remains separate: current published configuration is STILL v4 dated 2026-10-28, with zero keyword rules and no newer draft/version. Therefore the two non-start messages exercised the published fallback; no new keyword response save or match acceptance can be claimed. Do not change customer configuration to manufacture acceptance. Next: diagnose owner Save feedback if they attempted to add a response; keep direct click feedback and readback verification. External API flag remains OFF; no provider test established. Seven older inbound rows precede reply activation and were not replayed.
+
+Source/service/rollback details remain in the activation checkpoint below. Production unchanged. This checkpoint supersedes only the prior pending real automatic reply delivery status.
+
+---
+
 ## 2026-10-29 — CURRENT: owner-authorized UAT automatic replies ENABLED
 
 Owner explicitly requested enabling automatic replies to test saving and real replies together. Set TELBOT_REPLIES_ENABLED=true ONLY for directpilot-telbot-uat-api (prj_kmClcJwNEibzo7s1Vrf5BzCg8W4L), existing production target of the isolated UAT project. TELBOT_EXTERNAL_API_ENABLED remains absent/default OFF. No business Production, Instagram, credentials, migrations or stored customer configuration changes.
