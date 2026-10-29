@@ -105,19 +105,27 @@ class BuilderPostgresTests(unittest.TestCase):
             with patch.dict(os.environ,{'TELBOT_MANAGER_TOKEN':'111:TESTTOKEN','TELBOT_ENV':'uat','TELBOT_TOKEN_FERNET_KEY':key}),TestClient(app) as client:
                 headers={'X-Telegram-Init-Data':signed_initdata()};base=f'/api/v1/tenants/{tenant}/bots/{bot}'
                 body={'greeting':'Hello','fallback_reply':'Fallback','base_version':0,'rules':[
-                    {'keyword':'price','response_text':'Price'},
+                    {'keyword':'price','response_text':'Price','show_button':True},
                     {'keyword':'stock','response_text':'Unavailable','action_type':'api','api':{'url':'https://api.example.com/stock','auth_mode':'bearer','credential':'synthetic-not-real','response_path':'text'}}]}
                 first=client.post(base+'/configs',headers=headers,json=body);self.assertEqual(first.status_code,201,first.text)
                 first_id=first.json()['id']
                 result=client.post(base+f'/configs/{first_id}/publish?expected_version=0',headers=headers);self.assertEqual(result.status_code,200,result.text)
                 current=client.get(base+'/config',headers=headers);self.assertEqual(current.status_code,200,current.text)
                 self.assertNotIn('synthetic-not-real',current.text);data=current.json();self.assertEqual(len(data['rules']),2)
+                self.assertTrue(data['rules'][0]['show_button'])
+                with psycopg.connect(self.url,row_factory=dict_row) as db:
+                    db.execute("INSERT INTO telbot.menu_buttons(tenant_id,configuration_id,label,action_type,action_value,sort_order) VALUES (%s,%s,'Legacy','reply','Legacy',1)",(tenant,first_id))
+                body['rules'][0]['show_button']=False
                 body['base_version']=1;body['greeting']='New greeting';body['rules'][1]['source_rule_id']=data['rules'][1]['id'];body['rules'][1]['api']['credential']=None
                 second=client.post(base+'/configs',headers=headers,json=body);self.assertEqual(second.status_code,201,second.text)
                 second_id=second.json()['id']
                 result=client.post(base+f'/configs/{second_id}/publish?expected_version=1',headers=headers);self.assertEqual(result.status_code,200,result.text)
                 stale=client.post(base+'/configs',headers=headers,json=body);self.assertEqual(stale.status_code,409,stale.text)
                 with psycopg.connect(self.url,row_factory=dict_row) as db:
+                    menus=db.execute('SELECT label FROM telbot.menu_buttons WHERE configuration_id=%s ORDER BY sort_order',(second_id,)).fetchall()
+                    self.assertEqual(menus,[{'label':'Legacy'}],'Unrelated legacy menus survive clearing new buttons')
+                    archived=db.execute("SELECT count(*) AS n FROM telbot.menu_buttons WHERE configuration_id=%s AND label='price'",(first_id,)).fetchone()
+                    self.assertEqual(archived['n'],1,'Archived menu is immutable')
                     self.assertEqual(db.execute('SELECT state FROM telbot.configuration_versions WHERE id=%s',(first_id,)).fetchone()['state'],'archived')
                     self.assertEqual(db.execute('SELECT count(*) AS n FROM telbot.reply_rules WHERE configuration_id=%s',(first_id,)).fetchone()['n'],2)
                     self.assertEqual(db.execute('SELECT count(*) AS n FROM telbot.reply_rules WHERE configuration_id=%s',(second_id,)).fetchone()['n'],2)

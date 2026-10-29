@@ -15,13 +15,17 @@ def api_schema_ready(db):
 def read_rules(db, tenant, config_id, *, public=False, ready=None):
     ready = api_schema_ready(db) if ready is None else ready
     extra = ',action_type,api_request_ciphertext' if ready else ''
-    rows = db.execute(f"""SELECT id,keyword,match_mode,response_text,priority,enabled{extra}
-        FROM telbot.reply_rules WHERE tenant_id=%s AND configuration_id=%s
+    rows = db.execute(f"""SELECT id,keyword,match_mode,response_text,priority,enabled{extra},
+        EXISTS (SELECT 1 FROM telbot.menu_buttons m WHERE m.tenant_id=r.tenant_id
+          AND m.configuration_id=r.configuration_id AND m.action_type='reply'
+          AND m.label=r.keyword AND m.action_value=r.keyword) AS show_button
+        FROM telbot.reply_rules r WHERE r.tenant_id=%s AND r.configuration_id=%s
         ORDER BY priority ASC LIMIT 100""", (tenant, config_id)).fetchall()
     rules = []
     for source in rows:
         row = dict(source)
         row['action_type'] = row.get('action_type', 'text')
+        row['show_button'] = bool(row.get('show_button', False))
         if public:
             encrypted = row.pop('api_request_ciphertext', None)
             row['api'] = None
@@ -76,11 +80,30 @@ def add_snapshot_rules(db, tenant, bot_id, new_id, previous, body):
             else:
                 db.execute("""INSERT INTO telbot.reply_rules(tenant_id,configuration_id,keyword,match_mode,
                     response_text,priority,enabled) VALUES (%s,%s,%s,%s,%s,%s,%s)""", args)
-    if previous:
-        # Other builder surfaces are not editable here. Preserve their existing content.
+    # Older clients omit show_button and retain the entire legacy menu unchanged.
+    edit_buttons = body.rules is not None and (body.replace_reply_buttons or any(r.show_button is not None for r in body.rules))
+    buttons = [r for r in (body.rules or []) if r.show_button] if edit_buttons else []
+    if len(buttons) > 12:
+        raise HTTPException(status_code=422, detail='At most 12 menu buttons')
+    for index, rule in enumerate(buttons):
         db.execute("""INSERT INTO telbot.menu_buttons(tenant_id,configuration_id,label,action_type,action_value,sort_order)
-            SELECT tenant_id,%s,label,action_type,action_value,sort_order FROM telbot.menu_buttons
-            WHERE tenant_id=%s AND configuration_id=%s""", (new_id, tenant, previous['id']))
+            VALUES (%s,%s,%s,'reply',%s,%s)""", (tenant,new_id,rule.keyword,rule.keyword,index))
+    if previous:
+        if edit_buttons:
+            # Only keyword-backed reply buttons belong to this surface. Preserve all other menus.
+            db.execute("""INSERT INTO telbot.menu_buttons(tenant_id,configuration_id,label,action_type,action_value,sort_order)
+                SELECT tenant_id,%s,label,action_type,action_value,
+                  %s + row_number() OVER (ORDER BY sort_order) - 1
+                FROM telbot.menu_buttons WHERE tenant_id=%s AND configuration_id=%s
+                  AND NOT (action_type='reply' AND label=action_value AND EXISTS (
+                    SELECT 1 FROM telbot.reply_rules r WHERE r.tenant_id=telbot.menu_buttons.tenant_id
+                      AND r.configuration_id IN (%s,%s)
+                      AND r.keyword=telbot.menu_buttons.action_value))""",
+                (new_id,len(buttons),tenant,previous['id'],previous['id'],new_id))
+        else:
+            db.execute("""INSERT INTO telbot.menu_buttons(tenant_id,configuration_id,label,action_type,action_value,sort_order)
+                SELECT tenant_id,%s,label,action_type,action_value,sort_order FROM telbot.menu_buttons
+                WHERE tenant_id=%s AND configuration_id=%s""", (new_id,tenant,previous['id']))
         db.execute("""INSERT INTO telbot.faq_entries(tenant_id,configuration_id,question,answer,sort_order)
             SELECT tenant_id,%s,question,answer,sort_order FROM telbot.faq_entries
-            WHERE tenant_id=%s AND configuration_id=%s""", (new_id, tenant, previous['id']))
+            WHERE tenant_id=%s AND configuration_id=%s""", (new_id,tenant,previous['id']))

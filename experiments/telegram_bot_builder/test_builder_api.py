@@ -106,3 +106,19 @@ class BuilderApiTests(unittest.TestCase):
             self.assertEqual(response.status_code,422,response.text);self.assertNotIn('synthetic-secret',response.text)
         self.assertEqual(self.post([{'keyword':'a','response_text':'b'}]*101).status_code,422)
         self.assertEqual(self.post([{'keyword':'  ','response_text':'b'}]).status_code,422)
+
+
+    def test_button_limits_and_backward_compatible_menu_preservation(self):
+        self.assertEqual(self.post([{'keyword':'x'*65,'response_text':'Answer','show_button':True}]).status_code,422)
+        self.assertEqual(self.post([{'keyword':str(i),'response_text':'Answer','show_button':True} for i in range(13)]).status_code,422)
+        result=self.post([{'keyword':'قیمت','response_text':'Price','show_button':True},{'keyword':'آدرس','response_text':'Address','show_button':False}])
+        self.assertEqual(result.status_code,201,result.text)
+        buttons=[args for sql,args in self.db.commands if "VALUES (%s,%s,%s,'reply'" in sql]
+        self.assertEqual(buttons,[(TENANT_A,self.db.new_id,'قیمت','قیمت',0)])
+
+
+    def test_explicit_empty_reply_snapshot_clears_owned_buttons_without_dropping_legacy(self):
+        result=self.post([],replace_reply_buttons=True)
+        self.assertEqual(result.status_code,201,result.text)
+        copies=[sql for sql,args in self.db.commands if 'INSERT INTO telbot.menu_buttons' in sql]
+        self.assertTrue(any('AND NOT' in sql and 'EXISTS' in sql for sql in copies))

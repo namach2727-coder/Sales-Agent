@@ -64,3 +64,14 @@ class RuleRuntimeTests(unittest.IsolatedAsyncioTestCase):
             if mode=='busy':self.db.lock=False
             with self.subTest(mode=mode),patch.dict(os.environ,{'TELBOT_EXTERNAL_API_ENABLED':'false' if mode=='off' else 'true'}),patch('experiments.telegram_bot_builder.reply_runtime.invoke_api',new_callable=AsyncMock) as api,patch('experiments.telegram_bot_builder.reply_runtime.send_text',new_callable=AsyncMock,return_value=(7,None)):
                 await process_reply(self.db,self.bot,self.event,'inbound');api.assert_not_called()
+
+
+    async def test_published_keyboard_attached_to_start_without_api(self):
+        self.db.rules[1]['show_button']=True
+        self.event['message']['text']='/start'
+        with patch('experiments.telegram_bot_builder.reply_runtime.invoke_api',new_callable=AsyncMock) as api,patch('experiments.telegram_bot_builder.reply_runtime.send_text',new_callable=AsyncMock,return_value=(7,None)) as sender:
+            await process_reply(self.db,self.bot,self.event,'inbound')
+            payload=sender.call_args.args[1]
+            self.assertEqual(payload['text'],'Hello')
+            self.assertEqual(payload['reply_markup']['keyboard'],[[{'text':'آدرس'}]])
+            api.assert_not_called()

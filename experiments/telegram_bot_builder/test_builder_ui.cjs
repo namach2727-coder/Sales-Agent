@@ -87,6 +87,12 @@ async function main() {
   field(newCard,'کاربر چه می‌نویسد؟').value='آدرس';
   field(newCard,'ربات چه پاسخی بدهد؟').value='Address';
   field(newCard,'کاربر چه می‌نویسد؟').dispatchEvent(new w.Event('input',{bubbles:true}));
+  const menuToggle=field(newCard,'نمایش این عبارت به‌صورت دکمه در ربات');
+  menuToggle.checked=true;menuToggle.dispatchEvent(new w.Event('change',{bubbles:true}));
+  assert.equal(panel.querySelector('.menu-preview').hidden,false);
+  assert.equal(panel.querySelector('.menu-preview-grid span').textContent,'آدرس');
+  typing.focus();typing.dispatchEvent(new w.Event('input',{bubbles:true}));
+  assert.equal(w.document.activeElement,typing,'Menu preview must not disturb typing');
   button(newCard,'بالاتر').click();
   assert.deepEqual([...panel.querySelectorAll('.rule-card')].map(c=>field(c,'کاربر چه می‌نویسد؟').value),['قیمت','آدرس','موجودی']);
   button(panel,'پیام شروع').click();
@@ -157,6 +163,7 @@ async function main() {
   assert.match(panel.querySelector('.save-feedback').textContent,/در حال ذخیره/);
   await until(()=>saved && field(panel,'پیام خوش‌آمدگویی').disabled===false && panel.textContent.includes('همهٔ پاسخ‌ها ذخیره شدند'));
   assert.equal(saved.rules.length,3);assert.equal(saved.base_version,2);
+  assert.equal(saved.rules[1].show_button,true);
   assert.equal(panel.querySelector('.save-feedback').classList.contains('success'),true);
   assert.equal(saved.rules[2].source_rule_id,'api-old');assert.equal(saved.rules[2].api.credential,null);
   assert.equal(saved.rules[2].api.include_message,false);

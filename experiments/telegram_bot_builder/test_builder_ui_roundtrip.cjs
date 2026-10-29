@@ -32,6 +32,7 @@ async function main(){
       field(card,'ربات چه پاسخی بدهد؟').value=response;
       field(card,'کاربر چه می‌نویسد؟').dispatchEvent(new w.Event('input',{bubbles:true}));
       assert.equal(panel.querySelectorAll('.rule-card').length,keyword==='جدید اول'?1:2,'Typing does not create the next card');
+      const toggle=field(card,'نمایش این عبارت به‌صورت دکمه در ربات');toggle.checked=true;toggle.dispatchEvent(new w.Event('change',{bubbles:true}));
       // An optional untouched next row must not prevent saving completed answers.
       button(panel,'+ افزودن پاسخ').click();
       button(panel,'+ افزودن پاسخ').click();
@@ -51,6 +52,8 @@ async function main(){
     panel=await open();
     assert.deepEqual([...panel.querySelectorAll('.rule-card')].map(n=>field(n,'کاربر چه می‌نویسد؟').value),['جدید اول','جدید دوم']);
     assert.deepEqual([...panel.querySelectorAll('.rule-card')].map(n=>field(n,'ربات چه پاسخی بدهد؟').value),['پاسخ اول','پاسخ دوم']);
+    assert([...panel.querySelectorAll('.rule-card')].every(card=>field(card,'نمایش این عبارت به‌صورت دکمه در ربات').checked),'Button choices survive real persistence');
+    assert.equal(panel.querySelectorAll('.menu-preview-grid span').length,2);
     assert.equal(field(panel,'پیام خوش‌آمدگویی').value,'Hello');
     assert.equal(field(panel,'پاسخ به پیام‌های دیگر').value,'Fallback');
     assert.equal(requests.filter(n=>n.method==='POST').length,4);

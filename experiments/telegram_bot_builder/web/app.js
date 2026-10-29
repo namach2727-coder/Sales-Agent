@@ -224,6 +224,8 @@
     const undo = document.createElement("button"); undo.type = "button"; undo.className = "button-secondary"; undo.textContent = "بازگردانی"; undoBar.append(undoText, undo);
     rulesPane.append(heading); explanation(rulesPane, "مثال: مشتری می‌نویسد «آدرس» و ربات آدرس فروشگاه را می‌فرستد. اگر چند پاسخ تطبیق داشت، پاسخ بالاتر انتخاب می‌شود.");
     rulesPane.append(empty, rulesRoot, undoBar);
+    const menuPreview = document.createElement("div"); menuPreview.className = "menu-preview"; menuPreview.hidden = true;
+    menuPreview.setAttribute("aria-label", "پیش‌نمایش دکمه‌های ربات"); rulesPane.append(menuPreview);
     explanation(rulesPane, "افزودن پاسخ اختیاری است. برای پاسخ بعدی دکمهٔ «افزودن پاسخ» کنار ذخیره را بزن؛ ردیف کاملاً خالی ذخیره نمی‌شود.");
     const fallbackBox = disclosure(rulesPane, "اگر پیام کاربر را نشناختیم"); fallbackBox.className = "fallback-settings";
     const fallback = field(fallbackBox, "پاسخ به پیام‌های دیگر", "textarea"); fallback.placeholder = "مثلاً برای دریافت اطلاعات، قیمت یا آدرس را بنویس.";
@@ -278,6 +280,19 @@
         rule.badge.textContent = !rule.enabled.checked ? "غیرفعال" : rule.action.value === "api" ? "API" : "متن";
         rule.up.disabled = busy || index === 0; rule.down.disabled = busy || index === rules.length - 1;
       });
+      const buttonRules = rules.filter(rule => rule.showButton.checked && rule.enabled.checked && rule.keyword.value.trim());
+      menuPreview.replaceChildren(); menuPreview.hidden = buttonRules.length === 0;
+      if (buttonRules.length) {
+        const label = document.createElement("p"); label.className = "hint"; label.textContent = "دکمه‌های داخل چت ربات · پیش‌نمایش"; menuPreview.append(label);
+        const grid = document.createElement("div"); grid.className = "menu-preview-grid";
+        const seen = new Set();
+        buttonRules.forEach(rule => {
+          const key = rule.keyword.value.trim().toLowerCase(); if (seen.has(key)) return; seen.add(key);
+          const chip = document.createElement("span"); chip.textContent = rule.keyword.value;
+          if (rule.keyword.value.length > 16) chip.className = "menu-wide";
+          grid.append(chip);
+        }); menuPreview.append(grid);
+      }
       count.textContent = rules.length ? " · " + rules.length + " پاسخ" : "";
       empty.hidden = rules.length > 0;
       add.disabled = busy || rules.length >= 100 || refreshRequired;
@@ -297,6 +312,8 @@
       const action = select(content, "نوع پاسخ", [["text", "پاسخ متنی"], ["api", "اتصال به API"]], value.action_type || "text");
       if (!schemaReady) action.options[1].disabled = true;
       const response = field(content, "ربات چه پاسخی بدهد؟", "textarea", value.response_text || ""); response.maxLength = 4096; response.placeholder = "متن پاسخ به مشتری";
+      const showButton = field(content, "نمایش این عبارت به‌صورت دکمه در ربات", "checkbox"); showButton.checked = value.show_button === true;
+      explanation(content, "اختیاری · با لمس دکمه، همین عبارت ارسال می‌شود. حداکثر ۱۲ دکمه با عنوان تا ۶۴ کاراکتر.");
       const apiFields = document.createElement("div"); apiFields.className = "api-fields";
       explanation(apiFields, "این قسمت برای اتصال به سرویس خودت است. نشانی و مشخصات را از راهنمای همان سرویس بردار؛ پاسخ باید JSON باشد.");
       const url = field(apiFields, "نشانی سرویس (HTTPS)", "url", value.api?.url || ""); url.dir = "ltr"; url.placeholder = "https://api.example.com/lookup"; url.maxLength = 2048;
@@ -321,7 +338,7 @@
       const enabled = field(options, "این پاسخ فعال باشد", "checkbox"); enabled.checked = value.enabled !== false;
       const actions = document.createElement("div"); actions.className = "editor-actions";
       const up = document.createElement("button"), down = document.createElement("button");
-      const rule = {card, caption, badge, keyword, match, action, enabled, response, url, method, path, auth, header, credential, share, messageField, params, body, up, down, sourceId: value.id || null};
+      const rule = {card, caption, badge, showButton, keyword, match, action, enabled, response, url, method, path, auth, header, credential, share, messageField, params, body, up, down, sourceId: value.id || null};
       [[up, "بالاتر", -1], [down, "پایین‌تر", 1]].forEach(([button, text, step]) => {
         button.type = "button"; button.className = "button-secondary"; button.textContent = text;
         button.addEventListener("click", () => {
@@ -343,7 +360,7 @@
         messageField.parentElement.hidden = !share.checked; body.parentElement.hidden = method.value !== "POST";
       }
       [action, auth, share, method].forEach(input => input.addEventListener("change", () => { visibility(); updateRules(); }));
-      enabled.addEventListener("change", updateRules); keyword.addEventListener("input", updateRules);
+      enabled.addEventListener("change", updateRules); showButton.addEventListener("change", updateRules); keyword.addEventListener("input", updateRules);
       visibility(); rules.push(rule); rulesRoot.append(card); updateRules();
     }
     undo.addEventListener("click", () => {
@@ -352,7 +369,7 @@
       removedRule = null; undoBar.hidden = true; dirty(); syncOrder(); rule.card.open = true; rule.keyword.focus();
     });
     function emptyNewRule(rule) {
-      return !rule.sourceId && rule.action.value === "text" && !rule.keyword.value.trim() && !rule.response.value.trim();
+      return !rule.sourceId && !rule.showButton.checked && rule.action.value === "text" && !rule.keyword.value.trim() && !rule.response.value.trim();
     }
     add.addEventListener("click", () => {
       if (busy || refreshRequired || add.disabled) return;
@@ -395,7 +412,9 @@
       if (!greeting.value.trim()) inputError("متن پیام خوش‌آمدگویی را بنویس.", greeting);
       if (!fallback.value.trim()) inputError("پاسخ به پیام‌های دیگر را بنویس.", fallback);
       const selectedRules = rules.filter(rule => !emptyNewRule(rule));
+      if (selectedRules.filter(rule => rule.showButton.checked).length > 12) inputError("حداکثر ۱۲ پاسخ را به‌صورت دکمه انتخاب کن.", selectedRules.find(rule => rule.showButton.checked).showButton);
       for (const rule of selectedRules) {
+        if (rule.showButton.checked && rule.keyword.value.length > 64) inputError("عنوان دکمه باید حداکثر ۶۴ کاراکتر باشد؛ عبارت را کوتاه کن یا تیک دکمه را بردار.", rule.keyword);
         if (!rule.keyword.value.trim()) inputError("عبارتی را که مشتری می‌فرستد بنویس.", rule.keyword);
         if (!rule.response.value.trim()) inputError("متن پاسخ را بنویس.", rule.response);
       }
@@ -404,8 +423,8 @@
         if (card && !selectedRules.some(rule => rule.card === card)) continue;
         if (!input.disabled && !input.checkValidity()) inputError("این کادر را کامل و با قالب درست وارد کن.", input);
       }
-      return {greeting: greeting.value, fallback_reply: fallback.value, base_version: baseVersion, rules: selectedRules.map(rule => {
-        const item = {keyword: rule.keyword.value, match_mode: rule.match.value, response_text: rule.response.value, action_type: rule.action.value, enabled: rule.enabled.checked};
+      return {greeting: greeting.value, fallback_reply: fallback.value, base_version: baseVersion, replace_reply_buttons: true, rules: selectedRules.map(rule => {
+        const item = {keyword: rule.keyword.value, match_mode: rule.match.value, response_text: rule.response.value, action_type: rule.action.value, enabled: rule.enabled.checked, show_button: rule.showButton.checked};
         if (rule.action.value === "api") {
           item.source_rule_id = rule.sourceId;
           item.api = {url: rule.url.value, method: rule.method.value, params: jsonObject(rule.params, "پارامترها"), json_body: rule.method.value === "POST" ? jsonObject(rule.body, "بدنه") : {},
@@ -448,7 +467,7 @@
           stored.greeting !== snapshot.greeting || stored.fallback_reply !== snapshot.fallback_reply ||
           !Array.isArray(current.rules) || current.rules.length !== snapshot.rules.length) return false;
       const fields = ["keyword", "match_mode", "response_text", "action_type", "enabled"];
-      return snapshot.rules.every((rule, index) => fields.every(key => rule[key] === current.rules[index][key]));
+      return snapshot.rules.every((rule, index) => fields.every(key => rule[key] === current.rules[index][key]) && rule.show_button === Boolean(current.rules[index].show_button));
     }
     async function saveReplies(event) {
       event.preventDefault();

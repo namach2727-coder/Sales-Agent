@@ -15,6 +15,7 @@ class RuleInput(BaseModel):
     response_text: str = Field(min_length=1, max_length=4096)
     action_type: Literal['text', 'api'] = 'text'
     enabled: bool = True
+    show_button: bool | None = None
     api: ApiCallInput | None = None
     source_rule_id: UUID | None = None
 
@@ -22,6 +23,7 @@ class RuleInput(BaseModel):
     def check_rule(self):
         if not self.keyword.strip() or not self.response_text.strip(): raise ValueError('Blank rule')
         if (self.action_type == 'api') != (self.api is not None): raise ValueError('Action settings mismatch')
+        if self.show_button and len(self.keyword) > 64: raise ValueError('Button label too long')
         return self
 
 
@@ -29,12 +31,14 @@ class DraftInput(BaseModel):
     model_config = ConfigDict(extra='forbid')
     greeting: str = Field(min_length=1, max_length=4096)
     fallback_reply: str = Field(min_length=1, max_length=4096)
+    replace_reply_buttons: bool = False
     rules: list[RuleInput] | None = Field(default=None, max_length=100)
     base_version: int | None = Field(default=None, ge=0)
 
     @model_validator(mode='after')
     def check_draft(self):
         if not self.greeting.strip() or not self.fallback_reply.strip(): raise ValueError('Blank message')
+        if self.rules and sum(bool(r.show_button) for r in self.rules) > 12: raise ValueError('At most 12 menu buttons')
         return self
 
 
