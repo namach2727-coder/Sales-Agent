@@ -1,3 +1,15 @@
+## 2026-10-29 — CURRENT: bot activity report (source; combined release pending)
+
+Owner requested continued development while Vercel daily deployment quota blocks merged menu PR #108. Added a read-only per-bot report: incoming/sent/failed/uncertain attempt counts over server-side last 24 hours, last 20 receipt/delivery metadata rows, checked timestamp, manual refresh and Close. No message bodies, user/chat IDs, Telegram message IDs, secrets or provider responses are returned. A queued attempt is labelled outcome unknown, not promised background retry. Refresh failure keeps previously timestamped results; late response after Close cannot reopen the panel. Existing response editor focus/text are preserved.
+
+GET /api/v1/tenants/{tenant_id}/bots/{bot_id}/activity requires authenticated active tenant membership plus bot ownership scope; viewers may read, cross-tenant/bot requests fail before report queries. All queries use tenant+bot and bounded event count/time. No writes, replay, outbound calls, schema changes or new background task. Replies remain ON in UAT, external API OFF, Production unchanged. Native phone/report acceptance remains separate.
+
+Local 134 Python discovered: 130 PASS + 4 PostgreSQL skips; DOM suite including populated report, refresh error, duplicate refresh, close/race/no writes PASS; existing seven Save scenarios PASS. CI disposable PostgreSQL test covers real counts (25 incoming, 2 sent, 1 failed, 1 uncertain), last-20 bound, old-row exclusion, other-tenant exclusion and content privacy. Actual JS/HTTP/PostgreSQL roundtrip also opens the empty report alongside the reply editor. CI/PR/merge still PENDING at this source checkpoint. Runbook docs/telegram_bot_builder/ACTIVITY_REPORT_20261029.md.
+
+Publishing remains BLOCKED by Vercel's previous "Deployment rate limited — retry in 24 hours"; no repeated/manual deployment attempts. Current live alias remains prior optional-reply release d7728442b32f810b01658a64580084759b8b6162 / dpl_7rjBLHUqRRQ5RaiFniN2R8SoqjR5. PR #108 menu code and this report are NOT LIVE. After quota permits, deploy the latest reviewed combined TelBot UAT head once and verify exact alias/source, /ready, auth and owner phone acceptance. Published real UAT v6 with 2 replies/0 buttons was last verified; do not change customer settings to manufacture acceptance.
+
+---
+
 ## 2026-10-29 — CURRENT PR #108 menu buttons MERGED; UAT deployment quota BLOCKED
 
 PR #108 https://github.com/namach2727-coder/Sales-Agent/pull/108 reviewed head 590a5cffdf037b52d11c6606099de10ee01744da passed all 11 reported GitHub checks. Squash merge 67d61c0ba4a006c123b00beab0a0deb9fb58c886 ONLY into feature/telegram-managed-bots-spike-20261017 matches the reviewed tree. GitHub Vercel TelBot status is FAILURE: "Deployment rate limited — retry in 24 hours." No deployment for this merged SHA exists. Do not claim keyboard controls are live or repeatedly trigger deployment/upgrade plans.

@@ -552,6 +552,17 @@ def list_bots(tenant_id: UUID, actor: Principal, db: Db) -> list[dict[str, Any]]
     return rows
 
 
+@app.get("/api/v1/tenants/{tenant_id}/bots/{bot_id}/activity")
+def get_bot_activity(tenant_id: UUID, bot_id: UUID, actor: Principal, db: Db) -> dict[str, Any]:
+    require_member(db, tenant_id, actor)
+    require_bot(db, tenant_id, bot_id)
+    try:
+        from .activity import read_activity
+    except ImportError:
+        from activity import read_activity
+    return read_activity(db, tenant_id, bot_id)
+
+
 @app.get("/api/v1/tenants/{tenant_id}/bots/{bot_id}/config")
 def get_published_config(
     tenant_id: UUID, bot_id: UUID, actor: Principal, db: Db,
