@@ -1,3 +1,15 @@
+## 2026-10-29 — CURRENT: owner-authorized UAT automatic replies ENABLED
+
+Owner explicitly requested enabling automatic replies to test saving and real replies together. Set TELBOT_REPLIES_ENABLED=true ONLY for directpilot-telbot-uat-api (prj_kmClcJwNEibzo7s1Vrf5BzCg8W4L), existing production target of the isolated UAT project. TELBOT_EXTERNAL_API_ENABLED remains absent/default OFF. No business Production, Instagram, credentials, migrations or stored customer configuration changes.
+
+Deployed existing reviewed source 03897ad0729222b1f031b43f3a8ab68311e111ad with the new flag: dpl_5atro4n9dYhVhb1VEp3MExVGCeq9 READY; canonical https://directpilot-telbot-uat-api.vercel.app points to that deployment. /ready HTTP 200, database available and migration current verified 2026-10-29 15:23 UTC (18:53 Asia/Tehran). Source behavior is unchanged from PR #106 / reviewed head 174acbb2ee5b8e630ec08724c3b9f66137186efc; prior CI evidence still applies. Rollback: disable UAT reply flag and redeploy; no blind replay of uncertain outbound attempts.
+
+Read-only baseline before live acceptance: 1 active bot, published v4, 0 published keyword rules, 0 sent outbound messages. Enabling replies affects new private text updates only; no historical catch-up. /start uses published greeting, first matching enabled rule supplies its response, unmatched text uses published fallback. API rules use configured failure response while external API calls are disabled. Existing deduplication, tenant isolation, chat pause and durable at-most-once attempt guards remain.
+
+PENDING owner acceptance: reopen Mini App; add/save a keyword response and close/reopen to confirm; send /start, that keyword and unmatched text in the child bot private chat. Then verify count/status-only inbound/outbound evidence and Telegram message IDs. No actual Telegram delivery or owner-phone save acceptance claimed by infrastructure health alone.
+
+---
+
 ## 2026-10-29 — CURRENT PR #106 Save click/readback fix: UAT READY
 
 Reported inert Save now has an explicit click path and visible footer progress/errors. Tests now cover the actual JS UI -> real HTTP/FastAPI -> PostgreSQL persistence roundtrip, not only mocked fetch. The reviewed fix is deployed; next action is owner phone Save retry/acceptance. No specific WebKit defect was reproduced and no customer messages were created by the assistant.
