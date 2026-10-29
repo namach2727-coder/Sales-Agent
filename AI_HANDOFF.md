@@ -1,3 +1,17 @@
+## 2026-10-29 — CURRENT PR #108 menu buttons MERGED; UAT deployment quota BLOCKED
+
+PR #108 https://github.com/namach2727-coder/Sales-Agent/pull/108 reviewed head 590a5cffdf037b52d11c6606099de10ee01744da passed all 11 reported GitHub checks. Squash merge 67d61c0ba4a006c123b00beab0a0deb9fb58c886 ONLY into feature/telegram-managed-bots-spike-20261017 matches the reviewed tree. GitHub Vercel TelBot status is FAILURE: "Deployment rate limited — retry in 24 hours." No deployment for this merged SHA exists. Do not claim keyboard controls are live or repeatedly trigger deployment/upgrade plans.
+
+Current canonical https://directpilot-telbot-uat-api.vercel.app remains on dpl_7rjBLHUqRRQ5RaiFniN2R8SoqjR5, prior optional-reply release. /ready 200 database available/migration current. Direct read-only UAT before/after source release confirms published v6, TWO keyword rules, zero menu buttons; previous real save fix is now verified in actual storage, but no menu test claimed. Owner reported prior UI excellent. Reply flag stays enabled; external API stays OFF. No schema, customer configuration, credentials or business Production change.
+
+Feature awaiting deployment: optional per-response menu checkbox, inert mobile preview, versioned menu snapshot/readback, published enabled keyword-backed Telegram reply keyboard (12 choices/64-character labels product bounds, max 2 short labels per row, long label full-row), removal on next eligible response when cleared. Existing history and unrelated legacy menus/FAQs preserved; omitted controls retain older-client behavior. Private/tenant/paused-chat/dedupe/at-most-once guards preserved.
+
+CI evidence: unit job 123572458715 ran 131 discovered (128 PASS + 3 PostgreSQL skips); schema job 123572459276 ran all 3 PASS including actual JS UI/HTTP/PostgreSQL checkbox persistence over two saves/reopens, optional blank rows, storage button removal and unrelated legacy/archive retention. Both JS DOM/focus and seven Save scenarios PASS. Native Telegram appearance/tapping acceptance remains PENDING.
+
+NEXT: after quota permits, deploy exact merge 67d61c0ba4a006c123b00beab0a0deb9fb58c886 in existing isolated TelBot UAT project (its target production is UAT, not business Production), require READY and exact canonical alias/source assets plus /ready; then owner checks a response's menu option, saves/reopens and sends /start/taps button in private child-bot chat. Record real Telegram result separately. No automatic schedule created, no quota workaround or repeated deployment attempt.
+
+---
+
 ## 2026-10-29 — CURRENT: mobile reply-menu buttons (source, release pending)
 
 Owner accepted the optional-reply UI and requested further development. Next feature: opt-in keyword buttons inside the customer bot. Each reply has a checkbox; selected enabled rules form a resizeable Telegram reply keyboard, at most two short labels per row, one long label per row. Limits are product bounds: 12 selections, 64 characters per label; ordinary keyword-only rules still allow 120. Current-form visual preview is inert, no provider/Telegram calls. Unticking all buttons removes a previously shown keyboard on the next eligible private reply. Existing UAT reply flag stays enabled; external API stays OFF.
