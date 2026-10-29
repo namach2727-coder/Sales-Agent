@@ -1,8 +1,12 @@
-## 2026-10-29 — Mobile-first TelBot layout (release pending)
+## 2026-10-29 — CURRENT PR #105 mobile-first layout: UAT READY
 
-Finish CI, merge only into feature/telegram-managed-bots-spike-20261017, verify canonical UAT exact SHA and mobile-first-1 assets. Then record real Telegram phone acceptance, including long bot/rule names, tabs, dropdowns, one-handed taps and continuous typing. Static layout review cannot establish physical device acceptance.
+1. Owner reopens the Telegram Mini App and checks phone menu sizes, long bot/rule names, dropdowns, expanded reply/API settings and save/close touch areas.
+2. Verify portrait/landscape safe areas, continuous typing and native OS dropdowns on the physical phone; record owner acceptance.
+3. Continue the separate provider/Telegram live-test gate after usability acceptance; no outbound flag was enabled by this layout change.
 
-Owner decision: design TelBot for phones first. Default layout is a single column for narrow screens; only screens >=600px opt into wider spacing. Touch controls/disclosures are at least 48px high, inputs stay at 16px, nested padding is reduced, long labels fit/wrap and short option labels preserve the same values. Focus-preserving editor behavior and API/runtime contracts are unchanged.
+PR #105 reviewed head 01f5b47681020187026cd704c0a5803dd04fb05f passed all 11 reported GitHub checks. Squash merge 755ba03363fa7be6d8ac2a51f3434c41d41e7810 ONLY into feature/telegram-managed-bots-spike-20261017 has the exact reviewed tree. Vercel dpl_D7xb62HSgQdSMc3Jt2gBArXMPWKh is READY on that exact merge and canonical https://directpilot-telbot-uat-api.vercel.app points to it. The Vercel target label production belongs only to this isolated UAT project; business Production was not promoted.
+
+Verified 2026-10-29 11:31 Asia/Tehran / 08:01 UTC: /ready 200 (database available/migration current), HTML/JS/CSS 200 and byte-identical to reviewed assets, mobile-first-1 revision, unauthenticated synthetic preview POST 401. Dedicated CI: 123 Python PASS plus 2 PostgreSQL cases PASS in schema-test, and actual app.js DOM/focus behavior PASS. Offline review: basic text/API states (176 controls) plus expanded reply settings/POST-message-forwarding states (216 controls), each at 320/360/390/430 CSS px; no horizontal control/container overflow or button/disclosure target below 48px. PNGs reviewed. This approximate document renderer does not establish native OS dropdown, Telegram safe-area, keyboard or real-device acceptance. Owner phone acceptance remains PENDING. Both outbound flags remain absent/default OFF; no backend, stored customer setting, migration, secret or live-send changes.
 
 ---
 
