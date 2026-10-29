@@ -1,3 +1,11 @@
+## 2026-10-29 — CURRENT: optional next reply / explicit Add fix (release pending)
+
+Owner reports that an empty next reply blocks Save; requests optional creation through Add beside Save. Move the single type=button Add into the same mobile two-column footer as Save, with Close full-width below. Add switches to the replies tab and creates a card ONLY on explicit click; repeated Add reuses an untouched blank card. Typing/save never adds another card. New wholly blank text cards (including whitespace) are omitted from save and preview; a partial reply, existing saved rule cleared by the user, or selected API action remains validated rather than silently discarded. Backend required fields and snapshot/readback checks remain unchanged. Preserve focus-stable typing, touch sizing and direct Save click feedback.
+
+Local actual app.js DOM suite PASS and seven Save scenarios PASS: zero replies/blank optional card, completed reply plus blank next card, partial validation, expired session, conflict and two readback failures. Updated real UI/HTTP/disposable PostgreSQL CI scenario adds an empty next card before both saves and verifies only the two completed responses survive reopening. CI, PR, merge, exact UAT deployment and owner phone acceptance PENDING at this source checkpoint. No backend/schema/customer-setting edits. UAT automatic replies remain enabled by prior owner authorization; external API remains OFF; business Production unchanged.
+
+---
+
 ## 2026-10-29 — CURRENT: real Telegram automatic reply acceptance VERIFIED
 
 Owner reported test completed. Direct read-only Neon UAT evidence: three new private updates at 15:24:56–15:25:10 UTC (18:54:56–18:55:10 Asia/Tehran), all processed; three outbound rows sent, all with Telegram message IDs, one attempt each, no error codes. One /start and two other text messages were answered. This confirms real inbound-to-backend-to-Telegram reply delivery; it does not establish a replay or paused-chat live test.

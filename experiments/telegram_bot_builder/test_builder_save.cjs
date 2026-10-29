@@ -8,7 +8,7 @@ async function until(fn){for(let i=0;i<150;i++){if(fn())return;await new Promise
 async function scenario(mode){
   const dom=new JSDOM(fs.readFileSync(path.join(__dirname,'web/index.html'),'utf8'),{runScripts:'outside-only',url:'https://telbot.invalid',pretendToBeVisual:true});
   const w=dom.window,requests=[];let committed=false;
-  const original={published:{id:'old',version:4,greeting:'Hello',fallback_reply:'Fallback'},api_actions_ready:true,external_api_enabled:false,rules:[]};
+  let original={published:{id:'old',version:4,greeting:'Hello',fallback_reply:'Fallback'},api_actions_ready:true,external_api_enabled:false,rules:[]};
   w.Telegram={WebApp:{initData:'synthetic-init',ready(){},expand(){}}};
   w.fetch=async(url,options={})=>{
     requests.push({url,options});let status=200,body;
@@ -22,7 +22,12 @@ async function scenario(mode){
       else body={id:'draft',version:5,state:'draft'};
     }else if(url.includes('/publish?')){
       if(mode==='conflict'){status=409;body={detail:'Published configuration changed; reload before publishing'};}
-      else{committed=true;body={id:'draft',version:5,state:'published'};}
+      else{committed=true;body={id:'draft',version:5,state:'published'};
+        if(['empty','complete_extra'].includes(mode)) {
+          const snapshot=JSON.parse(requests.find(r=>r.url.endsWith('/configs')).options.body);
+          original={...original,published:{...body,greeting:snapshot.greeting,fallback_reply:snapshot.fallback_reply},rules:snapshot.rules.map((r,i)=>({...r,id:'saved-'+i}))};
+        }
+      }
     }else throw new Error('Unexpected request');
     return {ok:status<400,status,headers:{get:()=>null},json:async()=>JSON.parse(JSON.stringify(body))};
   };
@@ -31,12 +36,28 @@ async function scenario(mode){
     await until(()=>w.document.querySelector('.bot-actions button'));
     button(w.document,'تنظیم پیام‌های ربات').click();
     await until(()=>{const p=w.document.querySelector('.reply-editor');return p&&!button(p,'ذخیره پاسخ‌ها').disabled;});
-    const panel=w.document.querySelector('.reply-editor');button(panel,'+ افزودن پاسخ').click();
+    const panel=w.document.querySelector('.reply-editor');
+    assert.equal(panel.querySelectorAll('.rule-card').length,0,'Opening the editor must not add a reply');
+    button(panel,'+ افزودن پاسخ').click();
     const card=panel.querySelector('.rule-card');field(card,'کاربر چه می‌نویسد؟').value='قیمت';
     field(card,'ربات چه پاسخی بدهد؟').value=mode==='invalid'?'':'Unsaved new answer';
     field(card,'کاربر چه می‌نویسد؟').dispatchEvent(new w.Event('input',{bubbles:true}));
+    if(mode==='empty') {
+      field(card,'کاربر چه می‌نویسد؟').value='  ';field(card,'ربات چه پاسخی بدهد؟').value='';
+    }
+    if(mode==='complete_extra')button(panel,'+ افزودن پاسخ').click();
+    const countBeforeSave=panel.querySelectorAll('.rule-card').length;
+    assert.equal(countBeforeSave,mode==='complete_extra'?2:1,'Typing never adds the next reply');
     const save=button(panel,'ذخیره پاسخ‌ها');save.click();
     const notice=panel.querySelector('.save-feedback');assert.equal(notice.hidden,false,'Feedback must be beside Save immediately');
+    if(['empty','complete_extra'].includes(mode)) {
+      await until(()=>notice.classList.contains('success'));
+      const posted=JSON.parse(requests.find(r=>r.url.endsWith('/configs')).options.body);
+      assert.equal(posted.rules.length,mode==='empty'?0:1,'Only completed optional replies are posted');
+      assert.equal(panel.querySelectorAll('.rule-card').length,posted.rules.length);
+      button(panel,'بستن تنظیمات').click();assert.equal(w.document.querySelector('.reply-editor'),null);
+      return;
+    }
     if(mode!=='invalid')save.click(); // repeat tap while busy
     await until(()=>notice.classList.contains('error'));
     assert.equal(field(card,'ربات چه پاسخی بدهد؟').value,mode==='invalid'?'':'Unsaved new answer');
@@ -57,4 +78,4 @@ async function scenario(mode){
     }
   } finally {dom.window.close();}
 }
-(async()=>{for(const mode of ['invalid','expired','conflict','readback_error','readback_mismatch'])await scenario(mode);console.log('TelBot save click/error/readback behavior: PASS');})().catch(error=>{console.error(error);process.exitCode=1;});
+(async()=>{for(const mode of ['empty','complete_extra','invalid','expired','conflict','readback_error','readback_mismatch'])await scenario(mode);console.log('TelBot save click/error/readback behavior: PASS');})().catch(error=>{console.error(error);process.exitCode=1;});

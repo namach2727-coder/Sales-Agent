@@ -31,6 +31,11 @@ async function main(){
       field(card,'کاربر چه می‌نویسد؟').value=keyword;
       field(card,'ربات چه پاسخی بدهد؟').value=response;
       field(card,'کاربر چه می‌نویسد؟').dispatchEvent(new w.Event('input',{bubbles:true}));
+      assert.equal(panel.querySelectorAll('.rule-card').length,keyword==='جدید اول'?1:2,'Typing does not create the next card');
+      // An optional untouched next row must not prevent saving completed answers.
+      button(panel,'+ افزودن پاسخ').click();
+      button(panel,'+ افزودن پاسخ').click();
+      assert.equal(panel.querySelectorAll('.rule-card').length,keyword==='جدید اول'?2:3,'Do not stack blank rows');
       const save=button(panel,'ذخیره پاسخ‌ها');assert.equal(save.type,'button');save.click();
       assert.match(panel.querySelector('.save-feedback').textContent,/در حال ذخیره/);
       // A second submit while the first request is pending must not duplicate versions.

@@ -223,7 +223,8 @@
     const undoText = document.createElement("span"); undoText.textContent = "پاسخ از این فرم حذف شد.";
     const undo = document.createElement("button"); undo.type = "button"; undo.className = "button-secondary"; undo.textContent = "بازگردانی"; undoBar.append(undoText, undo);
     rulesPane.append(heading); explanation(rulesPane, "مثال: مشتری می‌نویسد «آدرس» و ربات آدرس فروشگاه را می‌فرستد. اگر چند پاسخ تطبیق داشت، پاسخ بالاتر انتخاب می‌شود.");
-    rulesPane.append(empty, rulesRoot, add, undoBar);
+    rulesPane.append(empty, rulesRoot, undoBar);
+    explanation(rulesPane, "افزودن پاسخ اختیاری است. برای پاسخ بعدی دکمهٔ «افزودن پاسخ» کنار ذخیره را بزن؛ ردیف کاملاً خالی ذخیره نمی‌شود.");
     const fallbackBox = disclosure(rulesPane, "اگر پیام کاربر را نشناختیم"); fallbackBox.className = "fallback-settings";
     const fallback = field(fallbackBox, "پاسخ به پیام‌های دیگر", "textarea"); fallback.placeholder = "مثلاً برای دریافت اطلاعات، قیمت یا آدرس را بنویس.";
     explanation(fallbackBox, "اگر هیچ‌کدام از عبارت‌ها با پیام کاربر تطبیق نداشت، این پاسخ فرستاده می‌شود.");
@@ -237,7 +238,7 @@
     previewPanel.append(previewButton, previewOutput);
     const save = document.createElement("button"); save.type = "button"; save.textContent = "ذخیره پاسخ‌ها"; save.disabled = true;
     const close = document.createElement("button"); close.type = "button"; close.textContent = "بستن تنظیمات"; close.className = "button-secondary";
-    const buttons = document.createElement("div"); buttons.className = "editor-actions editor-footer"; buttons.append(save, close);
+    const buttons = document.createElement("div"); buttons.className = "editor-actions editor-footer"; buttons.append(save, add, close);
     const saveFeedback = document.createElement("p"); saveFeedback.className = "save-feedback"; saveFeedback.hidden = true;
     saveFeedback.setAttribute("role", "status"); saveFeedback.setAttribute("aria-live", "polite");
     function saveMessage(message, kind = "progress") {
@@ -292,10 +293,10 @@
       const card = document.createElement("details"); card.className = "rule-card"; card.open = !value.id;
       const summary = document.createElement("summary"), caption = document.createElement("span"), badge = document.createElement("small"); badge.className = "rule-badge"; summary.append(caption, badge); card.append(summary);
       const content = document.createElement("div"); content.className = "rule-fields"; card.append(content);
-      const keyword = field(content, "کاربر چه می‌نویسد؟", "text", value.keyword || ""); keyword.required = true; keyword.maxLength = 120; keyword.placeholder = "مثلاً قیمت";
+      const keyword = field(content, "کاربر چه می‌نویسد؟", "text", value.keyword || ""); keyword.maxLength = 120; keyword.placeholder = "مثلاً قیمت";
       const action = select(content, "نوع پاسخ", [["text", "پاسخ متنی"], ["api", "اتصال به API"]], value.action_type || "text");
       if (!schemaReady) action.options[1].disabled = true;
-      const response = field(content, "ربات چه پاسخی بدهد؟", "textarea", value.response_text || ""); response.required = true; response.maxLength = 4096; response.placeholder = "متن پاسخ به مشتری";
+      const response = field(content, "ربات چه پاسخی بدهد؟", "textarea", value.response_text || ""); response.maxLength = 4096; response.placeholder = "متن پاسخ به مشتری";
       const apiFields = document.createElement("div"); apiFields.className = "api-fields";
       explanation(apiFields, "این قسمت برای اتصال به سرویس خودت است. نشانی و مشخصات را از راهنمای همان سرویس بردار؛ پاسخ باید JSON باشد.");
       const url = field(apiFields, "نشانی سرویس (HTTPS)", "url", value.api?.url || ""); url.dir = "ltr"; url.placeholder = "https://api.example.com/lookup"; url.maxLength = 2048;
@@ -350,7 +351,18 @@
       const {rule, index} = removedRule; rules.splice(Math.min(index, rules.length), 0, rule);
       removedRule = null; undoBar.hidden = true; dirty(); syncOrder(); rule.card.open = true; rule.keyword.focus();
     });
-    add.addEventListener("click", () => { addRule(); dirty(); rules[rules.length - 1]?.keyword.focus(); });
+    function emptyNewRule(rule) {
+      return !rule.sourceId && rule.action.value === "text" && !rule.keyword.value.trim() && !rule.response.value.trim();
+    }
+    add.addEventListener("click", () => {
+      if (busy || refreshRequired || add.disabled) return;
+      showView("rules");
+      // Reuse an untouched placeholder instead of stacking mandatory empty cards.
+      const existing = rules.find(emptyNewRule);
+      if (!existing) { addRule(); dirty(); }
+      const rule = existing || rules[rules.length - 1];
+      if (rule) { rule.card.open = true; rule.keyword.focus(); }
+    });
     form.addEventListener("input", dirty); form.addEventListener("change", dirty);
     async function load(current = null) {
       if (!current) current = await api(base + "/config");
@@ -382,14 +394,17 @@
     function readSnapshot(includeCredentials = true) {
       if (!greeting.value.trim()) inputError("متن پیام خوش‌آمدگویی را بنویس.", greeting);
       if (!fallback.value.trim()) inputError("پاسخ به پیام‌های دیگر را بنویس.", fallback);
-      for (const rule of rules) {
+      const selectedRules = rules.filter(rule => !emptyNewRule(rule));
+      for (const rule of selectedRules) {
         if (!rule.keyword.value.trim()) inputError("عبارتی را که مشتری می‌فرستد بنویس.", rule.keyword);
         if (!rule.response.value.trim()) inputError("متن پاسخ را بنویس.", rule.response);
       }
       for (const input of form.querySelectorAll("input,textarea,select")) {
+        const card = input.closest(".rule-card");
+        if (card && !selectedRules.some(rule => rule.card === card)) continue;
         if (!input.disabled && !input.checkValidity()) inputError("این کادر را کامل و با قالب درست وارد کن.", input);
       }
-      return {greeting: greeting.value, fallback_reply: fallback.value, base_version: baseVersion, rules: rules.map(rule => {
+      return {greeting: greeting.value, fallback_reply: fallback.value, base_version: baseVersion, rules: selectedRules.map(rule => {
         const item = {keyword: rule.keyword.value, match_mode: rule.match.value, response_text: rule.response.value, action_type: rule.action.value, enabled: rule.enabled.checked};
         if (rule.action.value === "api") {
           item.source_rule_id = rule.sourceId;

@@ -105,7 +105,7 @@ details[open] > summary { margin-bottom: 12px; border-bottom: 1px solid var(--li
 .rules-count { font-size: 12px; font-weight: 400; color: var(--muted); }
 .rules-empty { border: 1px dashed #c9c8e6; border-radius: 11px; padding: 16px 12px; text-align: center; }
 .rules-list { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; min-width: 0; }
-.add-rule { width: 100%; margin-top: 12px; }
+.add-rule { width: 100%; }
 .rule-card { border: 1px solid var(--line); border-radius: 11px; background: #fff; padding: 10px; min-width: 0; }
 .rule-card > summary { display: flex; align-items: center; gap: 8px; list-style: none; }
 .rule-card > summary::-webkit-details-marker { display: none; }
@@ -126,7 +126,8 @@ details[open] > summary { margin-bottom: 12px; border-bottom: 1px solid var(--li
 .response-preview > button { width: 100%; margin-top: 12px; }
 .response-preview textarea { min-height: 96px; }
 .response-preview .preview-output { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); background: #edf3ff; border-radius: 10px; padding: 10px; margin-bottom: 0; }
-.editor-footer { border-top: 1px solid var(--line); padding-top: 14px; }
+.editor-footer { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); border-top: 1px solid var(--line); padding-top: 14px; }
+.editor-footer > button:last-child { grid-column: 1 / -1; }
 .live-status { margin-bottom: 0; }
 .panel .save-feedback { margin: 10px 0 0; padding: 10px 12px; border: 1px solid #d9e2f6; border-radius: 10px; background: #edf3ff; color: #304a7f; }
 .panel .save-feedback.success { background: #eaf8f3; border-color: #bde9d7; color: #176a55; }
