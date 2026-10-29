@@ -291,7 +291,11 @@
     const undoText = document.createElement("span"); undoText.textContent = "پاسخ از این فرم حذف شد.";
     const undo = document.createElement("button"); undo.type = "button"; undo.className = "button-secondary"; undo.textContent = "بازگردانی"; undoBar.append(undoText, undo);
     rulesPane.append(heading); explanation(rulesPane, "مثال: مشتری می‌نویسد «آدرس» و ربات آدرس فروشگاه را می‌فرستد. اگر چند پاسخ تطبیق داشت، پاسخ بالاتر انتخاب می‌شود.");
-    rulesPane.append(empty, rulesRoot, undoBar);
+    const searchBar = document.createElement("div"); searchBar.className = "rules-search";
+    const search = field(searchBar, "جست‌وجو در پاسخ‌ها", "search"); search.placeholder = "عبارت کاربر یا متن پاسخ"; search.maxLength = 120; search.enterKeyHint = "search"; search.disabled = true;
+    const clearSearchButton = document.createElement("button"); clearSearchButton.type = "button"; clearSearchButton.className = "button-secondary"; clearSearchButton.textContent = "نمایش همه"; clearSearchButton.disabled = true; searchBar.append(clearSearchButton);
+    const searchResult = document.createElement("p"); searchResult.className = "hint search-result"; searchResult.hidden = true; searchResult.setAttribute("role", "status");
+    rulesPane.append(searchBar, searchResult, empty, rulesRoot, undoBar);
     const menuPreview = document.createElement("div"); menuPreview.className = "menu-preview"; menuPreview.hidden = true;
     menuPreview.setAttribute("aria-label", "پیش‌نمایش دکمه‌های ربات"); rulesPane.append(menuPreview);
     explanation(rulesPane, "افزودن پاسخ اختیاری است. برای پاسخ بعدی دکمهٔ «افزودن پاسخ» کنار ذخیره را بزن؛ ردیف کاملاً خالی ذخیره نمی‌شود.");
@@ -340,6 +344,22 @@
       }
     }
     previewText.addEventListener("input", invalidatePreview);
+    function searchText(value) { return value.normalize("NFKC").replace(/ي/g,"ی").replace(/ك/g,"ک").toLowerCase().trim(); }
+    function searchSummary() {
+      const query = searchText(search.value), visible = rules.filter(rule => !rule.card.hidden).length;
+      searchResult.hidden = !query;
+      searchResult.textContent = visible ? visible.toLocaleString("fa-IR") + " پاسخ از " + rules.length.toLocaleString("fa-IR") + " پاسخ" : "پاسخی پیدا نشد؛ جست‌وجو را تغییر بده یا «نمایش همه» را بزن.";
+      clearSearchButton.disabled = busy || !search.value; search.disabled = busy;
+    }
+    function applySearch() {
+      const query = searchText(search.value);
+      rules.forEach(rule => { rule.card.hidden = !!query && !searchText(rule.keyword.value + " " + rule.response.value).includes(query); });
+      searchSummary();
+    }
+    function clearSearch() { search.value = ""; applySearch(); }
+    search.addEventListener("input", applySearch);
+    search.addEventListener("keydown", event => { if (event.key === "Enter") event.preventDefault(); });
+    clearSearchButton.addEventListener("click", () => { clearSearch(); search.focus(); });
     function updateRules() {
       // Typing updates captions only. Never detach/reinsert an input's ancestors.
       rules.forEach((rule, index) => {
@@ -347,6 +367,7 @@
         rule.caption.title = rule.keyword.value;
         rule.badge.textContent = !rule.enabled.checked ? "غیرفعال" : rule.action.value === "api" ? "API" : "متن";
         rule.up.disabled = busy || index === 0; rule.down.disabled = busy || index === rules.length - 1;
+        rule.copy.disabled = busy || refreshRequired || rules.length >= 100 || emptyNewRule(rule);
       });
       const buttonRules = rules.filter(rule => rule.showButton.checked && rule.enabled.checked && rule.keyword.value.trim());
       menuPreview.replaceChildren(); menuPreview.hidden = buttonRules.length === 0;
@@ -364,7 +385,7 @@
       count.textContent = rules.length ? " · " + rules.length + " پاسخ" : "";
       empty.hidden = rules.length > 0;
       add.disabled = busy || rules.length >= 100 || refreshRequired;
-      undo.disabled = busy || rules.length >= 100;
+      undo.disabled = busy || rules.length >= 100; searchSummary();
     }
     function syncOrder() {
       // Only explicit add/reorder/undo actions may move cards.
@@ -405,8 +426,8 @@
       const match = select(options, "چه پیام‌هایی این پاسخ را بگیرند؟", [["exact", "فقط همین عبارت"], ["contains", "شامل این عبارت"]], value.match_mode || "exact");
       const enabled = field(options, "این پاسخ فعال باشد", "checkbox"); enabled.checked = value.enabled !== false;
       const actions = document.createElement("div"); actions.className = "editor-actions";
-      const up = document.createElement("button"), down = document.createElement("button");
-      const rule = {card, caption, badge, showButton, keyword, match, action, enabled, response, url, method, path, auth, header, credential, share, messageField, params, body, up, down, sourceId: value.id || null};
+      const up = document.createElement("button"), down = document.createElement("button"), copy = document.createElement("button");
+      const rule = {card, caption, badge, showButton, keyword, match, action, enabled, response, url, method, path, auth, header, credential, share, messageField, params, body, up, down, copy, saved: !!value.id, sourceId: value.action_type === "api" ? value.id || null : null, storedCredential: value.api?.credential_present === true};
       [[up, "بالاتر", -1], [down, "پایین‌تر", 1]].forEach(([button, text, step]) => {
         button.type = "button"; button.className = "button-secondary"; button.textContent = text;
         button.addEventListener("click", () => {
@@ -414,6 +435,21 @@
           [rules[index], rules[next]] = [rules[next], rules[index]]; dirty(); syncOrder(); button.focus();
         }); actions.append(button);
       });
+      copy.type = "button"; copy.className = "button-secondary"; copy.textContent = "کپی پاسخ";
+      copy.addEventListener("click", () => {
+        if (busy || refreshRequired || rules.length >= 100 || copy.disabled) return;
+        try {
+          const value = ruleValue(rule, true);
+          if (value.api) value.api.credential_present = rule.storedCredential;
+          clearSearch();
+          const copied = addRule({...value, id: rule.sourceId, keyword:"", show_button:false});
+          copied.saved = false;
+          if (value.api) copied.credential.value = value.api.credential || "";
+          copied.card.open = true; dirty(); updateRules();
+          status.textContent = "کپی آماده است؛ عبارت جدید کاربر را بنویس و سپس ذخیره کن.";
+          copied.keyword.focus();
+        } catch (error) { revealError(error); }
+      }); actions.append(copy);
       const remove = document.createElement("button"); remove.type = "button"; remove.className = "button-danger"; remove.textContent = "حذف پاسخ";
       remove.addEventListener("click", () => {
         removedRule = {rule, index: rules.indexOf(rule)}; rules = rules.filter(item => item !== rule); card.remove();
@@ -428,27 +464,29 @@
         messageField.parentElement.hidden = !share.checked; body.parentElement.hidden = method.value !== "POST";
       }
       [action, auth, share, method].forEach(input => input.addEventListener("change", () => { visibility(); updateRules(); }));
-      enabled.addEventListener("change", updateRules); showButton.addEventListener("change", updateRules); keyword.addEventListener("input", updateRules);
-      visibility(); rules.push(rule); rulesRoot.append(card); updateRules();
+      enabled.addEventListener("change", updateRules); showButton.addEventListener("change", updateRules); keyword.addEventListener("input", updateRules); response.addEventListener("input", updateRules);
+      visibility(); rules.push(rule); rulesRoot.append(card); updateRules(); return rule;
     }
     undo.addEventListener("click", () => {
       if (!removedRule || rules.length >= 100 || busy) return;
+      clearSearch();
       const {rule, index} = removedRule; rules.splice(Math.min(index, rules.length), 0, rule);
       removedRule = null; undoBar.hidden = true; dirty(); syncOrder(); rule.card.open = true; rule.keyword.focus();
     });
     function emptyNewRule(rule) {
-      return !rule.sourceId && !rule.showButton.checked && rule.action.value === "text" && !rule.keyword.value.trim() && !rule.response.value.trim();
+      return !rule.saved && !rule.showButton.checked && rule.action.value === "text" && !rule.keyword.value.trim() && !rule.response.value.trim();
     }
     add.addEventListener("click", () => {
       if (busy || refreshRequired || add.disabled) return;
-      showView("rules");
+      showView("rules"); clearSearch();
       // Reuse an untouched placeholder instead of stacking mandatory empty cards.
       const existing = rules.find(emptyNewRule);
       if (!existing) { addRule(); dirty(); }
       const rule = existing || rules[rules.length - 1];
       if (rule) { rule.card.open = true; rule.keyword.focus(); }
     });
-    form.addEventListener("input", dirty); form.addEventListener("change", dirty);
+    form.addEventListener("input", event => { if (event.target !== search) dirty(); });
+    form.addEventListener("change", event => { if (event.target !== search) dirty(); });
     async function load(current = null) {
       if (!current) current = await api(base + "/config");
       schemaReady = current.api_actions_ready === true;
@@ -458,13 +496,14 @@
       rules = []; rulesRoot.replaceChildren(); (current.rules || []).forEach(addRule);
       removedRule = null; undoBar.hidden = true; hasChanges = false; discard.hidden = true;
       apiNote.textContent = !schemaReady ? "تنظیم پاسخ متنی در دسترس است؛ اتصال سرویس هنوز آماده نیست." : current.external_api_enabled ? "تنظیم اتصال سرویس در دسترس است. ارسال زندهٔ پاسخ باید جداگانه فعال باشد." : "ذخیره و آزمایش در دسترس است؛ اتصال واقعی سرویس بیرونی هنوز فعال نشده است.";
-      refreshRequired = false; save.disabled = false; previewButton.disabled = busy || previewBusy; invalidatePreview(); updateRules();
+      refreshRequired = false; save.disabled = false; previewButton.disabled = busy || previewBusy; invalidatePreview(); updateRules(); applySearch();
       return !!current.published;
     }
     function inputError(message, input) { const error = new Error(message); error.input = input; throw error; }
     function revealError(error) {
       status.textContent = error.message;
       if (!error.input) return;
+      if (error.input.closest(".rule-card")) clearSearch();
       const pane = error.input.closest(".editor-pane");
       const view = views.find(item => item[2] === pane); if (view) showView(view[0]);
       let parent = error.input.parentElement;
@@ -487,20 +526,22 @@
         if (!rule.response.value.trim()) inputError("متن پاسخ را بنویس.", rule.response);
       }
       for (const input of form.querySelectorAll("input,textarea,select")) {
+        if (input === search) continue;
         const card = input.closest(".rule-card");
         if (card && !selectedRules.some(rule => rule.card === card)) continue;
         if (!input.disabled && !input.checkValidity()) inputError("این کادر را کامل و با قالب درست وارد کن.", input);
       }
-      return {greeting: greeting.value, fallback_reply: fallback.value, base_version: baseVersion, replace_reply_buttons: true, rules: selectedRules.map(rule => {
-        const item = {keyword: rule.keyword.value, match_mode: rule.match.value, response_text: rule.response.value, action_type: rule.action.value, enabled: rule.enabled.checked, show_button: rule.showButton.checked};
-        if (rule.action.value === "api") {
-          item.source_rule_id = rule.sourceId;
-          item.api = {url: rule.url.value, method: rule.method.value, params: jsonObject(rule.params, "پارامترها"), json_body: rule.method.value === "POST" ? jsonObject(rule.body, "بدنه") : {},
-            response_path: rule.path.value, auth_mode: rule.auth.value, auth_header: rule.header.value, include_message: rule.share.checked, message_field: rule.messageField.value};
-          if (includeCredentials) item.api.credential = rule.credential.value || null;
-        }
-        return item;
-      })};
+      return {greeting: greeting.value, fallback_reply: fallback.value, base_version: baseVersion, replace_reply_buttons: true, rules: selectedRules.map(rule => ruleValue(rule, includeCredentials))};
+    }
+    function ruleValue(rule, includeCredentials) {
+      const item = {keyword: rule.keyword.value, match_mode: rule.match.value, response_text: rule.response.value, action_type: rule.action.value, enabled: rule.enabled.checked, show_button: rule.showButton.checked};
+      if (rule.action.value === "api") {
+        item.source_rule_id = rule.sourceId;
+        item.api = {url: rule.url.value, method: rule.method.value, params: jsonObject(rule.params, "پارامترها"), json_body: rule.method.value === "POST" ? jsonObject(rule.body, "بدنه") : {},
+          response_path: rule.path.value, auth_mode: rule.auth.value, auth_header: rule.header.value, include_message: rule.share.checked, message_field: rule.messageField.value};
+        if (includeCredentials) item.api.credential = rule.credential.value || null;
+      }
+      return item;
     }
     previewButton.addEventListener("click", async () => {
       if (busy || previewBusy || refreshRequired) return;
