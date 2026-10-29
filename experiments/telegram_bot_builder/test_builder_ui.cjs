@@ -143,6 +143,16 @@ async function main() {
   assert.match(output.textContent,/پیام آزمایشی بنویس/);
   assert.equal(requests.filter(r=>r.url.endsWith('/preview')).length,4);
   field(existingApi,'کلید دسترسی').value='';
+  const beforeBlank=panel.querySelectorAll('.rule-card').length;
+  button(panel,'+ افزودن پاسخ').click();
+  assert.equal(panel.querySelectorAll('.rule-card').length,beforeBlank+1);
+  const blank=panel.querySelectorAll('.rule-card')[beforeBlank];
+  button(panel,'+ افزودن پاسخ').click();
+  assert.equal(panel.querySelectorAll('.rule-card').length,beforeBlank+1,'Repeated Add reuses the empty placeholder');
+  assert.equal(w.document.activeElement,field(blank,'کاربر چه می‌نویسد؟'));
+  assert.equal(button(panel,'+ افزودن پاسخ').parentElement,button(panel,'ذخیره پاسخ‌ها').parentElement);
+  field(blank,'کاربر چه می‌نویسد؟').value='  ';
+  field(blank,'ربات چه پاسخی بدهد؟').value='  ';
   const form=panel.querySelector('form'); button(panel,'ذخیره پاسخ‌ها').click();
   assert.match(panel.querySelector('.save-feedback').textContent,/در حال ذخیره/);
   await until(()=>saved && field(panel,'پیام خوش‌آمدگویی').disabled===false && panel.textContent.includes('همهٔ پاسخ‌ها ذخیره شدند'));
