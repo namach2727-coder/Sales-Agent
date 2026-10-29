@@ -552,6 +552,34 @@ def list_bots(tenant_id: UUID, actor: Principal, db: Db) -> list[dict[str, Any]]
     return rows
 
 
+class ReplyStateInput(BaseModel):
+    paused: bool
+    expected_status: str = Field(pattern="^(active|paused)$")
+    model_config = {"extra": "forbid"}
+
+
+@app.post("/api/v1/tenants/{tenant_id}/bots/{bot_id}/reply-state")
+def change_bot_reply_state(tenant_id: UUID, bot_id: UUID, body: ReplyStateInput, actor: Principal, db: Db) -> dict[str, Any]:
+    require_member(db, tenant_id, actor, write=True)
+    bot = require_bot(db, tenant_id, bot_id)
+    if bot['status'] not in ('active','paused'):
+        raise HTTPException(status_code=409, detail='Bot must be activated before reply control')
+    if bot['status'] != body.expected_status:
+        raise HTTPException(status_code=409, detail='Bot reply state changed; refresh before retrying')
+    desired = 'paused' if body.paused else 'active'
+    if desired != bot['status']:
+        changed = db.execute("""UPDATE telbot.bots SET status=%s,updated_at=now()
+            WHERE tenant_id=%s AND id=%s AND status=%s
+              AND credential_ciphertext IS NOT NULL AND webhook_secret_digest IS NOT NULL
+            RETURNING status""", (desired,tenant_id,bot_id,body.expected_status)).fetchone()
+        if not changed:
+            raise HTTPException(status_code=409, detail='Bot reply state changed; refresh before retrying')
+        db.execute("""INSERT INTO telbot.audit_events(tenant_id,bot_id,actor_telegram_user_id,event_type)
+            VALUES (%s,%s,%s,%s)""", (tenant_id,bot_id,actor.user_id,'bot_replies_paused' if body.paused else 'bot_replies_resumed'))
+        db.commit()
+    return {'status':desired,'runtime_enabled':os.getenv('TELBOT_ENV') == 'uat' and os.getenv('TELBOT_REPLIES_ENABLED') == 'true'}
+
+
 @app.get("/api/v1/tenants/{tenant_id}/bots/{bot_id}/activity")
 def get_bot_activity(tenant_id: UUID, bot_id: UUID, actor: Principal, db: Db) -> dict[str, Any]:
     require_member(db, tenant_id, actor)
@@ -916,8 +944,8 @@ async def child_webhook(telegram_bot_id: int, request: Request, db: Db) -> dict[
     if telegram_bot_id <= 0:
         raise HTTPException(status_code=404, detail="Bot not found")
     bot = db.execute(
-        """SELECT id,tenant_id,webhook_secret_digest,credential_ciphertext FROM telbot.bots
-             WHERE telegram_bot_id=%s AND status='active'
+        """SELECT id,tenant_id,webhook_secret_digest,credential_ciphertext,status FROM telbot.bots
+             WHERE telegram_bot_id=%s AND status IN ('active','paused')
              AND EXISTS (SELECT 1 FROM telbot.tenants t WHERE t.id=telbot.bots.tenant_id AND t.status='active')""",
         (telegram_bot_id,),
     ).fetchone()

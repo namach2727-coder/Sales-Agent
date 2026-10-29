@@ -51,6 +51,16 @@ async def process_reply(db, bot, update, inbound_id):
     if os.getenv('TELBOT_ENV') != 'uat' or os.getenv('TELBOT_REPLIES_ENABLED') != 'true':
         return
     tenant, bid = bot['tenant_id'], bot['id']
+    # Serialize the decision/attempt reservation with pause, not the network call.
+    # A receipt observed while paused stays suppressed even if resume races ahead.
+    state = {'status':'paused'} if bot.get('status') == 'paused' else db.execute(
+        "SELECT status FROM telbot.bots WHERE tenant_id=%s AND id=%s FOR SHARE", (tenant,bid)).fetchone()
+    if not state or state['status'] != 'active':
+        if state and state['status'] == 'paused':
+            db.execute("""UPDATE telbot.inbound_updates SET processing_status='ignored',processed_at=now()
+                WHERE id=%s AND tenant_id=%s AND bot_id=%s""", (inbound_id,tenant,bid))
+            db.commit()
+        return
     config = db.execute("""SELECT id,greeting,fallback_reply FROM telbot.configuration_versions
         WHERE tenant_id=%s AND bot_id=%s AND state='published' LIMIT 1""", (tenant, bid)).fetchone()
     if not config:

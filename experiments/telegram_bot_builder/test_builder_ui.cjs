@@ -11,7 +11,7 @@ function field(scope, text) { const label = [...scope.querySelectorAll('label')]
 function button(scope, text) { const b=[...scope.querySelectorAll('button')].find(b => b.textContent===text); assert(b,text); return b; }
 async function main() {
   const dom = new JSDOM(html, {runScripts:'outside-only', url:'https://telbot.invalid', pretendToBeVisual:true});
-  const w=dom.window; const requests=[]; let releasePreview, releaseActivity, activityMode="success";
+  const w=dom.window; const requests=[]; let releasePreview, releaseActivity, activityMode="success", replyStateMode="success", releaseReplyState;
   let saved, config={published:{id:'published-two',version:2,greeting:'Hello',fallback_reply:'Fallback'},api_actions_ready:true,external_api_enabled:false,rules:[
     {id:'text-old',keyword:'قیمت',response_text:'Price',match_mode:'exact',action_type:'text',enabled:true},
     {id:'api-old',keyword:'موجودی',response_text:'Unavailable',match_mode:'contains',action_type:'api',enabled:true,
@@ -22,6 +22,11 @@ async function main() {
     requests.push({url,options}); let body;
     if (url.endsWith('/me/tenants')) body=[{id:'tenant',display_name:'Synthetic workspace',role:'owner'}];
     else if (url.endsWith('/bots')) body=[{id:'bot',username:'ExampleBot',status:'active',is_managed:true,credential_ready:true}];
+    else if (url.endsWith('/reply-state')) {
+      if(replyStateMode==='delayed')await new Promise(resolve=>{releaseReplyState=resolve;});
+      if(replyStateMode==='error')throw new Error('synthetic-state-failure');
+      const input=JSON.parse(options.body);body={status:input.paused?'paused':'active',runtime_enabled:true};
+    }
     else if (url.endsWith('/activity')) {
       if(activityMode==='error')throw new Error('synthetic-unavailable');
       if(activityMode==='delayed')await new Promise(resolve=>{releaseActivity=resolve;});
@@ -84,6 +89,23 @@ async function main() {
   typing.dispatchEvent(new w.CompositionEvent('compositionend',{bubbles:true,data:'س'}));
   assert.equal(w.document.activeElement,typing);
   assert.equal(moves.takeRecords().length,0,'Typing/composition must not move cards in the rule list'); moves.disconnect();
+  const toggle=button(w.document,'توقف پاسخ خودکار');replyStateMode='delayed';
+  const row=toggle.closest('.bot-row');
+  toggle.click();toggle.click();
+  assert.match(row.querySelector('.reply-state-status').textContent,/در حال توقف/);
+  await until(()=>releaseReplyState);releaseReplyState();
+  await until(()=>toggle.textContent==='ادامهٔ پاسخ خودکار');
+  assert.match(row.querySelector('.bot-card-header').textContent,/پاسخ‌گویی متوقف/);
+  assert.equal(w.document.querySelector('.reply-editor'),panel,'Pause must retain the existing editor');
+  assert.equal(w.document.activeElement,typing,'Pause must not rebuild/blur the editor');
+  assert.equal(requests.filter(r=>r.url.endsWith('/reply-state')).length,1,'Duplicate taps while busy do not toggle twice');
+  replyStateMode='error';toggle.click();
+  await until(()=>row.querySelector('.reply-state-status').textContent.includes('تأیید نشد'));
+  assert.equal(toggle.textContent,'ادامهٔ پاسخ خودکار','Failure must retain the known state');
+  assert.equal(toggle.disabled,false);
+  replyStateMode='success';toggle.click();await until(()=>toggle.textContent==='توقف پاسخ خودکار');
+  const toggles=requests.filter(r=>r.url.endsWith('/reply-state')).map(r=>JSON.parse(r.options.body));
+  assert.deepEqual(toggles,[{paused:true,expected_status:'active'},{paused:false,expected_status:'paused'},{paused:false,expected_status:'paused'}]);
   const requestsBeforeReturn=requests.length;
   w.document.dispatchEvent(new w.Event('visibilitychange'));
   await new Promise(setImmediate);

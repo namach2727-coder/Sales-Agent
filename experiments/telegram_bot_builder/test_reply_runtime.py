@@ -48,6 +48,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
             def commit(self): self.events.append('commit')
             def execute(self, sql, args):
                 self.events.append((sql, args))
+                if 'SELECT status FROM telbot.bots' in sql: return Cursor({'status':'active'})
                 if 'FROM telbot.configuration_versions' in sql:
                     return Cursor({'id': 'config', 'greeting': 'Hello', 'fallback_reply': 'Fallback'} if self.published else None)
                 if 'FROM telbot.reply_rules' in sql: return Cursor([])

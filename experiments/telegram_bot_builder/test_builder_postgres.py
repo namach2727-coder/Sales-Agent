@@ -160,3 +160,46 @@ class BuilderPostgresTests(unittest.TestCase):
                 self.assertNotIn('synthetic-private',result.text);self.assertNotIn('synthetic-other',result.text)
                 self.assertEqual(client.get(f'/api/v1/tenants/{tenant}/bots/{foreign}/activity',headers=headers).status_code,404)
         finally:app.dependency_overrides.clear()
+
+
+    def test_real_pause_receipts_resume_and_duplicate_never_replay(self):
+        import hashlib
+        from unittest.mock import AsyncMock
+        from experiments.telegram_bot_builder.vault import TokenVault
+        tenant,bot=uuid4(),uuid4();actor=888777;key=Fernet.generate_key().decode()
+        secret='synthetic-child-secret';number=12340005
+        with psycopg.connect(self.url,row_factory=dict_row) as db:
+            db.execute("INSERT INTO telbot.tenants(id,display_name) VALUES (%s,'Synthetic pause')",(tenant,))
+            db.execute("INSERT INTO telbot.tenant_users(tenant_id,telegram_user_id) VALUES (%s,%s)",(tenant,actor))
+            db.execute("INSERT INTO telbot.bots(id,tenant_id,telegram_bot_id,display_name,owner_telegram_user_id,status,credential_ciphertext,credential_key_version,webhook_secret_digest) VALUES (%s,%s,%s,'Synthetic pause bot',%s,'active',%s,1,%s)",(bot,tenant,number,actor,TokenVault(key).encrypt(str(number)+':synthetic'),hashlib.sha256(secret.encode()).digest()))
+            db.execute("INSERT INTO telbot.configuration_versions(tenant_id,bot_id,version,state,greeting,fallback_reply,created_by_telegram_user_id,published_at) VALUES (%s,%s,1,'published','Hello','Fallback',%s,now())",(tenant,bot,actor))
+        def connection():
+            with psycopg.connect(self.url,row_factory=dict_row) as db:yield db
+        app.dependency_overrides[get_connection]=connection
+        try:
+            with patch.dict(os.environ,{'TELBOT_MANAGER_TOKEN':'111:TESTTOKEN','TELBOT_ENV':'uat','TELBOT_REPLIES_ENABLED':'true','TELBOT_TOKEN_FERNET_KEY':key}),TestClient(app) as client,patch('experiments.telegram_bot_builder.reply_runtime.send_text',new_callable=AsyncMock,return_value=(101,None)) as sender,patch('experiments.telegram_bot_builder.reply_runtime.invoke_api',new_callable=AsyncMock) as provider:
+                headers={'X-Telegram-Init-Data':signed_initdata(user_id=actor)};base=f'/api/v1/tenants/{tenant}/bots/{bot}'
+                with psycopg.connect(self.url,row_factory=dict_row) as decision, psycopg.connect(self.url,row_factory=dict_row) as changer:
+                    decision.execute('SELECT status FROM telbot.bots WHERE tenant_id=%s AND id=%s FOR SHARE',(tenant,bot))
+                    changer.execute("SET LOCAL lock_timeout='100ms'")
+                    with self.assertRaises(psycopg.errors.LockNotAvailable):
+                        changer.execute("UPDATE telbot.bots SET status='paused' WHERE tenant_id=%s AND id=%s",(tenant,bot))
+                    changer.rollback();decision.rollback()
+                paused=client.post(base+'/reply-state',headers=headers,json={'paused':True,'expected_status':'active'})
+                self.assertEqual(paused.status_code,200,paused.text)
+                payload={'update_id':9002,'message':{'text':'/start','from':{'id':actor,'is_bot':False},'chat':{'id':actor,'type':'private'}}}
+                hook=f'/api/v1/webhooks/bots/{number}';webhook_headers={'X-Telegram-Bot-Api-Secret-Token':secret}
+                receipt=client.post(hook,headers=webhook_headers,json=payload);self.assertEqual(receipt.status_code,200,receipt.text)
+                sender.assert_not_called();provider.assert_not_called()
+                with psycopg.connect(self.url,row_factory=dict_row) as db:
+                    self.assertEqual(db.execute('SELECT processing_status FROM telbot.inbound_updates WHERE bot_id=%s',(bot,)).fetchone()['processing_status'],'ignored')
+                    self.assertEqual(db.execute('SELECT count(*) AS n FROM telbot.outbound_messages WHERE bot_id=%s',(bot,)).fetchone()['n'],0)
+                resumed=client.post(base+'/reply-state',headers=headers,json={'paused':False,'expected_status':'paused'})
+                self.assertEqual(resumed.status_code,200,resumed.text)
+                duplicate=client.post(hook,headers=webhook_headers,json=payload);self.assertTrue(duplicate.json()['duplicate']);sender.assert_not_called()
+                payload['update_id']=9003
+                sent=client.post(hook,headers=webhook_headers,json=payload);self.assertEqual(sent.status_code,200,sent.text)
+                self.assertEqual(sender.call_count,1);provider.assert_not_called()
+                with psycopg.connect(self.url,row_factory=dict_row) as db:
+                    self.assertEqual(db.execute("SELECT count(*) AS n FROM telbot.audit_events WHERE bot_id=%s AND event_type IN ('bot_replies_paused','bot_replies_resumed')",(bot,)).fetchone()['n'],2)
+        finally:app.dependency_overrides.clear()

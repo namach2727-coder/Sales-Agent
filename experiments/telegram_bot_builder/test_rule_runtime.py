@@ -22,6 +22,7 @@ class RuleDB:
     def commit(self): self.events.append('commit')
     def execute(self,sql,args=()):
         self.events.append((sql,args))
+        if 'SELECT status FROM telbot.bots' in sql:return Cursor({'status':getattr(self,'bot_status','active')})
         if 'SELECT version FROM' in sql:return Cursor({'version':'0003_rule_api_calls'})
         if 'FROM telbot.configuration_versions' in sql:return Cursor({'id':'config','greeting':'Hello','fallback_reply':'Fallback'})
         if 'FROM telbot.reply_rules' in sql:return Cursor(self.rules)
@@ -75,3 +76,20 @@ class RuleRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(payload['text'],'Hello')
             self.assertEqual(payload['reply_markup']['keyboard'],[[{'text':'آدرس'}]])
             api.assert_not_called()
+
+
+    async def test_bot_pause_receipt_is_ignored_without_credential_api_or_send(self):
+        self.db.bot_status='paused'
+        with patch('experiments.telegram_bot_builder.reply_runtime.invoke_api',new_callable=AsyncMock) as api,patch('experiments.telegram_bot_builder.reply_runtime.send_text',new_callable=AsyncMock) as sender,patch('experiments.telegram_bot_builder.reply_runtime.TokenVault',side_effect=AssertionError('Paused credential read')):
+            await process_reply(self.db,self.bot,self.event,'inbound')
+            api.assert_not_called();sender.assert_not_called()
+        self.assertTrue(any(isinstance(e,tuple) and "processing_status='ignored'" in e[0] for e in self.db.events))
+        self.assertFalse(any(isinstance(e,tuple) and 'INSERT INTO telbot.outbound_messages' in e[0] for e in self.db.events))
+
+
+    async def test_receipt_observed_paused_is_not_replayed_by_a_racing_resume(self):
+        self.bot['status']='paused';self.db.bot_status='active'
+        with patch('experiments.telegram_bot_builder.reply_runtime.send_text',new_callable=AsyncMock) as sender:
+            await process_reply(self.db,self.bot,self.event,'inbound')
+            sender.assert_not_called()
+        self.assertTrue(any(isinstance(e,tuple) and "processing_status='ignored'" in e[0] for e in self.db.events))

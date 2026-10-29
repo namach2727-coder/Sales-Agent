@@ -1,3 +1,15 @@
+## 2026-10-29 — CURRENT: bot pause/resume control (source; release pending)
+
+Owner requested continued TelBot development. Added owner/editor-only per-bot Pause/Resume with immediate local progress/error feedback and no editor rebuild. Viewer cannot mutate. Pending/revoked/incompletely activated bots cannot be resumed; expected_status plus conditional update rejects stale/racing state. Successful transitions append audit events in the same transaction; no-op does not duplicate audit. No credentials decrypted, webhooks changed or messages sent by the control endpoint. No global flag changes: runtime-enabled response explicitly distinguishes an active bot from service-wide sending disabled.
+
+Webhook now accepts both active and paused registered bots with existing secret verification/dedupe and records incoming receipts. Paused receipt is ignored for replies without vault/API/send. A receipt first observed paused remains suppressed even if resume races ahead. Runtime rechecks current tenant+bot status under FOR SHARE until the durable pre-network attempt commit; pause UPDATE serializes against that decision. Already-reserved/in-flight responses may finish; UI explains this. Resume affects new messages only; no replay of paused receipts, uncertain attempts or prior messages. Existing per-chat paused suppression also remains.
+
+Local Python 141 discovered: 136 PASS + 5 PostgreSQL skips; actual DOM control success/error/duplicate-click/state/caret tests and seven Save cases PASS. New disposable PostgreSQL case covers share-lock vs pause update, real API pause/audit, paused webhook receipt ignored with zero send, resume + duplicate producing no replay, then one new reply through mocked transport. CI/PR/merge/cloud/live phone acceptance PENDING. No schema, customer data/status/configuration mutation, provider call, actual Telegram send, flag, billing or Production change by implementation.
+
+Previous #108 menu and #109 activity are merged but NOT LIVE due verified Vercel quota; previous canonical optional-reply release d772844 / dpl_7rjBLHUqRRQ5RaiFniN2R8SoqjR5 remains last verified. Latest real UAT baseline v6/two saved rules/zero buttons. Batch these features for one reviewed UAT deployment after quota permits; never claim native/live acceptance from CI. Runbook docs/telegram_bot_builder/REPLY_CONTROL_20261029.md.
+
+---
+
 ## 2026-10-29 — CURRENT PR #109 activity + #108 menu MERGED; UAT quota BLOCKED
 
 | PR | Reviewed / merge SHA | UAT | Production | Owner acceptance | Evidence |
