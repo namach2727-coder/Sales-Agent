@@ -466,3 +466,7 @@ Read-only live connector audit, owner clarification: **UAT frontend is an isolat
 
 ## 2026-10-29 — GSC MCP integration milestone
 STAGED: standalone source and read-only Google API client in directpilot-web/docs/seo/gsc-mcp-service. BLOCKED: Preview deployment by Vercel free-tier daily deployment quota (HTTP 402). PENDING: OAuth-compatible private MCP, security and live tool-call acceptance tests, private ChatGPT plugin connection, user approval and Production promotion. Existing GSC Production remains operational and unchanged. Do not mark milestone DONE until authenticated end-to-end tools/call succeeds.
+
+
+## 2026-10-30 — GSC MCP milestone update
+**DONE (verified)**: standalone isolated Next.js Preview builds READY (`dpl_8585Voh28MuKAUEpNjBtJPnNY5Tn`, `dpl_VaUB2QykWGanPasPfhdxou5Gs2Yf`); /mcp and protected-resource metadata routes compiled; GET / HTTP 200 and GET /mcp HTTP 405. **STAGED**: JWT/JWKS OAuth resource-server verification and separate private plugin manifest. **BLOCKED**: OAuth metadata GET HTTP 503 because provider and canonical Preview resource variables are absent; plugin archive upload blocked by BLOCKED_FILE_REFERENCE. **PENDING**: OAuth 2.1 authorization-code/PKCE, authenticated MCP POST and gsc_performance E2E, actual private plugin creation/authorization, Production approval. Production unchanged.
