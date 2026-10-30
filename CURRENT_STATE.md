@@ -466,3 +466,11 @@ TelBot remains unavailable for public commercial use; Web Design remains plannin
 - Corrected standalone Preview deployment attempt was blocked by Vercel HTTP 402 api-deployments-free-per-day (100+ deployments/day; retry after 86400 seconds). No new Preview deployment or ChatGPT MCP connection has been verified.
 - Security and release gates OPEN: OAuth 2.1, read-only authorization, anonymous/invalid-token rejection, MCP initialize/tools/list/tools/call E2E, and explicit production promotion approval. Keep GSC secrets server-side. Do not modify unrelated GSC PAP plugin.
 - Detailed source-specific log: directpilot-web/docs/seo/GSC_MCP_CONNECTION_STATUS_2026-10-29.md. This is a documentation-only checkpoint; no backend-main application behavior changed.
+
+
+## 2026-10-30 — DirectPilot GSC MCP verified Preview checkpoint
+- Vercel quota reset; standalone six-file Preview `dpl_8585Voh28MuKAUEpNjBtJPnNY5Tn` READY; Vercel build compiled dynamic `/mcp`, GET / HTTP 200, GET /mcp HTTP 405 (POST-only).
+- OAuth resource-server code added to `directpilot-web` feature branch `feature/directpilot-gsc-mcp-20261029`: JWKS JWT verification (issuer, audience, expiry, gsc:read scope), RFC 9728 protected-resource metadata, fail-closed bearer authorization. This does NOT implement an OAuth authorization server.
+- OAuth Preview `dpl_VaUB2QykWGanPasPfhdxou5Gs2Yf` READY; GET / 200, GET /mcp 405, GET /.well-known/oauth-protected-resource 503 `OAuth provider not configured`. Preview lacks MCP_RESOURCE_URL, OAUTH_ISSUER, OAUTH_JWKS_URL. No authenticated MCP POST or real GSC tools/call verified.
+- Separate private plugin manifests staged at `directpilot-web/docs/seo/gsc-mcp-plugin`; plugin creation blocked by `BLOCKED_FILE_REFERENCE` during archive upload. No plugin ID, no ChatGPT connection. GSC PAP untouched.
+- Production unchanged. Details: `directpilot-web/docs/seo/GSC_MCP_CONNECTION_STATUS_2026-10-29.md`.
