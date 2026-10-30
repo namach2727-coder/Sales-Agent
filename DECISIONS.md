@@ -456,3 +456,7 @@ Read-only live connector audit, owner clarification: **UAT frontend is an isolat
 
 ## 2026-10-29 — GSC MCP architecture and release decision
 Maintain a dedicated read-only GSC MCP service for the DirectPilot-owned property; source staged in directpilot-web/docs/seo/gsc-mcp-service, separate from main website and Sales-Agent backend. Never embed service tokens in plugin archives. Require secure ChatGPT-compatible OAuth authorization and verified client tool call before claiming integration. Deploy and verify in Preview before explicit Production approval. Preserve historical status and distinguish source commits, build readiness, runtime tests and user acceptance. Vercel HTTP 402 quota is a release blocker, not a successful deployment. Existing unrelated GSC PAP plugin must remain untouched.
+
+
+## 2026-10-30 — GSC MCP security and release decision
+Continue with separate read-only OAuth-protected MCP resource server; no static GSC token in plugin archives. The JWT resource server must validate trusted issuer/JWKS, audience, expiration and gsc:read scope; absent provider configuration fails closed (Preview metadata currently HTTP 503). A compatible OAuth 2.1 authorization server and stable externally reachable Preview MCP URL are required for ChatGPT. Two Preview builds are READY, but neither constitutes an authenticated MCP tool-call acceptance. Plugin manifest staged, creation blocked by archive egress; no plugin ID. Do not alter Production or unrelated GSC PAP without approval.
