@@ -497,3 +497,11 @@ The 24-file public redesign is merged through [Frontend PR #43](https://github.c
 3. Implement and verify OAuth 2.1 authorization suitable for private ChatGPT plugin connection; do not publish a static GSC token.
 4. Create a separate private DirectPilot GSC plugin, request explicit user authorization, verify an authenticated live tool call; only then request Production approval and record release evidence.
 5. Keep Production unchanged until acceptance gates pass. Reference directpilot-web/docs/seo/GSC_MCP_CONNECTION_STATUS_2026-10-29.md.
+
+
+## 2026-10-30 — GSC MCP remaining acceptance gates
+1. Select/provision a trusted OAuth 2.1 authorization server supporting authorization-code + PKCE S256, resource indicators and ChatGPT CIMD or DCR. Set Preview-only MCP_RESOURCE_URL, OAUTH_ISSUER and OAUTH_JWKS_URL; preserve server-only GSC credentials.
+2. Provide a stable Preview HTTPS MCP endpoint reachable by ChatGPT (Vercel SSO protection must not block the authorized client); verify RFC 9728 metadata HTTP 200 and unauthorized/invalid-token POST HTTP 401 with WWW-Authenticate.
+3. Execute real authenticated MCP POST initialize, tools/list and tools/call gsc_performance; validate live GSC rows and errors, no secret leakage.
+4. Create separate private DirectPilot GSC plugin from staged `docs/seo/gsc-mcp-plugin` manifest when archive egress blocker BLOCKED_FILE_REFERENCE is resolved; authorize and verify in ChatGPT. Do not touch GSC PAP.
+5. Request explicit Production approval only after E2E passes. Preview `dpl_VaUB2QykWGanPasPfhdxou5Gs2Yf` is READY but metadata currently returns 503; Production unchanged.
