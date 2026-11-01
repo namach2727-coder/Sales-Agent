@@ -1,3 +1,15 @@
+## 2026-10-29 — CURRENT: response search/copy (source; combined release pending)
+
+Owner requested continued development. Added local keyword/response-text search with Persian ya/kaf + NFKC and case-insensitive Latin matching, count/no-results and Show All. Search alone does not dirty or publish the form, never transmits queries and never indexes API keys/technical fields. Filtering only changes visibility, not order/values; editing a matched card does not re-hide its focused ancestors. Validation clears filter and reveals the offending field; Add/Copy/Undo reveal their target. Filtered Save still serializes every completed response.
+
+Explicit Copy in each response's more settings preserves text/match/enabled or current API settings. The new trigger starts blank and menu selection off, requiring owner choice before saving; no autosave or provider call. Saved API credentials stay referenced to the authorized current source, never retrieved; a newly typed credential is copied only within masked password fields in this same form and omitted from preview. New copied rows remain distinct from persisted rows. Also fixes text-to-API conversion incorrectly referencing a text row as a reusable saved API source; clearing an existing persisted response still fails validation rather than silently deleting it.
+
+Local 141 Python discovered: 136 PASS + 5 PostgreSQL skips; actual DOM/focus/search/no-dirty/no-network/secret-exclusion/text+API copy/hidden-field validation/filtered Save and existing seven Save cases PASS. Updated CI real UI/HTTP/PostgreSQL roundtrip creates the second response by Copy, saves while filtered with an optional blank next row, then reopens both. Storage CI also clones an API rule with its saved credential source and asserts redacted public readback. CI/PR/merge/actual phone acceptance PENDING. No backend/schema/customer-setting/status/flag/provider/Telegram/Production change.
+
+Current canonical still prior optional-reply d772844 / dpl_7rjBLHUqRRQ5RaiFniN2R8SoqjR5; latest docs SHA 7422728 Vercel status freshly confirms daily quota failure. #108 menu/#109 report/#110 pause are merged, NOT LIVE. Batch this UI enhancement with them for one reviewed UAT deployment when quota permits. Reply flag remains ON, external API OFF. No repeated/manual deploy or quota workaround. Runbook docs/telegram_bot_builder/RESPONSE_LIBRARY_20261029.md.
+
+---
+
 ## 2026-10-29 — CURRENT PR #110 pause/resume MERGED; combined UAT deployment quota BLOCKED
 
 | PR | Reviewed / merge SHA | UAT | Production | Owner acceptance | Evidence |

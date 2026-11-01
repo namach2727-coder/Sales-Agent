@@ -169,3 +169,9 @@ footer { text-align: center; color: #8c96ad; font-size: 11px; line-height: 1.8; 
 .activity-events { list-style: none; padding: 0; margin: 0; }
 .activity-events li { display: grid; grid-template-columns: minmax(0,1fr); gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; font-size: 14px; }
 .activity-events time, .activity-status { font-size: 13px; color: var(--muted); }
+
+.rules-search { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; margin: 12px 0; }
+.rules-search label { min-width: 0; }
+.rules-search button { width: 100%; }
+.search-result { margin: 8px 0; }
+@media (min-width:600px) { .rules-search { grid-template-columns: minmax(0,1fr) auto; align-items: end; } .rules-search button { width: auto; } }

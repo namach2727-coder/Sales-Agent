@@ -117,6 +117,8 @@ class BuilderPostgresTests(unittest.TestCase):
                     db.execute("INSERT INTO telbot.menu_buttons(tenant_id,configuration_id,label,action_type,action_value,sort_order) VALUES (%s,%s,'Legacy','reply','Legacy',1)",(tenant,first_id))
                 body['rules'][0]['show_button']=False
                 body['base_version']=1;body['greeting']='New greeting';body['rules'][1]['source_rule_id']=data['rules'][1]['id'];body['rules'][1]['api']['credential']=None
+                from copy import deepcopy
+                copied=deepcopy(body['rules'][1]);copied['keyword']='stock copy';body['rules'].append(copied)
                 second=client.post(base+'/configs',headers=headers,json=body);self.assertEqual(second.status_code,201,second.text)
                 second_id=second.json()['id']
                 result=client.post(base+f'/configs/{second_id}/publish?expected_version=1',headers=headers);self.assertEqual(result.status_code,200,result.text)
@@ -128,7 +130,11 @@ class BuilderPostgresTests(unittest.TestCase):
                     self.assertEqual(archived['n'],1,'Archived menu is immutable')
                     self.assertEqual(db.execute('SELECT state FROM telbot.configuration_versions WHERE id=%s',(first_id,)).fetchone()['state'],'archived')
                     self.assertEqual(db.execute('SELECT count(*) AS n FROM telbot.reply_rules WHERE configuration_id=%s',(first_id,)).fetchone()['n'],2)
-                    self.assertEqual(db.execute('SELECT count(*) AS n FROM telbot.reply_rules WHERE configuration_id=%s',(second_id,)).fetchone()['n'],2)
+                    self.assertEqual(db.execute('SELECT count(*) AS n FROM telbot.reply_rules WHERE configuration_id=%s',(second_id,)).fetchone()['n'],3)
+                copied_public=client.get(base+'/config',headers=headers)
+                self.assertEqual(copied_public.status_code,200,copied_public.text)
+                self.assertTrue(copied_public.json()['rules'][2]['api']['credential_present'])
+                self.assertNotIn('synthetic-not-real',copied_public.text)
         finally:app.dependency_overrides.clear()
 
 
