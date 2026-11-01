@@ -150,3 +150,25 @@ def test_network_and_malformed_google_responses_fail_closed():
         client(offline).list_properties(access_token="opaque")
     with pytest.raises(GoogleGscError,match="google_invalid_response"):
         client(lambda req: httpx.Response(200,text="not json")).list_properties(access_token="opaque")
+
+
+def test_url_prefix_inspection_rejects_hostname_spoof_and_sibling_paths():
+    def handler(req):
+        assert req.url.host == "searchconsole.googleapis.com"
+        return httpx.Response(200, json={"inspectionResult":{"indexStatusResult":{"verdict":"PASS"}}})
+    c = client(handler)
+    assert c.inspect_url(access_token="allowed", property_id="https://example.org/",
+                         inspection_url="https://example.org/page")["inspectionResult"]
+    for invalid in ("https://example.org.attacker.test/page",
+                    "http://example.org/page",
+                    "https://www.example.org/page"):
+        with pytest.raises(ValueError, match="url_not_in_property"):
+            c.inspect_url(access_token="allowed", property_id="https://example.org/",
+                          inspection_url=invalid)
+    for invalid in ("https://example.org/blog-other/page",
+                    "https://example.org/else"):
+        with pytest.raises(ValueError, match="url_not_in_property"):
+            c.inspect_url(access_token="allowed", property_id="https://example.org/blog/",
+                          inspection_url=invalid)
+    assert c.inspect_url(access_token="allowed", property_id="https://example.org/blog/",
+                         inspection_url="https://example.org/blog/article")["inspectionResult"]
