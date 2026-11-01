@@ -1,3 +1,21 @@
+## 2026-11-01 — CURRENT: synthetic service-sales prototype #119 LIVE in isolated UAT
+
+PR https://github.com/namach2727-coder/Sales-Agent/pull/119 reviewed head 1f3a2a44f5af8fdee4a653a7463a71fa44db99c5 passed all 11 checks. Squash merge b18514a08e55d5c2c330eaebe263d3a7bfd83502 ONLY into feature/telegram-managed-bots-spike-20261017 has identical reviewed tree dc88b555f4ff01de6336976479234ea235ccba70. Automatic deployment dpl_45WCEywF5XqqdJVQhFcXahbNyrVv is READY on the exact merge and owns canonical https://directpilot-telbot-uat-api.vercel.app. This is the isolated TelBot UAT project; business Production was not promoted.
+
+Verified release: /ready 200, database available, migration current; /telbot and both assets 200 and byte-identical to reviewed source, cache revision 20261101-service-flow-preview-1. New service-flow-preview POST with synthetic IDs and no authentication returns 401 missing_init_data. Read-only Neon UAT metadata: 1 active bot, 0 paused, published version 6. No schema migration, customer configuration/status change, secret retrieval, external API flag change, actual provider/payment/account or Telegram send performed for this release. Ordinary replies remain enabled; external API calls remain disabled.
+
+CI unit job 124781995713: 150 discovered, 145 PASS + 5 PostgreSQL skips; schema job 124781995908: all 5 PASS including real UI/FastAPI/PostgreSQL sample with editor identity/focus and existing configuration counts preserved. Both DOM/editor and seven Save scenarios PASS. Initial schema fixture focus expectation was corrected after report Close deliberately focused its opener; the final reviewed head passed. Native owner phone acceptance remains PENDING.
+
+Owner/editor can open «نمونهٔ فروش و تحویل سرویس» and explicitly run paid, unconfirmed, amount-mismatch or lost-response scenarios. Fixed fictional prices, inert checkout text and invalid DEMO account/config; simulation=true, live_actions=false. Engine is IN-MEMORY and customer Telegram runtime is NOT connected to it. This release does not deliver actual VPN/payment/checkout accounts, a generic workflow designer, or durable cross-restart idempotency. No AI is implemented. Owner chose a synthetic engine/sample because no panel exists yet; private reference-bot behavior and latency remain unverified.
+
+NEXT: implement versioned mobile no-code steps and durable scoped orders/runs/operation ledger with encrypted sensitive data; then integrate actual documented panel and verified payment adapters with reconciliation, and private Telegram delivery. Real sandbox acceptance requires the eventual panel/gateway contract. See docs/telegram_bot_builder/TRANSACTIONAL_SERVICE_FLOW_20261101.md for gates. Do not wire this prototype to live commerce as-is.
+
+---
+
+| PR | Reviewed / merge | UAT | Production | Acceptance |
+| --- | --- | --- | --- | --- |
+| #119 synthetic service-sales engine and owner sample | 1f3a2a44f5af8fdee4a653a7463a71fa44db99c5 / b18514a08e55d5c2c330eaebe263d3a7bfd83502 | LIVE READY dpl_45WCEywF5XqqdJVQhFcXahbNyrVv; exact assets/auth/health PASS | Not promoted | Owner mobile sample pending; real panel/payment not implemented |
+
 ## 2026-11-01 — CURRENT: owner directs transactional service bot builder; synthetic prototype (release pending)
 
 Owner clarified target: a no-code bot capable of server-connected service sales, checkout, verified payment, account creation and configuration delivery, using a VPN seller as an example. Current TelBot has NO AI. Private behavior/source/latency of @sadshekanvpnbot was not observed; only public profile plus owner description are evidence. Owner answered that NO real panel is available and selected engine + synthetic sample now, real connection later. Do not substitute more keyword-only polish for this direction and do not claim real provisioning/payment integration is complete.
