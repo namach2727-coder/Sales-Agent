@@ -81,3 +81,8 @@ Official sources checked for this implementation:
 ## Final verification
 
 Latest broad backend regression: **1004 passed, 7 skipped, one configuration-template test failed** because the new empty SEO settings had not been mirrored into `.env.dev.example`. The dev template was corrected without changing runtime code. The complete configuration-profile suite was then rerun: **14 passed, zero failed**. Final focused SEO suite: **60 passed**. No known backend failure remains from these checks; do not describe the latest broad invocation as a zero-failure run. A new exact-commit CI result is separate evidence.
+
+
+## Post-push hosting snapshot
+
+Code SHA a941ee8903341a5d4974723202f95e1dbaf2e2b4 automatically produced Vercel backend Preview dpl_8dyA8f6J5pEqm33FQaN5G2am71HH, READY, feature ref, target null. This was automatic Git integration, not an explicit release or real API/DB/OAuth acceptance. Frontend code SHA 4226e0fe02283514db3584e819c3718b87f8e7d3 preview builds are blocked by Vercel build-rate-limit. Canonical frontend aliases are on independent existing main e12727f and UAT eda6143, not the F1 UI. No production promotion or live database/env change was performed. Remote intended-file blob hashes matched the local tested source (30 backend / 14 frontend). GitHub mergeability reports dirty despite a verified clean native merge-tree from the current backend base; review this hosted-state inconsistency before any future merge.
