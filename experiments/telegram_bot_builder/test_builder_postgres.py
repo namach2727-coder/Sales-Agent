@@ -34,7 +34,7 @@ class BuilderPostgresTests(unittest.TestCase):
         db.execute("INSERT INTO telbot.bots(id,tenant_id,telegram_bot_id,display_name,owner_telegram_user_id) VALUES (%s,%s,12340000,'Legacy',123456)",(cls.legacy_bot,cls.legacy_tenant))
         db.execute("INSERT INTO telbot.configuration_versions(id,tenant_id,bot_id,version,greeting,fallback_reply,created_by_telegram_user_id) VALUES (%s,%s,%s,1,'Hi','Other',123456)",(cls.legacy_config,cls.legacy_tenant,cls.legacy_bot))
         db.execute("INSERT INTO telbot.reply_rules(tenant_id,configuration_id,keyword,response_text) VALUES (%s,%s,'price','Legacy price')",(cls.legacy_tenant,cls.legacy_config))
-        db.execute((root/'0003_rule_api_calls.sql').read_text());db.commit();db.close()
+        db.execute((root/'0003_rule_api_calls.sql').read_text());db.execute((root/'0004_showcase_inquiries.sql').read_text());db.commit();db.close()
 
     def test_upgrade_preserves_legacy_rule(self):
         with psycopg.connect(self.url,row_factory=dict_row) as db:
@@ -208,4 +208,49 @@ class BuilderPostgresTests(unittest.TestCase):
                 self.assertEqual(sender.call_count,1);provider.assert_not_called()
                 with psycopg.connect(self.url,row_factory=dict_row) as db:
                     self.assertEqual(db.execute("SELECT count(*) AS n FROM telbot.audit_events WHERE bot_id=%s AND event_type IN ('bot_replies_paused','bot_replies_resumed')",(bot,)).fetchone()['n'],2)
+        finally:app.dependency_overrides.clear()
+
+
+    def test_showcase_persistent_conversation_private_inbox_and_notification_failure(self):
+        from unittest.mock import AsyncMock
+        from experiments.telegram_bot_builder.showcase import CHOOSE,SKIP,CONFIRM
+        from experiments.telegram_bot_builder.showcase_runtime import unseal
+        from experiments.telegram_bot_builder.vault import TokenVault
+        tenant,bot,foreign=uuid4(),uuid4(),uuid4();owner,customer,bot_number=765400,765401,12340051
+        key=Fernet.generate_key().decode();secret='synthetic-showcase-webhook'
+        import hashlib
+        with patch.dict(os.environ,{'TELBOT_TOKEN_FERNET_KEY':key}),psycopg.connect(self.url,row_factory=dict_row) as db:
+            db.execute("INSERT INTO telbot.tenants(id,display_name) VALUES (%s,'Synthetic portfolio'),(%s,'Synthetic foreign')",(tenant,foreign))
+            db.execute("INSERT INTO telbot.tenant_users(tenant_id,telegram_user_id,role) VALUES (%s,%s,'owner'),(%s,%s,'editor')",(tenant,owner,tenant,customer))
+            db.execute("INSERT INTO telbot.bots(id,tenant_id,telegram_bot_id,username,display_name,owner_telegram_user_id,credential_ciphertext,credential_key_version,status,webhook_secret_digest) VALUES (%s,%s,%s,'synthetic_showcase_bot','Synthetic showcase',%s,%s,1,'active',%s)",(bot,tenant,bot_number,owner,TokenVault(key).encrypt(str(bot_number)+':synthetic'),hashlib.sha256(secret.encode()).digest()))
+            db.execute('INSERT INTO telbot.showcase_settings(tenant_id,bot_id,enabled) VALUES (%s,%s,true)',(tenant,bot))
+        def connection():
+            with psycopg.connect(self.url,row_factory=dict_row) as db:yield db
+        app.dependency_overrides[get_connection]=connection
+        texts=['/start idea_shop',CHOOSE,'ربات برای معرفی و دریافت درخواست فروشگاه می‌خواهم',SKIP,CONFIRM]
+        try:
+            with patch.dict(os.environ,{'TELBOT_ENV':'uat','TELBOT_REPLIES_ENABLED':'true','TELBOT_SHOWCASE_ENABLED':'true','TELBOT_MANAGER_TOKEN':'111:TESTTOKEN','TELBOT_TOKEN_FERNET_KEY':key}),patch('experiments.telegram_bot_builder.showcase_runtime.send_text',new_callable=AsyncMock,return_value=(None,'delivery_unknown')) as sender,TestClient(app) as client:
+                for i,text in enumerate(texts):
+                    update={'update_id':9000+i,'message':{'text':text,'from':{'id':customer,'is_bot':False,'username':'synthetic_user'},'chat':{'id':customer,'type':'private'}}}
+                    response=client.post(f'/api/v1/webhooks/bots/{bot_number}',json=update,headers={'X-Telegram-Bot-Api-Secret-Token':secret});self.assertEqual(response.status_code,200,response.text)
+                self.assertEqual(sender.call_count,6)
+                owner_payloads=[x.args[1] for x in sender.call_args_list if x.args[1]['chat_id']==owner]
+                self.assertEqual(len(owner_payloads),1);self.assertIn('درخواست جدید',owner_payloads[0]['text'])
+                # Callback retry and another Confirm cannot produce another inquiry or notification.
+                client.post(f'/api/v1/webhooks/bots/{bot_number}',json=update,headers={'X-Telegram-Bot-Api-Secret-Token':secret})
+                self.assertEqual(sender.call_count,6)
+                update['update_id']=9010;client.post(f'/api/v1/webhooks/bots/{bot_number}',json=update,headers={'X-Telegram-Bot-Api-Secret-Token':secret})
+                with psycopg.connect(self.url,row_factory=dict_row) as db:
+                    self.assertEqual(db.execute('SELECT count(*) AS n FROM telbot.showcase_inquiries WHERE bot_id=%s',(bot,)).fetchone()['n'],1)
+                    row=db.execute('SELECT payload_ciphertext FROM telbot.showcase_inquiries WHERE bot_id=%s',(bot,)).fetchone()
+                    self.assertNotIn(texts[2].encode(),bytes(row['payload_ciphertext']))
+                    self.assertEqual(unseal(row['payload_ciphertext'])['description'],texts[2])
+                    self.assertEqual(db.execute("SELECT status FROM telbot.showcase_deliveries WHERE bot_id=%s AND kind='owner'",(bot,)).fetchone()['status'],'unknown')
+                    self.assertEqual(db.execute('SELECT count(*) AS n FROM telbot.configuration_versions WHERE bot_id=%s',(bot,)).fetchone()['n'],0)
+                inbox=f'/api/v1/tenants/{tenant}/bots/{bot}/showcase-inquiries'
+                h={'X-Telegram-Init-Data':signed_initdata(user_id=owner)}
+                result=client.get(inbox,headers=h);self.assertEqual(result.status_code,200,result.text);self.assertEqual(len(result.json()['items']),1);self.assertEqual(result.json()['items'][0]['notification_status'],'unknown')
+                self.assertEqual(client.get(inbox,headers={'X-Telegram-Init-Data':signed_initdata(user_id=customer)}).status_code,403)
+                self.assertEqual(client.get(f'/api/v1/tenants/{foreign}/bots/{bot}/showcase-inquiries',headers=h).status_code,403)
+                public=client.get('/api/v1/showcase/catalog').json();self.assertNotIn(texts[2],str(public));self.assertEqual(public['bot_url'],'https://t.me/synthetic_showcase_bot')
         finally:app.dependency_overrides.clear()

@@ -1,3 +1,9 @@
+## Superseded product direction — 2026-11-01
+
+Owner switched to our own portfolio/inquiry bot and project-based custom development. The generic workflow, panel and payment integration roadmap below is historical and deferred; do not continue it as the current task. See OWN_SHOWCASE_BOT_20261101.md. Existing code/evidence preserved.
+
+---
+
 ## 2026-11-01 — CURRENT: synthetic service-sales prototype #119 LIVE in isolated UAT
 
 PR https://github.com/namach2727-coder/Sales-Agent/pull/119 reviewed head 1f3a2a44f5af8fdee4a653a7463a71fa44db99c5 passed all 11 checks. Squash merge b18514a08e55d5c2c330eaebe263d3a7bfd83502 ONLY into feature/telegram-managed-bots-spike-20261017 has identical reviewed tree dc88b555f4ff01de6336976479234ea235ccba70. Automatic deployment dpl_45WCEywF5XqqdJVQhFcXahbNyrVv is READY on the exact merge and owns canonical https://directpilot-telbot-uat-api.vercel.app. This is the isolated TelBot UAT project; business Production was not promoted.

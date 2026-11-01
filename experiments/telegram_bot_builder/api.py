@@ -532,7 +532,7 @@ def ready(db: Db) -> dict[str, str]:
     version = db.execute(
         "SELECT version FROM telbot.schema_migrations ORDER BY version DESC LIMIT 1"
     ).fetchone()
-    if not version or version["version"] not in ("0002_webhook_auth", "0003_rule_api_calls"):
+    if not version or version["version"] not in ("0002_webhook_auth", "0003_rule_api_calls", "0004_showcase_inquiries"):
         raise HTTPException(status_code=503, detail="TelBot schema not ready")
     if not os.getenv("TELBOT_MANAGER_TOKEN") or not os.getenv("TELBOT_MANAGER_WEBHOOK_SECRET"):
         raise HTTPException(status_code=503, detail="Telegram manager not configured")
@@ -994,5 +994,73 @@ async def child_webhook(telegram_bot_id: int, request: Request, db: Db) -> dict[
         except ImportError:
             from reply_runtime import process_reply
         update["_bot_id"] = telegram_bot_id
-        await process_reply(db, bot, update, inserted["id"])
+        try:
+            from .showcase_runtime import process_showcase
+        except ImportError:
+            from showcase_runtime import process_showcase
+        handled = await process_showcase(db, bot, update, inserted["id"])
+        if not handled:
+            await process_reply(db, bot, update, inserted["id"])
     return {"acknowledged": True, "duplicate": inserted is None}
+
+
+@app.get('/api/v1/showcase/catalog')
+def public_showcase_catalog(db: Db):
+    try:
+        from .showcase import catalog_public
+    except ImportError:
+        from showcase import catalog_public
+    username=None
+    if os.getenv('TELBOT_SHOWCASE_ENABLED')=='true':
+        rows=db.execute("""SELECT b.username FROM telbot.showcase_settings s
+            JOIN telbot.bots b ON b.tenant_id=s.tenant_id AND b.id=s.bot_id
+            JOIN telbot.tenants t ON t.id=b.tenant_id
+            WHERE s.enabled AND b.status='active' AND t.status='active'
+            ORDER BY s.updated_at DESC LIMIT 2"""
+        ).fetchall()
+        # A single own showcase is the only permitted public destination.
+        if len(rows)==1:
+            import re
+            value=rows[0]['username'] or ''
+            if re.fullmatch(r'[A-Za-z0-9_]{5,32}',value):username=value
+    return {'industries':catalog_public(),'bot_url':'https://t.me/'+username if username else None,
+            'examples_are_simulated':True}
+
+
+@app.get('/api/v1/tenants/{tenant_id}/bots/{bot_id}/showcase-inquiries')
+def showcase_inbox(tenant_id: UUID, bot_id: UUID, actor: Principal, db: Db):
+    require_owner(db,tenant_id,actor);require_bot(db,tenant_id,bot_id)
+    if os.getenv('TELBOT_SHOWCASE_ENABLED')!='true':return {'items':[],'enabled':False}
+    try:
+        from .showcase_runtime import unseal, ShowcaseError
+    except ImportError:
+        from showcase_runtime import unseal, ShowcaseError
+    rows=db.execute("""SELECT q.id,q.payload_ciphertext,q.created_at,
+        COALESCE(d.status,'unknown') AS notification_status
+        FROM telbot.showcase_inquiries q LEFT JOIN telbot.showcase_deliveries d
+        ON d.tenant_id=q.tenant_id AND d.bot_id=q.bot_id AND d.source_update_id=q.source_update_id AND d.kind='owner'
+        WHERE q.tenant_id=%s AND q.bot_id=%s ORDER BY q.created_at DESC LIMIT 30""",(tenant_id,bot_id)).fetchall()
+    items=[]
+    try:
+        for row in rows:
+            items.append({'id':row['id'],'created_at':row['created_at'],'notification_status':row['notification_status'],**unseal(row['payload_ciphertext'])})
+    except ShowcaseError:raise HTTPException(status_code=503,detail='Inquiry storage unavailable') from None
+    return JSONResponse(content=json.loads(json.dumps({'items':items,'enabled':True},default=str)),headers={'Cache-Control':'no-store'})
+
+
+@app.get('/showcase')
+def showcase_page():
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    if os.getenv('TELBOT_ENV')!='uat':raise HTTPException(status_code=404,detail='Not found')
+    return FileResponse(Path(__file__).resolve().parent/'web'/'showcase.html',headers={
+        'Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff',
+        'Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'self' https://web.telegram.org; form-action 'none'"})
+
+
+@app.get('/showcase/{asset}')
+def showcase_asset(asset: str):
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    if os.getenv('TELBOT_ENV')!='uat' or asset not in ('showcase.css','showcase.js'):raise HTTPException(status_code=404,detail='Not found')
+    return FileResponse(Path(__file__).resolve().parent/'web'/asset,media_type='text/css' if asset.endswith('.css') else 'application/javascript',headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'})

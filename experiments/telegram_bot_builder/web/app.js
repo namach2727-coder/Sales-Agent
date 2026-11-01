@@ -156,6 +156,10 @@
           const demo = document.createElement("button"); demo.type = "button"; demo.className = "button-secondary"; demo.textContent = "نمونهٔ فروش و تحویل سرویس";
           demo.addEventListener("click", () => openServicePreview(bot,row,demo)); actions.append(demo);
         }
+        if (activeTenant.role === "owner") {
+          const inbox=document.createElement("button"); inbox.type="button"; inbox.className="button-secondary"; inbox.textContent="درخواست‌های ساخت ربات";
+          inbox.addEventListener("click",()=>openShowcaseInbox(bot,row,inbox)); actions.append(inbox);
+        }
         const activity = document.createElement("button"); activity.type = "button";
         activity.className = "button-secondary"; activity.textContent = "گزارش عملکرد";
         activity.addEventListener("click", () => openActivity(bot, row, activity)); actions.append(activity);
@@ -180,6 +184,32 @@
         root.append(row);
       });
     } catch(error) { root.textContent = publicError(error); }
+  }
+  async function openShowcaseInbox(bot,row,opener) {
+    opener.disabled=true;
+    const panel=document.createElement("section"); panel.className="service-preview";
+    const heading=document.createElement("h3"); heading.textContent="درخواست‌های ساخت ربات";
+    const result=document.createElement("div"); result.setAttribute("role","status");
+    const refresh=document.createElement("button"); refresh.type="button"; refresh.textContent="به‌روزرسانی درخواست‌ها";
+    const close=document.createElement("button"); close.type="button"; close.className="button-secondary"; close.textContent="بستن درخواست‌ها";
+    close.addEventListener("click",()=>{panel.remove();opener.disabled=false;opener.focus();});
+    async function load() {
+      if(refresh.disabled)return;refresh.disabled=true;
+      try {
+        const data=await api("/api/v1/tenants/"+activeTenant.id+"/bots/"+bot.id+"/showcase-inquiries");
+        if(!panel.isConnected)return;result.replaceChildren();
+        if(!data.items.length)result.textContent="هنوز درخواستی ثبت نشده است.";
+        data.items.forEach(item=>{
+          const card=document.createElement("article");card.className="inquiry-card";
+          const text=document.createElement("p");
+          const statuses={sent:"اعلان تلگرام ارسال شد",rejected:"تلگرام اعلان را نپذیرفت",unknown:"وضعیت ارسال اعلان مشخص نیست؛ درخواست محفوظ است"};
+          text.textContent="کد: "+item.id+"\n"+new Date(item.created_at).toLocaleString("fa-IR")+"\nحوزه: "+item.industry+"\n\n"+item.description+"\n\nارتباط: "+item.contact+"\nشناسه تلگرام: "+item.telegram_user_id+"\n"+statuses[item.notification_status];
+          text.style.whiteSpace="pre-wrap";card.append(text);result.append(card);
+        });
+      } catch(error){if(panel.isConnected)result.textContent="دریافت درخواست‌ها انجام نشد: "+publicError(error);}
+      finally{refresh.disabled=false;}
+    }
+    refresh.addEventListener("click",load);panel.append(heading,result,refresh,close);row.append(panel);await load();
   }
   async function openServicePreview(bot,row,opener) {
     opener.disabled = true;

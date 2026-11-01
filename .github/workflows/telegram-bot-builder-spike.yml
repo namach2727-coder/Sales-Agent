@@ -40,6 +40,7 @@ jobs:
         run: |
           NODE_PATH="$RUNNER_TEMP/telbot-dom/node_modules" node experiments/telegram_bot_builder/test_builder_ui.cjs
           NODE_PATH="$RUNNER_TEMP/telbot-dom/node_modules" node experiments/telegram_bot_builder/test_builder_save.cjs
+          NODE_PATH="$RUNNER_TEMP/telbot-dom/node_modules" node experiments/telegram_bot_builder/test_showcase_ui.cjs
 
   schema-test:
     runs-on: ubuntu-latest
