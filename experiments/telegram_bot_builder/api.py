@@ -11,7 +11,7 @@ import hashlib
 import json
 import os
 import secrets
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -458,7 +458,7 @@ from fastapi.exception_handlers import request_validation_exception_handler
 
 @app.exception_handler(RequestValidationError)
 async def hide_builder_credentials(request: Request, exc: RequestValidationError):
-    if request.url.path.endswith(('/configs', '/preview')):
+    if request.url.path.endswith(('/configs', '/preview', '/service-flow-preview')):
         # Validation errors can contain the complete submitted credential-bearing body.
         return JSONResponse(status_code=422, content={'detail': 'Invalid bot configuration'})
     return await request_validation_exception_handler(request, exc)
@@ -550,6 +550,23 @@ def list_bots(tenant_id: UUID, actor: Principal, db: Db) -> list[dict[str, Any]]
              ORDER BY created_at DESC LIMIT 100""", (tenant_id,),
     ).fetchall()
     return rows
+
+
+class ServicePreviewInput(BaseModel):
+    plan_id: Literal['basic','plus']
+    scenario: Literal['paid','pending','mismatch','timeout']
+    model_config = {'extra':'forbid'}
+
+
+@app.post('/api/v1/tenants/{tenant_id}/bots/{bot_id}/service-flow-preview')
+def preview_service_flow(tenant_id: UUID,bot_id: UUID,body: ServicePreviewInput,actor: Principal,db: Db) -> dict[str,Any]:
+    require_member(db,tenant_id,actor,write=True)
+    require_bot(db,tenant_id,bot_id)
+    try:
+        from .service_flow import run_demo
+    except ImportError:
+        from service_flow import run_demo
+    return run_demo(tenant_id,bot_id,str(actor.user_id),body.plan_id,body.scenario)
 
 
 class ReplyStateInput(BaseModel):

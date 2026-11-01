@@ -153,6 +153,8 @@
           edit.textContent = "تنظیم پیام‌های ربات";
           edit.addEventListener("click", () => openReplyEditor(bot, row, edit));
           actions.append(edit);
+          const demo = document.createElement("button"); demo.type = "button"; demo.className = "button-secondary"; demo.textContent = "نمونهٔ فروش و تحویل سرویس";
+          demo.addEventListener("click", () => openServicePreview(bot,row,demo)); actions.append(demo);
         }
         const activity = document.createElement("button"); activity.type = "button";
         activity.className = "button-secondary"; activity.textContent = "گزارش عملکرد";
@@ -178,6 +180,41 @@
         root.append(row);
       });
     } catch(error) { root.textContent = publicError(error); }
+  }
+  async function openServicePreview(bot,row,opener) {
+    opener.disabled = true;
+    const panel=document.createElement("section"); panel.className="service-preview";
+    const title=document.createElement("h3"); title.textContent="نمونهٔ آزمایشی فروش و تحویل سرویس";
+    const note=document.createElement("p"); note.className="service-demo-note";
+    note.textContent="این نمونه به پنل و درگاه واقعی وصل نیست؛ پولی دریافت نمی‌شود و حساب یا کانفیگ قابل استفاده ساخته نمی‌شود.";
+    const planLabel=document.createElement("label"),plan=document.createElement("select"),planCaption=document.createElement("span"); planCaption.textContent="پلن فرضی";
+    [["basic","نمونهٔ ۱ — ۱۰٬۰۰۰ تومان فرضی"],["plus","نمونهٔ ۲ — ۲۰٬۰۰۰ تومان فرضی"]].forEach(([value,text])=>{const option=document.createElement("option");option.value=value;option.textContent=text;plan.append(option);});planLabel.append(planCaption,plan);
+    const caseLabel=document.createElement("label"),scenario=document.createElement("select"),caseCaption=document.createElement("span");caseCaption.textContent="چه وضعیتی را آزمایش کنیم؟";
+    [["paid","پرداخت تأیید شده"],["pending","پرداخت هنوز تأیید نشده"],["mismatch","مبلغ پرداخت مغایر است"],["timeout","قطع ارتباط هنگام صدور حساب"]].forEach(([value,text])=>{const option=document.createElement("option");option.value=value;option.textContent=text;scenario.append(option);});caseLabel.append(caseCaption,scenario);
+    const status=document.createElement("p");status.setAttribute("role","status");status.setAttribute("aria-live","polite");
+    const result=document.createElement("div");result.className="service-demo-result";
+    const actions=document.createElement("div");actions.className="editor-actions";
+    const run=document.createElement("button");run.type="button";run.textContent="اجرای سناریوی نمونه";
+    const close=document.createElement("button");close.type="button";close.className="button-secondary";close.textContent="بستن نمونه";
+    actions.append(run,close);panel.append(title,note,planLabel,caseLabel,status,result,actions);row.append(panel);
+    close.addEventListener("click",()=>{panel.remove();opener.disabled=false;opener.focus();});
+    function changed(){result.replaceChildren();status.textContent="تنظیمات نمونه تغییر کرد؛ برای دیدن نتیجه، اجرا را بزن.";}
+    plan.addEventListener("change",changed);scenario.addEventListener("change",changed);
+    run.addEventListener("click",async()=>{
+      if(run.disabled)return;
+      const request={plan_id:plan.value,scenario:scenario.value};run.disabled=true;plan.disabled=true;scenario.disabled=true;
+      status.textContent="در حال اجرای سناریوی آزمایشی…";result.replaceChildren();
+      try {
+        const data=await api("/api/v1/tenants/"+activeTenant.id+"/bots/"+bot.id+"/service-flow-preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(request)});
+        if(!panel.isConnected)return;
+        if(data.simulation!==true || data.live_actions!==false)throw new Error("Invalid simulation response");
+        const list=document.createElement("ol");data.steps.forEach(text=>{const item=document.createElement("li");item.textContent=text;list.append(item);});result.append(list);
+        const checkout=document.createElement("p");checkout.textContent="نشانی فرضی پرداخت: "+data.checkout_url;result.append(checkout);
+        if(data.demo_delivery){const account=document.createElement("pre");account.className="demo-account";account.textContent="خروجی نمونه؛ قابل استفاده نیست\n"+"Username: "+data.demo_delivery.username+"\nPassword: "+data.demo_delivery.password+"\nConfig: "+data.demo_delivery.config_text;result.append(account);}
+        status.textContent=data.phase==="delivered"?"سناریوی نمونه تا تحویل حساب پیش رفت؛ هیچ عملیات واقعی انجام نشد.":data.phase==="awaiting_payment"?"سناریو در انتظار تأیید پرداخت ماند؛ مرحلهٔ صدور اجرا نشد.":"سناریو برای بررسی متوقف شد؛ درخواست صدور دوباره اجرا نمی‌شود.";
+      }catch(error){if(panel.isConnected)status.textContent="اجرای نمونه انجام نشد: "+publicError(error);}
+      finally{run.disabled=false;plan.disabled=false;scenario.disabled=false;}
+    });
   }
   async function openActivity(bot, row, opener) {
     opener.disabled = true;
