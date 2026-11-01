@@ -213,7 +213,22 @@ class GoogleSearchConsoleClient:
             domain = site.removeprefix("sc-domain:")
             if parsed.hostname != domain and not parsed.hostname.endswith("." + domain):
                 raise ValueError("url_not_in_property")
-        elif not inspection_url.startswith(site):
-            raise ValueError("url_not_in_property")
+        else:
+            prefix = urlsplit(site)
+            try:
+                inspection_port = parsed.port
+            except ValueError:
+                raise ValueError("invalid_inspection_url") from None
+            if (parsed.scheme != prefix.scheme or parsed.hostname != prefix.hostname
+                    or inspection_port != prefix.port):
+                raise ValueError("url_not_in_property")
+            path_prefix = prefix.path or "/"
+            # Site URL-prefix properties include protocol/host and optional
+            # subpath. Reject host spoofing and sibling paths.
+            if (not parsed.path.startswith(path_prefix)
+                    or (not path_prefix.endswith("/")
+                        and parsed.path != path_prefix
+                        and not parsed.path.startswith(path_prefix + "/"))):
+                raise ValueError("url_not_in_property")
         return self._request("POST", GOOGLE_URL_INSPECTION_API, access_token=access_token,
                              payload={"inspectionUrl": inspection_url, "siteUrl": site})
