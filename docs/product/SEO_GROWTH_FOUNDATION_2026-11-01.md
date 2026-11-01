@@ -1,3 +1,5 @@
+> **Current continuation:** F1 onboarding and customer UI are now implemented in the existing DRAFT PRs #121/#71. The original F0-only descriptions below are historical. See [F1 implementation and gates](SEO_GROWTH_F1_ONBOARDING_2026-11-01.md). No deployment, real customer Google consent, commercial billing or website automation is claimed.
+
 # DirectPilot SEO Growth — Commercial Service Foundation
 > 2026-11-01 | **F0 development / review only** — not deployed, no customer OAuth, no database migration, no customer website writes. Owner authorized a NEW commercial SEO capability, not changes to Instagram MVP or existing SEO Production.
 

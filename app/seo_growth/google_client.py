@@ -53,7 +53,7 @@ def create_oauth_state() -> str:
     return secrets.token_urlsafe(32)
 
 def validate_property_identifier(value: str) -> str:
-    if not isinstance(value, str) or len(value) > 2048 or any(c.isspace() for c in value):
+    if not isinstance(value, str) or len(value.encode("utf-8")) > 2048 or any(c.isspace() for c in value):
         raise ValueError("invalid_gsc_property")
     if _DOMAIN_PROPERTY.fullmatch(value):
         return value.lower()
@@ -124,6 +124,13 @@ class GoogleSearchConsoleClient:
                  429: "google_rate_limited"}
         if response.status_code in codes:
             raise GoogleGscError(codes[response.status_code])
+        if response.status_code == 400 and url == GOOGLE_TOKEN_URL:
+            try:
+                invalid_grant = response.json().get("error") == "invalid_grant"
+            except (ValueError, AttributeError):
+                invalid_grant = False
+            if invalid_grant:
+                raise GoogleGscError("google_authorization_expired")
         if not response.is_success:
             raise GoogleGscError("google_provider_request_failed")
         try:
@@ -133,6 +140,18 @@ class GoogleSearchConsoleClient:
         if not isinstance(body, dict):
             raise GoogleGscError("google_invalid_response")
         return body
+
+    def revoke_token(self, *, refresh_token: str) -> bool:
+        """Explicit account-wide grant revocation; never put tokens in a URL."""
+        try:
+            if self._http is None:
+                with httpx.Client(timeout=12, follow_redirects=False) as session:
+                    response = session.post("https://oauth2.googleapis.com/revoke", data={"token": refresh_token})
+            else:
+                response = self._http.post("https://oauth2.googleapis.com/revoke", data={"token": refresh_token})
+        except httpx.HTTPError:
+            return False
+        return response.status_code == 200
 
     @staticmethod
     def _tokens(body: dict[str, Any], *, existing_scope: str | None = None) -> GoogleOAuthTokens:

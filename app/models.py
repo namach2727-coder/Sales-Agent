@@ -1238,3 +1238,6 @@ from app.conversation_core import models as conversation_core_models  # noqa: E4
 
 # Register Phase B automation rule persistence with the shared metadata.
 from app.automation_rules import models as automation_rule_models  # noqa: E402,F401
+
+# Independent commercial SEO onboarding, feature-flagged off by default.
+from app.seo_growth import models as seo_growth_models  # noqa: E402,F401

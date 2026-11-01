@@ -52,6 +52,15 @@ class Settings(BaseSettings):
     application_secret: SecretStr = SecretStr("")
     application_secret_file: str | None = None
 
+    # Independent commercial SEO pilot. Never borrow the operator GSC key.
+    seo_growth_enabled: bool = False
+    seo_google_client_id: str = ""
+    seo_google_client_secret: SecretStr = SecretStr("")
+    seo_google_redirect_uri: str = ""
+    seo_frontend_origin: str = ""
+    seo_token_encryption_key: SecretStr = SecretStr("")
+    seo_token_key_version: str = "v1"
+
     # Deprecated compatibility setting. Seed execution is now CLI-only.
     seed_demo_data: bool = False
     meta_verify_token: str = ""

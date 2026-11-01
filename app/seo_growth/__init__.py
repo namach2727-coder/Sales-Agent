@@ -1,7 +1,7 @@
 """DirectPilot SEO Growth, customer-facing commercial module foundation.
 
-Read-only Google provider and proposal-only analysis are implemented here.
-Tenant OAuth persistence, paid entitlement, UI and CMS write operations are NOT.
+Read-only Google provider, proposal-only analysis and tenant OAuth onboarding.
+Commercial billing, scheduled ingestion and CMS write operations are future work.
 """
 from .analysis import DailyMetric, QueryPageMetric, SeoOpportunity, SeoReport, build_seo_report
 

@@ -156,13 +156,13 @@ jobs:
           preflight.EXPECTED_DATABASE = "directpilot_ci_test"
           # CI disposable schema can advance independently of the safeguarded
           # restored-Production preflight expectation (0025).
-          preflight.EXPECTED_VERSION = "0027_traceable_receipt_versions"
+          preflight.EXPECTED_VERSION = "0028_seo_google_onboarding"
           # Extra archive table and indexes exist ONLY in the disposable CI schema.
           # Do not relax production restored-Neon preflight invariants.
-          preflight.EXPECTED_TABLES = 83
-          preflight.EXPECTED_SEQUENCES = 77
-          preflight.EXPECTED_INDEXES = 530
-          preflight.EXPECTED_CONSTRAINTS = 436
+          preflight.EXPECTED_TABLES = 87
+          preflight.EXPECTED_SEQUENCES = 81
+          preflight.EXPECTED_INDEXES = 552
+          preflight.EXPECTED_CONSTRAINTS = 459
           preflight.validate_target_url = lambda raw: make_url(raw)
           result = preflight.run_preflight(os.environ["DATABASE_URL"])
           assert result["connection_read_only"] is True
