@@ -11,7 +11,7 @@ function field(scope, text) { const label = [...scope.querySelectorAll('label')]
 function button(scope, text) { const b=[...scope.querySelectorAll('button')].find(b => b.textContent===text); assert(b,text); return b; }
 async function main() {
   const dom = new JSDOM(html, {runScripts:'outside-only', url:'https://telbot.invalid', pretendToBeVisual:true});
-  const w=dom.window; const requests=[]; let releasePreview, releaseActivity, activityMode="success", replyStateMode="success", releaseReplyState;
+  const w=dom.window; const requests=[]; let releasePreview, releaseActivity, activityMode="success", replyStateMode="success", releaseReplyState, releaseServiceDemo;
   let saved, config={published:{id:'published-two',version:2,greeting:'Hello',fallback_reply:'Fallback'},api_actions_ready:true,external_api_enabled:false,rules:[
     {id:'text-old',keyword:'قیمت',response_text:'Price',match_mode:'exact',action_type:'text',enabled:true},
     {id:'api-old',keyword:'موجودی',response_text:'Unavailable',match_mode:'contains',action_type:'api',enabled:true,
@@ -22,6 +22,13 @@ async function main() {
     requests.push({url,options}); let body;
     if (url.endsWith('/me/tenants')) body=[{id:'tenant',display_name:'Synthetic workspace',role:'owner'}];
     else if (url.endsWith('/bots')) body=[{id:'bot',username:'ExampleBot',status:'active',is_managed:true,credential_ready:true}];
+    else if (url.endsWith('/service-flow-preview')) {
+      const input=JSON.parse(options.body);
+      if(input.scenario==='timeout')await new Promise(resolve=>{releaseServiceDemo=resolve;});
+      body={simulation:true,live_actions:false,phase:input.scenario==='paid'?'delivered':input.scenario==='pending'?'awaiting_payment':'review_required',
+        checkout_url:'https://checkout.example.com/demo-only',steps:['سفارش نمونه','بررسی پرداخت نمونه'],
+        demo_delivery:input.scenario==='paid'?{username:'<b>DEMO</b>',password:'DEMO-NOT-VALID',config_text:'DEMO-CONFIG'}:null};
+    }
     else if (url.endsWith('/reply-state')) {
       if(replyStateMode==='delayed')await new Promise(resolve=>{releaseReplyState=resolve;});
       if(replyStateMode==='error')throw new Error('synthetic-state-failure');
@@ -287,6 +294,27 @@ async function main() {
   assert.equal(button(w.document,'گزارش عملکرد').disabled,false);
   assert.equal(requests.filter(r=>r.url.endsWith('/activity')).length,3);
   assert.equal(requests.filter(r=>r.options.method==='POST').length,postsBeforeReport,'Report never writes or sends');
+  const demoBefore=requests.length;
+  button(w.document,'نمونهٔ فروش و تحویل سرویس').click();
+  const demo=w.document.querySelector('.service-preview');assert(demo);
+  assert.match(demo.textContent,/حساب یا کانفیگ قابل استفاده ساخته نمی‌شود/);
+  assert.equal(requests.length,demoBefore,'Opening the sample never executes actions');
+  const run=button(demo,'اجرای سناریوی نمونه');run.click();run.click();
+  assert.match(demo.querySelector('[role="status"]').textContent,/در حال اجرای/);
+  await until(()=>demo.querySelector('.demo-account'));
+  assert.match(demo.querySelector('.demo-account').textContent,/<b>DEMO<\/b>/);
+  assert.equal(demo.querySelector('b'),null);assert.equal(demo.querySelector('a'),null,'Sample checkout URL is inert');
+  const scenario=field(demo,'چه وضعیتی را آزمایش کنیم؟');scenario.value='pending';scenario.dispatchEvent(new w.Event('change',{bubbles:true}));
+  assert.equal(demo.querySelector('.demo-account'),null,'Changing scenario clears stale delivery');
+  run.click();await until(()=>!run.disabled && demo.querySelector('[role="status"]').textContent.includes('انتظار تأیید'));
+  assert.equal(demo.querySelector('.demo-account'),null);
+  scenario.value='mismatch';scenario.dispatchEvent(new w.Event('change',{bubbles:true}));run.click();
+  await until(()=>!run.disabled && demo.querySelector('[role="status"]').textContent.includes('برای بررسی'));
+  scenario.value='timeout';scenario.dispatchEvent(new w.Event('change',{bubbles:true}));run.click();await until(()=>releaseServiceDemo);
+  button(demo,'بستن نمونه').click();releaseServiceDemo();await new Promise(setImmediate);
+  assert.equal(w.document.querySelector('.service-preview'),null,'A late sample result must not reopen the panel');
+  assert.equal(button(w.document,'نمونهٔ فروش و تحویل سرویس').disabled,false);
+  assert.equal(requests.filter(r=>r.url.endsWith('/service-flow-preview')).length,4,'No duplicate run while busy');
   const botFetches=requests.filter(r=>r.url.endsWith('/bots')).length;
   w.document.dispatchEvent(new w.Event('visibilitychange'));
   await until(()=>requests.filter(r=>r.url.endsWith('/bots')).length===botFetches+1);

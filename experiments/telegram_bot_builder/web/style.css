@@ -175,3 +175,9 @@ footer { text-align: center; color: #8c96ad; font-size: 11px; line-height: 1.8; 
 .rules-search button { width: 100%; }
 .search-result { margin: 8px 0; }
 @media (min-width:600px) { .rules-search { grid-template-columns: minmax(0,1fr) auto; align-items: end; } .rules-search button { width: auto; } }
+
+.service-preview { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; margin-top: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; min-width: 0; background: #fafbff; }
+.service-demo-note { padding: 10px; border: 1px solid #efd9ae; border-radius: 8px; background: #fff7e8; font-size: 14px; }
+.service-demo-result { min-width: 0; overflow-wrap: anywhere; }
+.service-demo-result li { margin-block: 8px; font-size: 14px; }
+.demo-account { direction: ltr; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; padding: 10px; border-radius: 8px; background: #edf3ff; }
