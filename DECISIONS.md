@@ -1,3 +1,13 @@
+## 2026-11-01 — CURRENT OWNER PIVOT: our portfolio bot + custom development inquiries
+
+Owner explicitly replaces the customer-facing universal/no-code builder with DirectPilot's OWN service-discovery/portfolio Telegram bot. Prospects choose a business category, try clearly simulated examples, describe a need, optionally give contact, review/consent and Confirm; then the registered owner receives a notification and scopes/builds each project. Website links to this bot. This supersedes the generic workflow designer/payment/panel engine next steps below; prior code/configuration/evidence are retained as history and internal assets, not deleted. No AI or universal/API support claim.
+
+New source: /showcase mobile-first Persian portfolio, 24 curated categories + demos, deterministic private Telegram conversation, additive 0004 scoped encrypted session/inquiry/delivery records, owner notification and owner-only last-30 inbox. Flag defaults OFF; only explicitly enabled own bot changes behavior. Confirmed requests persist before sends, unknown notifications remain visible without blind retry; no guaranteed delivery/exactly-once claim. Native phone/Telegram acceptance is separate from tests. Legacy inbound message text policy still applies; new ciphertext is not whole-database encryption.
+
+Implementation/local validation, CI, UAT migration/activation, exact deployment, website release and owner acceptance are separate gates; do not infer completion. Existing sole active UAT test bot has ready credentials/registered active owner; reusing it is not creation or renaming of a new BotFather account. External APIs remain OFF, business backend Production untouched. Runbook: docs/telegram_bot_builder/OWN_SHOWCASE_BOT_20261101.md.
+
+---
+
 ## 2026-11-01 — CURRENT: synthetic service-sales prototype #119 LIVE in isolated UAT
 
 PR https://github.com/namach2727-coder/Sales-Agent/pull/119 reviewed head 1f3a2a44f5af8fdee4a653a7463a71fa44db99c5 passed all 11 checks. Squash merge b18514a08e55d5c2c330eaebe263d3a7bfd83502 ONLY into feature/telegram-managed-bots-spike-20261017 has identical reviewed tree dc88b555f4ff01de6336976479234ea235ccba70. Automatic deployment dpl_45WCEywF5XqqdJVQhFcXahbNyrVv is READY on the exact merge and owns canonical https://directpilot-telbot-uat-api.vercel.app. This is the isolated TelBot UAT project; business Production was not promoted.
