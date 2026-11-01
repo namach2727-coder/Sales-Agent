@@ -1,3 +1,11 @@
+## SEO Growth — current feature checkpoint
+
+DRAFT backend PR #121 (`feature/seo-growth-commercial-foundation-20261101`) and frontend PR #71 implement customer Google onboarding plus role-protected, revisioned internal pilot administration. Schema source head is 0029 after 0028; original UAT remains 0027. The exact upgrade has passed on an isolated PostgreSQL branch, and a separate readable 0027 checkpoint is retained. No Production release, commercial offer or real customer activation has occurred. Both SEO flags default off; paid commerce and existing channel products are unchanged.
+
+Final full backend suite: **1025 passed, 7 skipped, zero failures**. Frontend full suite: 293 passed. TypeScript, changed-file lint, Next webpack build, local migration drift/round-trip and actual ASGI import pass. The unchanged private operator component has an existing global-lint failure. Real Google consent and browser/mobile acceptance remain pending.
+
+Next action: decide on and complete/discard the prepared UAT migration with explicit owner confirmation; then configure dedicated UAT OAuth privately and verify the real customer flow. See the pilot runbook and the six mandatory release documents for exact review artifacts. The older project notes below remain historical.
+
 # DirectPilot Project Status
 
 ## Canonical source location

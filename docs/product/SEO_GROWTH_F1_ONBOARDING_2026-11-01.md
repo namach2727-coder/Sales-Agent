@@ -1,5 +1,9 @@
 # SEO Growth F1 — customer onboarding implementation and release gates
 
+> Current continuation: **0029 + pilot administration implemented; temporary PostgreSQL migration verified; source UAT still 0027 and awaiting an explicit migration decision.** See [the current pilot runbook](SEO_GROWTH_F1_PILOT_ADMIN_2026-11-01.md). The sections below preserve the earlier onboarding-only checkpoint and its then-current validation/hosting observations; claims of no admin or no PostgreSQL rehearsal are historical.
+
+## Earlier onboarding checkpoint (preserved history)
+
 2026-11-01. Owner-authorized development continuation. **DRAFT Backend PR #121 and Frontend PR #71; neither merged nor deployed by this task.** This supersedes the F0-only status in the original foundation proposal. The product remains a pilot implementation, not a commercially available service.
 
 ## Implemented customer story

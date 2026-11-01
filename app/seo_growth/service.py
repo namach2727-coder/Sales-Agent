@@ -62,7 +62,7 @@ class SeoOnboardingService:
         grant = self.db.scalar(select(SeoAccessGrant).where(
             SeoAccessGrant.tenant_id == self.tenant, SeoAccessGrant.store_id == self.store,
             SeoAccessGrant.status == "active", SeoAccessGrant.expires_at > now(),
-        ))
+        ).execution_options(populate_existing=True))
         if grant is None:
             raise SeoError("seo_access_required", 403)
         return grant
@@ -92,7 +92,7 @@ class SeoOnboardingService:
         grant = self.db.scalar(select(SeoAccessGrant).where(
             SeoAccessGrant.tenant_id == self.tenant, SeoAccessGrant.store_id == self.store,
             SeoAccessGrant.status == "active", SeoAccessGrant.expires_at > now(),
-        ))
+        ).execution_options(populate_existing=True))
         configured = False
         if self.settings.seo_growth_enabled:
             try:

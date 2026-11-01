@@ -222,7 +222,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0028_seo_google_onboarding"]
+    assert scripts.get_heads() == ["0029_seo_pilot_revision"]
     baseline = scripts.get_revision("0001_baseline_schema")
     seed_history = scripts.get_revision("0002_create_seed_history")
     rbac = scripts.get_revision("0003_authorization_rbac")
@@ -331,6 +331,7 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
+        "0029_seo_pilot_revision",
         "0028_seo_google_onboarding",
         "0027_traceable_receipt_versions",
         "0026_durable_product_media",

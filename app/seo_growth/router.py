@@ -59,6 +59,10 @@ def fail(error: Exception):
     messages = {
         "seo_access_required": "دسترسی سرویس سئو برای این حساب فعال نیست.",
         "seo_not_enabled": "سرویس سئو هنوز فعال نشده است.",
+        "seo_pilot_admin_required": "مدیریت دسترسی آزمایشی فقط برای مدیر سیستم مجاز است.",
+        "seo_pilot_revision_conflict": "دسترسی هم‌زمان تغییر کرده است؛ وضعیت تازه را دریافت کنید و دوباره بررسی کنید.",
+        "seo_pilot_limit_below_usage": "سقف انتخابی کمتر از تعداد سایت‌ها یا اتصال‌های موجود است.",
+        "seo_scope_inactive": "حساب یا فضای کاری فعال نیست.",
         "seo_configuration_required": "اتصال Google هنوز آماده نشده است.",
         "seo_property_not_granted": "این سایت در فهرست دسترسی Google شما نیست.",
         "seo_connect_rate_limited": "چند دقیقه دیگر برای اتصال دوباره تلاش کنید.",

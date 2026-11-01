@@ -23,6 +23,7 @@ from app.automation.router import router as automation_router
 from app.automation_rules.router import router as automation_rules_router
 from app.ai_assistant.router import router as ai_assistant_router
 from app.seo_growth.router import router as seo_growth_router
+from app.seo_growth.admin_router import router as seo_pilot_admin_router
 from app.commerce.router import router as commerce_router
 from app.commerce.service import manual_payment_runtime_summary
 from app.conversation_core.router import router as conversation_core_router
@@ -166,6 +167,7 @@ app.include_router(automation_router)
 app.include_router(automation_rules_router)
 app.include_router(ai_assistant_router)
 app.include_router(seo_growth_router)
+app.include_router(seo_pilot_admin_router)
 app.include_router(commerce_router)
 
 

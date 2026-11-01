@@ -17,6 +17,7 @@ class SeoAccessGrant(Base):
         CheckConstraint("max_sites BETWEEN 1 AND 20", name="ck_seo_grant_sites"),
         CheckConstraint("max_connections BETWEEN 1 AND 10", name="ck_seo_grant_connections"),
         CheckConstraint("status IN ('active', 'disabled')", name="ck_seo_grant_status"),
+        CheckConstraint("revision >= 1", name="ck_seo_grant_revision"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
@@ -24,6 +25,7 @@ class SeoAccessGrant(Base):
     status: Mapped[str] = mapped_column(String(20), default="active")
     max_sites: Mapped[int] = mapped_column(default=1)
     max_connections: Mapped[int] = mapped_column(default=1)
+    revision: Mapped[int] = mapped_column(default=1, server_default="1")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 

@@ -9,14 +9,16 @@ from cryptography.fernet import Fernet
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 import pytest
-from sqlalchemy import create_engine, event, select
+from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.orm import Session
 
 from app.authentication.context import AuthenticatedPrincipal
 from app.authentication.dependencies import require_authenticated_principal
 from app.config import Settings, get_settings
 from app.database import Base, get_db
-from app.models import Store, TenantAuditLog, UserIdentity
+from app.models import AuthPlatformRoleAssignment, Store, TenantAuditLog, TenantSubscription, UserIdentity
+from app.seo_growth.admin_router import router as admin_router
+from app.seo_growth.pilot_admin import SeoPilotAdminService
 from app.seo_growth.google_client import GSC_READONLY_SCOPE, GoogleGscError, GoogleGscProperty, GoogleOAuthTokens, GoogleSearchConsoleClient
 from app.seo_growth.models import SeoAccessGrant, SeoGoogleConnection, SeoOAuthAttempt, SeoSite
 from app.seo_growth.router import get_google_provider, router
@@ -339,3 +341,188 @@ def test_api_requires_authentication(env):
     app.dependency_overrides[get_settings] = lambda: env["settings"]
     with TestClient(app) as client:
         assert client.get(prefix(env) + "/status").status_code == 401
+
+
+@pytest.fixture()
+def pilot_admin_env(env):
+    role = AuthPlatformRoleAssignment(principal_type="user", principal_id=str(env["user"].id),
+        role_code="platform_super_admin", status="active")
+    env["db"].add(role); env["db"].commit()
+    env["principal"] = replace(env["principal"], platform_role_codes=("platform_super_admin",))
+    env["admin_role"] = role
+    return env
+
+
+@pytest.fixture()
+def pilot_admin_api(pilot_admin_env):
+    env = pilot_admin_env
+    app = FastAPI(); app.include_router(admin_router); app.include_router(router)
+    app.dependency_overrides[get_db] = lambda: env["db"]
+    app.dependency_overrides[get_settings] = lambda: env["settings"]
+    app.dependency_overrides[require_authenticated_principal] = lambda: env["principal"]
+    app.dependency_overrides[get_google_provider] = lambda: env["fake"]
+    with TestClient(app, base_url="https://customer.example") as client:
+        yield client
+
+
+ADMIN_ENDPOINT = "/api/v1/admin/seo/pilot-grants"
+ADMIN_HEADERS = {"Origin": "https://customer.example", "X-CSRF-Token": "seo"}
+
+
+def grant_payload(env, **changes):
+    return {"tenant_public_id": env["tenant"].public_id, "store_public_id": env["store"].public_id,
+        "enabled": True, "expected_revision": 1, "duration_days": 7,
+        "max_sites": 1, "max_connections": 1, **changes}
+
+
+def grant_service(env, db=None):
+    return SeoPilotAdminService(db or env["db"], env["settings"], env["principal"],
+        env["tenant"].public_id, env["store"].public_id)
+
+
+def test_pilot_admin_cannot_be_replaced_by_customer_owner_role(env):
+    with pytest.raises(SeoError, match="seo_pilot_admin_required"):
+        grant_service(env).read()
+    assert env["db"].scalar(select(SeoAccessGrant)).revision == 1
+
+
+def test_pilot_admin_role_must_still_exist_in_database(pilot_admin_env, pilot_admin_api):
+    env = pilot_admin_env
+    env["admin_role"].status = "revoked"; env["db"].commit()
+    response = pilot_admin_api.post(ADMIN_ENDPOINT, headers=ADMIN_HEADERS, json=grant_payload(env))
+    assert response.status_code == 403
+    assert env["grant"].revision == 1
+
+
+def test_revoked_super_admin_cannot_fall_back_to_operator_permission(pilot_admin_env):
+    env = pilot_admin_env
+    service = grant_service(env)
+    # Role changes after the request's verified principal was constructed.
+    # The operator keeps tenant.access_manage, but is not a super admin.
+    with Session(env["engine"]) as other:
+        role = other.get(AuthPlatformRoleAssignment, env["admin_role"].id)
+        role.status = "revoked"
+        other.add(AuthPlatformRoleAssignment(principal_type="user",
+            principal_id=str(env["user"].id), role_code="platform_operator", status="active"))
+        other.commit()
+    with pytest.raises(SeoError, match="seo_pilot_admin_required"):
+        service.write(enabled=True, expected_revision=1,
+            duration_days=7, max_sites=1, max_connections=1)
+    assert env["grant"].revision == 1
+
+
+def test_pilot_admin_creates_bounded_grant_and_audit_without_subscription(pilot_admin_env, pilot_admin_api):
+    env = pilot_admin_env
+    env["db"].delete(env["grant"]); env["db"].commit()
+    subscriptions = env["db"].scalar(select(func.count()).select_from(TenantSubscription))
+    response = pilot_admin_api.post(ADMIN_ENDPOINT, headers=ADMIN_HEADERS,
+        json=grant_payload(env, expected_revision=0, duration_days=30, max_sites=3, max_connections=2))
+    assert response.status_code == 200
+    grant = response.json()["grant"]
+    assert grant["source"] == "internal_pilot" and grant["revision"] == 1
+    assert grant["max_sites"] == 3 and grant["effective"] is True
+    remaining = datetime.fromisoformat(grant["expires_at"]) - datetime.now(UTC)
+    assert timedelta(days=29) < remaining <= timedelta(days=30)
+    assert env["db"].scalar(select(func.count()).select_from(TenantSubscription)) == subscriptions
+    audit = env["db"].scalar(select(TenantAuditLog).where(TenantAuditLog.action == "seo.pilot_access_granted"))
+    assert audit.actor_identity_id == env["user"].id
+    assert audit.details_json["before"] is None and audit.details_json["after"]["revision"] == 1
+
+
+def test_pilot_revision_conflict_does_not_repeat_or_overwrite_grant(pilot_admin_env, pilot_admin_api):
+    env = pilot_admin_env
+    first = pilot_admin_api.post(ADMIN_ENDPOINT, headers=ADMIN_HEADERS, json=grant_payload(env, max_sites=2))
+    second = pilot_admin_api.post(ADMIN_ENDPOINT, headers=ADMIN_HEADERS, json=grant_payload(env, max_sites=3))
+    assert first.status_code == 200 and second.status_code == 409
+    env["db"].refresh(env["grant"])
+    assert env["grant"].max_sites == 2 and env["grant"].revision == 2
+    assert len(list(env["db"].scalars(select(TenantAuditLog).where(TenantAuditLog.action == "seo.pilot_access_granted")))) == 1
+
+
+def test_stale_session_object_cannot_hide_a_new_grant_revision(pilot_admin_env):
+    env = pilot_admin_env
+    first = grant_service(env)
+    assert first.read()["revision"] == 1
+    with Session(env["engine"]) as other:
+        grant_service(env, other).write(enabled=True, expected_revision=1, duration_days=10, max_sites=2, max_connections=1)
+    with pytest.raises(SeoError, match="seo_pilot_revision_conflict"):
+        first.write(enabled=True, expected_revision=1, duration_days=10, max_sites=3, max_connections=1)
+
+
+def test_pilot_revocation_blocks_customer_access_without_deleting_credentials(pilot_admin_env, pilot_admin_api):
+    env = pilot_admin_env
+    connection = connected(env)
+    token = connection.encrypted_refresh_token
+    response = pilot_admin_api.post(ADMIN_ENDPOINT, headers=ADMIN_HEADERS, json=grant_payload(env, enabled=False))
+    assert response.status_code == 200
+    assert response.json()["grant"]["status"] == "disabled"
+    with pytest.raises(SeoError, match="seo_access_required"):
+        env["svc"]().begin()
+    env["db"].refresh(connection)
+    assert connection.encrypted_refresh_token == token
+    assert env["svc"](cleanup=True).disconnect(connection.public_id, revoke_google=False)["status"] == "disconnected"
+
+
+def test_pilot_reduced_capacity_cannot_silently_drop_existing_sites(pilot_admin_env, pilot_admin_api):
+    env = pilot_admin_env
+    env["grant"].max_sites = 2; env["db"].commit()
+    connection = connected(env)
+    env["svc"]().add_site(connection.public_id, "sc-domain:example.com")
+    env["svc"]().add_site(connection.public_id, "https://example.org/")
+    response = pilot_admin_api.post(ADMIN_ENDPOINT, headers=ADMIN_HEADERS, json=grant_payload(env, max_sites=1))
+    assert response.status_code == 409 and response.json()["detail"]["code"] == "seo_pilot_limit_below_usage"
+    assert len(list(env["db"].scalars(select(SeoSite)))) == 2
+
+
+def test_customer_add_site_uses_capacity_changed_during_google_request(pilot_admin_env):
+    env = pilot_admin_env
+    env["grant"].max_sites = 2; env["db"].commit()
+    connection = connected(env)
+    env["svc"]().add_site(connection.public_id, "sc-domain:example.com")
+
+    def properties_after_admin_change(**kwargs):
+        # Another worker changes the grant while Google's read is in flight.
+        # The customer's Session already holds the old grant object.
+        with Session(env["engine"]) as other:
+            grant_service(env, other).write(enabled=True, expected_revision=1,
+                duration_days=7, max_sites=1, max_connections=1)
+        return env["fake"].entries
+
+    env["fake"].list_properties = properties_after_admin_change
+    with pytest.raises(SeoError, match="seo_site_limit"):
+        env["svc"]().add_site(connection.public_id, "https://example.org/")
+    assert env["db"].scalar(select(func.count()).select_from(SeoSite)) == 1
+
+
+@pytest.mark.parametrize("change", [{"duration_days": 0}, {"duration_days": 31}, {"max_sites": 21}, {"max_connections": 11}, {"expected_revision": -1}, {"enabled": "true"}, {"untrusted_override": True}])
+def test_pilot_payload_rejects_invalid_or_unexpected_values(pilot_admin_env, pilot_admin_api, change):
+    env = pilot_admin_env
+    assert pilot_admin_api.post(ADMIN_ENDPOINT, headers=ADMIN_HEADERS, json=grant_payload(env, **change)).status_code == 422
+    assert env["grant"].revision == 1
+
+
+def test_pilot_admin_csrf_and_feature_flag_are_enforced(pilot_admin_env, pilot_admin_api):
+    env = pilot_admin_env
+    assert pilot_admin_api.post(ADMIN_ENDPOINT, json=grant_payload(env)).status_code == 403
+    env["settings"].seo_growth_enabled = False
+    assert pilot_admin_api.post(ADMIN_ENDPOINT, headers=ADMIN_HEADERS, json=grant_payload(env)).status_code == 403
+    assert pilot_admin_api.post(ADMIN_ENDPOINT, headers=ADMIN_HEADERS, json=grant_payload(env, enabled=False)).status_code == 200
+
+
+def test_pilot_read_is_scoped_sanitized_and_not_cacheable(pilot_admin_env, pilot_admin_api):
+    env = pilot_admin_env
+    pilot_admin_api.post(ADMIN_ENDPOINT, headers=ADMIN_HEADERS, json=grant_payload(env))
+    scope = {"tenant_public_id": env["tenant"].public_id, "store_public_id": env["store"].public_id}
+    response = pilot_admin_api.get(ADMIN_ENDPOINT, params=scope)
+    assert response.status_code == 200 and response.headers["cache-control"] == "no-store"
+    assert response.json()["audit"][0]["changes"]["revision"] == 2
+    assert all(s not in response.text for s in [env["fake"].access, env["fake"].refresh, env["principal"].session_id])
+    scope["tenant_public_id"] = "00000000-0000-0000-0000-000000000000"
+    assert pilot_admin_api.get(ADMIN_ENDPOINT, params=scope).status_code == 404
+
+
+def test_pilot_cannot_enable_a_suspended_workspace(pilot_admin_env, pilot_admin_api):
+    env = pilot_admin_env
+    env["store"].status = "suspended"; env["db"].commit()
+    assert pilot_admin_api.post(ADMIN_ENDPOINT, headers=ADMIN_HEADERS, json=grant_payload(env)).status_code == 409
+    assert pilot_admin_api.post(ADMIN_ENDPOINT, headers=ADMIN_HEADERS, json=grant_payload(env, enabled=False)).status_code == 200
