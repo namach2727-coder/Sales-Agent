@@ -1,0 +1,67 @@
+{
+  "status": "applied_and_verified_do_not_replay",
+  "approval": {
+    "date": "2026-11-02",
+    "user_response": "ادامه بده",
+    "context": "Response to the explicit question asking to apply the reviewed 0027 to 0029 SQL only to UAT."
+  },
+  "target": {
+    "project_id": "round-shape-42044596",
+    "project_name": "directpilot-uat-v2",
+    "database_name": "neondb",
+    "branch_id": "br-spring-dream-arhxt1ji",
+    "branch_name": "production",
+    "environment": "UAT",
+    "separate_production_project_not_targeted": "billowing-poetry-05589994"
+  },
+  "migration_id": "af53e764-685a-4146-97ba-8b81d9a1c279",
+  "sql_sha256": "742134da2c68f564c789031b73b2a338eae1398f3d31350477c9db0492c0be9a",
+  "source_before": {
+    "migration_head": "0027_traceable_receipt_versions",
+    "tables": 83,
+    "indexes": 530,
+    "sequences": 77,
+    "constraints": 436
+  },
+  "source_after": {
+    "migration_head": "0029_seo_pilot_revision",
+    "tables": 87,
+    "indexes": 552,
+    "sequences": 81,
+    "constraints": 460
+  },
+  "integrity": {
+    "existing_tables_compared": 83,
+    "existing_table_row_counts_unchanged": true,
+    "new_seo_tables": 4,
+    "new_seo_table_rows": 0,
+    "revision_default": 1,
+    "revision_not_null": true,
+    "revision_positive_check": true,
+    "tenant_store_connection_fk_verified": true,
+    "all_seo_constraints_validated": true,
+    "row_content_checksums_not_compared": true
+  },
+  "fresh_pre_migration_checkpoint": {
+    "id": "br-holy-shape-arwz1kyp",
+    "parent_id": "br-spring-dream-arhxt1ji",
+    "parent_lsn": "0/3CBB5E0",
+    "name": "seo-f1-pre0029-checkpoint-20261102",
+    "verified_head": "0027_traceable_receipt_versions",
+    "all_83_table_row_counts_matched_before_application": true,
+    "still_at_0027_after_application": true
+  },
+  "prior_checkpoint_retained": "br-small-hat-ar1zf7mf",
+  "temporary_branch": {
+    "id": "br-jolly-poetry-aroels8l",
+    "deleted_by_completion_tool": true
+  },
+  "limitations": {
+    "independent_offsite_backup_verified": false,
+    "real_google_oauth_verified": false,
+    "seo_customer_grant_created": false,
+    "seo_service_enabled": false,
+    "canonical_uat_release_performed": false,
+    "production_changed_by_this_task": false
+  }
+}

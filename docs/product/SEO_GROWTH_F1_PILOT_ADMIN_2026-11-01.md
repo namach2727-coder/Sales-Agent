@@ -1,4 +1,34 @@
-# SEO Growth F1 — pilot administration and prepared UAT migration
+# SEO Growth F1 — UAT schema applied; OAuth activation pending
+
+## Current execution — 2026-11-02
+
+The owner replied «ادامه بده» to the explicit question asking to apply the exact reviewed 0027→0029 SQL only to UAT. The prepared Neon completion flow succeeded on `directpilot-uat-v2` / `round-shape-42044596`, `neondb`, source `br-spring-dream-arhxt1ji`. The source now reports `0029_seo_pilot_revision`; the separate Production project was not targeted. No SEO feature, grant, price or customer connection was activated.
+
+The source SQL and SHA-256 are unchanged. The temporary rehearsal branch was deleted by the completion tool. Its migration ID is completed and must not be replayed. [Prepared context](../migrations/SEO_GROWTH_UAT_0027_TO_0029_PREPARED.json) now points to the [completed execution record](../migrations/SEO_GROWTH_UAT_0027_TO_0029_COMPLETED_2026-11-02.json).
+
+| Read-only check | Before | After | Result |
+|---|---:|---:|---|
+| Existing table row counts | 83 tables compared | All 83 unchanged | PASS |
+| Tables | 83 | 87 | +4 SEO tables, all empty |
+| Indexes | 530 | 552 | +22 |
+| Sequences | 77 | 81 | +4 |
+| Primary / foreign / unique / check constraints | 436 | 460 | +24; all SEO constraints validated |
+| Grant revision | Absent | Default 1, NOT NULL, positive check | PASS |
+| Composite site scope FK | Absent | Connection + tenant + store | PASS |
+
+Before applying, a fresh checkpoint `br-holy-shape-arwz1kyp`, parent LSN `0/3CBB5E0`, was created from source. All 83 table counts matched. It remains readable at 0027 after migration. The earlier `br-small-hat-ar1zf7mf` checkpoint is retained. These branches are not an independently verified offsite backup or a destructive restore rehearsal; preserve them through UAT acceptance. Row counts were compared, not row-content checksums.
+
+This is a live UAT schema result, not a runtime release or real Google/customer acceptance. Runtime code is unchanged from the prior tested commits. Next: dedicated UAT OAuth/consent and private upstream/database/encryption configuration, then reviewed UAT deployment and real Google/mobile acceptance. No repeated migration approval is needed.
+
+A fresh metadata-only hosting read confirms no dedicated backend SEO Growth settings and no `NEXT_PUBLIC_SEO_GROWTH_ENABLED` are configured. Existing private operator GSC keys are separate and were not reused. No environment values were changed.
+
+### Current OAuth access blocker
+
+A fresh 2026-11-02 check could not reach configuration. The Browser connector returned “Browser access requires the originating browser context”; no connected extension session was established by that tool. The cloud fallback opened the exact Google Auth Clients URL `https://console.cloud.google.com/auth/clients` and displayed “Site Unavailable / Unable to access this site”. This is a limitation of this session, not proof of a global outage, invalid credentials, account rejection or bot detection. No login, OAuth client creation, consent or hosting-secret change was performed. Keep dedicated UAT client values proposed below; real provider configuration/acceptance remains pending.
+
+## Earlier preparation and implementation checkpoint — preserved history
+
+The following records describe the state before the approved execution. Statements that source remains 0027 or that migration approval is pending are historical and superseded above.
 
 Owner-authorized development continuation, 2026-11-01. Backend DRAFT [PR #121](https://github.com/namach2727-coder/Sales-Agent/pull/121), branch `feature/seo-growth-commercial-foundation-20261101`; frontend DRAFT [PR #71](https://github.com/namach2727-coder/directpilot-web/pull/71), branch `docs/seo-growth-customer-portal-contract-20261101`. No merge, canonical UAT release, Production promotion, real customer grant, Google credential configuration or customer website edit is performed here. Previous onboarding evidence is retained in `SEO_GROWTH_F1_ONBOARDING_2026-11-01.md`.
 

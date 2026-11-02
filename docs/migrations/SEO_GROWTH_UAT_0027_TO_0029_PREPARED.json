@@ -1,5 +1,5 @@
 {
-  "approval_status": "awaiting_explicit_owner_confirmation_do_not_apply_automatically",
+  "approval_status": "approved_and_applied_to_uat_2026_11_02_do_not_replay",
   "migration_id": "af53e764-685a-4146-97ba-8b81d9a1c279",
   "database_name": "neondb",
   "project_id": "round-shape-42044596",
@@ -25,5 +25,13 @@
     "head": "0027_traceable_receipt_versions",
     "seo_tables_absent": true,
     "independent_offsite_backup_verified": false
+  },
+  "original_approval_status": "awaiting_explicit_owner_confirmation_do_not_apply_automatically",
+  "completion_record": "SEO_GROWTH_UAT_0027_TO_0029_COMPLETED_2026-11-02.json",
+  "completion_summary": {
+    "source_head": "0029_seo_pilot_revision",
+    "temporary_branch_deleted": true,
+    "existing_83_table_row_counts_preserved": true,
+    "fresh_checkpoint_id": "br-holy-shape-arwz1kyp"
   }
 }

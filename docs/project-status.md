@@ -1,3 +1,11 @@
+## SEO Growth — current UAT schema checkpoint
+
+The approved additive 0027→0029 migration is APPLIED and read-only postchecks PASS on the original isolated Neon UAT database. All 83 pre-existing table row counts match; the four new SEO tables are empty and their revision/scope constraints are validated. A fresh readable 0027 recovery branch and the earlier checkpoint are retained. Production was not targeted. See the completion record and pilot runbook for exact scope and evidence; the migration must not be replayed.
+
+Backend runtime code remains 862d37c and frontend c42a852 in DRAFT PRs #121/#71. This operation changed schema only: no canonical runtime release, customer grant, feature activation, payment, provider secret or customer website edit. Prior local/CI source checks remain separately recorded; real Google/browser/mobile acceptance is pending.
+
+Next action: dedicated UAT OAuth/configuration and private upstream/database mapping, then controlled deployment and real customer acceptance. Older checkpoints below are historical and their 0027/pending-migration statements are superseded.
+
 ## SEO Growth — current feature checkpoint
 
 DRAFT backend PR #121 (`feature/seo-growth-commercial-foundation-20261101`, runtime code `862d37c955760073257a516ced18edea45b60d1b`) and frontend PR #71 (code `c42a8520ec0a0e254956f892c0049b72607a3665`) implement customer Google onboarding plus role-protected, revisioned internal pilot administration. Schema source head is 0029 after 0028; original UAT remains 0027. The exact upgrade has passed on an isolated PostgreSQL branch, and a separate readable 0027 checkpoint is retained. No Production release, commercial offer or real customer activation has occurred. Both SEO flags default off; paid commerce and existing channel products are unchanged.
