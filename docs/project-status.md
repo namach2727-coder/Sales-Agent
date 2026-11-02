@@ -1,3 +1,11 @@
+## SEO Growth — published bounded preview checkpoint
+
+DRAFT backend #121 report source `f031e8e6cf11dec5b4c807f7d948e98d715c7d00` and frontend #71 combined source `53da098d8457a72d226922402215dfcbe130babd` are published and mergeable, preserving current main work. Frontend documentation follows at `7ec27b584a8ab09def33b2c874cefe1019226c49`. Preview reports are request/page-only, separately default-off, with current scope/credential checks and bounded workspace requests. No metric history, scheduled sync, paid plan, new migration or website write is introduced.
+
+Final evidence: backend 1061 passed / 7 skipped, all four exact-source GitHub CI jobs PASS; combined frontend 298 passed, TypeScript/full lint (0 errors / 3 existing warnings), Next webpack and Vinext builds PASS. Backend feature Preview is READY; the frontend runtime Preview is CANCELED. Frontend hosted validate/verify PASS on the documentation head with unchanged runtime; automated Lighthouse also PASS for the existing public pages (not the authenticated report). Neither establishes real Google or customer UAT. Source and original UAT remain 0029; do not replay its completed migration.
+
+Next action: dedicated UAT OAuth/configuration and private routing/database/encryption mapping, current frontend CI/hosted validation and real customer report/mobile acceptance. No canonical UAT/Production, live database/secret, customer grant or CMS change was performed. Both PRs stay DRAFT/unmerged; earlier checkpoints retain history.
+
 ## SEO Growth — current analysis preview checkpoint
 
 DRAFT backend PR #121 and frontend PR #71 now implement an explicit bounded customer report preview on the existing authorized Google connection. It compares two 28-day Pacific-calendar windows, keeps missing dates unknown, computes totals from date rows and limits non-exhaustive query/page review candidates. A separate backend flag defaults off; current role/grant/site/credential checks and store-wide request guards apply. Reports exist only in the response/page, with no metric history, background sync, new schema or CMS writes.
