@@ -28,6 +28,10 @@ class DisconnectRequest(BaseModel):
     revoke_google: bool = False
 
 
+class AnalysisPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
 def get_google_provider():
     """Test injection boundary; production creates a Google-only client lazily."""
     return None
@@ -59,6 +63,11 @@ def fail(error: Exception):
     messages = {
         "seo_access_required": "دسترسی سرویس سئو برای این حساب فعال نیست.",
         "seo_not_enabled": "سرویس سئو هنوز فعال نشده است.",
+        "seo_analysis_not_enabled": "گزارش آزمایشی سئو هنوز فعال نشده است.",
+        "seo_analysis_rate_limited": "سقف درخواست گزارش پر شده است؛ حداقل یک دقیقه فاصله و حداکثر ۱۲ درخواست در ۲۴ ساعت مجاز است.",
+        "seo_site_not_connected": "ابتدا سایت را دوباره متصل کنید.",
+        "seo_connection_changed": "وضعیت اتصال تغییر کرده است؛ وضعیت تازه را دریافت کنید.",
+        "google_invalid_response": "داده معتبر برای گزارش دریافت نشد؛ کمی بعد دوباره بررسی کنید.",
         "seo_pilot_admin_required": "مدیریت دسترسی آزمایشی فقط برای مدیر سیستم مجاز است.",
         "seo_pilot_revision_conflict": "دسترسی هم‌زمان تغییر کرده است؛ وضعیت تازه را دریافت کنید و دوباره بررسی کنید.",
         "seo_pilot_limit_below_usage": "سقف انتخابی کمتر از تعداد سایت‌ها یا اتصال‌های موجود است.",
@@ -129,7 +138,8 @@ def properties(connection_public_id: str, svc: SeoOnboardingService = Depends(se
 @router.post(PREFIX + "/sites", status_code=201)
 def add_site(payload: SiteCreate, svc: SeoOnboardingService = Depends(service)):
     try:
-        return site_read(svc.add_site(payload.connection_public_id, payload.property_id))
+        site = svc.add_site(payload.connection_public_id, payload.property_id)
+        return site_read(site, own_connection_id=site.connection_id)
     except (SeoError, GoogleGscError) as exc:
         fail(exc)
 
@@ -138,8 +148,20 @@ def add_site(payload: SiteCreate, svc: SeoOnboardingService = Depends(service)):
 def sites(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0, le=10000),
           svc: SeoOnboardingService = Depends(service)):
     try:
-        return {"items": [site_read(s) for s in svc.sites(limit=limit, offset=offset)]}
+        connection = svc.db.scalar(svc._connections())
+        return {"items": [site_read(s, own_connection_id=connection.id if connection else None)
+                          for s in svc.sites(limit=limit, offset=offset)]}
     except SeoError as exc:
+        fail(exc)
+
+
+@router.post(PREFIX + "/sites/{site_public_id}/analysis-preview")
+def analyze(site_public_id: str, payload: AnalysisPreviewRequest,
+            svc: SeoOnboardingService = Depends(service)):
+    from app.seo_growth.reporting import analysis_preview
+    try:
+        return analysis_preview(svc, site_public_id)
+    except (SeoError, GoogleGscError) as exc:
         fail(exc)
 
 
@@ -161,8 +183,9 @@ def disconnect(connection_public_id: str, payload: DisconnectRequest,
         fail(exc)
 
 
-def site_read(site) -> dict:
+def site_read(site, *, own_connection_id: int | None = None) -> dict:
     return {"public_id": site.public_id, "property_id": site.property_id,
             "permission_level": site.permission_level, "status": site.status,
             "created_at": site.created_at, "updated_at": site.updated_at,
-            "sync_status": "not_started"}
+            "sync_status": "not_started",
+            "analysis_available": site.status == "connected" and site.connection_id == own_connection_id}

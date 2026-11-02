@@ -54,6 +54,7 @@ class Settings(BaseSettings):
 
     # Independent commercial SEO pilot. Never borrow the operator GSC key.
     seo_growth_enabled: bool = False
+    seo_analysis_preview_enabled: bool = False
     seo_google_client_id: str = ""
     seo_google_client_secret: SecretStr = SecretStr("")
     seo_google_redirect_uri: str = ""

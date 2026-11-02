@@ -1,3 +1,11 @@
+## SEO Growth — current analysis preview checkpoint
+
+DRAFT backend PR #121 and frontend PR #71 now implement an explicit bounded customer report preview on the existing authorized Google connection. It compares two 28-day Pacific-calendar windows, keeps missing dates unknown, computes totals from date rows and limits non-exhaustive query/page review candidates. A separate backend flag defaults off; current role/grant/site/credential checks and store-wide request guards apply. Reports exist only in the response/page, with no metric history, background sync, new schema or CMS writes.
+
+Full backend **1061 passed, 7 skipped, zero failed**; local migration naming/graph, schema drift and base→head→base→head checks PASS at the unchanged single head 0029. Frontend full 297 passed; focused report/provider 53 and rendered report/onboarding 5 passed, TypeScript/changed-file lint/Next build pass. Real Google, multi-worker PostgreSQL, proxy and visual/mobile acceptance remain pending. Schema remains 0029; no live database or Production change was performed. Independent main website documentation and the previous UAT migration history are preserved.
+
+Next action: dedicated UAT OAuth/configuration and private upstream/database mapping, then reviewed UAT deployment and real customer report acceptance. See the F2a runbook; older checkpoints below retain their original scope and evidence.
+
 ## SEO Growth — current UAT schema checkpoint
 
 The approved additive 0027→0029 migration is APPLIED and read-only postchecks PASS on the original isolated Neon UAT database. All 83 pre-existing table row counts match; the four new SEO tables are empty and their revision/scope constraints are validated. A fresh readable 0027 recovery branch and the earlier checkpoint are retained. Production was not targeted. See the completion record and pilot runbook for exact scope and evidence; the migration must not be replayed.
@@ -17,6 +25,46 @@ Current backend-main a810228df804976cbccfee39c961239001b422a6 contains documenta
 Next action: decide on and complete/discard the prepared UAT migration with explicit owner confirmation; then configure dedicated UAT OAuth privately and verify the real customer flow. See the pilot runbook and the six mandatory release documents for exact review artifacts. The older project notes below remain historical.
 
 # DirectPilot Project Status
+
+## Current website SEO checkpoint
+
+The owner prioritizes service-keyword acquisition. The website content batch is
+implemented, merged and verified live through frontend
+[PR #74](https://github.com/namach2727-coder/directpilot-web/pull/74), content
+commit `38846546333835ef78aa287f4df74d3e68a46e56`. It updates four existing
+service landings and five article CTAs, preserving backend-owned prices,
+entitlements, auth/payments and existing indexing boundaries.
+
+The six canonical records were reconciled by
+[PR #128](https://github.com/namach2727-coder/Sales-Agent/pull/128), merged at
+`28b2b699c59bc38d44c42aef76f576ee7b6900b5`. This follow-up adds the non-brand
+measurement handoff and corrects stale release/access wording through frontend
+[docs PR #75](https://github.com/namach2727-coder/directpilot-web/pull/75) and
+[backend docs PR #129](https://github.com/namach2727-coder/Sales-Agent/pull/129).
+The backend follow-up is documentation only. The automatic frontend documentation build was canceled; the previous verified
+content runtime was retained. Frontend docs PR #75 is MERGED at `cfa4b880a9f921236377ab540f953aac26c5143f`; it does not
+reimplement the completed content release.
+
+Recorded frontend evidence: 287 full / 35 focused tests PASS, TypeScript PASS,
+lint zero errors/three existing warnings, builds PASS, exact-source CI PASS,
+hosted Preview/Production HTTP checks PASS (11 targeted and 16 regression,
+with overlap). These are release records, not newly executed backend tests.
+Windsor analytics/sitemap reads work; GSC Wizard URL Inspection remains a
+separate limitation. No browser/mobile/business-flow acceptance or post-release
+Google index/ranking result is established by this documentation task.
+
+**Next action:** follow the complete-data non-brand query/page review protocol
+in the [frontend release runbook](https://github.com/namach2727-coder/directpilot-web/blob/main/docs/seo/NONBRAND_LANDINGS_2026-11-02.md).
+Measurement pending is not an implementation P0 for the released content batch.
+The multi-tenant commercial SEO product and private MCP remain separate scopes.
+
+## Historical backend runtime records
+
+The runtime, migration, infrastructure, test and acceptance records below are
+preserved at their original checkpoints. This website SEO documentation pass
+does not revalidate their current operational state. The five canonical files
+and Release Register remain the cross-chat release authority; read them in the
+prescribed order and reconcile actual provider evidence before runtime changes.
 
 ## Canonical source location
 

@@ -104,6 +104,9 @@ def test_gsc_query_always_uses_fixed_google_api_and_validated_dimensions():
         assert "sc-domain%3Aexample.org" in str(req.url)
         assert req.headers["authorization"] == "Bearer allowed"
         assert '"dimensions":["date"]' in req.content.decode()
+        assert '"dataState":"final"' in req.content.decode()
+        assert '"type":"web"' in req.content.decode()
+        assert '"aggregationType":"byProperty"' in req.content.decode()
         return httpx.Response(200, json={"rows":[{"keys":["2026-10-30"],"clicks":1,"impressions":20}]})
     c = client(handler)
     response = c.search_analytics(

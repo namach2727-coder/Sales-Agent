@@ -103,6 +103,7 @@ class SeoOnboardingService:
                 pass
         connection = self.db.scalar(self._connections())
         return {"enabled": self.settings.seo_growth_enabled, "configured": configured,
+                "analysis_preview_enabled": self.settings.seo_growth_enabled and self.settings.seo_analysis_preview_enabled,
                 "access_granted": grant is not None, "max_sites": grant.max_sites if grant else 0,
                 "connection": connection_read(connection) if connection else None}
 

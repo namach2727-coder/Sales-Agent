@@ -218,7 +218,9 @@ class GoogleSearchConsoleClient:
         site = validate_property_identifier(property_id)
         url = GOOGLE_GSC_API + "/sites/" + quote(site, safe="") + "/searchAnalytics/query"
         body = {"startDate": start_date.isoformat(), "endDate": end_date.isoformat(),
-                "dimensions": list(dimensions), "rowLimit": row_limit}
+                "dimensions": list(dimensions), "rowLimit": row_limit,
+                "dataState": "final", "type": "web",
+                "aggregationType": "auto" if "page" in dimensions else "byProperty"}
         return self._request("POST", url, access_token=access_token, payload=body)
 
     def inspect_url(self, *, access_token: str, property_id: str, inspection_url: str) -> dict[str, Any]:

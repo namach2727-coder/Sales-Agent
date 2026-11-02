@@ -1,5 +1,7 @@
 # SEO Growth F1 — UAT schema applied; OAuth activation pending
 
+> Latest development: a separately gated response-only analysis preview is implemented; see [F2a preview](SEO_GROWTH_F2A_PREVIEW_2026-11-02.md). It requires no schema migration, does not activate Google or replace the pending real UAT acceptance below.
+
 ## Current execution — 2026-11-02
 
 The owner replied «ادامه بده» to the explicit question asking to apply the exact reviewed 0027→0029 SQL only to UAT. The prepared Neon completion flow succeeded on `directpilot-uat-v2` / `round-shape-42044596`, `neondb`, source `br-spring-dream-arhxt1ji`. The source now reports `0029_seo_pilot_revision`; the separate Production project was not targeted. No SEO feature, grant, price or customer connection was activated.
