@@ -14,7 +14,9 @@ The six canonical records were reconciled by
 `28b2b699c59bc38d44c42aef76f576ee7b6900b5`. This follow-up adds the non-brand
 measurement handoff and corrects stale release/access wording through frontend
 [docs PR #75](https://github.com/namach2727-coder/directpilot-web/pull/75) and
-these backend documentation files. Frontend docs PR #75 is MERGED at `cfa4b880a9f921236377ab540f953aac26c5143f`; it does not
+[backend docs PR #129](https://github.com/namach2727-coder/Sales-Agent/pull/129).
+The backend follow-up is documentation only. The automatic frontend documentation build was canceled; the previous verified
+content runtime was retained. Frontend docs PR #75 is MERGED at `cfa4b880a9f921236377ab540f953aac26c5143f`; it does not
 reimplement the completed content release.
 
 Recorded frontend evidence: 287 full / 35 focused tests PASS, TypeScript PASS,
