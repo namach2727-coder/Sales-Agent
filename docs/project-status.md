@@ -1,5 +1,45 @@
 # DirectPilot Project Status
 
+## Current website SEO checkpoint
+
+The owner prioritizes service-keyword acquisition. The website content batch is
+implemented, merged and verified live through frontend
+[PR #74](https://github.com/namach2727-coder/directpilot-web/pull/74), content
+commit `38846546333835ef78aa287f4df74d3e68a46e56`. It updates four existing
+service landings and five article CTAs, preserving backend-owned prices,
+entitlements, auth/payments and existing indexing boundaries.
+
+The six canonical records were reconciled by
+[PR #128](https://github.com/namach2727-coder/Sales-Agent/pull/128), merged at
+`28b2b699c59bc38d44c42aef76f576ee7b6900b5`. This follow-up adds the non-brand
+measurement handoff and corrects stale release/access wording through frontend
+[docs PR #75](https://github.com/namach2727-coder/directpilot-web/pull/75) and
+[backend docs PR #129](https://github.com/namach2727-coder/Sales-Agent/pull/129).
+The backend follow-up is documentation only. The automatic frontend documentation build was canceled; the previous verified
+content runtime was retained. Frontend docs PR #75 is MERGED at `cfa4b880a9f921236377ab540f953aac26c5143f`; it does not
+reimplement the completed content release.
+
+Recorded frontend evidence: 287 full / 35 focused tests PASS, TypeScript PASS,
+lint zero errors/three existing warnings, builds PASS, exact-source CI PASS,
+hosted Preview/Production HTTP checks PASS (11 targeted and 16 regression,
+with overlap). These are release records, not newly executed backend tests.
+Windsor analytics/sitemap reads work; GSC Wizard URL Inspection remains a
+separate limitation. No browser/mobile/business-flow acceptance or post-release
+Google index/ranking result is established by this documentation task.
+
+**Next action:** follow the complete-data non-brand query/page review protocol
+in the [frontend release runbook](https://github.com/namach2727-coder/directpilot-web/blob/main/docs/seo/NONBRAND_LANDINGS_2026-11-02.md).
+Measurement pending is not an implementation P0 for the released content batch.
+The multi-tenant commercial SEO product and private MCP remain separate scopes.
+
+## Historical backend runtime records
+
+The runtime, migration, infrastructure, test and acceptance records below are
+preserved at their original checkpoints. This website SEO documentation pass
+does not revalidate their current operational state. The five canonical files
+and Release Register remain the cross-chat release authority; read them in the
+prescribed order and reconcile actual provider evidence before runtime changes.
+
 ## Canonical source location
 
 - Repository: `C:/Users/q/Documents/Codex/2026-07-11/referenced-chatgpt-conversation-this-is-untrusted`

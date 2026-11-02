@@ -3,6 +3,16 @@
 
 ### SEO-NONBRAND-LANDINGS-20261102 — PRODUCTION RELEASE VERIFIED (current)
 
+- **Documentation follow-up (owner request; [backend docs PR #129](https://github.com/namach2727-coder/Sales-Agent/pull/129), source checkpoint `4228cedde6ec17eb8f98dc48c7f561a5ad49bbfc`):** [frontend docs PR #75](https://github.com/namach2727-coder/directpilot-web/pull/75) reconciles SEO policy, release runbook, README/deployment guidance and project status; documentation source `136218e0c143ddd99987cb26a6a638778c3796ab` passed GitHub `validate`/`verify` and MERGED as `cfa4b880a9f921236377ab540f953aac26c5143f`; all changed paths are Markdown, so this is not a new runtime feature. Prior backend docs PR #128 is MERGED at `28b2b699c59bc38d44c42aef76f576ee7b6900b5`. This documentation pass synchronizes these six files and backend `docs/project-status.md`; no new application, database or provider acceptance is claimed.
+- **Register maintenance:** the current table below supersedes the explicitly historical source table. Code merge, hosted HTTP checks, manual acceptance and Google search outcomes remain distinct states.
+
+| Release | Source / PR | UAT / Preview | Production | Acceptance / next action |
+| --- | --- | --- | --- | --- |
+| SEO-NONBRAND-LANDINGS-20261102 (current) | frontend #74; source `f21bcd34b941ed290be2b3eccaec08275655a152`; merged `38846546333835ef78aa287f4df74d3e68a46e56` | Protected Preview READY; 11/11 HTTP PASS; UAT not promoted | `dpl_EBrg4RrDLC2hrPyhvu3UhAUNSdXS` READY; apex/www verified; 11 targeted + 16 regression PASS (overlap) | Owner authorized content continuation; browser/manual and post-release Google outcomes not newly accepted |
+| SEO-NONBRAND-DOCS-20261102 | frontend docs #75 MERGED `cfa4b880a9f921236377ab540f953aac26c5143f` (tested source `136218e0c143ddd99987cb26a6a638778c3796ab`); backend docs #129 / source checkpoint `4228cedde6ec17eb8f98dc48c7f561a5ad49bbfc` on `docs/seo-service-keyword-reconciliation-20261102` | Documentation only; no UAT runtime acceptance | Auto frontend docs build canceled; no new runtime/content deployment | Owner requested complete documentation review and relevant updates; frontend exact-source CI SUCCESS; 12-file docs/link/history/secret checks PASS; 11-route public smoke PASS |
+
+- **Documentation validation:** all 12 modified files are Markdown; added-link, whitespace/credential and mandatory-rule/history checks PASS. The existing 11-route public HTTP check was rerun PASS. Frontend docs exact-source CI PASS; no new backend suite or browser acceptance is claimed.
+- **Documentation deployment boundary:** the automatic frontend Markdown-only build `dpl_8zi1GzLLesN9TDt2Z3wiFRMmBzxh` was canceled before completion to avoid an unnecessary runtime rebuild. The content release and production aliases remain separately verified; no global deployment settings were changed.
 - **Released scope/approval:** owner asked for service-keyword discovery and instructed continuation. Frontend [PR #74](https://github.com/namach2727-coder/directpilot-web/pull/74) MERGED as `38846546333835ef78aa287f4df74d3e68a46e56`; tested source `f21bcd34b941ed290be2b3eccaec08275655a152`. Merged tree `8f0174a50caab531cb817263d47b2ae4ce1a6676` is exactly the validated source tree. Four existing service landings and five supporting article CTAs now match non-brand intent. No full UAT merge or other product/runtime/data changes.
 - **Automated evidence:** exact-source GitHub `validate` and `verify` SUCCESS; 287 full tests and 35 focused tests PASS, TypeScript PASS, lint 0 errors/3 existing warnings, Next.js and Vinext builds PASS. Existing 13-route built HTML guards and additional H1/FAQ/link/date checks PASS.
 - **Hosted Preview:** `dpl_EKQnZir7haMk8qEfj7unmaSm7jLz` READY on exact source; all 11 HTTP checks PASS (four services, five articles, robots, sitemap); Preview noindex/nofollow and empty sitemap confirmed. A 15-minute temporary share was revoked after inspection. Per-deployment build-ignore override only; global project/protection settings unchanged.
@@ -11,7 +21,7 @@
 - **Continuity:** all six canonical documents reconciled in docs [PR #128](https://github.com/namach2727-coder/Sales-Agent/pull/128); the source checkpoint below remains historical evidence. UAT was not deployed or promoted for this targeted main release. Backend documentation only; no runtime changes or live data access.
 - **Limits / next action:** HTTP/rendered and CI validation do not establish browser/mobile/business-flow acceptance, fresh Google URL Inspection/recrawl, organic signup attribution or ranking lift. Latest available daily GSC row was Oct 31, before these releases. Evaluate settled non-brand query/page impressions, clicks, CTR and weighted position over comparable windows; no daily copy churn or immediate-rank promise. Windsor analytics and sitemap reads work; GSC Wizard inspection remains paid-blocked. No new paid service activated.
 
-### SEO-NONBRAND-LANDINGS-20261102 — SERVICE SEARCH PRIORITY / SOURCE VALIDATED
+### SEO-NONBRAND-LANDINGS-20261102 — SERVICE SEARCH PRIORITY / SOURCE VALIDATED (historical; superseded above)
 
 - **Owner goal/authorization:** site/service keywords and qualified acquisition, not branded-name visibility. Owner clarified the objective and instructed continuation of the public SEO content work and its reviewed release workflow. Keep the independent multi-tenant SEO service project out of this scope.
 - **Frontend:** [PR #74](https://github.com/namach2727-coder/directpilot-web/pull/74), branch `feat/seo-nonbrand-landings-20261102`, exact source `f21bcd34b941ed290be2b3eccaec08275655a152`, based on main `e12727fef3236322484a0b6ddd688fab5bc05d00`. Existing DM, comment/private-reply, limited-trial and pricing pages get distinct practical explanations, relevant examples, page-specific FAQs and contextual links. Trial/pricing H1s explicitly name their service intent. Article CTAs link to the appropriate owner. No new competing URLs, static prices, invented case studies or keyword-volume/rank promises.
@@ -21,6 +31,8 @@
 - **Release boundary:** GitHub CI and hosted Preview/Production checks are pending at this source checkpoint. Production still uses `dpl_8KsMiAjoi6MrPPTTUb2JXCSydCXk`; no fresh publication or Google ranking result is claimed here. Use the existing project and a per-deployment Preview ignore-step override, without changing global branch/protection/paid-plan settings. Verify exact tested tree, aliases and live public content before marking released.
 - **Measurement next:** reported non-brand impressions/clicks/CTR and impression-weighted position, correct query-to-page owner and separate organic signup attribution over comparable settled windows. No fresh GA4 instrumentation, Google URL Inspection/recrawl or immediate ranking lift is claimed. Retain this source checkpoint as history after final release evidence.
 - **Runbook:** [service keyword landings](https://github.com/namach2727-coder/directpilot-web/blob/f21bcd34b941ed290be2b3eccaec08275655a152/docs/seo/NONBRAND_LANDINGS_2026-11-02.md).
+
+**Historical source-checkpoint table:** values below describe the pre-release checkpoint only; use the current release table above.
 
 | Release | Source / PR | Local checks | Preview | Production |
 | --- | --- | --- | --- | --- |
@@ -41,7 +53,7 @@
 | SEO-BRAND-CONTENT-20261101 | #72 / `e12727fef3236322484a0b6ddd688fab5bc05d00` | both CI PASS; 287 + 32 tests PASS | `dpl_7TQ9avS81rV56Txkprgfa7auJd1Y` READY, 13 HTTP checks PASS | `dpl_8KsMiAjoi6MrPPTTUb2JXCSydCXk` READY; apex/www aliases and 16 live HTTP checks PASS | publication authorized; manual browser/business flows and Google ranking not inferred |
 
 
-### SEO-BRAND-CONTENT-20261101 — RELEASE CONTINUATION (latest)
+### SEO-BRAND-CONTENT-20261101 — RELEASE CONTINUATION (historical source checkpoint)
 
 - **Owner authorization:** «انتشارو بررسی کن و ادامه بده» and subsequent Continue authorize continuing the targeted release. Do not ask for the same release authorization again. Preserve separate automated checks and actual user/browser acceptance.
 - **Reconciled frontend:** PR [#72](https://github.com/namach2727-coder/directpilot-web/pull/72), source `2ffa3171650a33d2cc0af3cee31321b01007f413`, now incorporates current main PR #73 (`957d4c46fd448b40e97e8b89094c30792c79ea19`). Custom TelBot portfolio/category inquiry links are retained; Home/About/Solutions/FAQ/metadata/blog CTA now describe custom development, review and agreement instead of the obsolete builder/development status. Main's independently approved admin lint fix is unchanged; the final SEO diff has no admin runtime change.
