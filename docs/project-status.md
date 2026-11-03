@@ -1,3 +1,9 @@
+## SEO Growth — UAT callback and proxy preflight
+
+Backend Draft #121 callback fix `5764245db46e620fa1862f8079e9c5f419b45238` clears OAuth query values before session checks and applies privacy headers to rejected requests and redirects. 105 focused tests pass. The local HTTPS Next-to-Uvicorn rehearsal passes secure-cookie login, CSRF, callback and replay, site/report, request limit and cleanup with synthetic Google. The application server access log contained no synthetic callback query.
+
+The canonical UAT web release still points to the existing UAT source. Neon UAT is already 0029 with zero grants and Google connections. Dedicated Vercel SEO variables and the frontend flag are absent. Google Cloud browser access requires the originating connected browser context. Next is dedicated Google OAuth and private UAT configuration, actual hosted query-log verification with synthetic markers, and real consent/report acceptance. See the F2a runbook. Earlier checkpoints remain as dated evidence.
+
 ## SEO Growth — published bounded preview checkpoint
 
 DRAFT backend #121 report source `f031e8e6cf11dec5b4c807f7d948e98d715c7d00` and frontend #71 combined source `53da098d8457a72d226922402215dfcbe130babd` are published and mergeable, preserving current main work. Frontend documentation follows at `7ec27b584a8ab09def33b2c874cefe1019226c49`. Preview reports are request/page-only, separately default-off, with current scope/credential checks and bounded workspace requests. No metric history, scheduled sync, paid plan, new migration or website write is introduced.

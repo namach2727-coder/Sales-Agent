@@ -1,5 +1,28 @@
 # SEO Growth F2a — bounded customer analysis preview
 
+## UAT OAuth and callback preflight — 2026-11-03
+
+Backend Draft #121 runtime `5764245db46e620fa1862f8079e9c5f419b45238` moves query cleanup ahead of the callback's session dependency. A request without a session previously returned 401 with its raw query still present at the app response boundary and omitted `no-store`. The exact callback now keeps parsed parameters for the authenticated handler, removes the raw ASGI query and sets `no-store` and `no-referrer` on normal redirects and expected HTTP rejections. The session, PKCE and one-use state validation are unchanged.
+
+All 105 focused onboarding, reporting and provider tests pass. The separate local HTTPS Next webpack build uses the existing `DIRECTPILOT_API_UPSTREAM` rewrite to the actual ASGI entrypoint in Uvicorn. Login issued a Secure, HttpOnly, SameSite=Lax cookie and the same-origin client carried it to the callback. The rehearsal passed no-session 401, wrong-Origin 403, authenticated 303, state replay 400, authorized property selection, incomplete report coverage, 429 cooldown, disconnect and logout. The synthetic report observed 27 recent days and 28 prior days, with 54 and 28 clicks respectively. The omitted recent day was unknown and period comparison was suppressed. Uvicorn access records included the callback path without `code` or `state`. This checks HTTP transport and app logs with a synthetic Google provider and temporary SQLite. Real Google browser consent, Vercel proxy logging and hosted timeout behavior are still pending.
+
+Read-only hosted reconciliation found `uat.directpilot.ir` READY on existing `UAT` source `eda6143d4be34634425206b8582450eb523ab7f2`. The dedicated backend Vercel project has the normal `APP_ENV` and `DATABASE_URL` keys and no SEO Growth configuration. The web project has a UAT branch upstream key and no `NEXT_PUBLIC_SEO_GROWTH_ENABLED`. Values for the existing database and upstream were not read. The isolated Neon UAT branch is at `0029_seo_pilot_revision` on PostgreSQL 18.6 and contains zero pilot grants and zero Google connections. The approved migration is already complete.
+
+| Google setup field | Reviewed UAT value |
+|---|---|
+| Project to inspect | `directpilot-seo` as supplied by the owner. Existing client and consent state unverified |
+| API | Google Search Console API |
+| Client | Web application named `DirectPilot SEO Growth UAT` |
+| Authorized redirect URI | `https://uat.directpilot.ir/api/v1/seo/google/callback` |
+| Google data scope | `https://www.googleapis.com/auth/webmasters.readonly` |
+| Backend `SEO_FRONTEND_ORIGIN` | `https://uat.directpilot.ir` |
+
+Review the existing Google Auth Platform audience before changing project-wide consent settings. Add the approved tester if the dedicated External app is in Testing. Google documents a seven-day refresh token lifetime for that configuration with scopes outside basic identity. Record the approved OAuth Client ID, Client Secret and independent Fernet key privately in the dedicated UAT backend settings using `SEO_GOOGLE_CLIENT_ID`, `SEO_GOOGLE_CLIENT_SECRET`, `SEO_TOKEN_ENCRYPTION_KEY`, `SEO_GOOGLE_REDIRECT_URI` and `SEO_FRONTEND_ORIGIN`. Confirm the actual frontend UAT upstream and backend database mapping before flag enablement. The three gates are `SEO_GROWTH_ENABLED`, `SEO_ANALYSIS_PREVIEW_ENABLED` and the frontend build-time `NEXT_PUBLIC_SEO_GROWTH_ENABLED`. The source defaults remain off. The Browser connector currently rejects access without the originating connected browser context, so the Auth Platform client and consent have not been inspected or configured.
+
+Before real Google consent, verify the deployed frontend rewrite and backend runtime logs with synthetic `state` and `code` markers and an authorized log read scoped to those requests. Vercel documents Search Params in Runtime Logs and a `proxy.path` field with query parameters in some Drain records. Application-layer query clearing cannot change what an upstream platform has already observed. If the hosted path retains the markers, resolve the callback logging boundary before real consent. Validate the real flow only for an approved UAT tester and workspace after private configuration and reviewed deployment.
+
+Primary references include [Google Web OAuth](https://developers.google.com/identity/protocols/oauth2/web-server), [Google OAuth token expiry](https://developers.google.com/identity/protocols/oauth2/#expiration), [Search Console authorization](https://developers.google.com/webmaster-tools/v1/how-tos/authorizing), [Vercel Runtime Logs](https://vercel.com/docs/logs/runtime#log-details) and [Vercel Drain fields](https://vercel.com/docs/drains/reference/logs).
+
 ## Published source and final verification
 
 - **Scope/authorization:** owner requested continuation of the independent commercial SEO module. Existing backend DRAFT PR #121 and frontend DRAFT PR #71 now include the explicit, bounded, transient report preview. Both remain DRAFT/unmerged. This checkpoint records development publication and source verification, not live customer activation or a canonical UAT/Production release.
