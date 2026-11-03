@@ -295,6 +295,8 @@ def test_api_full_onboarding_and_disconnect_returns_no_credentials(env, api):
     code = secrets.token_urlsafe()
     response = api.get("/api/v1/seo/google/callback", params={"state": state, "code": code}, follow_redirects=False)
     assert response.status_code == 303 and "seo=connected" in response.headers["location"]
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["referrer-policy"] == "no-referrer"
     assert code not in response.headers["location"] and state not in response.headers["location"]
     connection = api.get(prefix(env) + "/status").json()["connection"]
     props = api.get(prefix(env) + f'/google/{connection["public_id"]}/properties')
@@ -341,6 +343,30 @@ def test_api_requires_authentication(env):
     app.dependency_overrides[get_settings] = lambda: env["settings"]
     with TestClient(app) as client:
         assert client.get(prefix(env) + "/status").status_code == 401
+
+
+@pytest.mark.parametrize("authorization", [None, "Bearer synthetic-invalid-session"])
+def test_callback_redacts_request_target_when_authentication_rejects(env, api, authorization):
+    api.app.dependency_overrides.pop(require_authenticated_principal)
+    raw_query_at_response = []
+
+    async def observe_response(scope, receive, send):
+        async def observe(message):
+            if message["type"] == "http.response.start":
+                raw_query_at_response.append(scope["query_string"])
+            await send(message)
+
+        await api.app(scope, receive, observe)
+
+    headers = {"Authorization": authorization} if authorization else {}
+    with TestClient(observe_response) as client:
+        response = client.get("/api/v1/seo/google/callback", headers=headers,
+            params={"state": "synthetic-state", "code": "synthetic-code"})
+    assert response.status_code == 401
+    assert raw_query_at_response == [b""]
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert env["fake"].exchange_calls == 0
 
 
 @pytest.fixture()

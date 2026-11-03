@@ -1,6 +1,7 @@
 """Authenticated SEO onboarding API; no customer credentials in responses."""
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
+from fastapi.routing import APIRoute
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
@@ -15,6 +16,27 @@ from app.seo_growth.service import SeoOnboardingService, callback_service
 
 router = APIRouter(tags=["seo-growth"])
 PREFIX = "/api/v1/tenants/{tenant_public_id}/stores/{store_public_id}/seo"
+CALLBACK_HEADERS = {"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"}
+
+
+class SeoOAuthCallbackRoute(APIRoute):
+    def get_route_handler(self):
+        handle = super().get_route_handler()
+
+        async def private_callback(request: Request) -> Response:
+            # Parse into this Request before clearing the raw ASGI query.
+            # Authentication can reject the callback before the endpoint runs.
+            _ = request.query_params
+            request.scope["query_string"] = b""
+            try:
+                response = await handle(request)
+            except HTTPException as exc:
+                exc.headers = {**(exc.headers or {}), **CALLBACK_HEADERS}
+                raise
+            response.headers.update(CALLBACK_HEADERS)
+            return response
+
+        return private_callback
 
 
 class SiteCreate(BaseModel):
@@ -100,15 +122,10 @@ def connect(svc: SeoOnboardingService = Depends(service)):
         fail(exc)
 
 
-@router.get("/api/v1/seo/google/callback", include_in_schema=False)
 def callback(request: Request, db: Session = Depends(get_db), settings: Settings = Depends(get_settings),
              principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
              provider=Depends(get_google_provider)):
     query = request.query_params
-    # Remove auth query values before application-server access logging. The
-    # deployment gate also requires proxy/platform auth-route log redaction.
-    request.scope["query_string"] = b""
-    headers = {"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"}
     try:
         if any(len(query.getlist(k)) > 1 for k in ("state", "code", "error")):
             raise SeoError("seo_oauth_state_invalid")
@@ -121,9 +138,13 @@ def callback(request: Request, db: Session = Depends(get_db), settings: Settings
         except (SeoError, GoogleGscError):
             db.rollback()
             outcome = "failed"
-        return RedirectResponse(svc.redirect(outcome), status_code=303, headers=headers)
+        return RedirectResponse(svc.redirect(outcome), status_code=303)
     except SeoError as exc:
         fail(exc)
+
+
+router.add_api_route("/api/v1/seo/google/callback", callback, methods=["GET"],
+    include_in_schema=False, route_class_override=SeoOAuthCallbackRoute)
 
 
 @router.get(PREFIX + "/google/{connection_public_id}/properties")
