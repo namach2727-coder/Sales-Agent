@@ -62,6 +62,12 @@ class Settings(BaseSettings):
     meta_app_secret_file: str | None = None
     instagram_token_encryption_key: SecretStr = SecretStr("")
     instagram_token_encryption_key_file: str | None = None
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: SecretStr = SecretStr("")
+    google_oauth_redirect_uri: str = ""
+    seo_google_token_encryption_key: SecretStr = SecretStr("")
+    seo_google_oauth_state_ttl_minutes: int = Field(default=10, ge=2, le=30)
+    seo_google_oauth_timeout_seconds: float = Field(default=20.0, ge=1.0, le=60.0)
     meta_ig_user_id: str = ""
     meta_api_version: str = "v24.0"
     meta_graph_base_url: str = "https://graph.instagram.com"
