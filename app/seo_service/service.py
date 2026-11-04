@@ -14,7 +14,9 @@ from app.config import Settings
 from app.models import CommerceAuditLog, Store, Tenant, TenantMembership, TenantSubscription, utc_now
 from app.seo_service.models import SeoGoogleConnection, SeoGoogleOAuthState, SeoSearchProperty
 from app.seo_service.provider import GoogleOAuthTokens, GoogleSeoProvider, GoogleSeoProviderError, GoogleSite
-from app.seo_service.security import SeoTokenCipher, new_oauth_state, state_digest
+from app.seo_service.security import (
+    SeoCredentialConfigurationError, SeoTokenCipher, new_oauth_state, state_digest,
+)
 
 
 class SeoServiceError(RuntimeError):
@@ -23,6 +25,10 @@ class SeoServiceError(RuntimeError):
 
 class SeoForbidden(SeoServiceError):
     code = "seo_entitlement_required"
+
+
+class SeoConfigurationError(SeoServiceError):
+    code = "seo_google_configuration_error"
 
 
 class SeoInvalidState(SeoServiceError):
@@ -63,7 +69,12 @@ class SeoGoogleConnectionService:
 
     def begin(self, principal: AuthenticatedPrincipal, provider: GoogleSeoProvider) -> tuple[str, datetime]:
         tenant, store, _subscription = self.scope(principal)
-        state = new_oauth_state()
+        try:
+            SeoTokenCipher.from_settings(self.settings)
+            state = new_oauth_state()
+            authorization_url = provider.authorization_url(state)
+        except SeoCredentialConfigurationError as exc:
+            raise SeoConfigurationError("Google SEO token encryption is not configured") from exc
         expires_at = datetime.now(UTC) + timedelta(minutes=self.settings.seo_google_oauth_state_ttl_minutes)
         self.session.add(SeoGoogleOAuthState(
             state_digest=state_digest(state), tenant_id=tenant.id, store_id=store.id,
@@ -75,7 +86,7 @@ class SeoGoogleConnectionService:
             target_public_id=store.public_id, details_json={},
         ))
         self.session.commit()
-        return provider.authorization_url(state), expires_at
+        return authorization_url, expires_at
 
     def _consume_state(self, state: str, user_id: int) -> SeoGoogleOAuthState:
         if not state or len(state) > 512:
