@@ -27,7 +27,7 @@ class SeoGoogleOAuthState(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     public_id: Mapped[str] = mapped_column(String(36), default=new_public_id, unique=True, index=True)
-    state_digest: Mapped[str] = mapped_column(String(64), unique=True)
+    state_digest: Mapped[str] = mapped_column(String(64))
     tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
     store_id: Mapped[int] = mapped_column(Integer, index=True)
     initiated_by_user_id: Mapped[int] = mapped_column(ForeignKey("user_identities.id"), index=True)
