@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -123,8 +123,13 @@ class SeoGoogleConnectionService:
             TenantSubscription.status == "active",
         ).order_by(TenantSubscription.id.desc()))
         limit = int((subscription.limits_json or {}).get("seo_site_limit", 0)) if subscription else 0
+        subscription_expired = (
+            subscription is not None and subscription.current_period_end is not None
+            and _aware(subscription.current_period_end) <= datetime.now(UTC)
+        )
         if (tenant is None or tenant.status != "active" or store is None
-                or store.status not in {"active", "onboarding"} or membership is None or limit < 1):
+                or store.status not in {"active", "onboarding"} or membership is None
+                or limit < 1 or subscription_expired):
             raise SeoForbidden("The original tenant, store membership, or SEO entitlement is no longer active")
 
         tokens = provider.exchange_code(code)
@@ -188,7 +193,12 @@ class SeoGoogleConnectionService:
     def _upsert_properties(self, tenant_id: int, store_id: int,
                            connection: SeoGoogleConnection, sites: list[GoogleSite]) -> None:
         allowed = {"siteOwner", "siteFullUser", "siteRestrictedUser", "siteUnverifiedUser"}
-        for site in sites:
+        valid_sites = {
+            site.site_url: site for site in sites
+            if site.permission_level in allowed
+            and site.site_url.startswith(("sc-domain:", "http://", "https://"))
+        }
+        for site in valid_sites.values():
             if site.permission_level not in allowed or not site.site_url.startswith(("sc-domain:", "http://", "https://")):
                 continue
             item = self.session.scalar(select(SeoSearchProperty).where(
@@ -206,6 +216,41 @@ class SeoGoogleConnectionService:
                 item.connection_id = connection.id
                 item.permission_level = site.permission_level
                 item.discovered_at = utc_now()
+        existing = list(self.session.scalars(select(SeoSearchProperty).where(
+            SeoSearchProperty.tenant_id == tenant_id,
+            SeoSearchProperty.store_id == store_id,
+        )).all())
+        for item in existing:
+            if item.property_uri not in valid_sites:
+                self.session.delete(item)
+
+    def refresh_properties(self, principal: AuthenticatedPrincipal,
+                           provider: GoogleSeoProvider) -> int:
+        tenant, store, _subscription = self.scope(principal)
+        connection = self.session.scalar(select(SeoGoogleConnection).where(
+            SeoGoogleConnection.tenant_id == tenant.id,
+            SeoGoogleConnection.store_id == store.id,
+            SeoGoogleConnection.status == "active",
+        ))
+        if connection is None:
+            raise SeoConflict("Connect a Google account before refreshing Search Console properties")
+        cipher = SeoTokenCipher.from_settings(self.settings)
+        refresh_token = cipher.decrypt(connection.encrypted_refresh_token)
+        try:
+            access_token = provider.refresh_access_token(refresh_token)
+            sites = provider.list_sites(access_token)
+        except Exception as exc:
+            connection.status = "reauthorization_required"
+            self.session.commit()
+            if isinstance(exc, SeoServiceError):
+                raise
+            raise SeoConflict("Google authorization must be renewed before properties can be refreshed") from exc
+        self._upsert_properties(tenant.id, store.id, connection, sites)
+        connection.last_verified_at = utc_now()
+        self.session.commit()
+        return len([site for site in sites if site.permission_level in {
+            "siteOwner", "siteFullUser", "siteRestrictedUser", "siteUnverifiedUser"
+        }])
 
     def status(self, principal: AuthenticatedPrincipal):
         tenant, store, _subscription = self.scope(principal, require_entitlement=False)
