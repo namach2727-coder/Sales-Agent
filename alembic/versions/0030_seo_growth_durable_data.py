@@ -9,9 +9,10 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.create_unique_constraint(
-        "uq_seo_sites_id_tenant_store", "seo_sites", ["id", "tenant_id", "store_id"]
-    )
+    with op.batch_alter_table("seo_sites") as batch:
+        batch.create_unique_constraint(
+            "uq_seo_sites_id_tenant_store", ["id", "tenant_id", "store_id"]
+        )
     op.create_table(
         "seo_sync_runs",
         sa.Column("id", sa.Integer(), primary_key=True),
@@ -147,4 +148,18 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    raise RuntimeError("Refusing destructive downgrade of durable SEO reporting evidence")
+    bind = op.get_bind()
+    for table in ("seo_sync_leases", "seo_metric_coverage", "seo_query_page_metrics",
+                  "seo_property_daily_metrics", "seo_sync_runs"):
+        if bind.scalar(sa.text(f"SELECT count(*) FROM {table}")):
+            raise RuntimeError("Refusing downgrade: durable SEO reporting evidence exists")
+    op.drop_table("seo_sync_leases")
+    op.drop_table("seo_metric_coverage")
+    op.drop_index("ix_seo_query_page_window", table_name="seo_query_page_metrics")
+    op.drop_table("seo_query_page_metrics")
+    op.drop_index("ix_seo_property_daily_period", table_name="seo_property_daily_metrics")
+    op.drop_table("seo_property_daily_metrics")
+    op.drop_index("ix_seo_sync_runs_site_created", table_name="seo_sync_runs")
+    op.drop_table("seo_sync_runs")
+    with op.batch_alter_table("seo_sites") as batch:
+        batch.drop_constraint("uq_seo_sites_id_tenant_store", type_="unique")
