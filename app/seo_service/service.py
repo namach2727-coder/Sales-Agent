@@ -77,7 +77,7 @@ class SeoGoogleConnectionService:
         self.session.commit()
         return provider.authorization_url(state), expires_at
 
-    def _consume_state(self, state: str) -> SeoGoogleOAuthState:
+    def _consume_state(self, state: str, user_id: int) -> SeoGoogleOAuthState:
         if not state or len(state) > 512:
             raise SeoInvalidState("Google OAuth state is invalid")
         now = datetime.now(UTC)
@@ -85,6 +85,7 @@ class SeoGoogleConnectionService:
             update(SeoGoogleOAuthState)
             .where(
                 SeoGoogleOAuthState.state_digest == state_digest(state),
+                SeoGoogleOAuthState.initiated_by_user_id == user_id,
                 SeoGoogleOAuthState.consumed_at.is_(None),
                 SeoGoogleOAuthState.expires_at > now,
             )
@@ -105,9 +106,7 @@ class SeoGoogleConnectionService:
 
     def complete(self, state: str, code: str, provider: GoogleSeoProvider,
                  principal: AuthenticatedPrincipal) -> tuple[SeoGoogleConnection, int]:
-        oauth_state = self._consume_state(state)
-        if oauth_state.initiated_by_user_id != principal.user_id:
-            raise SeoForbidden("The Google OAuth flow must be completed by the initiating user")
+        oauth_state = self._consume_state(state, principal.user_id)
         tenant = self.session.get(Tenant, oauth_state.tenant_id)
         store = self.session.scalar(select(Store).where(
             Store.id == oauth_state.store_id, Store.tenant_id == oauth_state.tenant_id
@@ -137,7 +136,10 @@ class SeoGoogleConnectionService:
             SeoGoogleConnection.tenant_id == tenant.id,
             SeoGoogleConnection.store_id == store.id,
         ))
-        if tokens.refresh_token is None and (existing is None or existing.google_subject != tokens.subject):
+        if tokens.refresh_token is None and (
+            existing is None or existing.google_subject != tokens.subject
+            or not existing.encrypted_refresh_token
+        ):
             raise SeoConflict("Google did not return a refresh token. Revoke the existing DirectPilot grant and reconnect.")
         cipher = SeoTokenCipher.from_settings(self.settings)
         encrypted_refresh = (
@@ -145,6 +147,13 @@ class SeoGoogleConnectionService:
             else existing.encrypted_refresh_token
         )
         now = utc_now()
+        if existing is not None and existing.google_subject != tokens.subject:
+            self.session.execute(
+                SeoSearchProperty.__table__.delete().where(
+                    SeoSearchProperty.tenant_id == tenant.id,
+                    SeoSearchProperty.store_id == store.id,
+                )
+            )
         if existing is None:
             existing = SeoGoogleConnection(
                 tenant_id=tenant.id, store_id=store.id, google_subject=tokens.subject,
