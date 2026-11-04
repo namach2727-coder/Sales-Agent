@@ -121,7 +121,9 @@ def properties(
     settings: Settings = Depends(get_settings),
 ):
     try:
-        _connection, items, _selected = SeoGoogleConnectionService(db, settings).status(principal)
+        service = SeoGoogleConnectionService(db, settings)
+        service.scope(principal)
+        _connection, items, _selected = service.status(principal)
         return [SeoGooglePropertyRead(
             public_id=item.public_id, property_uri=item.property_uri,
             permission_level=item.permission_level, is_selected=item.is_selected,
