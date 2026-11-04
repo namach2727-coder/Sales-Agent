@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
-    CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index,
+    CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index, JSON,
     Integer, String, Text, UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -59,7 +59,7 @@ class SeoGoogleConnection(Base):
     google_subject: Mapped[str] = mapped_column(String(255), index=True)
     google_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     encrypted_refresh_token: Mapped[str] = mapped_column(Text)
-    granted_scopes: Mapped[list[str]] = mapped_column(__import__("sqlalchemy").JSON, default=list)
+    granted_scopes: Mapped[list[str]] = mapped_column(JSON, default=list)
     status: Mapped[str] = mapped_column(String(32), default="active", index=True)
     connected_by_user_id: Mapped[int] = mapped_column(ForeignKey("user_identities.id"), index=True)
     connected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
