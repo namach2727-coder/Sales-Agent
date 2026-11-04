@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-import secrets
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -43,7 +42,7 @@ class SeoGoogleConnectionService:
         self.session = session
         self.settings = settings
 
-    def scope(self, principal: AuthenticatedPrincipal) -> tuple[Tenant, Store, TenantSubscription]:
+    def scope(self, principal: AuthenticatedPrincipal, *, require_entitlement: bool = True) -> tuple[Tenant, Store, TenantSubscription | None]:
         try:
             tenant, store = CommerceService(self.session).customer_scope(principal)
         except CommerceForbidden as exc:
@@ -58,7 +57,7 @@ class SeoGoogleConnectionService:
             ).order_by(TenantSubscription.id.desc())
         )
         limit = int((subscription.limits_json or {}).get("seo_site_limit", 0)) if subscription else 0
-        if limit < 1:
+        if require_entitlement and limit < 1:
             raise SeoForbidden("An active SEO entitlement is required for this store")
         return tenant, store, subscription
 
@@ -81,22 +80,34 @@ class SeoGoogleConnectionService:
     def _consume_state(self, state: str) -> SeoGoogleOAuthState:
         if not state or len(state) > 512:
             raise SeoInvalidState("Google OAuth state is invalid")
-        item = self.session.scalar(
-            select(SeoGoogleOAuthState)
-            .where(SeoGoogleOAuthState.state_digest == state_digest(state))
-            .with_for_update()
-        )
         now = datetime.now(UTC)
-        if item is None or item.consumed_at is not None or _aware(item.expires_at) <= now:
+        result = self.session.execute(
+            update(SeoGoogleOAuthState)
+            .where(
+                SeoGoogleOAuthState.state_digest == state_digest(state),
+                SeoGoogleOAuthState.consumed_at.is_(None),
+                SeoGoogleOAuthState.expires_at > now,
+            )
+            .values(consumed_at=now)
+        )
+        if result.rowcount != 1:
             self.session.rollback()
             raise SeoInvalidState("Google OAuth state is invalid or expired")
-        item.consumed_at = now
         self.session.commit()
-        self.session.refresh(item)
+        item = self.session.scalar(
+            select(SeoGoogleOAuthState).where(
+                SeoGoogleOAuthState.state_digest == state_digest(state)
+            )
+        )
+        if item is None:
+            raise SeoInvalidState("Google OAuth state is invalid")
         return item
 
-    def complete(self, state: str, code: str, provider: GoogleSeoProvider) -> tuple[SeoGoogleConnection, int]:
+    def complete(self, state: str, code: str, provider: GoogleSeoProvider,
+                 principal: AuthenticatedPrincipal) -> tuple[SeoGoogleConnection, int]:
         oauth_state = self._consume_state(state)
+        if oauth_state.initiated_by_user_id != principal.user_id:
+            raise SeoForbidden("The Google OAuth flow must be completed by the initiating user")
         tenant = self.session.get(Tenant, oauth_state.tenant_id)
         store = self.session.scalar(select(Store).where(
             Store.id == oauth_state.store_id, Store.tenant_id == oauth_state.tenant_id
@@ -236,7 +247,7 @@ class SeoGoogleConnectionService:
         return target
 
     def disconnect(self, principal: AuthenticatedPrincipal, provider: GoogleSeoProvider) -> None:
-        tenant, store, _subscription = self.scope(principal)
+        tenant, store, _subscription = self.scope(principal, require_entitlement=False)
         connection = self.session.scalar(select(SeoGoogleConnection).where(
             SeoGoogleConnection.tenant_id == tenant.id,
             SeoGoogleConnection.store_id == store.id,
