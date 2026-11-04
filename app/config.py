@@ -62,6 +62,12 @@ class Settings(BaseSettings):
     meta_app_secret_file: str | None = None
     instagram_token_encryption_key: SecretStr = SecretStr("")
     instagram_token_encryption_key_file: str | None = None
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: SecretStr = SecretStr("")
+    google_oauth_redirect_uri: str = ""
+    seo_google_token_encryption_key: SecretStr = SecretStr("")
+    seo_google_oauth_state_ttl_minutes: int = Field(default=10, ge=2, le=30)
+    seo_google_oauth_timeout_seconds: float = Field(default=20.0, ge=1.0, le=60.0)
     meta_ig_user_id: str = ""
     meta_api_version: str = "v24.0"
     meta_graph_base_url: str = "https://graph.instagram.com"
@@ -280,6 +286,24 @@ class Settings(BaseSettings):
             raise ValueError("Meta relay target URL must be a plain HTTPS URL")
         return normalized
 
+    @field_validator("google_oauth_redirect_uri")
+    @classmethod
+    def validate_google_oauth_redirect_uri(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            return ""
+        parsed = urlsplit(normalized)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("GOOGLE_OAUTH_REDIRECT_URI must be a plain HTTP(S) URL")
+        return normalized
+
     @field_validator("meta_graph_base_url")
     @classmethod
     def validate_meta_graph_base_url(cls, value: str) -> str:
@@ -362,6 +386,8 @@ def validate_runtime_settings(settings: Settings) -> None:
         settings.meta_oauth_relay_target_url or settings.meta_webhook_relay_target_url
     ):
         errors.append("Meta relay targets must not be enabled in Production")
+    if settings.app_env in {"uat", "production"} and settings.google_oauth_redirect_uri and not settings.google_oauth_redirect_uri.startswith("https://"):
+        errors.append("GOOGLE_OAUTH_REDIRECT_URI must use HTTPS in deployed environments")
     if (
         settings.app_env == "production"
         and settings.meta_send_enabled
@@ -385,6 +411,22 @@ def validate_runtime_settings(settings: Settings) -> None:
         errors.append(
             "INSTAGRAM_TOKEN_ENCRYPTION_KEY must be a valid Fernet key"
         )
+    seo_google_values = (
+        settings.google_oauth_client_id.strip(),
+        settings.google_oauth_client_secret.get_secret_value().strip(),
+        settings.google_oauth_redirect_uri.strip(),
+        settings.seo_google_token_encryption_key.get_secret_value().strip(),
+    )
+    if any(seo_google_values):
+        if not all(seo_google_values):
+            errors.append("Google SEO OAuth requires client ID, client secret, redirect URI, and a dedicated token encryption key")
+        seo_key = seo_google_values[3]
+        try:
+            decoded_seo_key = base64.urlsafe_b64decode(seo_key.encode("ascii"))
+        except (UnicodeEncodeError, ValueError):
+            decoded_seo_key = b""
+        if len(seo_key) != 44 or len(decoded_seo_key) != 32:
+            errors.append("SEO_GOOGLE_TOKEN_ENCRYPTION_KEY must be a valid Fernet key")
     if errors:
         raise ValueError("invalid deployment configuration: " + "; ".join(errors))
 
