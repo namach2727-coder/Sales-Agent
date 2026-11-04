@@ -81,6 +81,7 @@ def upgrade() -> None:
         sa.Column("search_type", sa.String(20), nullable=False),
         sa.Column("start_date", sa.Date(), nullable=False),
         sa.Column("end_date", sa.Date(), nullable=False),
+        sa.Column("row_key", sa.String(64), nullable=False),
         sa.Column("query_text", sa.String(300), nullable=False),
         sa.Column("page_url", sa.String(2048), nullable=False),
         sa.Column("clicks", sa.Integer(), nullable=False),
@@ -99,7 +100,7 @@ def upgrade() -> None:
             name="ck_seo_query_page_counts"),
         sa.CheckConstraint("sample_rank >= 1", name="ck_seo_query_page_rank"),
         sa.UniqueConstraint("tenant_id", "store_id", "site_id", "search_type", "start_date",
-            "end_date", "query_text", "page_url", name="uq_seo_query_page_window_key"),
+            "end_date", "row_key", name="uq_seo_query_page_window_key"),
     )
     op.create_index("ix_seo_query_page_window", "seo_query_page_metrics",
         ["tenant_id", "store_id", "site_id", "start_date", "end_date"])
