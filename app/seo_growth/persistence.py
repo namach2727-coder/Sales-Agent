@@ -98,7 +98,7 @@ class SeoQueryPageMetric(Base):
                         name="ck_seo_query_page_counts"),
         CheckConstraint("sample_rank >= 1", name="ck_seo_query_page_rank"),
         UniqueConstraint("tenant_id", "store_id", "site_id", "search_type", "start_date",
-                         "end_date", "query_text", "page_url", name="uq_seo_query_page_window_key"),
+                         "end_date", "row_key", name="uq_seo_query_page_window_key"),
         Index("ix_seo_query_page_window", "tenant_id", "store_id", "site_id", "start_date", "end_date"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -109,6 +109,7 @@ class SeoQueryPageMetric(Base):
     search_type: Mapped[str] = mapped_column(String(20), nullable=False, default="web")
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    row_key: Mapped[str] = mapped_column(String(64), nullable=False)
     query_text: Mapped[str] = mapped_column(String(300), nullable=False)
     page_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     clicks: Mapped[int] = mapped_column(Integer, nullable=False)
