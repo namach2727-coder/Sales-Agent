@@ -222,7 +222,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
 
     config = Config(str(ROOT / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0029_seo_pilot_revision"]
+    assert scripts.get_heads() == ["0030_seo_growth_durable_data"]
     baseline = scripts.get_revision("0001_baseline_schema")
     seed_history = scripts.get_revision("0002_create_seed_history")
     rbac = scripts.get_revision("0003_authorization_rbac")
@@ -250,6 +250,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
     trials = scripts.get_revision("0025_trial_three_days")
     durable_media = scripts.get_revision("0026_durable_product_media")
     receipt_history = scripts.get_revision("0027_traceable_receipt_versions")
+    seo_durable = scripts.get_revision("0030_seo_growth_durable_data")
     assert baseline is not None and baseline.down_revision is None
     assert seed_history is not None and seed_history.down_revision == "0001_baseline_schema"
     assert rbac is not None and rbac.down_revision == "0002_create_seed_history"
@@ -277,6 +278,7 @@ def test_alembic_loads_with_one_linear_head() -> None:
     assert trials is not None and trials.down_revision == "0024_ai_assistant_v1_catalog"
     assert durable_media is not None and durable_media.down_revision == "0025_trial_three_days"
     assert receipt_history is not None and receipt_history.down_revision == "0026_durable_product_media"
+    assert seo_durable is not None and seo_durable.down_revision == "0029_seo_pilot_revision"
 
 
 @requires_alembic
@@ -331,6 +333,7 @@ def test_migration_history_loads(tmp_path) -> None:
     scripts = ScriptDirectory.from_config(config)
     history = list(scripts.walk_revisions())
     assert [revision.revision for revision in history] == [
+        "0030_seo_growth_durable_data",
         "0029_seo_pilot_revision",
         "0028_seo_google_onboarding",
         "0027_traceable_receipt_versions",
