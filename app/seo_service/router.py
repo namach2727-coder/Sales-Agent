@@ -57,17 +57,20 @@ def connect(
 
 @router.get("/callback", response_model=SeoGoogleCallbackRead)
 def callback(
-    code: str = Query(min_length=1, max_length=4096),
+    code: str | None = Query(default=None, min_length=1, max_length=4096),
     state: str = Query(min_length=1, max_length=512),
     error: str | None = Query(default=None, max_length=128),
+    principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     provider: GoogleSearchConsoleClient = Depends(get_google_seo_provider),
 ):
     if error:
         raise HTTPException(status_code=400, detail={"code": "google_authorization_denied", "message": "Google authorization was not completed"})
+    if not code:
+        raise HTTPException(status_code=400, detail={"code": "google_authorization_code_missing", "message": "Google did not return an authorization code"})
     try:
-        connection, count = SeoGoogleConnectionService(db, settings).complete(state, code, provider)
+        connection, count = SeoGoogleConnectionService(db, settings).complete(state, code, provider, principal)
         return SeoGoogleCallbackRead(
             connected=connection.status == "active",
             google_email=connection.google_email,
