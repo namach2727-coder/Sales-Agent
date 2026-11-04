@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -13,7 +13,7 @@ from app.commerce.service import CommerceService, CommerceForbidden
 from app.config import Settings
 from app.models import CommerceAuditLog, Store, Tenant, TenantMembership, TenantSubscription, utc_now
 from app.seo_service.models import SeoGoogleConnection, SeoGoogleOAuthState, SeoSearchProperty
-from app.seo_service.provider import GoogleOAuthTokens, GoogleSeoProvider, GoogleSite
+from app.seo_service.provider import GoogleOAuthTokens, GoogleSeoProvider, GoogleSeoProviderError, GoogleSite
 from app.seo_service.security import SeoTokenCipher, new_oauth_state, state_digest
 
 
@@ -239,12 +239,12 @@ class SeoGoogleConnectionService:
         try:
             access_token = provider.refresh_access_token(refresh_token)
             sites = provider.list_sites(access_token)
-        except Exception as exc:
-            connection.status = "reauthorization_required"
-            self.session.commit()
-            if isinstance(exc, SeoServiceError):
-                raise
-            raise SeoConflict("Google authorization must be renewed before properties can be refreshed") from exc
+        except GoogleSeoProviderError as exc:
+            if exc.code == "google_reauthorization_required":
+                connection.status = "reauthorization_required"
+                self.session.commit()
+                raise SeoConflict("Google authorization must be renewed before properties can be refreshed") from exc
+            raise
         self._upsert_properties(tenant.id, store.id, connection, sites)
         connection.last_verified_at = utc_now()
         self.session.commit()
