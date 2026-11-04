@@ -36,7 +36,7 @@ class SeoSyncRun(Base):
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
     cursor_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    rows_received: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    rows_received: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -149,7 +149,7 @@ class SeoMetricCoverage(Base):
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
     coverage_status: Mapped[str] = mapped_column(String(20), nullable=False)
-    rows_received: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    rows_received: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     row_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
