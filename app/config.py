@@ -391,6 +391,22 @@ def validate_runtime_settings(settings: Settings) -> None:
         errors.append(
             "INSTAGRAM_TOKEN_ENCRYPTION_KEY must be a valid Fernet key"
         )
+    seo_google_values = (
+        settings.google_oauth_client_id.strip(),
+        settings.google_oauth_client_secret.get_secret_value().strip(),
+        settings.google_oauth_redirect_uri.strip(),
+        settings.seo_google_token_encryption_key.get_secret_value().strip(),
+    )
+    if any(seo_google_values):
+        if not all(seo_google_values):
+            errors.append("Google SEO OAuth requires client ID, client secret, redirect URI, and a dedicated token encryption key")
+        seo_key = seo_google_values[3]
+        try:
+            decoded_seo_key = base64.urlsafe_b64decode(seo_key.encode("ascii"))
+        except (UnicodeEncodeError, ValueError):
+            decoded_seo_key = b""
+        if len(seo_key) != 44 or len(decoded_seo_key) != 32:
+            errors.append("SEO_GOOGLE_TOKEN_ENCRYPTION_KEY must be a valid Fernet key")
     if errors:
         raise ValueError("invalid deployment configuration: " + "; ".join(errors))
 
