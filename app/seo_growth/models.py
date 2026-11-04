@@ -77,6 +77,7 @@ class SeoSite(Base):
         ForeignKeyConstraint(["connection_id", "tenant_id", "store_id"],
                              ["seo_google_connections.id", "seo_google_connections.tenant_id", "seo_google_connections.store_id"]),
         UniqueConstraint("tenant_id", "store_id", "property_id", name="uq_seo_site_property"),
+        UniqueConstraint("id", "tenant_id", "store_id", name="uq_seo_sites_id_tenant_store"),
         CheckConstraint("status IN ('connected', 'disconnected', 'permission_lost')", name="ck_seo_site_status"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
