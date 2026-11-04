@@ -75,7 +75,7 @@ def upgrade() -> None:
         sa.Column("connection_id", sa.Integer(), nullable=False),
         sa.Column("property_uri", sa.String(2048), nullable=False),
         sa.Column("permission_level", sa.String(32), nullable=False),
-        sa.Column("is_selected", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("is_selected", sa.Boolean(), nullable=False),
         sa.Column("discovered_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("selected_at", sa.DateTime(timezone=True), nullable=True),
         sa.UniqueConstraint("store_id", "property_uri", name="uq_seo_property_store_uri"),
