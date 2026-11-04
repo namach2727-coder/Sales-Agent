@@ -33,6 +33,7 @@ from app.instagram_channel.router import (
     router as instagram_channel_router,
 )
 from app.instagram_onboarding.router import router as instagram_onboarding_router
+from app.seo_service.router import router as seo_service_router
 from app.instagram_setup import router as instagram_setup_router
 from app.legal import router as legal_router
 from app.manychat import router as manychat_router
@@ -150,6 +151,7 @@ app.include_router(instagram_router)
 app.include_router(instagram_channel_public_router)
 app.include_router(instagram_channel_router)
 app.include_router(instagram_onboarding_router)
+app.include_router(seo_service_router)
 app.include_router(instagram_setup_router)
 app.include_router(legal_router)
 app.include_router(manychat_router)
