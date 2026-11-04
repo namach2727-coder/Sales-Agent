@@ -3,6 +3,8 @@
 from alembic import op
 import sqlalchemy as sa
 
+DESTRUCTIVE_MIGRATION_ACKNOWLEDGED = True
+
 revision = "0028_seo_google_connections"
 down_revision = "0027_traceable_receipt_versions"
 branch_labels = None
