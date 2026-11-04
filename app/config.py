@@ -286,6 +286,24 @@ class Settings(BaseSettings):
             raise ValueError("Meta relay target URL must be a plain HTTPS URL")
         return normalized
 
+    @field_validator("google_oauth_redirect_uri")
+    @classmethod
+    def validate_google_oauth_redirect_uri(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            return ""
+        parsed = urlsplit(normalized)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("GOOGLE_OAUTH_REDIRECT_URI must be a plain HTTP(S) URL")
+        return normalized
+
     @field_validator("meta_graph_base_url")
     @classmethod
     def validate_meta_graph_base_url(cls, value: str) -> str:
@@ -368,6 +386,8 @@ def validate_runtime_settings(settings: Settings) -> None:
         settings.meta_oauth_relay_target_url or settings.meta_webhook_relay_target_url
     ):
         errors.append("Meta relay targets must not be enabled in Production")
+    if settings.app_env in {"uat", "production"} and settings.google_oauth_redirect_uri and not settings.google_oauth_redirect_uri.startswith("https://"):
+        errors.append("GOOGLE_OAUTH_REDIRECT_URI must use HTTPS in deployed environments")
     if (
         settings.app_env == "production"
         and settings.meta_send_enabled
