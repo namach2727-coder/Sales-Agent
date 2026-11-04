@@ -85,6 +85,13 @@ class GoogleSearchConsoleClient:
             with httpx.Client(timeout=self.settings.seo_google_oauth_timeout_seconds) as client:
                 response = client.request(method, url, **kwargs)
             if response.status_code < 200 or response.status_code >= 300:
+                try:
+                    error_payload = response.json()
+                except ValueError:
+                    error_payload = {}
+                provider_error = error_payload.get("error") if isinstance(error_payload, dict) else None
+                if response.status_code == 401 or provider_error == "invalid_grant":
+                    raise GoogleSeoProviderError("google_reauthorization_required")
                 raise GoogleSeoProviderError("google_provider_rejected")
             payload = response.json()
             if not isinstance(payload, dict):
