@@ -33,7 +33,7 @@ def test_revision_upgrade_preserves_existing_pilot_terms_and_blocks_evidence_los
     with engine.connect() as db:
         assert tuple(db.execute(text(f"SELECT {columns} FROM seo_access_grants")).one()) == before
         assert db.scalar(text("SELECT revision FROM seo_access_grants")) == 1
-        assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0029_seo_pilot_revision"
+        assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0030_seo_growth_durable_data"
     with pytest.raises(RuntimeError, match="SEO pilot revision evidence"):
         command.downgrade(config, "0028_seo_google_onboarding")
     with engine.connect() as db:
