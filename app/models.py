@@ -1241,3 +1241,6 @@ from app.automation_rules import models as automation_rule_models  # noqa: E402,
 
 # Independent commercial SEO onboarding, feature-flagged off by default.
 from app.seo_growth import models as seo_growth_models  # noqa: E402,F401
+
+# Register SEO persistence tables for metadata-driven tests and schema tooling.
+from app.seo_growth import persistence as _seo_persistence  # noqa: F401
