@@ -319,13 +319,20 @@ class SeoGoogleConnectionService:
         ).with_for_update())
         if connection is None or connection.status == "disconnected":
             return
-        cipher = SeoTokenCipher.from_settings(self.settings)
-        refresh_token = cipher.decrypt(connection.encrypted_refresh_token)
+        refresh_token = None
         try:
-            provider.revoke(refresh_token)
-        except Exception:
-            # Local credential deletion is authoritative even if Google's revoke endpoint is unavailable.
-            pass
+            if connection.encrypted_refresh_token:
+                cipher = SeoTokenCipher.from_settings(self.settings)
+                refresh_token = cipher.decrypt(connection.encrypted_refresh_token)
+        except SeoCredentialConfigurationError:
+            # A missing/rotated key must not prevent local credential deletion.
+            refresh_token = None
+        if refresh_token:
+            try:
+                provider.revoke(refresh_token)
+            except Exception:
+                # Local credential deletion is authoritative even if Google's revoke endpoint is unavailable.
+                pass
         connection.encrypted_refresh_token = ""
         connection.status = "disconnected"
         connection.disconnected_at = utc_now()
