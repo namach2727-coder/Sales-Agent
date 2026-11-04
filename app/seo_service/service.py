@@ -208,7 +208,7 @@ class SeoGoogleConnectionService:
                 item.discovered_at = utc_now()
 
     def status(self, principal: AuthenticatedPrincipal):
-        tenant, store, _subscription = self.scope(principal)
+        tenant, store, _subscription = self.scope(principal, require_entitlement=False)
         connection = self.session.scalar(select(SeoGoogleConnection).where(
             SeoGoogleConnection.tenant_id == tenant.id,
             SeoGoogleConnection.store_id == store.id,
