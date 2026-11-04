@@ -1238,3 +1238,6 @@ from app.conversation_core import models as conversation_core_models  # noqa: E4
 
 # Register Phase B automation rule persistence with the shared metadata.
 from app.automation_rules import models as automation_rule_models  # noqa: E402,F401
+
+# Register the tenant/store-scoped commercial SEO service models.
+from app.seo_service import models as seo_service_models  # noqa: E402,F401
