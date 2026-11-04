@@ -15,7 +15,7 @@ from app.seo_service.schemas import (
     SeoGoogleStatusRead, SeoSelectPropertyRequest,
 )
 from app.seo_service.service import (
-    SeoConflict, SeoForbidden, SeoGoogleConnectionService, SeoInvalidState, SeoServiceError,
+    SeoConfigurationError, SeoConflict, SeoForbidden, SeoGoogleConnectionService, SeoInvalidState, SeoServiceError,
 )
 
 router = APIRouter(prefix="/api/v1/seo/google", tags=["seo-google"])
@@ -26,7 +26,9 @@ def get_google_seo_provider(settings: Settings = Depends(get_settings)):
 
 
 def _raise(exc: Exception) -> None:
-    if isinstance(exc, SeoForbidden):
+    if isinstance(exc, SeoConfigurationError):
+        status = 503
+    elif isinstance(exc, SeoForbidden):
         status = 403
     elif isinstance(exc, SeoInvalidState):
         status = 400
