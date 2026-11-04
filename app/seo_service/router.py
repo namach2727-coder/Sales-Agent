@@ -100,6 +100,20 @@ def status(
         _raise(exc)
 
 
+@router.post("/properties/refresh")
+def refresh_properties(
+    principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    provider: GoogleSearchConsoleClient = Depends(get_google_seo_provider),
+):
+    try:
+        count = SeoGoogleConnectionService(db, settings).refresh_properties(principal, provider)
+        return {"refreshed_properties": count}
+    except (SeoServiceError, GoogleSeoProviderError) as exc:
+        _raise(exc)
+
+
 @router.get("/properties", response_model=list[SeoGooglePropertyRead])
 def properties(
     principal: AuthenticatedPrincipal = Depends(require_authenticated_principal),
