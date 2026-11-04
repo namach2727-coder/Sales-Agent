@@ -184,15 +184,15 @@ class SeoGoogleConnectionService:
             existing.connected_at = now
             existing.last_verified_at = now
             existing.disconnected_at = None
-        self.session.add(CommerceAuditLog(
-            tenant_id=tenant.id, store_id=store.id,
-            actor_user_id=oauth_state.initiated_by_user_id,
-            action="seo.google_connected", target_type="seo_google_connection",
-            target_public_id=existing.public_id,
-            details_json={"scope_count": len(tokens.scopes)},
-        ))
         try:
             self.session.flush()
+            self.session.add(CommerceAuditLog(
+                tenant_id=tenant.id, store_id=store.id,
+                actor_user_id=oauth_state.initiated_by_user_id,
+                action="seo.google_connected", target_type="seo_google_connection",
+                target_public_id=existing.public_id,
+                details_json={"scope_count": len(tokens.scopes)},
+            ))
             self.session.commit()
         except IntegrityError as exc:
             self.session.rollback()
