@@ -1,7 +1,13 @@
 from datetime import date
 
 import pytest
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session
 
+from app.database import Base
+from app.config import Settings
+from app.seo_growth.persistence import SeoPropertyDailyMetric, SeoSyncRun
+from app.seo_growth.sync import _upsert_daily
 from app.seo_growth.google_client import GoogleGscError
 from app.seo_growth.sync import (
     normalize_daily_rows,
@@ -76,3 +82,38 @@ def test_query_page_normalization_rejects_duplicate_rows():
             {"rows": [row, row]}, property_id="sc-domain:example.com",
             start_date=date(2026, 10, 1), end_date=date(2026, 10, 7),
         )
+
+
+
+def test_f2b_sync_feature_flag_is_off_by_default():
+    assert Settings(_env_file=None).seo_data_sync_enabled is False
+
+
+def test_daily_window_replacement_removes_stale_dates_and_is_idempotent():
+    engine = create_engine("sqlite://")
+    tables = [SeoSyncRun.__table__, SeoPropertyDailyMetric.__table__]
+    Base.metadata.create_all(engine, tables=tables)
+    scope = {"tenant_id": 11, "store_id": 21, "site_id": 31}
+    with Session(engine) as db:
+        db.add_all([
+            SeoSyncRun(id=1, **scope, status="succeeded", search_type="web",
+                start_date=date(2026, 10, 1), end_date=date(2026, 10, 2)),
+            SeoSyncRun(id=2, **scope, status="running", search_type="web",
+                start_date=date(2026, 10, 1), end_date=date(2026, 10, 2)),
+            SeoPropertyDailyMetric(**scope, metric_date=date(2026, 10, 1), search_type="web",
+                clicks=5, impressions=20, ctr=0.25, position=2.0, source_run_id=1),
+            SeoPropertyDailyMetric(**scope, metric_date=date(2026, 10, 2), search_type="web",
+                clicks=7, impressions=30, ctr=0.233333, position=3.0, source_run_id=1),
+        ])
+        db.commit()
+        _upsert_daily(db, scope=scope, run_id=2, search_type="web",
+            start_date=date(2026, 10, 1), end_date=date(2026, 10, 2),
+            rows=[{"metric_date": date(2026, 10, 1), "clicks": 8, "impressions": 40,
+                   "ctr": 0.2, "position": 1.5}])
+        db.commit()
+        rows = db.scalars(select(SeoPropertyDailyMetric).order_by(SeoPropertyDailyMetric.metric_date)).all()
+        assert len(rows) == 1
+        assert rows[0].metric_date == date(2026, 10, 1)
+        assert rows[0].clicks == 8
+        assert rows[0].source_run_id == 2
+    engine.dispose()
