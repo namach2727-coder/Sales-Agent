@@ -905,3 +905,12 @@ Owner explicitly approved promotion. Frontend SEO-only PR [#47](https://github.c
 ### SEO PR48 promotion 2026-10-25
 
 Frontend PR #48 MERGED into `main`, commit `3e263e5a208b0ab9be2ddf0cf872d2586daf4795`; production deployment `dpl_2nsyRVMpvHwT7h71T1QeAGfcZS2P` created QUEUED. UAT `45593d9` READY; isolated PR preview `2be4bad` READY. **Production runtime/alias not yet verified READY**. Public pricing SSR displays plan cards only when public API returns valid data; live cards/JSON-LD still need HTTP validation.
+
+
+### F2b CI correction checkpoint · 2026-11-05
+
+The first full CI run for F2b completed with 1064 passed, 2 failed and 7 skipped. Both failures were stale migration-head assertions that still expected `0029_seo_pilot_revision` after the additive `0030_seo_growth_durable_data` revision became Alembic head. No migration execution or persistence-contract test failed.
+
+Corrected the readiness assertion in `tests/test_environment_deployment.py` and the single-head assertion in `tests/test_seeding.py` to expect `0030_seo_growth_durable_data`. The corrected source head is `5cd2ad78eadfa9455883f469bb947baa1bb40a9d`; CI run [#42010674663](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42010674663) is currently in progress. Docker build, PostgreSQL smoke and PostgreSQL 18 compatibility/preflight have passed on this run; the full pytest job is still running. Do not claim the full suite green until its conclusion is recorded.
+
+No UAT or Production migration/deployment was performed. Vercel checks currently show the DirectPilot UAT API and website successful, while the TelBot UAT API check is failed; this is separate from the GitHub CI jobs. Keep PR #121 Draft and unmerged.
