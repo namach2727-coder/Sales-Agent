@@ -1,4 +1,6 @@
 """Authenticated SEO onboarding API; no customer credentials in responses."""
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from fastapi.routing import APIRoute
@@ -54,6 +56,12 @@ class AnalysisPreviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class SyncRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    start_date: date
+    end_date: date
+
+
 def get_google_provider():
     """Test injection boundary; production creates a Google-only client lazily."""
     return None
@@ -86,6 +94,13 @@ def fail(error: Exception):
         "seo_access_required": "دسترسی سرویس سئو برای این حساب فعال نیست.",
         "seo_not_enabled": "سرویس سئو هنوز فعال نشده است.",
         "seo_analysis_not_enabled": "گزارش آزمایشی سئو هنوز فعال نشده است.",
+        "seo_sync_not_enabled": "همگام‌سازی داده‌های سئو هنوز فعال نشده است.",
+        "seo_sync_invalid_window": "بازه زمانی انتخاب‌شده معتبر نیست.",
+        "seo_sync_window_too_large": "بازه هر درخواست همگام‌سازی حداکثر ۹۰ روز است.",
+        "seo_sync_data_not_final": "داده‌های این بازه هنوز نهایی نشده‌اند.",
+        "seo_sync_already_running": "همگام‌سازی این سایت در حال اجراست.",
+        "seo_sync_lease_lost": "مالکیت عملیات همگام‌سازی تغییر کرده است؛ دوباره وضعیت را بررسی کنید.",
+        "seo_sync_failed": "همگام‌سازی کامل نشد؛ کمی بعد دوباره تلاش کنید.",
         "seo_analysis_rate_limited": "سقف درخواست گزارش پر شده است؛ حداقل یک دقیقه فاصله و حداکثر ۱۲ درخواست در ۲۴ ساعت مجاز است.",
         "seo_site_not_connected": "ابتدا سایت را دوباره متصل کنید.",
         "seo_connection_changed": "وضعیت اتصال تغییر کرده است؛ وضعیت تازه را دریافت کنید.",
@@ -182,6 +197,15 @@ def analyze(site_public_id: str, payload: AnalysisPreviewRequest,
     from app.seo_growth.reporting import analysis_preview
     try:
         return analysis_preview(svc, site_public_id)
+    except (SeoError, GoogleGscError) as exc:
+        fail(exc)
+
+
+@router.post(PREFIX + "/sites/{site_public_id}/sync")
+def sync(site_public_id: str, payload: SyncRequest, svc: SeoOnboardingService = Depends(service)):
+    from app.seo_growth.sync import sync_site
+    try:
+        return sync_site(svc, site_public_id, payload.start_date, payload.end_date)
     except (SeoError, GoogleGscError) as exc:
         fail(exc)
 
