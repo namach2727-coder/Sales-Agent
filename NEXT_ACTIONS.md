@@ -772,3 +772,16 @@ No UAT or Production migration/deployment was performed. Vercel checks currently
 
 
 **CI result update · 2026-11-05:** The corrected source head `5cd2ad78eadfa9455883f469bb947baa1bb40a9d` passed CI run [#42010674663](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42010674663): **1066 passed, 7 skipped, 0 failed**. Docker build, PostgreSQL smoke and PostgreSQL 18 compatibility/preflight passed. This is source/test evidence only, not a UAT/Production release or live Google acceptance.
+
+
+### F2b explicit ingestion implementation · 2026-11-05
+
+Added the first user-triggered ingestion path on this branch:
+
+- New `seo_data_sync_enabled` setting and `SEO_DATA_SYNC_ENABLED=false` in environment examples; the new path is disabled by default.
+- Authenticated, CSRF-protected `POST /sites/{site_public_id}/sync` accepts an explicit date range only. It rejects windows over 90 days and dates newer than the three-day final-data delay.
+- Google access is refreshed and property permission is rechecked before ingestion. Daily property totals and query/page samples are fetched independently.
+- Daily metrics are replaced for the requested window so stale dates omitted by a successful provider response are removed; query/page samples are replaced by deterministic SHA-256 row keys. Successful empty and truncated query/page coverage are explicitly recorded.
+- Per-site database lease, sync-run state, sanitized audit events and revalidation of site/connection/grant authority are implemented. There is no scheduler or automatic backfill.
+
+**Validation pending:** this implementation and the additional schema constraints are newer than CI run #42010674663. Do not treat the new sync path as tested until the next full CI run passes. No live Google request, customer grant, UAT/Production migration or deployment was performed. Bounded retry/backoff, sync history/read APIs and reports reading persisted data remain follow-up work. Retention remains unapproved.
