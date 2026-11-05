@@ -19,7 +19,7 @@ def upgrade() -> None:
         sa.Column("tenant_id", sa.Integer(), nullable=False),
         sa.Column("store_id", sa.Integer(), nullable=False),
         sa.Column("site_id", sa.Integer(), nullable=False),
-        sa.Column("requested_by_user_id", sa.Integer(), nullable=True),
+        sa.Column("requested_by_user_id", sa.Integer(), sa.ForeignKey("user_identities.id"), nullable=True),
         sa.Column("status", sa.String(20), nullable=False),
         sa.Column("search_type", sa.String(20), nullable=False),
         sa.Column("start_date", sa.Date(), nullable=False),
@@ -37,6 +37,7 @@ def upgrade() -> None:
         sa.CheckConstraint("search_type IN ('web', 'image', 'video', 'news', 'discover')",
             name="ck_seo_sync_run_search_type"),
         sa.CheckConstraint("end_date >= start_date", name="ck_seo_sync_run_dates"),
+        sa.CheckConstraint("rows_received >= 0", name="ck_seo_sync_run_rows"),
         sa.UniqueConstraint("id", "tenant_id", "store_id", "site_id", name="uq_seo_sync_run_scope"),
     )
     op.create_index("ix_seo_sync_runs_site_created", "seo_sync_runs",
@@ -65,6 +66,7 @@ def upgrade() -> None:
         sa.CheckConstraint("clicks >= 0 AND impressions >= 0 AND clicks <= impressions",
             name="ck_seo_property_daily_counts"),
         sa.CheckConstraint("position IS NULL OR position >= 0", name="ck_seo_property_daily_position"),
+        sa.CheckConstraint("ctr IS NULL OR ctr BETWEEN 0 AND 1", name="ck_seo_property_daily_ctr"),
         sa.UniqueConstraint("tenant_id", "store_id", "site_id", "metric_date", "search_type",
             name="uq_seo_property_daily_key"),
     )
@@ -99,6 +101,9 @@ def upgrade() -> None:
         sa.CheckConstraint("clicks >= 0 AND impressions >= 0 AND clicks <= impressions",
             name="ck_seo_query_page_counts"),
         sa.CheckConstraint("sample_rank >= 1", name="ck_seo_query_page_rank"),
+        sa.CheckConstraint("end_date >= start_date", name="ck_seo_query_page_dates"),
+        sa.CheckConstraint("length(row_key) = 64", name="ck_seo_query_page_row_key"),
+        sa.CheckConstraint("ctr IS NULL OR ctr BETWEEN 0 AND 1", name="ck_seo_query_page_ctr"),
         sa.UniqueConstraint("tenant_id", "store_id", "site_id", "search_type", "start_date",
             "end_date", "row_key", name="uq_seo_query_page_window_key"),
     )
@@ -124,10 +129,12 @@ def upgrade() -> None:
             ["seo_sites.id", "seo_sites.tenant_id", "seo_sites.store_id"]),
         sa.ForeignKeyConstraint(["source_run_id", "tenant_id", "store_id", "site_id"],
             ["seo_sync_runs.id", "seo_sync_runs.tenant_id", "seo_sync_runs.store_id", "seo_sync_runs.site_id"]),
+        sa.CheckConstraint("search_type IN ('web', 'image', 'video', 'news', 'discover')", name="ck_seo_coverage_search_type"),
         sa.CheckConstraint("dimension IN ('date', 'query_page')", name="ck_seo_coverage_dimension"),
         sa.CheckConstraint("coverage_status IN ('complete', 'partial', 'empty', 'unknown', 'truncated', 'failed')",
             name="ck_seo_coverage_status"),
         sa.CheckConstraint("end_date >= start_date", name="ck_seo_coverage_dates"),
+        sa.CheckConstraint("rows_received >= 0 AND (row_limit IS NULL OR row_limit > 0)", name="ck_seo_coverage_row_counts"),
         sa.UniqueConstraint("tenant_id", "store_id", "site_id", "search_type", "dimension",
             "start_date", "end_date", name="uq_seo_coverage_window"),
     )
