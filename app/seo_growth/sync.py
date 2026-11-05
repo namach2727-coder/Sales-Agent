@@ -164,18 +164,22 @@ def _release_lease(svc: SeoOnboardingService, lease: SeoSyncLease, token: str) -
         lease.cursor_json = None
 
 
-def _upsert_daily(db, *, scope: dict, run_id: int, search_type: str, rows: list[dict]) -> None:
-    if not rows:
-        return
-    days = [row["metric_date"] for row in rows]
+def _upsert_daily(db, *, scope: dict, run_id: int, search_type: str,
+                  start_date: date, end_date: date, rows: list[dict]) -> None:
     existing = db.scalars(select(SeoPropertyDailyMetric).where(
         SeoPropertyDailyMetric.tenant_id == scope["tenant_id"],
         SeoPropertyDailyMetric.store_id == scope["store_id"],
         SeoPropertyDailyMetric.site_id == scope["site_id"],
         SeoPropertyDailyMetric.search_type == search_type,
-        SeoPropertyDailyMetric.metric_date.in_(days),
+        SeoPropertyDailyMetric.metric_date >= start_date,
+        SeoPropertyDailyMetric.metric_date <= end_date,
     )).all()
     by_day = {row.metric_date: row for row in existing}
+    received_days = {row["metric_date"] for row in rows}
+    # A successful replacement removes stale dates omitted by the provider response.
+    for metric_day, old in by_day.items():
+        if metric_day not in received_days:
+            db.delete(old)
     for values in rows:
         target = by_day.get(values["metric_date"])
         if target is None:
@@ -303,7 +307,8 @@ def sync_site(svc: SeoOnboardingService, site_public_id: str,
         if lease_current is None or lease_current.lease_token != lease_token:
             raise SeoError("seo_sync_lease_lost", 409)
 
-        _upsert_daily(current.db, scope=scope, run_id=run_id, search_type="web", rows=daily_rows)
+        _upsert_daily(current.db, scope=scope, run_id=run_id, search_type="web",
+            start_date=start_date, end_date=end_date, rows=daily_rows)
         _upsert_query_page(current.db, scope=scope, run_id=run_id, search_type="web",
             start_date=start_date, end_date=end_date, rows=query_rows)
         daily_status = "empty" if not daily_rows else "complete"
