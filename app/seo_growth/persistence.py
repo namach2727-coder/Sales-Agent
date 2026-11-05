@@ -2,7 +2,7 @@
 from datetime import date, datetime
 
 from sqlalchemy import (
-    CheckConstraint, Date, DateTime, ForeignKeyConstraint, Index, Integer,
+    CheckConstraint, Date, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer,
     JSON, Numeric, String, Text, UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -23,6 +23,7 @@ class SeoSyncRun(Base):
         CheckConstraint("search_type IN ('web', 'image', 'video', 'news', 'discover')",
                         name="ck_seo_sync_run_search_type"),
         CheckConstraint("end_date >= start_date", name="ck_seo_sync_run_dates"),
+        CheckConstraint("rows_received >= 0", name="ck_seo_sync_run_rows"),
         UniqueConstraint("id", "tenant_id", "store_id", "site_id", name="uq_seo_sync_run_scope"),
         Index("ix_seo_sync_runs_site_created", "tenant_id", "store_id", "site_id", "created_at"),
     )
@@ -30,7 +31,7 @@ class SeoSyncRun(Base):
     tenant_id: Mapped[int] = mapped_column(Integer, nullable=False)
     store_id: Mapped[int] = mapped_column(Integer, nullable=False)
     site_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    requested_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    requested_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("user_identities.id"), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="queued")
     search_type: Mapped[str] = mapped_column(String(20), nullable=False, default="web")
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -56,6 +57,7 @@ class SeoPropertyDailyMetric(Base):
         CheckConstraint("clicks >= 0 AND impressions >= 0 AND clicks <= impressions",
                         name="ck_seo_property_daily_counts"),
         CheckConstraint("position IS NULL OR position >= 0", name="ck_seo_property_daily_position"),
+        CheckConstraint("ctr IS NULL OR ctr BETWEEN 0 AND 1", name="ck_seo_property_daily_ctr"),
         UniqueConstraint("tenant_id", "store_id", "site_id", "metric_date", "search_type",
                          name="uq_seo_property_daily_key"),
         Index("ix_seo_property_daily_period", "tenant_id", "store_id", "site_id", "metric_date"),
@@ -97,6 +99,9 @@ class SeoQueryPageMetric(Base):
         CheckConstraint("clicks >= 0 AND impressions >= 0 AND clicks <= impressions",
                         name="ck_seo_query_page_counts"),
         CheckConstraint("sample_rank >= 1", name="ck_seo_query_page_rank"),
+        CheckConstraint("end_date >= start_date", name="ck_seo_query_page_dates"),
+        CheckConstraint("length(row_key) = 64", name="ck_seo_query_page_row_key"),
+        CheckConstraint("ctr IS NULL OR ctr BETWEEN 0 AND 1", name="ck_seo_query_page_ctr"),
         UniqueConstraint("tenant_id", "store_id", "site_id", "search_type", "start_date",
                          "end_date", "row_key", name="uq_seo_query_page_window_key"),
         Index("ix_seo_query_page_window", "tenant_id", "store_id", "site_id", "start_date", "end_date"),
@@ -132,10 +137,12 @@ class SeoMetricCoverage(Base):
             ["source_run_id", "tenant_id", "store_id", "site_id"],
             ["seo_sync_runs.id", "seo_sync_runs.tenant_id", "seo_sync_runs.store_id", "seo_sync_runs.site_id"],
         ),
+        CheckConstraint("search_type IN ('web', 'image', 'video', 'news', 'discover')", name="ck_seo_coverage_search_type"),
         CheckConstraint("dimension IN ('date', 'query_page')", name="ck_seo_coverage_dimension"),
         CheckConstraint("coverage_status IN ('complete', 'partial', 'empty', 'unknown', 'truncated', 'failed')",
                         name="ck_seo_coverage_status"),
         CheckConstraint("end_date >= start_date", name="ck_seo_coverage_dates"),
+        CheckConstraint("rows_received >= 0 AND (row_limit IS NULL OR row_limit > 0)", name="ck_seo_coverage_row_counts"),
         UniqueConstraint("tenant_id", "store_id", "site_id", "search_type", "dimension",
                          "start_date", "end_date", name="uq_seo_coverage_window"),
     )
