@@ -39,3 +39,12 @@ No retention period is approved. Thirteen months is only a proposal to evaluate.
 All flags remain default-off. Implement and test only on the existing feature branch. Migration must be additive; downgrade must refuse when metric rows exist. Validate PostgreSQL 18, multi-worker leases, idempotency, partial failures, empty partitions, permission loss, disconnect/reconnect, tenant isolation, quota/retry behavior and freshness/coverage output. Do not migrate UAT/Production, configure secrets, create grants, connect real Google accounts, schedule jobs or mutate websites without explicit owner approval.
 
 Acceptance: repeated sync leaves row counts/totals unchanged; property totals match independent daily GSC data; successful empty partitions are complete; failed partitions remain unknown; workers cannot own the same partition concurrently; DB and query scope prevent cross-tenant access; permission loss blocks ingestion and reports; report exposes freshness/coverage; retention stays non-destructive until approved.
+
+
+### F2b CI correction checkpoint · 2026-11-05
+
+The first full CI run for F2b completed with 1064 passed, 2 failed and 7 skipped. Both failures were stale migration-head assertions that still expected `0029_seo_pilot_revision` after the additive `0030_seo_growth_durable_data` revision became Alembic head. No migration execution or persistence-contract test failed.
+
+Corrected the readiness assertion in `tests/test_environment_deployment.py` and the single-head assertion in `tests/test_seeding.py` to expect `0030_seo_growth_durable_data`. The corrected source head is `5cd2ad78eadfa9455883f469bb947baa1bb40a9d`; CI run [#42010674663](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42010674663) is currently in progress. Docker build, PostgreSQL smoke and PostgreSQL 18 compatibility/preflight have passed on this run; the full pytest job is still running. Do not claim the full suite green until its conclusion is recorded.
+
+No UAT or Production migration/deployment was performed. Vercel checks currently show the DirectPilot UAT API and website successful, while the TelBot UAT API check is failed; this is separate from the GitHub CI jobs. Keep PR #121 Draft and unmerged.
