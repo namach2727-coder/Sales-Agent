@@ -162,7 +162,7 @@ jobs:
           preflight.EXPECTED_TABLES = 92
           preflight.EXPECTED_SEQUENCES = 86
           preflight.EXPECTED_INDEXES = 566
-          preflight.EXPECTED_CONSTRAINTS = 491
+          preflight.EXPECTED_CONSTRAINTS = 499
           preflight.validate_target_url = lambda raw: make_url(raw)
           result = preflight.run_preflight(os.environ["DATABASE_URL"])
           assert result["connection_read_only"] is True
