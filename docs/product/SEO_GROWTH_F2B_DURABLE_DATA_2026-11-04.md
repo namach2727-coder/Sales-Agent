@@ -64,3 +64,8 @@ Added the first user-triggered ingestion path on this branch:
 - Per-site database lease, sync-run state, sanitized audit events and revalidation of site/connection/grant authority are implemented. There is no scheduler or automatic backfill.
 
 **Validation pending:** this implementation and the additional schema constraints are newer than CI run #42010674663. Do not treat the new sync path as tested until the next full CI run passes. No live Google request, customer grant, UAT/Production migration or deployment was performed. Bounded retry/backoff, sync history/read APIs and reports reading persisted data remain follow-up work. Retention remains unapproved.
+
+
+## 2026-11-07 source reconciliation
+
+The branch includes GET /sites/{site_public_id}/sync-runs and GET /sites/{site_public_id}/analysis through app/seo_growth/persisted_reporting.py; these are present and must not be treated as missing work. CI run #42012950916 passed all four jobs with 1080 passed, 7 skipped and 3 warnings. This validates the tested source only. UAT remains at 0029; migration 0030 is source-only and is not authorized for UAT/Production application. The broader product direction is in DIRECTPILOT_SEO_PLATFORM_PLAN_2026-11-07.md.
