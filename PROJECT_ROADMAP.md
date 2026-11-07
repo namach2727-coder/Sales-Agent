@@ -3,6 +3,18 @@
 
 
 
+### SEO-GROWTH-P2-MULTICAST-VALIDATION-FIX-20261107
+
+- Backend source head: `e550c25eb5613d0ef1c8fe74b208ead82903af50`, Draft PR #121.
+- The prior P2 CI run exposed a Python 3.12 `ipaddress.is_global` behavior: multicast addresses such as `224.0.0.1` and `ff02::1` can still report global. The crawler preflight now explicitly rejects multicast, private, reserved, unspecified, loopback and link-local destinations in addition to transition prefixes. DNS-answer tests also cover multicast.
+- Exact-head CI run #42370736355 is pending. Docker build, PostgreSQL smoke and PostgreSQL 18/Neon compatibility jobs have passed; the full test job is still running. Do not mark P2 validated until that job passes.
+- Vercel backend API preview for this branch is READY with `target=null` and only a Git-branch preview alias; no canonical UAT/Production alias was created. A separate `directpilot-telbot-uat-api` preview check failed because its Vercel Root Directory is configured as nonexistent `experiments/telegram_bot_builder`; this is unrelated to SEO source and requires a separate Vercel project-settings correction.
+- F2b source validation remains: backend commit `4856b6f71956031f58c834dfcfa8899621521097` passed 1094 tests (7 skipped, 3 warnings); frontend PR #71 commit `0ff906946a88d86d9b4d5bbb03606326de6eabfa` passed 301 tests, TypeScript, lint, production-static build, verification and mobile audit.
+- Both PRs remain Draft/unmerged. UAT Neon remains at `0029_seo_pilot_revision`, with zero SEO grants, zero Google connections and zero SEO sites. Migration `0030_seo_growth_durable_data` is source-only and unapplied; all SEO flags remain default-off. No live Google Sync, UAT/Production migration, canonical deployment, billing activation, retention/purge, or CMS write was performed.
+- Next: finish P2 CI, then build the pinned HTTP(S) transport, redirect-count enforcement, robots.txt policy, host/tenant rate limits and hard crawl resource budgets. No crawler endpoint may fetch URLs before those controls pass.
+
+
+
 ### SEO-GROWTH-P2-CRAWLER-SECURITY-PREFLIGHT-20261107
 
 - Backend source head: `4cb701b6849e2dc341afd6f098f894a2d8c242a1`, Draft PR #121. New module: `app/seo_growth/crawler_security.py`; focused tests: `tests/test_seo_growth_crawler_security.py`.

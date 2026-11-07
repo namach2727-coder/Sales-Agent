@@ -72,3 +72,7 @@ Backend head `4856b6f71956031f58c834dfcfa8899621521097` passed CI run #423695049
 ## 2026-11-07 P2 crawler security preflight
 
 Commit `4cb701b6849e2dc341afd6f098f894a2d8c242a1` adds the first crawler security layer. It canonicalizes public HTTP(S) targets, rejects credentials, unusual ports, local hostnames, private/reserved IPs and mixed DNS answers, blocks IPv4/IPv6 transition forms that can obscure private destinations, and revalidates redirects. DNS is injected; there is no default socket resolver and no HTTP fetcher. Tests use synthetic DNS answers only. The exact-head CI run #42370354421 is pending. Do not enable crawling until a pinned transport, robots enforcement, redirect limits, per-host/tenant throttling and hard resource budgets are implemented and tested.
+
+## 2026-11-07 P2 multicast correction and deployment boundary
+
+Commit `e550c25eb5613d0ef1c8fe74b208ead82903af50` explicitly rejects multicast and other non-unicast address classes after CI showed that Python 3.12 may report multicast as `is_global`. DNS-answer tests now include IPv4 and IPv6 multicast. Exact-head CI run #42370736355 is pending; the three infrastructure jobs passed and pytest remains in progress. The backend Vercel API deployment is a branch preview only (`target=null`). The separate TelBot preview fails due its configured nonexistent root directory `experiments/telegram_bot_builder`, unrelated to SEO. UAT schema remains 0029 and migration 0030 remains unapplied.
