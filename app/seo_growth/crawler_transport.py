@@ -175,6 +175,8 @@ def _request_with_redirects(
             if encoding not in {"", "identity"}:
                 raise CrawlTransportError("seo_crawler_content_encoding_rejected")
             raw_length = headers.get("content-length")
+            if len(body) > max_body_bytes:
+                raise CrawlTransportError("seo_crawler_response_too_large")
             if raw_length is not None:
                 try:
                     declared_length = int(raw_length)
@@ -203,7 +205,7 @@ def _request_with_redirects(
 
 def fetch_html_page(
     raw_url: str, *,
-    resolver: Callable[[str, int], object],
+    resolver: Resolver,
     budget: CrawlBudget,
     user_agent: str = "DirectPilotBot",
     depth: int = 0,

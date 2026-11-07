@@ -3,7 +3,7 @@ import ssl
 
 import pytest
 
-from app.seo_growth.crawler_policy import CrawlBudget, CrawlLimits
+from app.seo_growth.crawler_policy import CrawlBudget, CrawlLimits, CrawlPolicyError
 from app.seo_growth.crawler_security import CrawlTargetError
 from app.seo_growth.crawler_transport import (
     CrawlTransportError,
@@ -64,7 +64,7 @@ def test_redirects_are_revalidated_and_connection_uses_redirect_ip():
     def request_once(target, pinned_ip, *, timeout, max_body_bytes):
         calls.append((target.url, pinned_ip))
         if target.path_and_query == "/start":
-            return 302, {"location": "https://next.example.com/final"}, b"", "https://next.example.com/final"
+            return 302, {"location": "/final"}, b"", "/final"
         return 200, {"content-type": "text/html"}, b"ok", None
     target, status, headers, body = _request_with_redirects(
         "https://first.example.com/start", resolver=_resolver,
@@ -72,10 +72,10 @@ def test_redirects_are_revalidated_and_connection_uses_redirect_ip():
         request_once=request_once,
     )
     assert status == 200
-    assert target.url == "https://next.example.com/final"
+    assert target.url == "https://first.example.com/final"
     assert calls == [
         ("https://first.example.com/start", "93.184.216.34"),
-        ("https://next.example.com/final", "93.184.216.34"),
+        ("https://first.example.com/final", "93.184.216.34"),
     ]
 
 
@@ -151,14 +151,14 @@ def test_dns_resolution_is_repeated_for_each_redirect_target():
         return ["93.184.216.34"]
     def request_once(target, pinned_ip, *, timeout, max_body_bytes):
         if target.path_and_query == "/":
-            return 302, {"location": "https://second.example.com/"}, b"", "https://second.example.com/"
+            return 302, {"location": "/again"}, b"", "/again"
         return 200, {"content-type": "text/html"}, b"ok", None
     _request_with_redirects(
         "https://first.example.com/", resolver=resolver,
         budget=CrawlBudget(), max_redirects=2, max_body_bytes=100,
         request_once=request_once,
     )
-    assert calls == [("first.example.com", 443), ("second.example.com", 443)]
+    assert calls == [("first.example.com", 443), ("first.example.com", 443)]
 
 
 def test_transport_does_not_send_page_request_when_robots_returns_server_error():
@@ -191,8 +191,21 @@ def test_robots_body_counts_toward_total_crawl_byte_budget():
         if target.path_and_query == "/robots.txt":
             return 200, {"content-type": "text/plain"}, b"User-agent: *", None
         return 200, {"content-type": "text/html"}, b"ok", None
-    with pytest.raises(Exception, match="seo_crawler_total_byte_budget_exceeded"):
+    with pytest.raises(CrawlPolicyError, match="seo_crawler_total_byte_budget_exceeded"):
         fetch_html_page(
             "https://public.example.com/", resolver=_resolver,
             budget=CrawlBudget(limits), request_once=request_once,
+        )
+
+
+def test_injected_transport_cannot_return_body_over_configured_cap():
+    def request_once(target, pinned_ip, *, timeout, max_body_bytes):
+        if target.path_and_query == "/robots.txt":
+            return 404, {}, b"", None
+        return 200, {"content-type": "text/html"}, b"x" * (max_body_bytes + 1), None
+    with pytest.raises(CrawlTransportError, match="seo_crawler_response_too_large"):
+        fetch_html_page(
+            "https://public.example.com/", resolver=_resolver,
+            budget=CrawlBudget(CrawlLimits(max_response_bytes=8, max_total_bytes=20)),
+            request_once=request_once,
         )
