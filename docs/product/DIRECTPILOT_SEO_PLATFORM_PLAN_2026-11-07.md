@@ -42,7 +42,7 @@ Before any URL fetch is implemented, require: HTTP(S)-only URL normalization; re
 Each finding includes stable code, category, severity, confidence, affected URL/count, observed value, expected condition, evidence/source, recommendation, estimated effort, potential impact (clearly labelled as an estimate), and automation eligibility. Avoid fabricated traffic uplift or deterministic ranking promises. Recommendations are proposal-only by default.
 
 ## Delivery phases
-- P0 — F2b durability: backend explicit sync, persisted analysis and per-dimension sync history are implemented. Daily totals can span 56 days while query/page samples cover the current 28 days. Exact-head CI is pending; customer UI wiring remains.
+- P0 — F2b durability: backend and customer UI are implemented. A single explicit sync persists 56 days of daily totals and the current 28-day query/page sample; analysis and per-dimension sync history are read from the database. Backend CI: 1094 passed, 7 skipped; frontend validation: 301 passed, type-check/lint/build and mobile audit passed. UAT acceptance remains pending.
 - P1 — Technical audit core: deterministic HTML parser and tests are implemented in app/seo_growth/technical_audit.py and tests/test_seo_growth_technical_audit.py; the parser performs no network requests. The latest CI run exposed a stale H1-outline assertion; its correction is committed separately and awaits CI.
 - P2 — Safe crawler: SSRF-resistant fetch layer, robots policy, bounded crawl and site-level audit records.
 - P3 — Business Profile: tenant/store/site-scoped business profile and up to three validated competitor URLs.
@@ -64,3 +64,7 @@ The parser includes H1 in the heading outline. The initial fixture still expecte
 ## 2026-11-07 F2b report-window alignment
 
 Backend commit `d925c2c1c7a718a5de8780ec0ecd5a31fe1e5c55` adds the optional `query_page_start_date` to explicit sync, allowing one 56-day request to store daily totals for both 28-day report periods and a query/page sample for the current 28-day period. Sync history returns per-dimension coverage, and the status response exposes the independent data-sync flag. Synthetic API tests cover the split-window persistence and persisted report contract. Exact-head CI is pending. Frontend PR #71 still needs the customer-facing Sync, persisted analysis and sync-history flow. No live Google/UAT/Production activation is implied.
+
+## 2026-11-07 F2b end-to-end source validation
+
+Backend head `4856b6f71956031f58c834dfcfa8899621521097` passed CI run #42369504917 with 1094 passed, 7 skipped and 3 warnings; PostgreSQL 17 smoke, PostgreSQL 18 compatibility and Docker build passed. Frontend head `0ff906946a88d86d9b4d5bbb03606326de6eabfa` passed 301 tests, TypeScript, lint, production-static build, verification and mobile audit. The persisted customer portal is now wired to explicit sync, persisted analysis and dimension-level history. Both PRs remain Draft. UAT remains at 0029 with zero grants/connections/sites; migration 0030 and all SEO flags remain unapplied/off. Next gate is controlled UAT acceptance with an authorized test account, not automatic Production rollout.

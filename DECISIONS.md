@@ -3,6 +3,18 @@
 
 
 
+### SEO-GROWTH-F2B-END-TO-END-VALIDATION-20261107
+
+- Backend source head: `4856b6f71956031f58c834dfcfa8899621521097` in Draft PR #121. The final test correction tracks actual provider refresh calls rather than the OAuth exchange counter, which is already incremented during test setup.
+- Backend CI run #42369504917: PASS. `1094 passed, 7 skipped, 3 warnings`; Docker build, PostgreSQL smoke and PostgreSQL 18/Neon compatibility jobs also passed. The run includes the 56-day daily + 28-day query/page sync contract, persisted analysis and per-dimension sync-history tests.
+- Frontend source head: `0ff906946a88d86d9b4d5bbb03606326de6eabfa` in Draft PR #71. Frontend validation passed: 301 tests, TypeScript type-check, ESLint and production-static Next build. Both verification jobs and the mobile audit passed; Vercel Preview Comments passed.
+- Customer flow now reads the backend's `data_sync_enabled` flag, does not sync on page load, sends one explicit bounded Sync POST, reads persisted analysis/history, and does not retry an ambiguous mutation. The 56-day daily range and current 28-day query/page window are sent separately.
+- Both PRs remain Draft/unmerged. The UAT Neon project was independently checked Read-only: migration `0029_seo_pilot_revision`, zero SEO access grants, zero Google connections and zero SEO sites. Migration `0030_seo_growth_durable_data` remains source-only and unapplied. SEO flags remain default-off.
+- No live Google customer consent, real customer Sync, scheduled job, UAT/Production migration or canonical deployment, billing activation, retention/purge policy, or CMS write was performed. Preview checks are not UAT/Production release evidence.
+- Next gate: after explicit authorization, apply/verify migration 0030 in UAT, grant one controlled test tenant, connect a test Google account, run one manual sync, and verify the stored report/history. Only after that acceptance should the PRs be considered for merge. Keep the SSRF-safe crawler as the next separate engineering phase.
+
+
+
 ### SEO-GROWTH-F2B-REPORT-WINDOW-ALIGNMENT-20261107
 
 - Backend source commit: `d925c2c1c7a718a5de8780ec0ecd5a31fe1e5c55`, Draft PR #121, feature branch `feature/seo-growth-commercial-foundation-20261101`.
