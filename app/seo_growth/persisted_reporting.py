@@ -13,16 +13,14 @@ from app.seo_growth.persistence import (
 from app.seo_growth.reporting import WINDOW_DAYS, _eligible, _locked_current_scope
 from app.seo_growth.security import SeoError
 from app.seo_growth.service import SeoOnboardingService
+from app.seo_growth.sync import _scope
 
 
 def sync_history(svc: SeoOnboardingService, site_public_id: str, *, limit: int = 20,
                  offset: int = 0) -> dict:
     if not svc.settings.seo_data_sync_enabled:
         raise SeoError("seo_sync_not_enabled", 403)
-    svc._grant()
-    site = svc.db.scalar(svc._sites().where(SeoSite.public_id == site_public_id))
-    if site is None:
-        raise SeoError("not_found", 404)
+    site, _connection = _scope(svc, site_public_id)
     base = select(SeoSyncRun).where(
         SeoSyncRun.tenant_id == svc.tenant,
         SeoSyncRun.store_id == svc.store,
