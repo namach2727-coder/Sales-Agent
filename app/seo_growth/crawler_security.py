@@ -1,16 +1,16 @@
-"""Network-free URL and DNS preflight primitives for the future SEO crawler.
+"""URL and DNS preflight primitives for the future SEO crawler.
 
-This module does not fetch URLs. A future transport must connect directly to one
-of the returned validated IP addresses (while preserving the original Host and
-TLS SNI) and must re-run this validation for every redirect. Do not pass the
-hostname to a client that performs a fresh DNS lookup.
+This module performs no socket or HTTP operations. DNS resolution is injected
+so a caller can provide a bounded resolver. It does not fetch URLs. A future
+transport must connect directly to one of the returned validated IP addresses
+(while preserving the original Host and TLS SNI) and revalidate every redirect.
+Do not pass the hostname to a client that performs a fresh DNS lookup.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 import ipaddress
 import re
-import socket
 from typing import Callable, Iterable
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
@@ -72,6 +72,8 @@ def normalize_crawl_url(raw_url: str) -> CrawlTarget:
         if not hostname or "%" in hostname:
             raise CrawlTargetError("seo_crawler_invalid_host")
         explicit_port = parsed.port
+    except CrawlTargetError:
+        raise
     except ValueError:
         raise CrawlTargetError("seo_crawler_invalid_url") from None
 
@@ -119,10 +121,6 @@ def normalize_crawl_url(raw_url: str) -> CrawlTarget:
     )
 
 
-def _system_resolver(hostname: str, port: int) -> Iterable[str]:
-    return (item[4][0] for item in socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM))
-
-
 def validate_resolved_addresses(addresses: Iterable[str]) -> tuple[str, ...]:
     """Reject empty, malformed, or mixed public/non-public DNS answers."""
     normalized: set[str] = set()
@@ -141,14 +139,13 @@ def validate_resolved_addresses(addresses: Iterable[str]) -> tuple[str, ...]:
     return tuple(sorted(normalized))
 
 
-def resolve_public_addresses(target: CrawlTarget, *, resolver: Resolver | None = None) -> tuple[str, ...]:
-    """Resolve a target and reject the whole answer if any address is non-public."""
+def resolve_public_addresses(target: CrawlTarget, *, resolver: Resolver) -> tuple[str, ...]:
+    """Use an injected resolver and reject the whole answer if any IP is non-public."""
     try:
         address = ipaddress.ip_address(target.hostname)
     except ValueError:
-        lookup = resolver or _system_resolver
         try:
-            answers = lookup(target.hostname, target.port)
+            answers = resolver(target.hostname, target.port)
         except OSError:
             raise CrawlTargetError("seo_crawler_dns_resolution_failed") from None
     else:
@@ -157,7 +154,7 @@ def resolve_public_addresses(target: CrawlTarget, *, resolver: Resolver | None =
 
 
 def validate_redirect_target(
-    base_url: str, location: str, *, resolver: Resolver | None = None,
+    base_url: str, location: str, *, resolver: Resolver,
 ) -> tuple[CrawlTarget, tuple[str, ...]]:
     """Resolve a redirect relative to the current URL and revalidate its DNS."""
     if not isinstance(location, str) or not location or len(location) > MAX_CRAWL_URL_LENGTH:

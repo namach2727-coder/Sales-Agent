@@ -109,3 +109,10 @@ def test_redirect_to_private_or_unsupported_target_is_rejected():
         validate_redirect_target("https://public.example.com/", "https://internal.example.com/admin", resolver=resolver)
     with pytest.raises(CrawlTargetError):
         validate_redirect_target("https://public.example.com/", "javascript:alert(1)", resolver=resolver)
+
+ 
+def test_url_errors_keep_specific_security_codes():
+    with pytest.raises(CrawlTargetError, match="seo_crawler_invalid_scheme"):
+        normalize_crawl_url("ftp://example.com/file")
+    with pytest.raises(CrawlTargetError, match="seo_crawler_url_credentials_rejected"):
+        normalize_crawl_url("https://user:secret@example.com/")
