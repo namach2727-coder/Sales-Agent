@@ -16,6 +16,7 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 
 MAX_CRAWL_URL_LENGTH = 2048
+NAT64_PREFIXES = (ipaddress.ip_network("64:ff9b::/96"), ipaddress.ip_network("64:ff9b:1::/48"))
 DEFAULT_PORTS = {"http": 80, "https": 443}
 BLOCKED_SUFFIXES = (
     ".localhost", ".local", ".internal", ".lan", ".home",
@@ -43,6 +44,17 @@ class CrawlTarget:
 Resolver = Callable[[str, int], Iterable[str]]
 
 
+def _is_public_address(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    if not address.is_global:
+        return False
+    if isinstance(address, ipaddress.IPv6Address):
+        if (address.ipv4_mapped is not None or address.sixtofour is not None
+                or address.teredo is not None
+                or any(address in prefix for prefix in NAT64_PREFIXES)):
+            return False
+    return True
+
+
 def normalize_crawl_url(raw_url: str) -> CrawlTarget:
     """Normalize an HTTP(S) URL without resolving or fetching it."""
     if (not isinstance(raw_url, str) or not raw_url
@@ -64,7 +76,7 @@ def normalize_crawl_url(raw_url: str) -> CrawlTarget:
         raise CrawlTargetError("seo_crawler_invalid_url") from None
 
     default_port = DEFAULT_PORTS[scheme]
-    port = explicit_port or default_port
+    port = explicit_port if explicit_port is not None else default_port
     if port != default_port:
         raise CrawlTargetError("seo_crawler_port_rejected")
 
@@ -89,7 +101,7 @@ def normalize_crawl_url(raw_url: str) -> CrawlTarget:
             raise CrawlTargetError("seo_crawler_unsafe_host")
         authority = hostname
     else:
-        if not address.is_global:
+        if not _is_public_address(address):
             raise CrawlTargetError("seo_crawler_unsafe_ip")
         hostname = address.compressed
         authority = f"[{hostname}]" if address.version == 6 else hostname
@@ -117,7 +129,7 @@ def validate_resolved_addresses(addresses: Iterable[str]) -> tuple[str, ...]:
     try:
         for raw in addresses:
             address = ipaddress.ip_address(raw)
-            if not address.is_global:
+            if "%" in raw or not _is_public_address(address):
                 raise CrawlTargetError("seo_crawler_unsafe_ip")
             normalized.add(address.compressed)
     except CrawlTargetError:

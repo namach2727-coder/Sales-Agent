@@ -26,7 +26,7 @@ def test_normalize_url_converts_idn_hostname_to_ascii():
 @pytest.mark.parametrize("url", [
     "javascript:alert(1)", "data:text/html,hi", "ftp://example.com/file",
     "//example.com/path", "https://user:secret@example.com/",
-    "https://example.com:8443/", "http://example.com:443/",
+    "https://example.com:8443/", "http://example.com:443/", "https://example.com:0/",
     "https://localhost/", "https://admin/", "https://service.internal/",
     "https://printer.local/", "https://test.invalid/", "https://example.test/",
     "https://bad_host.example.com/", "https://127.1/",
@@ -43,6 +43,8 @@ def test_unsafe_or_ambiguous_urls_are_rejected(url):
     "http://0.0.0.0/", "http://224.0.0.1/",
     "http://[::1]/", "http://[fc00::1]/", "http://[fe80::1]/",
     "http://[::]/", "http://[ff02::1]/",
+    "http://[2002:7f00:1::]/", "http://[64:ff9b::7f00:1]/",
+    "http://[64:ff9b:1::7f00:1]/", "http://[::ffff:7f00:1]/",
 ])
 def test_ip_literal_targets_must_be_global_unicast(url):
     with pytest.raises(CrawlTargetError, match="seo_crawler_unsafe_ip"):
