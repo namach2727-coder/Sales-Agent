@@ -42,6 +42,7 @@ class _DocumentParser(HTMLParser):
         elif tag == "title":
             self.title_depth += 1
         elif tag == "h1":
+            self.heading_levels.append(1)
             self.h1_depth += 1
             self.h1_parts = []
         elif tag in {"h2", "h3", "h4", "h5", "h6"}:
