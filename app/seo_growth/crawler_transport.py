@@ -32,6 +32,7 @@ from app.seo_growth.crawler_security import (
 
 
 MAX_ROBOTS_BYTES = 512_000
+CRAWLER_PRODUCT_TOKEN = "DirectPilotBot"
 REDIRECT_STATUSES = {301, 302, 303, 307, 308}
 
 
@@ -146,16 +147,17 @@ def _request_with_redirects(
     redirects = 0
     while True:
         budget.check_time()
-        elapsed = budget.clock() - budget.started_at
-        timeout = min(
-            budget.limits.request_timeout_seconds,
-            budget.limits.max_elapsed_seconds - elapsed,
-        )
-        if timeout <= 0:
-            raise CrawlPolicyError("seo_crawler_time_budget_exceeded")
         last_error: Exception | None = None
         result = None
         for address in addresses:
+            budget.check_time()
+            elapsed = budget.clock() - budget.started_at
+            timeout = min(
+                budget.limits.request_timeout_seconds,
+                budget.limits.max_elapsed_seconds - elapsed,
+            )
+            if timeout <= 0:
+                raise CrawlPolicyError("seo_crawler_time_budget_exceeded")
             try:
                 result = request_once(
                     target, address, timeout=timeout, max_body_bytes=max_body_bytes,
@@ -207,7 +209,6 @@ def fetch_html_page(
     raw_url: str, *,
     resolver: Resolver,
     budget: CrawlBudget,
-    user_agent: str = "DirectPilotBot",
     depth: int = 0,
     request_once: RequestOnce = _request_once,
 ) -> FetchedHTMLPage:
@@ -228,7 +229,7 @@ def fetch_html_page(
     )
     budget.record_response_bytes(len(robots_body))
     if not robots_allows(
-        robots_url=robots_url, page_url=target.url, user_agent=user_agent,
+        robots_url=robots_url, page_url=target.url, user_agent=CRAWLER_PRODUCT_TOKEN,
         status_code=robots_status, body=robots_body,
     ):
         raise CrawlTransportError("seo_crawler_robots_disallowed")
@@ -243,6 +244,7 @@ def fetch_html_page(
         status, headers, max_response_bytes=budget.limits.max_response_bytes,
     )
     budget.record_response_bytes(len(body))
+    budget.check_time()
     return FetchedHTMLPage(
         url=final_target.url, status_code=status, headers=headers,
         body=body, robots_url=robots_target.url,

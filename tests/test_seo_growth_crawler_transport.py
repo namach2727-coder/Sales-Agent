@@ -209,3 +209,25 @@ def test_injected_transport_cannot_return_body_over_configured_cap():
             budget=CrawlBudget(CrawlLimits(max_response_bytes=8, max_total_bytes=20)),
             request_once=request_once,
         )
+
+
+def test_timeout_is_recomputed_before_each_pinned_ip_attempt():
+    now = [0.0]
+    timeouts = []
+    def resolver(_hostname, _port):
+        return ["93.184.216.34", "1.1.1.1"]
+    def request_once(target, pinned_ip, *, timeout, max_body_bytes):
+        timeouts.append(timeout)
+        if len(timeouts) == 1:
+            now[0] += 3.0
+            raise CrawlTransportError("seo_crawler_network_request_failed")
+        return 200, {"content-type": "text/html"}, b"ok", None
+    budget = CrawlBudget(
+        CrawlLimits(max_elapsed_seconds=10, request_timeout_seconds=8),
+        started_at=0.0, clock=lambda: now[0],
+    )
+    _request_with_redirects(
+        "https://public.example.com/", resolver=resolver, budget=budget,
+        max_redirects=0, max_body_bytes=100, request_once=request_once,
+    )
+    assert timeouts == [8, 7]
