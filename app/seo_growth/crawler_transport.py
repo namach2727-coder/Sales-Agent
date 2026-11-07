@@ -63,16 +63,30 @@ class _PinnedHTTPConnection(http.client.HTTPConnection):
         super().__init__(target.hostname, target.port, timeout=timeout)
         self._pinned_ip = pinned_ip
         self._ssl_context = ssl_context
+        self._deadline = time.monotonic() + timeout
+
+    def _remaining_timeout(self) -> float:
+        remaining = self._deadline - time.monotonic()
+        if remaining <= 0:
+            raise socket.timeout("crawler request deadline exceeded")
+        return remaining
 
     def connect(self) -> None:
-        sock = socket.create_connection((self._pinned_ip, self.port), self.timeout)
+        remaining = self._remaining_timeout()
+        sock = socket.create_connection((self._pinned_ip, self.port), remaining)
         try:
+            sock.settimeout(self._remaining_timeout())
             if self._ssl_context is not None:
                 sock = self._ssl_context.wrap_socket(sock, server_hostname=self.host)
             self.sock = sock
         except Exception:
             sock.close()
             raise
+
+    def send(self, data) -> None:
+        if self.sock is not None:
+            self.sock.settimeout(self._remaining_timeout())
+        super().send(data)
 
 
 def _request_once(
@@ -90,6 +104,8 @@ def _request_once(
     }
     try:
         connection.request("GET", target.path_and_query, headers=headers)
+        if connection.sock is not None:
+            connection.sock.settimeout(connection._remaining_timeout())
         response = connection.getresponse()
         response_headers = {key.lower(): value for key, value in response.getheaders()}
         status = response.status
@@ -110,13 +126,9 @@ def _request_once(
             if declared_length > max_body_bytes:
                 raise CrawlTransportError("seo_crawler_response_too_large")
         body = bytearray()
-        deadline = time.monotonic() + timeout
         while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise CrawlTransportError("seo_crawler_time_budget_exceeded")
             if connection.sock is not None:
-                connection.sock.settimeout(remaining)
+                connection.sock.settimeout(connection._remaining_timeout())
             chunk = response.read(min(64 * 1024, max_body_bytes + 1 - len(body)))
             if not chunk:
                 break
@@ -126,6 +138,8 @@ def _request_once(
         return status, response_headers, bytes(body), location
     except CrawlTransportError:
         raise
+    except socket.timeout:
+        raise CrawlTransportError("seo_crawler_time_budget_exceeded") from None
     except (OSError, http.client.HTTPException, ssl.SSLError):
         raise CrawlTransportError("seo_crawler_network_request_failed") from None
     finally:

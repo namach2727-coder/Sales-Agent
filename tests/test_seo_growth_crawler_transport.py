@@ -26,6 +26,8 @@ def _fake_request(target, pinned_ip, *, timeout, max_body_bytes):
 def test_pinned_connection_opens_socket_to_numeric_ip_not_hostname(monkeypatch):
     calls = []
     class FakeSocket:
+        def settimeout(self, timeout):
+            pass
         def close(self):
             pass
     def fake_create_connection(address, timeout):
@@ -44,6 +46,8 @@ def test_pinned_connection_opens_socket_to_numeric_ip_not_hostname(monkeypatch):
 def test_pinned_https_keeps_original_hostname_as_tls_sni(monkeypatch):
     calls = []
     class FakeSocket:
+        def settimeout(self, timeout):
+            pass
         def close(self):
             pass
     class FakeContext:
