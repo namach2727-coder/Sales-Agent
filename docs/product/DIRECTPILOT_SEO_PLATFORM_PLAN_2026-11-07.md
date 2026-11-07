@@ -1,5 +1,17 @@
 # DirectPilot SEO Platform — product and technical plan
 
+
+
+### SEO-GROWTH-P2-POLICY-LAYER-20261107
+
+- Backend branch: `feature/seo-growth-commercial-foundation-20261101`; source head before documentation update: `866799fdb86847244e02758f508f4317eed7d675`; Draft PR #121 remains open and unmerged.
+- Exact-head CI for this source is queued: Docker build, PostgreSQL smoke, PostgreSQL 18/Neon compatibility and full test job. The prior source head `e550c25eb5613d0ef1c8fe74b208ead82903af50` completed all four jobs successfully; that result does not validate later commits.
+- A source review found that `resolve_public_addresses` trusted the caller-supplied `CrawlTarget.hostname` fields instead of re-normalizing `target.url`. This was corrected in `68369dfbf7331624de263e6fbacc4bda30e2ae81`, with forged-object regression tests. DNS resolution now derives the hostname and port from the canonicalized URL.
+- Added `app/seo_growth/crawler_policy.py` and focused tests: bounded page/per-host/depth/redirect/response-byte/total-byte/time settings; budget accounting; HTML/XHTML response and Content-Length validation; and robots.txt allow/disallow parsing. Robots 401/403/429 and server errors fail closed; 404/410 mean no robots file. The module remains network-independent.
+- These are policy primitives, not an operational crawler. No HTTP transport, DNS resolver, endpoint, scheduler, or customer URL fetch is enabled. The transport must still pin each connection to validated IPs, preserve TLS hostname verification/SNI and Host, stream-enforce wire and decoded byte limits, enforce redirect limits, and apply robots policy before page fetches.
+- No UAT/Production migration or deployment, SEO flag activation, real Google Sync, billing activation, customer grant, CMS write, or live URL fetch was performed. UAT remains at migration `0029_seo_pilot_revision`; migration `0030_seo_growth_durable_data` remains unapplied.
+- Next: exact-head CI; then implement/test the pinned HTTP transport and integrate robots + budgets behind a non-public internal service boundary. Do not expose a customer crawler endpoint until security tests and controlled UAT acceptance are complete.
+
 **Status:** approved development direction from owner instruction on 2026-11-07. This document is a product/engineering plan, not a release or activation approval.
 
 ## Product goal
@@ -44,7 +56,7 @@ Each finding includes stable code, category, severity, confidence, affected URL/
 ## Delivery phases
 - P0 — F2b durability: backend and customer UI are implemented. A single explicit sync persists 56 days of daily totals and the current 28-day query/page sample; analysis and per-dimension sync history are read from the database. Backend CI: 1094 passed, 7 skipped; frontend validation: 301 passed, type-check/lint/build and mobile audit passed. UAT acceptance remains pending.
 - P1 — Technical audit core: deterministic HTML parser and tests are implemented in app/seo_growth/technical_audit.py and tests/test_seo_growth_technical_audit.py; the parser performs no network requests. The latest CI run exposed a stale H1-outline assertion; its correction is committed separately and awaits CI.
-- P2 — Safe crawler: SSRF-resistant fetch layer, robots policy, bounded crawl and site-level audit records.
+- P2 — Safe crawler: network-free URL/DNS preflight and crawler policy primitives are implemented. The resolver re-normalizes the URL before DNS; page/per-host/depth/redirect/byte/time budgets and robots parsing are covered by tests. No HTTP transport or crawler endpoint exists yet. Exact-head CI for the latest branch source is queued. Next: pinned HTTP(S) transport with TLS hostname verification, streaming byte caps, redirect enforcement and policy integration.
 - P3 — Business Profile: tenant/store/site-scoped business profile and up to three validated competitor URLs.
 - P4 — Intelligence/Action Center: evidence-backed rules, prioritization, action status and report UI.
 - P5 — Performance integration: PageSpeed Insights, quotas, caching and source-specific freshness.
