@@ -42,7 +42,7 @@ Before any URL fetch is implemented, require: HTTP(S)-only URL normalization; re
 Each finding includes stable code, category, severity, confidence, affected URL/count, observed value, expected condition, evidence/source, recommendation, estimated effort, potential impact (clearly labelled as an estimate), and automation eligibility. Avoid fabricated traffic uplift or deterministic ranking promises. Recommendations are proposal-only by default.
 
 ## Delivery phases
-- P0 — F2b durability: validate explicit sync, persisted sync history and persisted analysis; keep flags default-off.
+- P0 — F2b durability: backend explicit sync, persisted analysis and per-dimension sync history are implemented. Daily totals can span 56 days while query/page samples cover the current 28 days. Exact-head CI is pending; customer UI wiring remains.
 - P1 — Technical audit core: deterministic HTML parser and tests are implemented in app/seo_growth/technical_audit.py and tests/test_seo_growth_technical_audit.py; the parser performs no network requests. The latest CI run exposed a stale H1-outline assertion; its correction is committed separately and awaits CI.
 - P2 — Safe crawler: SSRF-resistant fetch layer, robots policy, bounded crawl and site-level audit records.
 - P3 — Business Profile: tenant/store/site-scoped business profile and up to three validated competitor URLs.
@@ -60,3 +60,7 @@ CI run #42012950916, source 52909808babad964da8c19612e12a9837d033a24: 1080 passe
 ## 2026-11-07 P1 test correction
 
 The parser includes H1 in the heading outline. The initial fixture still expected only H2, causing the latest PR #121 test job to fail while PostgreSQL smoke, PostgreSQL 18 compatibility and Docker build passed. The expected outline is corrected to [1, 2]. The correction's CI result is pending; this plan does not claim P1 validation until the exact new head passes. UAT remains at 0029 and source migration 0030 remains unapplied.
+
+## 2026-11-07 F2b report-window alignment
+
+Backend commit `d925c2c1c7a718a5de8780ec0ecd5a31fe1e5c55` adds the optional `query_page_start_date` to explicit sync, allowing one 56-day request to store daily totals for both 28-day report periods and a query/page sample for the current 28-day period. Sync history returns per-dimension coverage, and the status response exposes the independent data-sync flag. Synthetic API tests cover the split-window persistence and persisted report contract. Exact-head CI is pending. Frontend PR #71 still needs the customer-facing Sync, persisted analysis and sync-history flow. No live Google/UAT/Production activation is implied.

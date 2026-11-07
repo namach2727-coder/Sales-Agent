@@ -3,6 +3,18 @@
 
 
 
+### SEO-GROWTH-F2B-REPORT-WINDOW-ALIGNMENT-20261107
+
+- Backend source commit: `d925c2c1c7a718a5de8780ec0ecd5a31fe1e5c55`, Draft PR #121, feature branch `feature/seo-growth-commercial-foundation-20261101`.
+- A single bounded 56-day sync can now persist daily property totals for both adjacent 28-day reporting periods while the query/page sample is fetched and stored only for the current 28-day period. The optional `query_page_start_date` must fall inside the daily window and is capped at 28 days; existing callers omitting it retain the prior behavior.
+- Sync history now returns tenant/store/site-scoped coverage by dimension and source run. The customer status response exposes the independent `data_sync_enabled` gate.
+- Added API regression tests using a synthetic Google provider: a 56-day daily window plus a 28-day query/page window, persisted analysis and history verification, and rejection of oversized query windows before provider calls.
+- The P1 parser test correction from commit `41f88ae3df1c6efde19198a58c148db9b1b8035a` is in this source lineage. CI run #42368681391 for that parent was still in progress when the F2b contract fix was committed; the exact current head must pass its own complete CI before this slice is considered validated.
+- Backend PR #121 and Frontend PR #71 remain Draft/unmerged. All SEO flags remain default-off. UAT remains at `0029_seo_pilot_revision`; source migration `0030_seo_growth_durable_data` is not applied. No real Google connection, customer grant, scheduler, UAT/Production migration or deployment, billing, retention/purge, or CMS write was performed.
+- Next: validate the exact backend head, then connect explicit Sync, persisted analysis and per-dimension sync history to Frontend Draft PR #71. Crawler work remains separate until DNS/IP pinning, redirect revalidation, robots policy and bounded resource controls have dedicated security tests.
+
+
+
 ### SEO-GROWTH-P1-HTML-AUDIT-CI-CORRECTION-20261107
 
 - Scope: correct the technical-audit regression test after the parser intentionally began including H1 in the document heading outline. The expected sequence for the fixture is now `[1, 2]`, not `[2]`.
