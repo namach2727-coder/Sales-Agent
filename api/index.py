@@ -1,1 +1,7 @@
-"""ASGI entrypoint for DirectPilot FastAPI on Vercel.\n\nThe production API is a separate project from UAT; hosting secrets are set\nthrough Vercel and never committed to this repository.\n"""\n\nfrom app.main import app\n
+"""ASGI entrypoint for DirectPilot FastAPI on Vercel.
+
+The production API is a separate project from UAT; hosting secrets are set
+through Vercel and never committed to this repository.
+"""
+
+from app.main import app

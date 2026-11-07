@@ -7,7 +7,8 @@ from sqlalchemy import engine_from_config, pool
 
 from app.config import get_settings
 from app.database import Base
-from app import models  # noqa: F401 - registers every ORM model with Base.metadata
+from app import models  # noqa: F401 - registers every core ORM model with Base.metadata
+from app.seo_growth import persistence  # noqa: F401 - registers durable SEO metric models
 
 
 config = context.config
