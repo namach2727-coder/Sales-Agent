@@ -1,0 +1,156 @@
+"""Network-free URL and DNS preflight primitives for the future SEO crawler.
+
+This module does not fetch URLs. A future transport must connect directly to one
+of the returned validated IP addresses (while preserving the original Host and
+TLS SNI) and must re-run this validation for every redirect. Do not pass the
+hostname to a client that performs a fresh DNS lookup.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+import ipaddress
+import re
+import socket
+from typing import Callable, Iterable
+from urllib.parse import urljoin, urlsplit, urlunsplit
+
+
+MAX_CRAWL_URL_LENGTH = 2048
+DEFAULT_PORTS = {"http": 80, "https": 443}
+BLOCKED_SUFFIXES = (
+    ".localhost", ".local", ".internal", ".lan", ".home",
+    ".test", ".invalid", ".example", ".onion",
+)
+
+
+class CrawlTargetError(ValueError):
+    """A URL or resolved address is not eligible for a public crawl."""
+
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
+
+@dataclass(frozen=True)
+class CrawlTarget:
+    url: str
+    scheme: str
+    hostname: str
+    port: int
+    path_and_query: str
+
+
+Resolver = Callable[[str, int], Iterable[str]]
+
+
+def normalize_crawl_url(raw_url: str) -> CrawlTarget:
+    """Normalize an HTTP(S) URL without resolving or fetching it."""
+    if (not isinstance(raw_url, str) or not raw_url
+            or len(raw_url) > MAX_CRAWL_URL_LENGTH
+            or any(ord(char) < 32 or char.isspace() for char in raw_url)):
+        raise CrawlTargetError("seo_crawler_invalid_url")
+    try:
+        parsed = urlsplit(raw_url)
+        scheme = parsed.scheme.lower()
+        if scheme not in DEFAULT_PORTS:
+            raise CrawlTargetError("seo_crawler_invalid_scheme")
+        if parsed.username is not None or parsed.password is not None:
+            raise CrawlTargetError("seo_crawler_url_credentials_rejected")
+        hostname = parsed.hostname
+        if not hostname or "%" in hostname:
+            raise CrawlTargetError("seo_crawler_invalid_host")
+        explicit_port = parsed.port
+    except ValueError:
+        raise CrawlTargetError("seo_crawler_invalid_url") from None
+
+    default_port = DEFAULT_PORTS[scheme]
+    port = explicit_port or default_port
+    if port != default_port:
+        raise CrawlTargetError("seo_crawler_port_rejected")
+
+    if hostname.endswith(".."):
+        raise CrawlTargetError("seo_crawler_invalid_host")
+    hostname = hostname[:-1] if hostname.endswith(".") else hostname
+    try:
+        address = ipaddress.ip_address(hostname)
+    except ValueError:
+        try:
+            hostname = hostname.encode("idna").decode("ascii").lower()
+        except UnicodeError:
+            raise CrawlTargetError("seo_crawler_invalid_host") from None
+        labels = hostname.split(".")
+        if (len(hostname) > 253 or len(labels) < 2
+                or any(not label or len(label) > 63
+                       or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label)
+                       for label in labels)
+                or all(label.isdigit() for label in labels)
+                or hostname == "localhost"
+                or any(hostname.endswith(suffix) for suffix in BLOCKED_SUFFIXES)):
+            raise CrawlTargetError("seo_crawler_unsafe_host")
+        authority = hostname
+    else:
+        if not address.is_global:
+            raise CrawlTargetError("seo_crawler_unsafe_ip")
+        hostname = address.compressed
+        authority = f"[{hostname}]" if address.version == 6 else hostname
+
+    path = parsed.path or "/"
+    canonical_url = urlunsplit((scheme, authority, path, parsed.query, ""))
+    if len(canonical_url) > MAX_CRAWL_URL_LENGTH:
+        raise CrawlTargetError("seo_crawler_invalid_url")
+    return CrawlTarget(
+        url=canonical_url,
+        scheme=scheme,
+        hostname=hostname,
+        port=port,
+        path_and_query=path + (f"?{parsed.query}" if parsed.query else ""),
+    )
+
+
+def _system_resolver(hostname: str, port: int) -> Iterable[str]:
+    return (item[4][0] for item in socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM))
+
+
+def validate_resolved_addresses(addresses: Iterable[str]) -> tuple[str, ...]:
+    """Reject empty, malformed, or mixed public/non-public DNS answers."""
+    normalized: set[str] = set()
+    try:
+        for raw in addresses:
+            address = ipaddress.ip_address(raw)
+            if not address.is_global:
+                raise CrawlTargetError("seo_crawler_unsafe_ip")
+            normalized.add(address.compressed)
+    except CrawlTargetError:
+        raise
+    except (TypeError, ValueError):
+        raise CrawlTargetError("seo_crawler_invalid_dns_answer") from None
+    if not normalized:
+        raise CrawlTargetError("seo_crawler_dns_empty")
+    return tuple(sorted(normalized))
+
+
+def resolve_public_addresses(target: CrawlTarget, *, resolver: Resolver | None = None) -> tuple[str, ...]:
+    """Resolve a target and reject the whole answer if any address is non-public."""
+    try:
+        address = ipaddress.ip_address(target.hostname)
+    except ValueError:
+        lookup = resolver or _system_resolver
+        try:
+            answers = lookup(target.hostname, target.port)
+        except OSError:
+            raise CrawlTargetError("seo_crawler_dns_resolution_failed") from None
+    else:
+        answers = (address.compressed,)
+    return validate_resolved_addresses(answers)
+
+
+def validate_redirect_target(
+    base_url: str, location: str, *, resolver: Resolver | None = None,
+) -> tuple[CrawlTarget, tuple[str, ...]]:
+    """Resolve a redirect relative to the current URL and revalidate its DNS."""
+    if not isinstance(location, str) or not location or len(location) > MAX_CRAWL_URL_LENGTH:
+        raise CrawlTargetError("seo_crawler_invalid_redirect")
+    base = normalize_crawl_url(base_url)
+    target = normalize_crawl_url(urljoin(base.url, location))
+    addresses = resolve_public_addresses(target, resolver=resolver)
+    return target, addresses
