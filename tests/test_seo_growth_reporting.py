@@ -282,3 +282,88 @@ def test_revocation_while_waiting_for_store_lock_prevents_even_a_google_call(rep
     monkeypatch.setattr(SeoOnboardingService,"_lock",raced_lock)
     assert api.post(endpoint(env),headers=HEADERS,json={}).status_code==404
     assert env["report_calls"]==[]
+
+
+
+def test_persisted_report_reads_daily_totals_and_exact_current_query_sample(report_env, api, monkeypatch):
+    from app.seo_growth import persisted_reporting
+    from app.seo_growth.persistence import SeoMetricCoverage, SeoPropertyDailyMetric, SeoQueryPageMetric, SeoSyncRun
+    from hashlib import sha256
+
+    env = report_env
+    env["settings"].seo_data_sync_enabled = True
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            value = datetime(2026, 11, 2, 12, 0, tzinfo=UTC)
+            return value if tz else value.replace(tzinfo=None)
+
+    monkeypatch.setattr(persisted_reporting, "datetime", FrozenDateTime)
+    end = date(2026, 10, 30)
+    current_start = end - timedelta(days=27)
+    previous_start = end - timedelta(days=55)
+    run = SeoSyncRun(tenant_id=env["tenant"].id, store_id=env["store"].id,
+        site_id=env["site"].id, requested_by_user_id=env["user"].id,
+        status="succeeded", search_type="web", start_date=previous_start, end_date=end,
+        rows_received=57, created_at=datetime(2026, 11, 2, tzinfo=UTC),
+        started_at=datetime(2026, 11, 2, tzinfo=UTC),
+        completed_at=datetime(2026, 11, 2, tzinfo=UTC))
+    env["db"].add(run)
+    env["db"].flush()
+    for i in range(56):
+        day = previous_start + timedelta(days=i)
+        env["db"].add(SeoPropertyDailyMetric(
+            tenant_id=env["tenant"].id, store_id=env["store"].id, site_id=env["site"].id,
+            metric_date=day, search_type="web", clicks=1, impressions=10,
+            ctr=0.1, position=5, source_run_id=run.id))
+    query = "stored query"
+    page = "https://example.com/page"
+    row_key = sha256(__import__("json").dumps([query, page], ensure_ascii=False,
+        separators=(",", ":")).encode("utf-8")).hexdigest()
+    env["db"].add(SeoQueryPageMetric(
+        tenant_id=env["tenant"].id, store_id=env["store"].id, site_id=env["site"].id,
+        source_run_id=run.id, search_type="web", start_date=current_start, end_date=end,
+        row_key=row_key, query_text=query, page_url=page, clicks=4, impressions=200,
+        ctr=0.02, position=12, sample_rank=1))
+    env["db"].add(SeoMetricCoverage(
+        tenant_id=env["tenant"].id, store_id=env["store"].id, site_id=env["site"].id,
+        source_run_id=run.id, search_type="web", dimension="query_page",
+        start_date=current_start, end_date=end, coverage_status="complete",
+        rows_received=1, row_limit=500, observed_at=datetime(2026, 11, 2, tzinfo=UTC)))
+    env["db"].commit()
+
+    response = api.get(prefix(env) + f'/sites/{env["site"].public_id}/analysis')
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["persistence"] == "database"
+    assert body["current"]["clicks"] == 28
+    assert body["previous"]["clicks"] == 28
+    assert body["comparison"]["status"] == "comparable"
+    assert body["opportunities"][0]["query"] == query
+    assert body["query_sample"]["coverage"] == "complete"
+    assert body["last_successful_sync_at"] is not None
+    assert env["report_calls"] == []
+
+
+def test_sync_history_is_paginated_and_does_not_expose_user_or_credentials(report_env, api):
+    from app.seo_growth.persistence import SeoSyncRun
+
+    env = report_env
+    env["settings"].seo_data_sync_enabled = True
+    now = datetime.now(UTC)
+    for i in range(3):
+        env["db"].add(SeoSyncRun(
+            tenant_id=env["tenant"].id, store_id=env["store"].id, site_id=env["site"].id,
+            requested_by_user_id=env["user"].id, status="failed" if i == 0 else "succeeded",
+            search_type="web", start_date=date(2026, 10, 1), end_date=date(2026, 10, 28),
+            rows_received=i, error_code="seo_sync_failed" if i == 0 else None,
+            created_at=now + timedelta(seconds=i), completed_at=now + timedelta(seconds=i)))
+    env["db"].commit()
+    response = api.get(prefix(env) + f'/sites/{env["site"].public_id}/sync-runs?limit=2&offset=0')
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["total"] == 3 and len(body["items"]) == 2
+    assert body["items"][0]["status"] == "succeeded"
+    assert "requested_by_user_id" not in response.text
+    assert env["fake"].refresh not in response.text
