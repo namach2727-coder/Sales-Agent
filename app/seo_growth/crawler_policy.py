@@ -7,8 +7,9 @@ consult robots policy before requesting a page.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 import time
-from typing import Mapping
+from typing import Callable, Mapping
 from urllib.parse import urlsplit
 from urllib.robotparser import RobotFileParser
 
@@ -41,7 +42,9 @@ class CrawlLimits:
             raise CrawlPolicyError("seo_crawler_invalid_limits")
         if type(self.max_depth) is not int or self.max_depth < 0:
             raise CrawlPolicyError("seo_crawler_invalid_limits")
-        if (self.max_elapsed_seconds <= 0 or self.request_timeout_seconds <= 0
+        if (not math.isfinite(self.max_elapsed_seconds)
+                or not math.isfinite(self.request_timeout_seconds)
+                or self.max_elapsed_seconds <= 0 or self.request_timeout_seconds <= 0
                 or self.request_timeout_seconds > self.max_elapsed_seconds):
             raise CrawlPolicyError("seo_crawler_invalid_limits")
         if self.max_response_bytes > self.max_total_bytes:
@@ -52,7 +55,7 @@ class CrawlLimits:
 class CrawlBudget:
     limits: CrawlLimits = field(default_factory=CrawlLimits)
     started_at: float = field(default_factory=time.monotonic)
-    clock: object = time.monotonic
+    clock: Callable[[], float] = time.monotonic
     pages: int = 0
     total_bytes: int = 0
     pages_by_host: dict[str, int] = field(default_factory=dict)
