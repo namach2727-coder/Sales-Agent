@@ -24,6 +24,7 @@ from app.seo_growth.crawler_policy import (
 from app.seo_growth.crawler_security import (
     CrawlTarget,
     CrawlTargetError,
+    Resolver,
     normalize_crawl_url,
     resolve_public_addresses,
     validate_redirect_target,
@@ -108,7 +109,13 @@ def _request_once(
             if declared_length > max_body_bytes:
                 raise CrawlTransportError("seo_crawler_response_too_large")
         body = bytearray()
+        deadline = time.monotonic() + timeout
         while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise CrawlTransportError("seo_crawler_time_budget_exceeded")
+            if connection.sock is not None:
+                connection.sock.settimeout(remaining)
             chunk = response.read(min(64 * 1024, max_body_bytes + 1 - len(body)))
             if not chunk:
                 break
@@ -128,10 +135,12 @@ RequestOnce = Callable[..., tuple[int, dict[str, str], bytes, str | None]]
 
 
 def _request_with_redirects(
-    raw_url: str, *, resolver: Callable[[str, int], object],
+    raw_url: str, *, resolver: Resolver,
     budget: CrawlBudget, max_redirects: int, max_body_bytes: int,
     request_once: RequestOnce = _request_once,
 ) -> tuple[CrawlTarget, int, dict[str, str], bytes]:
+    if type(max_redirects) is not int or max_redirects < 0 or max_redirects > budget.limits.max_redirects:
+        raise CrawlPolicyError("seo_crawler_invalid_limits")
     target = normalize_crawl_url(raw_url)
     addresses = resolve_public_addresses(target, resolver=resolver)
     redirects = 0
@@ -162,15 +171,33 @@ def _request_with_redirects(
             raise CrawlTransportError("seo_crawler_network_request_failed")
         status, headers, body, location = result
         if status not in REDIRECT_STATUSES or not location:
+            encoding = headers.get("content-encoding", "identity").strip().lower()
+            if encoding not in {"", "identity"}:
+                raise CrawlTransportError("seo_crawler_content_encoding_rejected")
+            raw_length = headers.get("content-length")
+            if raw_length is not None:
+                try:
+                    declared_length = int(raw_length)
+                except (TypeError, ValueError):
+                    raise CrawlTransportError("seo_crawler_invalid_content_length") from None
+                if declared_length < 0:
+                    raise CrawlTransportError("seo_crawler_invalid_content_length")
+                if declared_length > max_body_bytes:
+                    raise CrawlTransportError("seo_crawler_response_too_large")
             return target, status, headers, body
         if redirects >= max_redirects:
             raise CrawlTransportError("seo_crawler_redirect_limit_exceeded")
         try:
-            target, addresses = validate_redirect_target(
+            next_target, next_addresses = validate_redirect_target(
                 target.url, location, resolver=resolver,
             )
         except CrawlTargetError:
             raise
+        if (next_target.scheme, next_target.hostname, next_target.port) != (
+            target.scheme, target.hostname, target.port,
+        ):
+            raise CrawlTransportError("seo_crawler_cross_origin_redirect_rejected")
+        target, addresses = next_target, next_addresses
         redirects += 1
 
 
@@ -179,6 +206,7 @@ def fetch_html_page(
     resolver: Callable[[str, int], object],
     budget: CrawlBudget,
     user_agent: str = "DirectPilotBot",
+    depth: int = 0,
     request_once: RequestOnce = _request_once,
 ) -> FetchedHTMLPage:
     """Fetch one public HTML page after robots checks and all resource controls.
@@ -187,7 +215,7 @@ def fetch_html_page(
     validated address. This function is not wired to a public API endpoint.
     """
     target = normalize_crawl_url(raw_url)
-    budget.record_page(target.url, depth=0)
+    budget.record_page(target.url, depth=depth)
     parsed = urlsplit(target.url)
     robots_url = urlunsplit((parsed.scheme, parsed.netloc, "/robots.txt", "", ""))
     robots_target, robots_status, _robots_headers, robots_body = _request_with_redirects(
@@ -196,6 +224,7 @@ def fetch_html_page(
         max_body_bytes=min(MAX_ROBOTS_BYTES, budget.limits.max_response_bytes),
         request_once=request_once,
     )
+    budget.record_response_bytes(len(robots_body))
     if not robots_allows(
         robots_url=robots_url, page_url=target.url, user_agent=user_agent,
         status_code=robots_status, body=robots_body,

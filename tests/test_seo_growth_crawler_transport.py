@@ -134,14 +134,14 @@ def test_fetch_rejects_compressed_content_without_decompression_budget():
     def request_once(target, pinned_ip, *, timeout, max_body_bytes):
         if target.path_and_query == "/robots.txt":
             return 404, {}, b"", None
-        return 200, {"content-type": "text/html", "content-encoding": "gzip"}, b"x", None
-    # The injected fake is deliberately permissive; production transport rejects
-    # Content-Encoding before returning the response body.
-    page = fetch_html_page(
-        "https://public.example.com/", resolver=_resolver,
-        budget=CrawlBudget(), request_once=request_once,
-    )
-    assert page.body == b"x"
+        return 200, {
+            "content-type": "text/html", "content-encoding": "gzip",
+        }, b"x", None
+    with pytest.raises(CrawlTransportError, match="seo_crawler_content_encoding_rejected"):
+        fetch_html_page(
+            "https://public.example.com/", resolver=_resolver,
+            budget=CrawlBudget(), request_once=request_once,
+        )
 
 
 def test_dns_resolution_is_repeated_for_each_redirect_target():
@@ -172,3 +172,27 @@ def test_transport_does_not_send_page_request_when_robots_returns_server_error()
             budget=CrawlBudget(), request_once=request_once,
         )
     assert requests == ["/robots.txt"]
+
+
+def test_cross_origin_redirect_is_rejected_even_when_public():
+    def request_once(target, pinned_ip, *, timeout, max_body_bytes):
+        return 302, {"location": "https://other.example.com/"}, b"", "https://other.example.com/"
+    with pytest.raises(CrawlTransportError, match="seo_crawler_cross_origin_redirect_rejected"):
+        _request_with_redirects(
+            "https://public.example.com/", resolver=_resolver,
+            budget=CrawlBudget(), max_redirects=2, max_body_bytes=100,
+            request_once=request_once,
+        )
+
+
+def test_robots_body_counts_toward_total_crawl_byte_budget():
+    limits = CrawlLimits(max_response_bytes=100, max_total_bytes=10)
+    def request_once(target, pinned_ip, *, timeout, max_body_bytes):
+        if target.path_and_query == "/robots.txt":
+            return 200, {"content-type": "text/plain"}, b"User-agent: *", None
+        return 200, {"content-type": "text/html"}, b"ok", None
+    with pytest.raises(Exception, match="seo_crawler_total_byte_budget_exceeded"):
+        fetch_html_page(
+            "https://public.example.com/", resolver=_resolver,
+            budget=CrawlBudget(limits), request_once=request_once,
+        )
