@@ -944,3 +944,12 @@ Added the first user-triggered ingestion path on this branch:
 - Per-site database lease, sync-run state, sanitized audit events and revalidation of site/connection/grant authority are implemented. There is no scheduler or automatic backfill.
 
 **Validation pending:** this implementation and the additional schema constraints are newer than CI run #42010674663. Do not treat the new sync path as tested until the next full CI run passes. No live Google request, customer grant, UAT/Production migration or deployment was performed. Bounded retry/backoff, sync history/read APIs and reports reading persisted data remain follow-up work. Retention remains unapproved.
+
+
+### SEO-GROWTH-P1-HTML-AUDIT-20261107 — parser implementation checkpoint
+
+- Added app/seo_growth/technical_audit.py: a deterministic, network-free HTML parser returning page-level title/description/canonical/language/robots/H1-heading/image-alt/internal-external-link observations and evidence-backed initial findings.
+- Added tests/test_seo_growth_technical_audit.py for metadata extraction, missing metadata/noindex, multiple H1, truncated input, URL validation and non-text rejection. H1 is included in the heading outline.
+- No outbound HTTP, crawler, database writes, endpoint, customer data access or feature-flag activation is included. This is the safe parser foundation only; findings are observations, not ranking penalties or Google index claims.
+- CI run #42354653450 was queued for the test commit when checked. The subsequent small H1-outline correction is later than that queued test commit and is not yet confirmed by CI. Do not claim P1 validation until CI covers the exact branch head.
+- Next: inspect CI outcome and exact tested SHA; fix actual failures only. Then design/implement a separately gated SSRF-safe fetcher (DNS/IP checks, redirect revalidation, robots, byte/page/time/rate limits) before any URL fetching. Keep all release boundaries unchanged.
