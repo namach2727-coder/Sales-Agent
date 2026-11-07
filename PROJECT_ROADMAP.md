@@ -3,6 +3,19 @@
 
 
 
+### SEO-GROWTH-P2-PINNED-TRANSPORT-20261107
+
+- Backend branch `feature/seo-growth-commercial-foundation-20261101`, source head before documentation update: `a61798ed29c7277aa2dc44ecb0c48c6bd6932f16`; Draft PR #121 remains open and unmerged.
+- Added `app/seo_growth/crawler_transport.py`: synchronous GET-only HTTP transport opens sockets to validated numeric IPs (no HTTP-client hostname lookup), preserves HTTPS certificate verification and original hostname SNI, sends the matching Host header, disables compression/cookies/auth, manually follows only same-origin redirects, and checks every redirect through URL/DNS validation.
+- Fetch orchestration requests `/robots.txt` before the page, applies the Robots decision, rejects non-HTML responses and non-identity content encodings, enforces response/robots byte limits, total crawl byte budget, redirect count and elapsed/request timeouts. DNS is re-resolved and pinned for each redirect; IP retries recompute remaining time. The current function is not wired to any public API route.
+- Added focused transport tests for numeric-IP socket pinning, TLS SNI hostname preservation, redirect validation and limits, robots-before-page behavior, compression rejection, byte accounting and timeout recomputation. Tests use fake request handlers; no external URL was fetched.
+- Exact-head CI for `a61798ed29c7277aa2dc44ecb0c48c6bd6932f16` is queued (Docker build, PostgreSQL smoke, PostgreSQL 18/Neon compatibility and full tests). The earlier preflight-only head `e550c25eb5613d0ef1c8fe74b208ead82903af50` passed all four jobs; that does not validate the new transport.
+- Scope deliberately remains incomplete: no distributed per-host/tenant concurrency or rate limiter, no crawler queue/worker, no crawl graph/depth traversal, no persistent crawl records or API endpoint. The injected DNS resolver must be bounded by its caller. Cross-origin redirects are rejected rather than silently transferring robots scope. These are explicit follow-up gates.
+- No UAT/Production migration or deployment, SEO flag activation, real Google Sync, customer grant, billing activation, CMS write, or live URL fetch was performed. UAT remains at `0029_seo_pilot_revision`; migration `0030_seo_growth_durable_data` remains unapplied.
+- Next: exact-head CI; fix any failures; then add distributed host/tenant rate and concurrency controls plus audit persistence before any endpoint integration. Keep PR #121 Draft and do not enable crawling until security review and controlled UAT acceptance.
+
+
+
 ### SEO-GROWTH-P2-POLICY-LAYER-20261107
 
 - Backend branch: `feature/seo-growth-commercial-foundation-20261101`; source head before documentation update: `866799fdb86847244e02758f508f4317eed7d675`; Draft PR #121 remains open and unmerged.
