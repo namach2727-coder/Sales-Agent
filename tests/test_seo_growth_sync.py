@@ -191,10 +191,16 @@ def test_sync_rejects_query_sample_windows_over_28_days_before_provider_calls(en
     site = env["svc"]().add_site(connection.public_id, "sc-domain:example.com")
     end = datetime.now(ZoneInfo("America/Los_Angeles")).date() - timedelta(days=3)
     start = end - timedelta(days=55)
+    provider_calls = []
+    original_refresh = env["fake"].refresh_access_token
+    def track_refresh(**kwargs):
+        provider_calls.append("refresh")
+        return original_refresh(**kwargs)
+    env["fake"].refresh_access_token = track_refresh
     response = api.post(prefix(env) + f"/sites/{site.public_id}/sync", headers=SYNC_HEADERS, json={
         "start_date": start.isoformat(), "end_date": end.isoformat(),
         "query_page_start_date": start.isoformat(),
     })
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "seo_sync_query_window_too_large"
-    assert env["fake"].exchange_calls == 0
+    assert provider_calls == []
