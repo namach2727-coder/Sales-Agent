@@ -144,7 +144,8 @@ def validate_resolved_addresses(addresses: Iterable[str]) -> tuple[str, ...]:
 
 
 def resolve_public_addresses(target: CrawlTarget, *, resolver: Resolver) -> tuple[str, ...]:
-    """Use an injected resolver and reject the whole answer if any IP is non-public."""
+    """Re-normalize the URL before DNS so caller-supplied fields cannot bypass policy."""
+    target = normalize_crawl_url(target.url)
     try:
         address = ipaddress.ip_address(target.hostname)
     except ValueError:

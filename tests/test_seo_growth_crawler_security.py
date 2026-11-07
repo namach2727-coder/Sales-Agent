@@ -120,3 +120,29 @@ def test_url_errors_keep_specific_security_codes():
         normalize_crawl_url("ftp://example.com/file")
     with pytest.raises(CrawlTargetError, match="seo_crawler_url_credentials_rejected"):
         normalize_crawl_url("https://user:secret@example.com/")
+
+
+def test_resolver_revalidates_url_instead_of_trusting_forged_target_fields():
+    from app.seo_growth.crawler_security import CrawlTarget
+    forged = CrawlTarget(
+        url="http://127.0.0.1/", scheme="https",
+        hostname="93.184.216.34", port=443, path_and_query="/",
+    )
+    with pytest.raises(CrawlTargetError, match="seo_crawler_unsafe_ip"):
+        resolve_public_addresses(
+            forged, resolver=lambda _hostname, _port: ["93.184.216.34"],
+        )
+
+
+def test_resolver_uses_normalized_url_hostname_not_mutable_target_fields():
+    from app.seo_growth.crawler_security import CrawlTarget
+    target = CrawlTarget(
+        url="https://public.example.com/path", scheme="https",
+        hostname="127.0.0.1", port=443, path_and_query="/",
+    )
+    calls = []
+    def resolver(hostname, port):
+        calls.append((hostname, port))
+        return ["93.184.216.34"]
+    assert resolve_public_addresses(target, resolver=resolver) == ("93.184.216.34",)
+    assert calls == [("public.example.com", 443)]
