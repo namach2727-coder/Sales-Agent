@@ -66,6 +66,10 @@ def test_dns_answer_requires_every_address_to_be_public():
         validate_resolved_addresses(["93.184.216.34", "127.0.0.1"])
     with pytest.raises(CrawlTargetError, match="seo_crawler_dns_empty"):
         validate_resolved_addresses([])
+    with pytest.raises(CrawlTargetError, match="seo_crawler_unsafe_ip"):
+        validate_resolved_addresses(["224.0.0.1"])
+    with pytest.raises(CrawlTargetError, match="seo_crawler_unsafe_ip"):
+        validate_resolved_addresses(["ff02::1"])
 
 
 def test_dns_resolution_uses_injected_resolver_and_returns_pinned_addresses():

@@ -45,7 +45,11 @@ Resolver = Callable[[str, int], Iterable[str]]
 
 
 def _is_public_address(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    if not address.is_global:
+    # Python's is_global can be True for multicast ranges; those are never
+    # valid unicast crawl destinations.
+    if (not address.is_global or address.is_private or address.is_multicast
+            or address.is_unspecified or address.is_loopback or address.is_link_local
+            or address.is_reserved):
         return False
     if isinstance(address, ipaddress.IPv6Address):
         if (address.ipv4_mapped is not None or address.sixtofour is not None
