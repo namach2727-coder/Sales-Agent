@@ -25,6 +25,7 @@ from app.seo_growth.google_client import GoogleGscError
 
 
 MAX_SYNC_DAYS = 90
+MAX_QUERY_PAGE_DAYS = 28
 QUERY_PAGE_LIMIT = 500
 LEASE_SECONDS = 300
 FINAL_DATA_DELAY_DAYS = 3
@@ -247,12 +248,18 @@ def _coverage(db, *, scope: dict, run_id: int, search_type: str, dimension: str,
 
 
 def sync_site(svc: SeoOnboardingService, site_public_id: str,
-              start_date: date, end_date: date) -> dict:
+              start_date: date, end_date: date, *,
+              query_page_start_date: date | None = None) -> dict:
     """Run a user-requested bounded sync. No scheduler or implicit backfill."""
     if not isinstance(start_date, date) or not isinstance(end_date, date) or end_date < start_date:
         raise SeoError("seo_sync_invalid_window", 422)
     if (end_date - start_date).days + 1 > MAX_SYNC_DAYS:
         raise SeoError("seo_sync_window_too_large", 422)
+    query_start = query_page_start_date or start_date
+    if query_start < start_date or query_start > end_date:
+        raise SeoError("seo_sync_invalid_window", 422)
+    if query_page_start_date is not None and (end_date - query_start).days + 1 > MAX_QUERY_PAGE_DAYS:
+        raise SeoError("seo_sync_query_window_too_large", 422)
     latest_final = datetime.now(ZoneInfo("America/Los_Angeles")).date() - timedelta(days=FINAL_DATA_DELAY_DAYS)
     if end_date > latest_final:
         raise SeoError("seo_sync_data_not_final", 422)
@@ -292,10 +299,10 @@ def sync_site(svc: SeoOnboardingService, site_public_id: str,
         daily_body = provider.search_analytics(access_token=tokens.access_token, property_id=property_id,
             start_date=start_date, end_date=end_date, dimensions=("date",), row_limit=(end_date-start_date).days+1)
         query_body = provider.search_analytics(access_token=tokens.access_token, property_id=property_id,
-            start_date=start_date, end_date=end_date, dimensions=("query", "page"), row_limit=QUERY_PAGE_LIMIT)
+            start_date=query_start, end_date=end_date, dimensions=("query", "page"), row_limit=QUERY_PAGE_LIMIT)
         daily_rows = normalize_daily_rows(daily_body, start_date=start_date, end_date=end_date)
         query_rows = normalize_query_page_rows(query_body, property_id=property_id,
-            start_date=start_date, end_date=end_date)
+            start_date=query_start, end_date=end_date)
 
         current, current_site, current_connection = _current_scope(svc, site_public_id)
         if (current_site.property_id != property_id or current_connection.id != connection.id
@@ -310,7 +317,7 @@ def sync_site(svc: SeoOnboardingService, site_public_id: str,
         _upsert_daily(current.db, scope=scope, run_id=run_id, search_type="web",
             start_date=start_date, end_date=end_date, rows=daily_rows)
         _upsert_query_page(current.db, scope=scope, run_id=run_id, search_type="web",
-            start_date=start_date, end_date=end_date, rows=query_rows)
+            start_date=query_start, end_date=end_date, rows=query_rows)
         daily_status = "empty" if not daily_rows else "complete"
         query_status = ("empty" if not query_rows else
                         "truncated" if len(query_rows) >= QUERY_PAGE_LIMIT else "complete")
@@ -318,7 +325,7 @@ def sync_site(svc: SeoOnboardingService, site_public_id: str,
             start_date=start_date, end_date=end_date, rows_received=len(daily_rows),
             row_limit=(end_date-start_date).days+1, status=daily_status)
         _coverage(current.db, scope=scope, run_id=run_id, search_type="web", dimension="query_page",
-            start_date=start_date, end_date=end_date, rows_received=len(query_rows),
+            start_date=query_start, end_date=end_date, rows_received=len(query_rows),
             row_limit=QUERY_PAGE_LIMIT, status=query_status)
         run_record = current.db.get(SeoSyncRun, run_id)
         run_record.status = "succeeded"
@@ -331,7 +338,9 @@ def sync_site(svc: SeoOnboardingService, site_public_id: str,
         current.db.commit()
         return {"run_id": run_id, "status": "succeeded", "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(), "daily_rows": len(daily_rows),
-            "query_page_rows": len(query_rows), "coverage": {"date": daily_status, "query_page": query_status}}
+            "query_page_rows": len(query_rows),
+            "query_page_window": {"start_date": query_start.isoformat(), "end_date": end_date.isoformat()},
+            "coverage": {"date": daily_status, "query_page": query_status}}
     except (SeoError, GoogleGscError) as exc:
         svc.db.rollback()
         run_record = svc.db.get(SeoSyncRun, run_id)

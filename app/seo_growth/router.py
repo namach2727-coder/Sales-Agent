@@ -60,6 +60,7 @@ class SyncRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     start_date: date
     end_date: date
+    query_page_start_date: date | None = None
 
 
 def get_google_provider():
@@ -97,6 +98,7 @@ def fail(error: Exception):
         "seo_sync_not_enabled": "همگام‌سازی داده‌های سئو هنوز فعال نشده است.",
         "seo_sync_invalid_window": "بازه زمانی انتخاب‌شده معتبر نیست.",
         "seo_sync_window_too_large": "بازه هر درخواست همگام‌سازی حداکثر ۹۰ روز است.",
+        "seo_sync_query_window_too_large": "نمونه جست‌وجوها حداکثر برای ۲۸ روز دریافت می‌شود.",
         "seo_sync_data_not_final": "داده‌های این بازه هنوز نهایی نشده‌اند.",
         "seo_sync_already_running": "همگام‌سازی این سایت در حال اجراست.",
         "seo_sync_lease_lost": "مالکیت عملیات همگام‌سازی تغییر کرده است؛ دوباره وضعیت را بررسی کنید.",
@@ -225,7 +227,8 @@ def persisted_analyze(site_public_id: str, svc: SeoOnboardingService = Depends(s
 def sync(site_public_id: str, payload: SyncRequest, svc: SeoOnboardingService = Depends(service)):
     from app.seo_growth.sync import sync_site
     try:
-        return sync_site(svc, site_public_id, payload.start_date, payload.end_date)
+        return sync_site(svc, site_public_id, payload.start_date, payload.end_date,
+                         query_page_start_date=payload.query_page_start_date)
     except (SeoError, GoogleGscError) as exc:
         fail(exc)
 

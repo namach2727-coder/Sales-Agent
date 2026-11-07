@@ -30,6 +30,23 @@ def sync_history(svc: SeoOnboardingService, site_public_id: str, *, limit: int =
     rows = list(svc.db.scalars(base.order_by(
         SeoSyncRun.created_at.desc(), SeoSyncRun.id.desc()
     ).limit(limit).offset(offset)))
+    run_ids = [row.id for row in rows]
+    coverage_rows = list(svc.db.scalars(select(SeoMetricCoverage).where(
+        SeoMetricCoverage.tenant_id == svc.tenant,
+        SeoMetricCoverage.store_id == svc.store,
+        SeoMetricCoverage.site_id == site.id,
+        SeoMetricCoverage.source_run_id.in_(run_ids),
+    ).order_by(SeoMetricCoverage.source_run_id, SeoMetricCoverage.dimension))) if run_ids else []
+    coverage_by_run: dict[int, list[dict]] = {}
+    for coverage in coverage_rows:
+        coverage_by_run.setdefault(coverage.source_run_id, []).append({
+            "dimension": coverage.dimension,
+            "start_date": coverage.start_date.isoformat(),
+            "end_date": coverage.end_date.isoformat(),
+            "status": coverage.coverage_status,
+            "rows_received": coverage.rows_received,
+            "row_limit": coverage.row_limit,
+        })
     latest = svc.db.scalar(base.where(
         SeoSyncRun.status == "succeeded"
     ).order_by(SeoSyncRun.completed_at.desc(), SeoSyncRun.id.desc()).limit(1))
@@ -45,6 +62,7 @@ def sync_history(svc: SeoOnboardingService, site_public_id: str, *, limit: int =
             "created_at": row.created_at.isoformat() if row.created_at else None,
             "started_at": row.started_at.isoformat() if row.started_at else None,
             "completed_at": row.completed_at.isoformat() if row.completed_at else None,
+            "coverage": coverage_by_run.get(row.id, []),
         } for row in rows],
         "total": total,
         "limit": limit,

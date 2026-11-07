@@ -1,4 +1,5 @@
-from datetime import date
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import create_engine, select
@@ -6,7 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.database import Base
 from app.config import Settings
-from app.seo_growth.persistence import SeoPropertyDailyMetric, SeoSyncRun
+from app.seo_growth.persistence import (
+    SeoMetricCoverage, SeoPropertyDailyMetric, SeoQueryPageMetric, SeoSyncRun,
+)
+from test_seo_growth_onboarding import api, connected, env, prefix
 from app.seo_growth.sync import _upsert_daily
 from app.seo_growth.google_client import GoogleGscError
 from app.seo_growth.sync import (
@@ -117,3 +121,80 @@ def test_daily_window_replacement_removes_stale_dates_and_is_idempotent():
         assert rows[0].clicks == 8
         assert rows[0].source_run_id == 2
     engine.dispose()
+
+
+SYNC_HEADERS = {"Origin": "https://customer.example", "X-CSRF-Token": "seo"}
+
+
+def test_sync_keeps_56_day_property_totals_and_28_day_query_sample_aligned(env, api):
+    env["settings"].seo_data_sync_enabled = True
+    env["settings"].seo_analysis_preview_enabled = True
+    connection = connected(env)
+    site = env["svc"]().add_site(connection.public_id, "sc-domain:example.com")
+    end = datetime.now(ZoneInfo("America/Los_Angeles")).date() - timedelta(days=3)
+    current_start = end - timedelta(days=27)
+    full_start = end - timedelta(days=55)
+    calls = []
+
+    def analytics(**kwargs):
+        calls.append(kwargs)
+        if kwargs["dimensions"] == ("date",):
+            return {"rows": [
+                {"keys": [(kwargs["start_date"] + timedelta(days=i)).isoformat()],
+                 "clicks": 1, "impressions": 10, "position": 5.0}
+                for i in range((kwargs["end_date"] - kwargs["start_date"]).days + 1)
+            ]}
+        return {"rows": [{
+            "keys": ["sample query", "https://example.com/page"],
+            "clicks": 2, "impressions": 20, "position": 3.0,
+        }]}
+
+    env["fake"].search_analytics = analytics
+    endpoint = prefix(env) + f"/sites/{site.public_id}/sync"
+    response = api.post(endpoint, headers=SYNC_HEADERS, json={
+        "start_date": full_start.isoformat(), "end_date": end.isoformat(),
+        "query_page_start_date": current_start.isoformat(),
+    })
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert (body["start_date"], body["end_date"]) == (full_start.isoformat(), end.isoformat())
+    assert body["query_page_window"] == {"start_date": current_start.isoformat(), "end_date": end.isoformat()}
+    assert [call["dimensions"] for call in calls] == [("date",), ("query", "page")]
+    assert (calls[0]["start_date"], calls[0]["end_date"]) == (full_start, end)
+    assert (calls[1]["start_date"], calls[1]["end_date"]) == (current_start, end)
+
+    coverage = list(env["db"].scalars(select(SeoMetricCoverage).order_by(SeoMetricCoverage.dimension)))
+    date_coverage = next(row for row in coverage if row.dimension == "date")
+    query_coverage = next(row for row in coverage if row.dimension == "query_page")
+    assert (date_coverage.start_date, date_coverage.end_date) == (full_start, end)
+    assert (query_coverage.start_date, query_coverage.end_date) == (current_start, end)
+    stored_query = env["db"].scalar(select(SeoQueryPageMetric))
+    assert (stored_query.start_date, stored_query.end_date) == (current_start, end)
+
+    report = api.get(prefix(env) + f"/sites/{site.public_id}/analysis")
+    assert report.status_code == 200, report.text
+    assert report.json()["comparison"]["status"] == "comparable"
+    assert report.json()["query_sample"]["coverage"] == "complete"
+    assert report.json()["query_sample"]["window_start_date"] == current_start.isoformat()
+
+    history = api.get(prefix(env) + f"/sites/{site.public_id}/sync-runs")
+    assert history.status_code == 200, history.text
+    history_coverage = history.json()["items"][0]["coverage"]
+    assert {item["dimension"]: item["start_date"] for item in history_coverage} == {
+        "date": full_start.isoformat(), "query_page": current_start.isoformat(),
+    }
+
+
+def test_sync_rejects_query_sample_windows_over_28_days_before_provider_calls(env, api):
+    env["settings"].seo_data_sync_enabled = True
+    connection = connected(env)
+    site = env["svc"]().add_site(connection.public_id, "sc-domain:example.com")
+    end = datetime.now(ZoneInfo("America/Los_Angeles")).date() - timedelta(days=3)
+    start = end - timedelta(days=55)
+    response = api.post(prefix(env) + f"/sites/{site.public_id}/sync", headers=SYNC_HEADERS, json={
+        "start_date": start.isoformat(), "end_date": end.isoformat(),
+        "query_page_start_date": start.isoformat(),
+    })
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "seo_sync_query_window_too_large"
+    assert env["fake"].exchange_calls == 0
