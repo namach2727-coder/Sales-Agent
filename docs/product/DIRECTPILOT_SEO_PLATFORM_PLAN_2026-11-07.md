@@ -2,6 +2,18 @@
 
 
 
+### SEO-GROWTH-P2-TRANSPORT-DEADLINE-20261107
+
+- Latest backend source head: `97c37135413d5a4cdec0f43c7cb81d1ed0b07f51`, branch `feature/seo-growth-commercial-foundation-20261101`, Draft PR #121. Exact-head CI run #42374256973 is in progress; do not call the transport validated until the full test job and all infrastructure jobs pass.
+- The pinned transport now uses an absolute per-request deadline across TCP connect, TLS handshake, request send, response headers and body reads. Remaining time is recalculated before each validated-IP retry. Socket timeouts map to a stable crawler time-budget error.
+- User-Agent matching is fixed to the DirectPilotBot product token used by the actual request header. Cross-origin redirects are rejected, preventing a redirect from silently switching robots.txt scope; same-origin redirects are re-resolved, revalidated and pinned.
+- Transport and test suite include regression checks for same-origin redirect validation, cross-origin redirect rejection, robots-before-page behavior, byte accounting, compressed response rejection, numeric-IP connection pinning, SNI preservation and total timeout handling.
+- The service remains a library-level capability only. No public route, worker, queue, DB crawl record, distributed host/tenant rate limiter or concurrency lease is implemented. Injected DNS must be bounded by its caller. No external URL was fetched by tests.
+- UAT remains at `0029_seo_pilot_revision`; source migration `0030_seo_growth_durable_data` is unapplied; SEO flags remain default-off. No customer grant, Google Sync, billing, CMS write, UAT/Production deployment or migration was performed.
+- Next: complete exact-head CI, address any failures, then design persistent per-host/per-tenant concurrency and rate controls and audit persistence before route integration.
+
+
+
 ### SEO-GROWTH-P2-PINNED-TRANSPORT-20261107
 
 - Backend branch `feature/seo-growth-commercial-foundation-20261101`, source head before documentation update: `a61798ed29c7277aa2dc44ecb0c48c6bd6932f16`; Draft PR #121 remains open and unmerged.
