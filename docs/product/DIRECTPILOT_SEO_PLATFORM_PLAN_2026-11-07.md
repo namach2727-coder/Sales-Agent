@@ -43,7 +43,7 @@ Each finding includes stable code, category, severity, confidence, affected URL/
 
 ## Delivery phases
 - P0 — F2b durability: validate explicit sync, persisted sync history and persisted analysis; keep flags default-off.
-- P1 — Technical audit core: deterministic HTML parser and tests; no outbound requests.
+- P1 — Technical audit core: deterministic HTML parser and tests; implementation started in app/seo_growth/technical_audit.py and tests/test_seo_growth_technical_audit.py; CI validation pending. No outbound requests.
 - P2 — Safe crawler: SSRF-resistant fetch layer, robots policy, bounded crawl and site-level audit records.
 - P3 — Business Profile: tenant/store/site-scoped business profile and up to three validated competitor URLs.
 - P4 — Intelligence/Action Center: evidence-backed rules, prioritization, action status and report UI.
