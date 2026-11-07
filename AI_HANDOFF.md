@@ -3,6 +3,18 @@
 
 
 
+### SEO-GROWTH-P2-CRAWLER-SECURITY-PREFLIGHT-20261107
+
+- Backend source head: `4cb701b6849e2dc341afd6f098f894a2d8c242a1`, Draft PR #121. New module: `app/seo_growth/crawler_security.py`; focused tests: `tests/test_seo_growth_crawler_security.py`.
+- Implemented network-free URL/DNS policy primitives: HTTP(S)-only normalization, IDN canonicalization, rejection of URL credentials and non-default ports, rejection of local/single-label/reserved hostnames, public-IP validation, rejection of private/reserved/mixed DNS answers and IPv4-mapped/NAT64/6to4/Teredo transition addresses, and redirect-target revalidation.
+- DNS resolution is injected through a required resolver interface; there is no default socket resolver. Tests use synthetic resolver results. The module does not perform HTTP fetches, and no crawler endpoint calls it yet. A future transport must pin the connection to a returned IP while preserving the original Host header and TLS SNI; it must not resolve the hostname again.
+- Backend CI run #42370354421 for this exact source head is pending. Docker build, PostgreSQL smoke and PostgreSQL 18/Neon compatibility jobs have passed; the full test job is still running. Earlier F2b backend head `4856b6f71956031f58c834dfcfa8899621521097` passed 1094 tests (7 skipped, 3 warnings). Frontend PR #71 head `110e9380de492864d74e2dc3904b45d67b3ce064` passed 301 tests, type-check, lint, production-static build, verification and mobile audit.
+- F2b customer workflow is implemented in both Draft PRs: explicit 56-day daily sync + 28-day query/page sample, persisted report, dimension-level sync history, and no automatic retry of an ambiguous Sync POST. Both PRs remain Draft/unmerged.
+- UAT Neon remains at `0029_seo_pilot_revision`, with zero SEO grants, zero Google connections and zero SEO sites. Migration `0030_seo_growth_durable_data` is source-only and unapplied; all SEO flags remain default-off. No live Google customer Sync, UAT/Production migration or canonical deployment, billing activation, retention/purge, or CMS write was performed.
+- Next: validate this security preflight, then implement the pinned HTTP(S) transport, bounded redirect count, robots.txt policy, per-host/tenant rate limits, crawl depth/page/body/total-byte/time budgets and audit trail. Only after those tests pass may a crawler endpoint be exposed. UAT activation remains a separate approval gate.
+
+
+
 ### SEO-GROWTH-F2B-END-TO-END-VALIDATION-20261107
 
 - Backend source head: `4856b6f71956031f58c834dfcfa8899621521097` in Draft PR #121. The final test correction tracks actual provider refresh calls rather than the OAuth exchange counter, which is already incremented during test setup.

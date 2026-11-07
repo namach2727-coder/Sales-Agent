@@ -68,3 +68,7 @@ Backend commit `d925c2c1c7a718a5de8780ec0ecd5a31fe1e5c55` adds the optional `que
 ## 2026-11-07 F2b end-to-end source validation
 
 Backend head `4856b6f71956031f58c834dfcfa8899621521097` passed CI run #42369504917 with 1094 passed, 7 skipped and 3 warnings; PostgreSQL 17 smoke, PostgreSQL 18 compatibility and Docker build passed. Frontend head `0ff906946a88d86d9b4d5bbb03606326de6eabfa` passed 301 tests, TypeScript, lint, production-static build, verification and mobile audit. The persisted customer portal is now wired to explicit sync, persisted analysis and dimension-level history. Both PRs remain Draft. UAT remains at 0029 with zero grants/connections/sites; migration 0030 and all SEO flags remain unapplied/off. Next gate is controlled UAT acceptance with an authorized test account, not automatic Production rollout.
+
+## 2026-11-07 P2 crawler security preflight
+
+Commit `4cb701b6849e2dc341afd6f098f894a2d8c242a1` adds the first crawler security layer. It canonicalizes public HTTP(S) targets, rejects credentials, unusual ports, local hostnames, private/reserved IPs and mixed DNS answers, blocks IPv4/IPv6 transition forms that can obscure private destinations, and revalidates redirects. DNS is injected; there is no default socket resolver and no HTTP fetcher. Tests use synthetic DNS answers only. The exact-head CI run #42370354421 is pending. Do not enable crawling until a pinned transport, robots enforcement, redirect limits, per-host/tenant throttling and hard resource budgets are implemented and tested.
