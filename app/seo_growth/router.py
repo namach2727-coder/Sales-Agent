@@ -201,6 +201,26 @@ def analyze(site_public_id: str, payload: AnalysisPreviewRequest,
         fail(exc)
 
 
+@router.get(PREFIX + "/sites/{site_public_id}/sync-runs")
+def sync_runs(site_public_id: str, limit: int = Query(20, ge=1, le=100),
+              offset: int = Query(0, ge=0, le=10000),
+              svc: SeoOnboardingService = Depends(service)):
+    from app.seo_growth.persisted_reporting import sync_history
+    try:
+        return sync_history(svc, site_public_id, limit=limit, offset=offset)
+    except SeoError as exc:
+        fail(exc)
+
+
+@router.get(PREFIX + "/sites/{site_public_id}/analysis")
+def persisted_analyze(site_public_id: str, svc: SeoOnboardingService = Depends(service)):
+    from app.seo_growth.persisted_reporting import persisted_analysis
+    try:
+        return persisted_analysis(svc, site_public_id)
+    except (SeoError, GoogleGscError) as exc:
+        fail(exc)
+
+
 @router.post(PREFIX + "/sites/{site_public_id}/sync")
 def sync(site_public_id: str, payload: SyncRequest, svc: SeoOnboardingService = Depends(service)):
     from app.seo_growth.sync import sync_site
