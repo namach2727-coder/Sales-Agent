@@ -20,7 +20,7 @@ def test_extracts_core_page_metadata_and_structure():
     assert result["canonical_url"] == "https://example.com/services/"
     assert result["language"] == "fa-IR"
     assert result["h1_count"] == 1
-    assert result["heading_levels"] == [2]
+    assert result["heading_levels"] == [1, 2]
     assert result["image_count"] == 2
     assert result["images_missing_alt"] == 1
     assert result["internal_links"] == 1

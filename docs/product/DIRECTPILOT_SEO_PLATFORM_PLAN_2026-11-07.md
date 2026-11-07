@@ -43,7 +43,7 @@ Each finding includes stable code, category, severity, confidence, affected URL/
 
 ## Delivery phases
 - P0 — F2b durability: validate explicit sync, persisted sync history and persisted analysis; keep flags default-off.
-- P1 — Technical audit core: deterministic HTML parser and tests; implementation started in app/seo_growth/technical_audit.py and tests/test_seo_growth_technical_audit.py; CI validation pending. No outbound requests.
+- P1 — Technical audit core: deterministic HTML parser and tests are implemented in app/seo_growth/technical_audit.py and tests/test_seo_growth_technical_audit.py; the parser performs no network requests. The latest CI run exposed a stale H1-outline assertion; its correction is committed separately and awaits CI.
 - P2 — Safe crawler: SSRF-resistant fetch layer, robots policy, bounded crawl and site-level audit records.
 - P3 — Business Profile: tenant/store/site-scoped business profile and up to three validated competitor URLs.
 - P4 — Intelligence/Action Center: evidence-backed rules, prioritization, action status and report UI.
@@ -55,3 +55,8 @@ No automatic CMS edits, automatic publishing, customer billing/plan changes, sch
 
 ## Current source validation
 CI run #42012950916, source 52909808babad964da8c19612e12a9837d033a24: 1080 passed, 7 skipped, 3 warnings; all four CI jobs passed. This does not constitute live Google, UAT, or Production acceptance.
+
+
+## 2026-11-07 P1 test correction
+
+The parser includes H1 in the heading outline. The initial fixture still expected only H2, causing the latest PR #121 test job to fail while PostgreSQL smoke, PostgreSQL 18 compatibility and Docker build passed. The expected outline is corrected to [1, 2]. The correction's CI result is pending; this plan does not claim P1 validation until the exact new head passes. UAT remains at 0029 and source migration 0030 remains unapplied.

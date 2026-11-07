@@ -2,6 +2,17 @@
 > This file is one of the **six mandatory handoff/release artifacts**. On every DirectPilot / DirectPilot TelBot task, the assistant must read current `AI_HANDOFF.md`, `PROJECT_ROADMAP.md`, `DECISIONS.md`, `CURRENT_STATE.md`, `NEXT_ACTIONS.md`, and `docs/releases/RELEASE_REGISTER.md` **before making changes**; reconcile against actual GitHub/Vercel/Neon state, not chat memory. **After every meaningful change**, update all five main files **and the Release Register** coherently: scope and owner approval, PR/commit, changed artifacts, UAT/Production status, automated and manual evidence, unresolved risks, next action. Keep the current summary easy to scan, preserve history (archive older detail in runbooks; do not delete evidence), and never call code-merged "deployed" or a proposed feature "active". Never publish to Production, touch live data/secrets, or switch Meta/Telegram outbound functionality without specific owner approval. This rule itself MUST remain at the very TOP of each of the six files and must be propagated in any handoff to a new chat.
 
 
+
+### SEO-GROWTH-P1-HTML-AUDIT-CI-CORRECTION-20261107
+
+- Scope: correct the technical-audit regression test after the parser intentionally began including H1 in the document heading outline. The expected sequence for the fixture is now `[1, 2]`, not `[2]`.
+- Source: backend Draft PR #121, branch `feature/seo-growth-commercial-foundation-20261101`; parent source head before this correction: `d51dbc84b1bb025b8805f28e806ae675d84d9107`.
+- Validation evidence at parent: GitHub Actions run #42354762290 failed only in the `test` job; `postgres-smoke`, `postgres18-neon-compatibility` and `docker-build` passed. The parser's H1 inclusion was added in commit `64046f12e987de30105fd8dee47781d3cc374523`; the test fixture expectation had not been updated.
+- This commit changes the test expectation and reconciles this checkpoint across the six mandatory continuity/release records. The correction's own CI result remains pending until GitHub completes checks on the new exact head.
+- Release boundary: both SEO PRs remain Draft/unmerged; SEO feature flags remain default-off; UAT stays at schema `0029_seo_pilot_revision`; source migration `0030_seo_growth_durable_data` is not authorized for UAT or Production. No live Google connection, customer grant, scheduled sync, retention/purge, billing, CMS write, or Production action was performed.
+- Next: verify the correction's full CI result, then continue the SSRF-safe crawler design/implementation only with DNS/IP validation, redirect revalidation, robots policy, bounded resource limits and dedicated security tests. Do not enable outbound URL fetching before those controls pass.
+
+
 ### SEO-GROWTH-PLATFORM-PLAN-20261107 — competitor-informed product direction and current source checkpoint
 
 - Product direction: evolve the independent commercial SEO service into a multi-tenant SEO analysis and improvement platform: Business Profile → Data Collection → SEO Intelligence → SEO Action Center → Continuous Improvement. Faravis screenshots are product inspiration only; no competitor metrics or implementation claims are treated as verified facts.
