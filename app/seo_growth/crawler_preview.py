@@ -127,6 +127,7 @@ def crawl_preview(
     allowed_path_prefix: str = "/",
     audit_callback: Callable[..., None] | None = None,
     before_page: Callable[[str, int], None] | None = None,
+    request_once: Callable[..., Any] | None = None,
     fetch_page: FetchPage = fetch_html_page,
 ) -> dict:
     """Crawl a bounded same-host page graph and return deterministic observations.
@@ -183,6 +184,10 @@ def crawl_preview(
             }
             if fetch_page is fetch_html_page:
                 fetch_kwargs["allowed_path_prefix"] = prefix
+                if request_once is not None:
+                    fetch_kwargs["request_once"] = request_once
+            elif request_once is not None:
+                raise ValueError("seo_crawler_custom_fetcher_cannot_use_request_once")
             page = fetch_page(url, **fetch_kwargs)
         except (CrawlPolicyError, CrawlTransportError, CrawlTargetError) as exc:
             code = exc.code
