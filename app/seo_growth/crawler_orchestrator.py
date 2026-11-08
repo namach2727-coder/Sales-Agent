@@ -52,16 +52,21 @@ def _property_path_scope(property_id: str, seed_url: str) -> tuple[str, str]:
     raw_property = property_id.strip()
     if raw_property.casefold().startswith("sc-domain:"):
         domain_value = raw_property.split(":", 1)[1].strip()
+        if any(char in domain_value for char in "/?#"):
+            raise CrawlOrchestrationError("seo_crawler_invalid_site_property", 400)
         try:
             domain = normalize_crawl_url(f"https://{domain_value}/")
         except (CrawlTargetError, ValueError):
             raise CrawlOrchestrationError("seo_crawler_invalid_site_property", 400) from None
-        if domain.path_and_query != "/":
+        if domain.path_and_query != "/" or domain.port != 443:
             raise CrawlOrchestrationError("seo_crawler_invalid_site_property", 400)
         if seed.hostname != domain.hostname and not seed.hostname.endswith("." + domain.hostname):
             raise CrawlOrchestrationError("seo_crawler_site_scope_mismatch", 403)
         return seed.url, "/"
 
+    raw_property_parts = urlsplit(raw_property)
+    if raw_property_parts.query or raw_property_parts.fragment:
+        raise CrawlOrchestrationError("seo_crawler_invalid_site_property", 400)
     try:
         prop = normalize_crawl_url(raw_property)
         prefix = normalize_crawl_path_prefix(urlsplit(prop.url).path or "/")
