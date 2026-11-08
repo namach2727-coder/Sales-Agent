@@ -2,6 +2,18 @@
 
 
 
+### SEO-GROWTH-P2-CI-REMEDIATION-20261108
+
+- Backend runtime source head: `e94071edd589886b8f2af8c96f16d9771e96ab9d` on `feature/seo-growth-commercial-foundation-20261101`, Draft PR #121. The prior exact-head CI run #42374256973 on `97c37135413d5a4cdec0f43c7cb81d1ed0b07f51` completed with **1175 passed, 3 failed, 7 skipped**; Docker build, PostgreSQL smoke and PostgreSQL 18/Neon compatibility passed.
+- Failure analysis from the test log:
+  1. Robots `Allow` did not override a less-specific `Disallow`. The parser now selects the most-specific user-agent groups, applies longest matching path rule, and prefers `Allow` on equal-length matches.
+  2. The pinned socket test compared a monotonic-deadline timeout to exactly `3.0`; the assertion now checks the numeric-IP destination and uses a small timing tolerance.
+  3. The aggregate-byte test fixture configured `max_response_bytes > max_total_bytes`, which the policy correctly rejects, and its page body did not exceed the intended aggregate limit. The fixture now respects the invariant and exceeds the aggregate budget.
+- Code changes: `crawler_policy.py` commits `3326a7fffa3765ad0bd1f3469bef105bdf538455` and `fdac376218942a688401fdd7910530c1fcd8b145`; transport test commits `28bab39d3e8278aeb6042053df925a3e8774b320`, `4c7eb29e4d4e34749811433a3a1f27975ee5c913`, and final `e94071edd589886b8f2af8c96f16d9771e96ab9d`.
+- **Validation is pending on the corrected source.** No workflow run or combined status was returned for exact head `e94071e`; do not claim the three failures are fixed until exact-head CI completes. The code correction is source-only.
+- Release boundary unchanged: PR #121 remains Draft/unmerged; PR #71 remains Draft/unmerged; UAT schema remains `0029_seo_pilot_revision`; migration `0030_seo_growth_durable_data` remains unapplied; SEO flags remain default-off. No UAT/Production deployment or migration, real Google Sync, customer grant, scheduled job, billing, retention/purge, CMS write, or live URL fetch was performed.
+- Next: obtain full CI on the corrected source head; fix any new failures. Only then continue distributed per-host/per-tenant rate and concurrency controls plus durable crawl audit persistence before any crawler route integration.
+
 ### SEO-GROWTH-P2-TRANSPORT-DEADLINE-20261107
 
 - Latest backend source head: `97c37135413d5a4cdec0f43c7cb81d1ed0b07f51`, branch `feature/seo-growth-commercial-foundation-20261101`, Draft PR #121. Exact-head CI run #42374256973 is in progress; do not call the transport validated until the full test job and all infrastructure jobs pass.
