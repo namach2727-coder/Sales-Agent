@@ -1,4 +1,4 @@
-"""Network-independent crawl policy, robots decisions and resource budgets.
+""""Network-independent crawl policy, robots decisions and resource budgets.
 
 This module does not perform network I/O. The eventual transport must enforce
 wire-byte and decoded-byte limits while streaming, use bounded timeouts, and
@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import math
+import re
 import time
 from typing import Callable, Mapping
 from urllib.parse import urlsplit
-from urllib.robotparser import RobotFileParser
 
 
 class CrawlPolicyError(ValueError):
@@ -117,14 +117,60 @@ def validate_html_response(
     return media_type
 
 
+def _robots_rule_matches(pattern: str, path: str) -> bool:
+    if not pattern:
+        return False
+    anchored = pattern.endswith("$")
+    expression = re.escape(pattern[:-1] if anchored else pattern).replace(r"\\*", ".*")
+    # re.escape does not escape '*' on all supported Python versions.
+    expression = expression.replace(r"\\*", ".*").replace("*", ".*")
+    return re.match("^" + expression + ("$" if anchored else ""), path) is not None
+
+
+def _robots_groups(lines: list[str]) -> list[tuple[list[str], list[tuple[str, str]]]]:
+    groups: list[tuple[list[str], list[tuple[str, str]]]] = []
+    agents: list[str] = []
+    rules: list[tuple[str, str]] = []
+    saw_rule = False
+
+    def finish() -> None:
+        nonlocal agents, rules, saw_rule
+        if agents:
+            groups.append((agents, rules))
+        agents, rules, saw_rule = [], [], False
+
+    for raw_line in lines:
+        line = raw_line.split("#", 1)[0].strip()
+        if not line:
+            if agents and saw_rule:
+                finish()
+            continue
+        if ":" not in line:
+            continue
+        directive, value = (part.strip() for part in line.split(":", 1))
+        directive = directive.lower()
+        if directive == "user-agent" and value:
+            if saw_rule:
+                finish()
+            agents.append(value.lower())
+        elif directive in {"allow", "disallow"} and agents:
+            saw_rule = True
+            if value:
+                rules.append((directive, value))
+    finish()
+    return groups
+
+
 def robots_allows(
     *, robots_url: str, page_url: str, user_agent: str,
     status_code: int, body: bytes | None,
 ) -> bool:
-    """Apply a fail-closed robots decision for access-control and server failures.
+    """Apply RFC-style longest-match Allow/Disallow rules, failing closed.
 
-    A successful robots response is parsed using the standard library parser.
-    404/410 mean no robots file; 401/403/429 and 5xx block crawling.
+    404/410 mean no robots file. 401/403/429 and server errors block crawling.
+    Matching groups are selected by the most specific user-agent token; wildcard
+    applies only when no product-specific group matches. Equally specific rules
+    prefer Allow.
     """
     if status_code in {404, 410}:
         return True
@@ -133,10 +179,34 @@ def robots_allows(
     if status_code < 200 or status_code >= 300 or body is None:
         return False
     try:
-        text = body.decode("utf-8", errors="replace")
-        parser = RobotFileParser()
-        parser.set_url(robots_url)
-        parser.parse(text.splitlines())
-        return parser.can_fetch(user_agent, page_url)
+        lines = body.decode("utf-8", errors="replace").splitlines()
+        groups = _robots_groups(lines)
+        agent = user_agent.strip().lower().split("/", 1)[0]
+        matched: list[tuple[list[str], list[tuple[str, str]]]] = []
+        specificity = 0
+        for agents, rules in groups:
+            score = max(
+                (len(token) for token in agents if token != "*" and token in agent),
+                default=0,
+            )
+            if score > specificity:
+                specificity, matched = score, [(agents, rules)]
+            elif score and score == specificity:
+                matched.append((agents, rules))
+        if not matched:
+            matched = [(agents, rules) for agents, rules in groups if "*" in agents]
+        parsed = urlsplit(page_url)
+        path = parsed.path or "/"
+        if parsed.query:
+            path += "?" + parsed.query
+        applicable: list[tuple[int, bool]] = []
+        for _agents, rules in matched:
+            for directive, pattern in rules:
+                if _robots_rule_matches(pattern, path):
+                    applicable.append((len(pattern.encode("utf-8")), directive == "allow"))
+        if not applicable:
+            return True
+        longest = max(length for length, _allow in applicable)
+        return any(allow for length, allow in applicable if length == longest)
     except (UnicodeError, ValueError):
         return False
