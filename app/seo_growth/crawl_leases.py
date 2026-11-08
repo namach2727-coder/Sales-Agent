@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+import ipaddress
 import secrets
 import uuid
 from urllib.parse import urlsplit
@@ -38,8 +39,16 @@ def _utc(value: datetime | None) -> datetime:
 def _host(value: str) -> str:
     if not isinstance(value, str) or not value or len(value) > 260:
         raise CrawlLeaseError("seo_crawler_invalid_host", 400)
+    candidate = value
     try:
-        target = normalize_crawl_url(f"https://{value}/")
+        address = ipaddress.ip_address(value.strip("[]"))
+    except ValueError:
+        if ":" in value:
+            raise CrawlLeaseError("seo_crawler_invalid_host", 400) from None
+    else:
+        candidate = f"[{address.compressed}]" if address.version == 6 else address.compressed
+    try:
+        target = normalize_crawl_url(f"https://{candidate}/")
     except CrawlTargetError:
         raise CrawlLeaseError("seo_crawler_invalid_host", 400) from None
     if target.path_and_query != "/":
