@@ -138,6 +138,8 @@ def crawl_preview(
                 raise CrawlPolicyError("seo_crawler_page_budget_exceeded")
             if host and budget.pages_by_host.get(host, 0) >= budget.limits.max_pages_per_host:
                 raise CrawlPolicyError("seo_crawler_host_page_budget_exceeded")
+            if budget.total_bytes >= budget.limits.max_total_bytes:
+                raise CrawlPolicyError("seo_crawler_total_byte_budget_exceeded")
         except CrawlPolicyError as exc:
             if exc.code in STOP_CODES:
                 stop_reason = exc.code
