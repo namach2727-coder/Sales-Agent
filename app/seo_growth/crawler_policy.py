@@ -82,14 +82,15 @@ class CrawlBudget:
     def record_response_bytes(
         self, byte_count: int, *, enforce_response_limit: bool = True,
     ) -> None:
-        self.check_time()
         if type(byte_count) is not int or byte_count < 0:
             raise CrawlPolicyError("seo_crawler_invalid_byte_count")
         if enforce_response_limit and byte_count > self.limits.max_response_bytes:
             raise CrawlPolicyError("seo_crawler_response_too_large")
         if self.total_bytes + byte_count > self.limits.max_total_bytes:
             raise CrawlPolicyError("seo_crawler_total_byte_budget_exceeded")
+        # Account bytes already received before checking the elapsed deadline.
         self.total_bytes += byte_count
+        self.check_time()
 
 
 def validate_html_response(
