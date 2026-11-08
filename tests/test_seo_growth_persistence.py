@@ -12,6 +12,7 @@ def test_f2b_tables_are_registered_and_scope_bound():
         "seo_query_page_metrics",
         "seo_metric_coverage",
         "seo_sync_leases",
+        "seo_crawl_audit_events",
     }
     assert expected <= set(Base.metadata.tables)
 
