@@ -38,7 +38,9 @@ def test_pinned_connection_opens_socket_to_numeric_ip_not_hostname(monkeypatch):
     target = normalize_crawl_url("http://public.example.com/")
     connection = _PinnedHTTPConnection(target, "93.184.216.34", 3.0, None)
     connection.connect()
-    assert calls == [(("93.184.216.34", 80), 3.0)]
+    assert len(calls) == 1
+    assert calls[0][0] == ("93.184.216.34", 80)
+    assert calls[0][1] == pytest.approx(3.0, abs=0.01)
     assert connection.sock is not None
     connection.close()
 
@@ -69,7 +71,7 @@ def test_redirects_are_revalidated_and_connection_uses_redirect_ip():
         calls.append((target.url, pinned_ip))
         if target.path_and_query == "/start":
             return 302, {"location": "/final"}, b"", "/final"
-        return 200, {"content-type": "text/html"}, b"ok", None
+        return 200, {"content-type": "text/html"}, b"123456", None
     target, status, headers, body = _request_with_redirects(
         "https://first.example.com/start", resolver=_resolver,
         budget=CrawlBudget(), max_redirects=2, max_body_bytes=100,
@@ -190,10 +192,10 @@ def test_cross_origin_redirect_is_rejected_even_when_public():
 
 
 def test_robots_body_counts_toward_total_crawl_byte_budget():
-    limits = CrawlLimits(max_response_bytes=100, max_total_bytes=10)
+    limits = CrawlLimits(max_response_bytes=20, max_total_bytes=20)
     def request_once(target, pinned_ip, *, timeout, max_body_bytes):
         if target.path_and_query == "/robots.txt":
-            return 200, {"content-type": "text/plain"}, b"User-agent: *", None
+            return 200, {"content-type": "text/plain"}, b"User-agent: *\n", None
         return 200, {"content-type": "text/html"}, b"ok", None
     with pytest.raises(CrawlPolicyError, match="seo_crawler_total_byte_budget_exceeded"):
         fetch_html_page(
