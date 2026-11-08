@@ -910,3 +910,11 @@ Validation boundary:
 - The current branch head is newer than those run results. A successful CI result for the exact current head has not yet been observed. Do not report this foundation as validated until CI completes successfully.
 
 Migration 0031 exists only in source/CI. UAT remains at 0029; no UAT/Production migration or deployment, live crawl, live Google request, customer grant, scheduled job, or CMS write was performed. Keep backend PR #121 and frontend PR #71 Draft/unmerged. Vercel deployment quota remains a release constraint; do not attempt repeated Preview deployments.
+
+
+
+### Robots regression CI confirmation · 2026-11-08
+
+The fixture correction from commit `c8181dc065307271fbb568311da5d5628a1d87a3` is now validated by [CI run #42458901036](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42458901036): **1180 passed, 7 skipped, 0 failed**. Docker build, PostgreSQL smoke and PostgreSQL 18/Neon compatibility also passed. This run validates the robots-fixture correction only; it predates the crawler-audit schema changes and must not be used as evidence that migration 0031 or its writer passed.
+
+The crawler-audit implementation is separately under validation in run [#42459236808](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42459236808). Its migration-policy, PostgreSQL smoke, PostgreSQL 18 compatibility/preflight and Docker build jobs have passed. Full pytest is still running at this checkpoint.
