@@ -36,6 +36,11 @@ CRAWLER_PRODUCT_TOKEN = "DirectPilotBot"
 REDIRECT_STATUSES = {301, 302, 303, 307, 308}
 
 
+def _audit_safe_url(value: str) -> str:
+    parsed = urlsplit(value)
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path or "/", "", ""))
+
+
 class CrawlTransportError(RuntimeError):
     """A safe crawler transport operation failed."""
 
@@ -314,7 +319,7 @@ def fetch_html_page(
     except (CrawlPolicyError, CrawlTargetError, CrawlTransportError) as exc:
         if audit_callback is not None:
             audit_callback(
-                event_kind="page", outcome="failed", raw_url=target.url,
+                event_kind="page", outcome="failed", raw_url=_audit_safe_url(target.url),
                 robots_decision="not_checked", http_status=status,
                 bytes_received=len(body),
                 duration_ms=max(0, int((budget.clock() - page_started) * 1000)),
@@ -325,7 +330,7 @@ def fetch_html_page(
     page_duration_ms = max(0, int((budget.clock() - page_started) * 1000))
     if audit_callback is not None:
         audit_callback(
-            event_kind="page", outcome="fetched", raw_url=final_target.url,
+            event_kind="page", outcome="fetched", raw_url=_audit_safe_url(final_target.url),
             robots_decision="not_checked", http_status=status,
             bytes_received=len(body), duration_ms=page_duration_ms,
             error_code=None,
