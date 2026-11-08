@@ -117,8 +117,7 @@ class SeoCrawlAuditEvent(Base):
                         name="ck_seo_crawl_audit_http_status"),
         CheckConstraint("bytes_received >= 0", name="ck_seo_crawl_audit_bytes"),
         CheckConstraint("duration_ms >= 0", name="ck_seo_crawl_audit_duration"),
-        UniqueConstraint("id", "tenant_id", "store_id", "site_id",
-                         name="uq_seo_crawl_audit_scope"),
+        Index("ix_seo_crawl_audit_crawl_id", "crawl_id"),
         Index("ix_seo_crawl_audit_site_created",
               "tenant_id", "store_id", "site_id", "created_at"),
         Index("ix_seo_crawl_audit_expiry", "expires_at"),
@@ -127,10 +126,10 @@ class SeoCrawlAuditEvent(Base):
     tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
     store_id: Mapped[int] = mapped_column(nullable=False)
     site_id: Mapped[int] = mapped_column(nullable=False)
-    crawl_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    crawl_id: Mapped[str] = mapped_column(String(36), nullable=False)
     event_kind: Mapped[str] = mapped_column(String(20), nullable=False)
     outcome: Mapped[str] = mapped_column(String(20), nullable=False)
-    robots_decision: Mapped[str] = mapped_column(String(24), nullable=False, default="not_checked")
+    robots_decision: Mapped[str] = mapped_column(String(24), nullable=False, default="not_checked", server_default="not_checked")
     url_host: Mapped[str] = mapped_column(String(253), nullable=False)
     url_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     http_status: Mapped[int | None] = mapped_column(nullable=True)
