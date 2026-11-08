@@ -76,6 +76,17 @@ def test_acquire_crawl_lease_claims_one_host_and_tenant_slot():
     assert lease.lease_expires_at == now + timedelta(seconds=180)
 
 
+
+def test_acquire_normalizes_public_ipv6_host():
+    db = _Session([11, 33, 0, None])
+    grant = acquire_crawl_lease(
+        db, tenant_id=11, store_id=22, site_id=33,
+        host="2606:4700:4700::1111", crawl_id=str(uuid4()),
+        now=datetime(2026, 11, 8, 10, 0, tzinfo=UTC),
+    )
+    assert grant.host == "2606:4700:4700::1111"
+
+
 def test_acquire_rejects_a_host_already_leased_by_another_crawl():
     now = datetime(2026, 11, 8, 10, 0, tzinfo=UTC)
     existing = SimpleNamespace(lease_expires_at=now + timedelta(seconds=30))
