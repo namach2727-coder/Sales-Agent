@@ -1,7 +1,7 @@
 """Store-scoped customer SEO grants, OAuth attempts and encrypted connections."""
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, String, Text, UniqueConstraint
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -90,3 +90,52 @@ class SeoSite(Base):
     status: Mapped[str] = mapped_column(String(20), default="connected")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+
+class SeoCrawlAuditEvent(Base):
+    """Credential-free, time-bounded evidence for one crawler decision or request."""
+    __tablename__ = "seo_crawl_audit_events"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["site_id", "tenant_id", "store_id"],
+            ["seo_sites.id", "seo_sites.tenant_id", "seo_sites.store_id"],
+        ),
+        CheckConstraint(
+            "event_kind IN ('robots', 'page')",
+            name="ck_seo_crawl_audit_event_kind",
+        ),
+        CheckConstraint(
+            "outcome IN ('allowed', 'blocked', 'fetched', 'failed', 'redirected')",
+            name="ck_seo_crawl_audit_outcome",
+        ),
+        CheckConstraint(
+            "robots_decision IN ('allow', 'disallow', 'unavailable_allow', 'unavailable_block', 'not_checked')",
+            name="ck_seo_crawl_audit_robots_decision",
+        ),
+        CheckConstraint("http_status IS NULL OR http_status BETWEEN 100 AND 599",
+                        name="ck_seo_crawl_audit_http_status"),
+        CheckConstraint("bytes_received >= 0", name="ck_seo_crawl_audit_bytes"),
+        CheckConstraint("duration_ms >= 0", name="ck_seo_crawl_audit_duration"),
+        UniqueConstraint("id", "tenant_id", "store_id", "site_id",
+                         name="uq_seo_crawl_audit_scope"),
+        Index("ix_seo_crawl_audit_site_created",
+              "tenant_id", "store_id", "site_id", "created_at"),
+        Index("ix_seo_crawl_audit_expiry", "expires_at"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    store_id: Mapped[int] = mapped_column(nullable=False)
+    site_id: Mapped[int] = mapped_column(nullable=False)
+    crawl_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    event_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(20), nullable=False)
+    robots_decision: Mapped[str] = mapped_column(String(24), nullable=False, default="not_checked")
+    url_host: Mapped[str] = mapped_column(String(253), nullable=False)
+    url_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    http_status: Mapped[int | None] = mapped_column(nullable=True)
+    bytes_received: Mapped[int] = mapped_column(default=0, nullable=False, server_default="0")
+    duration_ms: Mapped[int] = mapped_column(default=0, nullable=False, server_default="0")
+    error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
