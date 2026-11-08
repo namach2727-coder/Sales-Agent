@@ -1025,3 +1025,21 @@ Validation: CI run [#42473693841](https://github.com/namach2727-coder/Sales-Agen
 The latest validated source head is `c2ff5e791e54048ef1cf4e71507a9b64e521ff07`. This is source/CI validation only. Migration 0031 remains unapplied; UAT remains at revision 0029. Backend PR #121 and frontend PR #71 remain Draft/unmerged. No Vercel deployment, customer crawl, live Google request, customer grant, scheduled job, CMS write or Production change was performed. The Vercel free-plan daily deployment limit remains a release constraint; do not retry Preview deployments until quota reset and a deliberate grouped release.
 
 Next engineering gates: enforce the aggregate byte budget while streaming (rather than only after a response completes), make link-discovery truncation explicit in crawl coverage, then design a cancellable durable crawl job and customer-consent lifecycle. Do not expose a customer crawl endpoint until these controls, page-observation persistence, retention/purge approval and final tenant/site authority revalidation are complete.
+
+
+### Aggregate byte budget and coverage reporting CI green · 2026-11-08
+
+The crawler now enforces the aggregate response-byte budget during transport, not only after a response completes:
+
+- Each robots/page response is capped by the remaining crawl-wide byte budget as well as its per-response cap.
+- Declared Content-Length is rejected before body reads when it exceeds the remaining cap. For responses without Content-Length, the transport never probes one byte beyond the cap; a full cap is conservatively treated as oversized.
+- Bytes received by rejected/partial responses are accounted against the aggregate budget and retained in sanitized audit metadata. Received bytes are recorded before the elapsed-time check so deadline failures do not erase resource accounting.
+- Crawl Preview stops before the next lease callback when aggregate bytes are exhausted.
+- Per-page link discovery is capped at 500 eligible links and reports `link_discovery_truncated`; coverage is marked truncated rather than complete.
+- Canonical URLs in crawl output are normalized and stripped of query strings and fragments.
+
+CI run [#42475087348](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42475087348) passed **1223 tests, 7 skipped, 0 failed**. The latest source head, `c3b049aed1c4cdc0f77d8fccbbaa2dc5cbf00fc2`, was validated by CI run [#42475149729](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42475149729): **1224 passed, 7 skipped, 0 failed**. Docker build, PostgreSQL smoke, PostgreSQL 18/Neon compatibility and disposable-schema preflight all passed. Compileall and migration-policy checks passed. Three non-blocking deprecation warnings remain.
+
+This remains internal source/CI validation. No customer-facing crawler endpoint is exposed. Migration 0031 remains unapplied; UAT remains at revision 0029. Backend PR #121 and frontend PR #71 remain Draft/unmerged. No Vercel deployment, customer crawl, live Google request, customer grant, scheduled job, CMS write or Production change was performed. Vercel's free-plan daily deployment limit remains in effect; do not retry Preview deployments until quota reset and a deliberate grouped release.
+
+Next release gates: persist customer crawler consent and revocation; define and approve audit/page-observation retention and purge behavior; design cancellable durable crawl jobs and worker execution; persist page observations under tenant/site scope; then add a customer API behind default-off flags. Do not expose the crawler to customers before those controls and final tenant/site authority checks are implemented and validated.
