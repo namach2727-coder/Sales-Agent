@@ -34,6 +34,7 @@ class _AnchorCollector(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.hrefs: list[str] = []
+        self.truncated = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag.casefold() != "a":
@@ -42,12 +43,23 @@ class _AnchorCollector(HTMLParser):
         if href and not href.lstrip().startswith(("#", "mailto:", "tel:", "javascript:", "data:")):
             if len(self.hrefs) < MAX_LINKS_PER_PAGE:
                 self.hrefs.append(href.strip())
+            else:
+                self.truncated = True
 
 
 def _canonical_url(raw_url: str) -> str:
     target = normalize_crawl_url(raw_url)
     parsed = urlsplit(target.url)
     return urlunsplit((parsed.scheme, parsed.netloc, parsed.path or "/", "", ""))
+
+
+def _safe_observed_canonical(value: str | None) -> str | None:
+    if not value:
+        return None
+    try:
+        return _canonical_url(value)
+    except (CrawlTargetError, ValueError):
+        return None
 
 
 def _normalized_prefix(value: str) -> str:
@@ -58,13 +70,12 @@ def _path_in_scope(path: str, prefix: str) -> bool:
     return crawl_path_in_scope(path, prefix)
 
 
-def extract_crawl_links(
+def _collect_crawl_links(
     html: str,
     page_url: str,
     *,
     allowed_path_prefix: str = "/",
-) -> list[str]:
-    """Extract unique same-origin HTTP(S) links, dropping query and fragment data."""
+) -> tuple[list[str], bool]:
     prefix = _normalized_prefix(allowed_path_prefix)
     base = normalize_crawl_url(page_url)
     parser = _AnchorCollector()
@@ -89,6 +100,19 @@ def extract_crawl_links(
         if candidate not in seen:
             seen.add(candidate)
             links.append(candidate)
+    return links, parser.truncated
+
+
+def extract_crawl_links(
+    html: str,
+    page_url: str,
+    *,
+    allowed_path_prefix: str = "/",
+) -> list[str]:
+    """Extract unique same-origin HTTP(S) links, dropping query and fragment data."""
+    links, _truncated = _collect_crawl_links(
+        html, page_url, allowed_path_prefix=allowed_path_prefix,
+    )
     return links
 
 
@@ -124,6 +148,7 @@ def crawl_preview(
     pages: list[dict] = []
     failures: list[dict] = []
     stop_reason: str | None = None
+    link_discovery_truncated = False
 
     while queue:
         url, depth = queue.popleft()
@@ -188,23 +213,27 @@ def crawl_preview(
             "document_complete": observation["document_complete"],
             "title": observation["title"],
             "meta_description": observation["meta_description"],
-            "canonical_url": observation["canonical_url"],
+            "canonical_url": _safe_observed_canonical(observation["canonical_url"]),
             "findings": observation["findings"],
             "source": observation["source"],
         })
 
         if depth >= budget.limits.max_depth:
             continue
-        for link in extract_crawl_links(
+        links, links_truncated = _collect_crawl_links(
             html, final_url, allowed_path_prefix=prefix,
-        ):
+        )
+        link_discovery_truncated = link_discovery_truncated or links_truncated
+        for link in links:
             if link not in queued and link not in visited:
                 queued.add(link)
                 queue.append((link, depth + 1))
 
     if stop_reason is None and queue:
         stop_reason = "seo_crawler_page_budget_exceeded"
-    if stop_reason:
+    if stop_reason is None and link_discovery_truncated:
+        stop_reason = "seo_crawler_link_budget_exceeded"
+    if stop_reason or link_discovery_truncated:
         coverage = "truncated"
     elif not pages and failures:
         coverage = "failed"
@@ -220,6 +249,7 @@ def crawl_preview(
         "pages_failed": len(failures),
         "coverage_status": coverage,
         "stop_reason": stop_reason,
+        "link_discovery_truncated": link_discovery_truncated,
         "pages": pages,
         "failures": failures,
         "limits": {
@@ -228,9 +258,11 @@ def crawl_preview(
             "max_pages_per_host": budget.limits.max_pages_per_host,
             "max_total_bytes": budget.limits.max_total_bytes,
             "max_elapsed_seconds": budget.limits.max_elapsed_seconds,
+            "max_links_per_page": MAX_LINKS_PER_PAGE,
         },
         "limitations": [
             "Only same-origin links within the configured path prefix are followed.",
+            "Link discovery is capped at 500 eligible links per page; reaching the cap marks coverage as truncated.",
             "Query strings and fragments are excluded from discovered crawl URLs.",
             "This preview does not execute JavaScript or establish Google indexing, rankings, traffic, or ranking impact.",
             "Page observations are returned only; durable page-report storage is not implemented.",
