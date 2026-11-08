@@ -21,6 +21,7 @@ from app.seo_growth.crawl_leases import (
 from app.seo_growth.crawler_audit import record_crawl_audit_event
 from app.seo_growth.crawler_policy import CrawlLimits
 from app.seo_growth.crawler_preview import crawl_preview
+from app.seo_growth.crawler_transport import _request_once
 from app.seo_growth.crawler_security import (
     CrawlTargetError,
     crawl_path_in_scope,
@@ -169,6 +170,18 @@ def run_crawl_preview(
         )
         db.commit()
 
+    def guarded_request_once(
+        target: Any, pinned_ip: str, *, timeout: float, max_body_bytes: int,
+    ) -> Any:
+        if not consent_check():
+            raise CrawlOrchestrationError("seo_crawler_consent_revoked", 403)
+        _assert_site_connected(
+            db, tenant_id=tenant_id, store_id=store_id, site_id=site_id,
+        )
+        return _request_once(
+            target, pinned_ip, timeout=timeout, max_body_bytes=max_body_bytes,
+        )
+
     kwargs: dict[str, Any] = {
         "resolver": resolver,
         "limits": limits or CrawlLimits(),
@@ -178,6 +191,8 @@ def run_crawl_preview(
     }
     if fetch_page is not None:
         kwargs["fetch_page"] = fetch_page
+    else:
+        kwargs["request_once"] = guarded_request_once
 
     try:
         result = crawl_preview(canonical_seed, **kwargs)
