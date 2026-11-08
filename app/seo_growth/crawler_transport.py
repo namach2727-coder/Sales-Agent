@@ -299,7 +299,7 @@ def fetch_html_page(
         received = getattr(exc, "bytes_received", 0)
         if received:
             try:
-                budget.record_response_bytes(received)
+                budget.record_response_bytes(received, enforce_response_limit=False)
             except CrawlPolicyError as budget_exc:
                 exc = budget_exc
         if (isinstance(exc, CrawlTransportError) and robots_total_limited
@@ -376,7 +376,7 @@ def fetch_html_page(
         received = getattr(exc, "bytes_received", 0)
         if received:
             try:
-                budget.record_response_bytes(received)
+                budget.record_response_bytes(received, enforce_response_limit=False)
             except CrawlPolicyError as budget_exc:
                 exc = budget_exc
         if (isinstance(exc, CrawlTransportError) and page_total_limited
