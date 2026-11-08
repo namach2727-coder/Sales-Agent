@@ -136,6 +136,77 @@ def test_fetch_returns_html_after_robots_allows_it():
     assert requests == ["/robots.txt", "/"]
 
 
+
+def test_fetch_emits_sanitized_robots_and_page_audit_events():
+    events = []
+
+    def request_once(target, pinned_ip, *, timeout, max_body_bytes):
+        if target.path_and_query == "/robots.txt":
+            return 404, {}, b"", None
+        return 200, {"content-type": "text/html"}, b"<html>ok</html>", None
+
+    page = fetch_html_page(
+        "https://public.example.com/catalog/item?session=secret",
+        resolver=_resolver,
+        budget=CrawlBudget(),
+        request_once=request_once,
+        audit_callback=lambda **event: events.append(event),
+    )
+    assert [event["event_kind"] for event in events] == ["robots", "page"]
+    assert events[0]["outcome"] == "allowed"
+    assert events[0]["robots_decision"] == "unavailable_allow"
+    assert events[1]["outcome"] == "fetched"
+    assert events[1]["robots_decision"] == "not_checked"
+    assert all("secret" not in event["raw_url"] for event in events)
+    assert page.robots_status_code == 404
+    assert page.page_bytes_received == len(b"<html>ok</html>")
+
+
+def test_fetch_emits_blocked_robots_audit_before_rejecting_page():
+    events = []
+    requests = []
+
+    def request_once(target, pinned_ip, *, timeout, max_body_bytes):
+        requests.append(target.path_and_query)
+        return 200, {}, b"User-agent: *\\nDisallow: /private\\n", None
+
+    with pytest.raises(CrawlTransportError, match="seo_crawler_robots_disallowed"):
+        fetch_html_page(
+            "https://public.example.com/private/page",
+            resolver=_resolver,
+            budget=CrawlBudget(),
+            request_once=request_once,
+            audit_callback=lambda **event: events.append(event),
+        )
+    assert requests == ["/robots.txt"]
+    assert len(events) == 1
+    assert events[0]["outcome"] == "blocked"
+    assert events[0]["robots_decision"] == "disallow"
+
+
+def test_fetch_emits_failed_page_audit_when_html_status_is_rejected():
+    events = []
+
+    def request_once(target, pinned_ip, *, timeout, max_body_bytes):
+        if target.path_and_query == "/robots.txt":
+            return 404, {}, b"", None
+        return 503, {}, b"", None
+
+    with pytest.raises(CrawlPolicyError, match="seo_crawler_http_status_rejected"):
+        fetch_html_page(
+            "https://public.example.com/",
+            resolver=_resolver,
+            budget=CrawlBudget(),
+            request_once=request_once,
+            audit_callback=lambda **event: events.append(event),
+        )
+    assert len(events) == 2
+    assert events[1]["event_kind"] == "page"
+    assert events[1]["outcome"] == "failed"
+    assert events[1]["http_status"] == 503
+    assert events[1]["error_code"] == "seo_crawler_http_status_rejected"
+
+
 def test_fetch_rejects_compressed_content_without_decompression_budget():
     def request_once(target, pinned_ip, *, timeout, max_body_bytes):
         if target.path_and_query == "/robots.txt":
