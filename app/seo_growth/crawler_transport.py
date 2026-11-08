@@ -164,6 +164,7 @@ def _request_with_redirects(
     raw_url: str, *, resolver: Resolver,
     budget: CrawlBudget, max_redirects: int, max_body_bytes: int,
     request_once: RequestOnce = _request_once,
+    allowed_path_prefix: str | None = None,
 ) -> tuple[CrawlTarget, int, dict[str, str], bytes]:
     if type(max_redirects) is not int or max_redirects < 0 or max_redirects > budget.limits.max_redirects:
         raise CrawlPolicyError("seo_crawler_invalid_limits")
