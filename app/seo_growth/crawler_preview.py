@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections import deque
 from html.parser import HTMLParser
 from typing import Callable
-from urllib.parse import urljoin, urlsplit, urlunsplit
+from urllib.parse import unquote, urljoin, urlsplit, urlunsplit
 
 from app.seo_growth.crawler_policy import CrawlBudget, CrawlLimits, CrawlPolicyError
 from app.seo_growth.crawler_security import (
@@ -56,10 +56,19 @@ def _normalized_prefix(value: str) -> str:
 
 
 def _path_in_scope(path: str, prefix: str) -> bool:
+    decoded = path
+    for _ in range(3):
+        expanded = unquote(decoded)
+        if expanded == decoded:
+            break
+        decoded = expanded
+    segments = decoded.split("/")
+    if "\\" in decoded or any(segment in {".", ".."} for segment in segments):
+        return False
     if prefix == "/":
         return True
     root = prefix.rstrip("/")
-    return path == root or path.startswith(prefix)
+    return decoded == root or decoded.startswith(prefix)
 
 
 def extract_crawl_links(
