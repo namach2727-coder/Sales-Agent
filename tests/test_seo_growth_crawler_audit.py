@@ -83,6 +83,7 @@ def test_record_crawl_audit_event_rejects_invalid_values(kwargs):
         "event_kind": "page",
         "outcome": "fetched",
         "raw_url": "https://example.com/page",
+        "retention_days": 90,
     }
     values.update(kwargs)
     with pytest.raises(ValueError):
