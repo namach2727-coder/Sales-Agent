@@ -137,6 +137,45 @@ def test_fetch_returns_html_after_robots_allows_it():
 
 
 
+
+def test_fetch_rejects_redirect_outside_allowed_path_prefix():
+    requests = []
+
+    def request_once(target, pinned_ip, *, timeout, max_body_bytes):
+        requests.append(target.path_and_query)
+        if target.path_and_query == "/robots.txt":
+            return 404, {}, b"", None
+        return 302, {"location": "/outside"}, b"", "/outside"
+
+    with pytest.raises(CrawlTransportError, match="seo_crawler_redirect_out_of_scope"):
+        fetch_html_page(
+            "https://public.example.com/blog/start",
+            resolver=_resolver,
+            budget=CrawlBudget(),
+            request_once=request_once,
+            allowed_path_prefix="/blog",
+        )
+    assert requests == ["/robots.txt", "/blog/start"]
+
+
+def test_fetch_rejects_initial_url_outside_allowed_path_prefix_before_network():
+    requests = []
+
+    def request_once(target, pinned_ip, *, timeout, max_body_bytes):
+        requests.append(target.path_and_query)
+        return 404, {}, b"", None
+
+    with pytest.raises(CrawlTransportError, match="seo_crawler_url_out_of_scope"):
+        fetch_html_page(
+            "https://public.example.com/private/page",
+            resolver=_resolver,
+            budget=CrawlBudget(),
+            request_once=request_once,
+            allowed_path_prefix="/blog",
+        )
+    assert requests == []
+
+
 def test_fetch_emits_sanitized_robots_and_page_audit_events():
     events = []
 
