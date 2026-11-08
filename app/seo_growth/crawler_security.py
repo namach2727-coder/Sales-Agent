@@ -66,7 +66,7 @@ def _decode_path_safely(path: str) -> str | None:
         if expanded == decoded:
             break
         decoded = expanded
-    if "\\\\" in decoded or any(part in {".", ".."} for part in decoded.split("/")):
+    if "\\" in decoded or any(part in {".", ".."} for part in decoded.split("/")):
         return None
     return decoded
 
