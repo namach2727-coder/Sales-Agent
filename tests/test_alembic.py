@@ -24,6 +24,7 @@ POST_BASELINE_TABLES = {
     "seo_query_page_metrics",
     "seo_metric_coverage",
     "seo_sync_leases",
+    "seo_crawl_audit_events",
     "seed_history",
     "auth_permissions",
     "auth_roles",
