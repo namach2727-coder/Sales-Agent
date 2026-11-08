@@ -1,10 +1,10 @@
-"""URL and DNS preflight primitives for the future SEO crawler.
+"""URL and DNS preflight primitives for the SEO crawler.
 
 This module performs no socket or HTTP operations. DNS resolution is injected
-so a caller can provide a bounded resolver. It does not fetch URLs. A future
-transport must connect directly to one of the returned validated IP addresses
-(while preserving the original Host and TLS SNI) and revalidate every redirect.
-Do not pass the hostname to a client that performs a fresh DNS lookup.
+so the caller can provide a bounded resolver. The transport connects directly
+to validated numeric IP addresses while preserving the original Host and TLS
+SNI, and revalidates every redirect. Never pass the hostname to a client that
+performs an independent DNS lookup.
 """
 from __future__ import annotations
 
