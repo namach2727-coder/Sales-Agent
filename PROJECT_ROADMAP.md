@@ -936,3 +936,21 @@ Validation applies to source commit `3a800197cceafa3aa65f0191f2e31c7169565e7f`. 
 Release boundary remains unchanged: migration 0031 is not applied to UAT or Production; UAT remains at 0029. No customer crawl, live Google request, scheduled job, customer grant, CMS write or deployment was performed. Backend PR #121 and frontend PR #71 remain Draft/unmerged. Current Vercel UAT API and TelBot checks fail due to the free-plan deployment-rate limit; the website check passes. Do not retry deployments until the quota window resets and a deliberate grouped release is approved.
 
 Next engineering gate: add distributed tenant/host concurrency and quota controls, then wire the audit writer into a bounded crawl orchestration service. Only after those controls and explicit customer consent should a default-off technical-audit endpoint be exposed.
+
+
+
+### Distributed crawler concurrency foundation · 2026-11-08
+
+Extended migration 0031 with `seo_crawl_leases` and added `app/seo_growth/crawl_leases.py`:
+
+- One active lease per normalized hostname globally, enforced by a unique host constraint.
+- Tenant-wide active crawl quota, serialized by locking the tenant row before counting active leases. Default limit is one active crawl per tenant; the internal service accepts only 1–5.
+- Cross-tenant first-claim races are resolved through a unique constraint and nested transaction/savepoint; expired host leases can be reclaimed.
+- Lease tokens are 256-bit random values stored as 64-character hex, correlated to a UUID crawl ID, and have bounded 30–600 second durations (180 seconds by default).
+- Renewal requires the current host/crawl/token tuple and a non-expired lease. Release requires the same current token. The lease table cascades with its site because it is coordination state, not retained audit evidence.
+- PostgreSQL row locks and uniqueness provide cross-worker coordination. The helper does not create an API route or start network work; callers must commit the lease transaction before beginning a crawl.
+- Disposable PostgreSQL CI schema expectations are now 94 tables, 88 sequences, 574 indexes and 514 constraints. Production/UAT expectations remain untouched.
+
+This is source-only and not yet validated by a CI run for the latest source head. The previous green run #42459686126 validated migration 0031 before the lease table was added. Re-run and complete CI on the new head before treating the expanded migration as validated.
+
+The crawler remains unexposed to customers. A future route must enforce the lease, bounded CrawlBudget, explicit customer consent, site/host ownership, cancellation and audit persistence in one controlled orchestration flow. No UAT/Production migration, deployment, live crawl, Google request, customer grant, scheduled job or CMS write was performed.
