@@ -145,3 +145,19 @@ def test_robots_parser_supports_wildcard_and_end_anchor():
         status_code=200,
         body=body,
     )
+
+
+
+def test_received_bytes_are_accounted_before_elapsed_budget_failure():
+    now = [10.0]
+    budget = CrawlBudget(
+        CrawlLimits(max_elapsed_seconds=5, request_timeout_seconds=2),
+        started_at=10.0,
+        clock=lambda: now[0],
+    )
+    now[0] = 15.0
+
+    with pytest.raises(CrawlPolicyError, match="seo_crawler_time_budget_exceeded"):
+        budget.record_response_bytes(3)
+
+    assert budget.total_bytes == 3
