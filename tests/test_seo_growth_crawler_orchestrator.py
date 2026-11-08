@@ -241,3 +241,45 @@ def test_orchestrator_rechecks_revocable_consent_before_each_page(monkeypatch):
             resolver=lambda _host, _port: ["93.184.216.34"],
         )
     assert released == [grant]
+
+
+
+def test_orchestrator_rechecks_consent_before_each_http_request(monkeypatch):
+    site, connection = _scope()
+    db = _Session(site, connection)
+    grant = _grant()
+    consent_states = iter([True, False])
+    released = []
+    transport_calls = []
+
+    monkeypatch.setattr(
+        "app.seo_growth.crawler_orchestrator.acquire_crawl_lease",
+        lambda _db, **_kwargs: grant,
+    )
+    monkeypatch.setattr(
+        "app.seo_growth.crawler_orchestrator.release_crawl_lease",
+        lambda _db, current: released.append(current) or True,
+    )
+    monkeypatch.setattr(
+        "app.seo_growth.crawler_orchestrator._request_once",
+        lambda *args, **kwargs: transport_calls.append((args, kwargs)),
+    )
+
+    def preview(seed, **kwargs):
+        kwargs["request_once"](
+            SimpleNamespace(url=seed), "93.184.216.34",
+            timeout=1.0, max_body_bytes=100,
+        )
+        return {"coverage_status": "complete"}
+
+    monkeypatch.setattr("app.seo_growth.crawler_orchestrator.crawl_preview", preview)
+    with pytest.raises(CrawlOrchestrationError, match="seo_crawler_consent_revoked"):
+        run_crawl_preview(
+            db, tenant_id=11, store_id=22, site_id=33,
+            seed_url="https://blog.example.com/",
+            consent_check=lambda: next(consent_states), retention_days=30,
+            resolver=lambda _host, _port: ["93.184.216.34"],
+        )
+
+    assert transport_calls == []
+    assert released == [grant]
