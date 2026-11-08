@@ -114,6 +114,7 @@ def _request_once(
         "Accept-Encoding": "identity",
         "Connection": "close",
     }
+    body = bytearray()
     try:
         connection.request("GET", target.path_and_query, headers=headers)
         if connection.sock is not None:
@@ -138,7 +139,6 @@ def _request_once(
                 raise CrawlTransportError("seo_crawler_invalid_content_length")
             if declared_length > max_body_bytes:
                 raise CrawlTransportError("seo_crawler_response_too_large")
-        body = bytearray()
         # A declared length lets us accept an exact-fit response without probing
         # one byte beyond the cap. Without it, filling the cap is conservatively
         # treated as truncation because EOF cannot be established without over-read.
@@ -162,9 +162,13 @@ def _request_once(
     except CrawlTransportError:
         raise
     except socket.timeout:
-        raise CrawlTransportError("seo_crawler_time_budget_exceeded") from None
+        raise CrawlTransportError(
+            "seo_crawler_time_budget_exceeded", bytes_received=len(body),
+        ) from None
     except (OSError, http.client.HTTPException, ssl.SSLError):
-        raise CrawlTransportError("seo_crawler_network_request_failed") from None
+        raise CrawlTransportError(
+            "seo_crawler_network_request_failed", bytes_received=len(body),
+        ) from None
     finally:
         connection.close()
 
@@ -351,11 +355,11 @@ def fetch_html_page(
     status: int | None = None
     body = b""
     page_remaining = budget.limits.max_total_bytes - budget.total_bytes
-    if page_remaining <= 0:
-        raise CrawlPolicyError("seo_crawler_total_byte_budget_exceeded")
     page_total_limited = page_remaining <= budget.limits.max_response_bytes
-    page_body_limit = min(budget.limits.max_response_bytes, page_remaining)
+    page_body_limit = max(0, min(budget.limits.max_response_bytes, page_remaining))
     try:
+        if page_remaining <= 0:
+            raise CrawlPolicyError("seo_crawler_total_byte_budget_exceeded")
         final_target, status, headers, body = _request_with_redirects(
             target.url, resolver=resolver, budget=budget,
             max_redirects=budget.limits.max_redirects,
