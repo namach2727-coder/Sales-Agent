@@ -968,3 +968,19 @@ The validated 0031 source now contains both the credential-free crawler audit ev
 This validation applies to source commit `68e10af7bbb350c59aef71de3525c0cbe4e0f83b`. Documentation-only commits followed; runtime source is unchanged. Migration 0031 remains unapplied to UAT and Production. UAT remains at revision 0029. PR #121 remains Draft/unmerged.
 
 The crawler transport and audit/lease foundations are still not wired to a customer-facing crawl route. Before exposure, the remaining work is bounded crawl orchestration, URL discovery/sitemap policy, cancellation, page-level analysis persistence, retention/purge approval, explicit customer consent and final tenant/host authority revalidation. No live crawl, live Google request, scheduled job, customer grant, CMS write or deployment was performed. Vercel UAT API/TelBot checks remain blocked by the free-plan deployment-rate limit; do not retry until quota reset and deliberate grouped deployment.
+
+
+### Crawl preview budget preflight CI green · 2026-11-08
+
+The crawler path-scope transport fix and crawl-preview budget preflight are now validated on the exact feature branch:
+
+- `e9addd80940895167f642b2a0447d87c5bfcdbc8` passes the allowed path prefix into the redirect transport so the initial page and every same-origin redirect are checked against the configured path scope.
+- CI run [#42473221274](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42473221274) exposed one regression-test failure: the preview orchestrator called the page fetch callback before checking the global page budget.
+- `03cd1faa5778b949a11f14108a7514b019f17ee5` moves elapsed-time, global-page and per-host-page budget checks ahead of the lease callback and transport invocation. Host-page budget exhaustion is classified as a truncated crawl, not a page failure.
+- `c2ff5e791e54048ef1cf4e71507a9b64e521ff07` adds a dedicated host-budget preflight regression test.
+
+Validation: CI run [#42473693841](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42473693841) passed **1218 tests, 7 skipped, 0 failed**. The follow-up run [#42473755764](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42473755764), including the new host-budget test, passed **1219 tests, 7 skipped, 0 failed**. Docker build, PostgreSQL smoke, PostgreSQL 18/Neon compatibility and disposable-schema preflight all passed. Compileall and migration-policy checks passed. Three non-blocking deprecation warnings remain.
+
+The latest validated source head is `c2ff5e791e54048ef1cf4e71507a9b64e521ff07`. This is source/CI validation only. Migration 0031 remains unapplied; UAT remains at revision 0029. Backend PR #121 and frontend PR #71 remain Draft/unmerged. No Vercel deployment, customer crawl, live Google request, customer grant, scheduled job, CMS write or Production change was performed. The Vercel free-plan daily deployment limit remains a release constraint; do not retry Preview deployments until quota reset and a deliberate grouped release.
+
+Next engineering gates: enforce the aggregate byte budget while streaming (rather than only after a response completes), make link-discovery truncation explicit in crawl coverage, then design a cancellable durable crawl job and customer-consent lifecycle. Do not expose a customer crawl endpoint until these controls, page-observation persistence, retention/purge approval and final tenant/site authority revalidation are complete.
