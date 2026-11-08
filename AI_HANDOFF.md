@@ -924,3 +924,17 @@ The 13 failures were test-contract alignment issues:
 - Eight invalid-input cases omitted the now-required explicit `retention_days` argument, so they failed at Python argument binding rather than reaching validation.
 
 These are corrected in source commit `3a800197cceafa3aa65f0191f2e31c7169565e7f`. CI run [#42459686126](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42459686126) is queued for the corrected source. Do not claim the full suite green until this run completes.
+
+
+
+### Crawler audit CI green · 2026-11-08
+
+Corrected source commit `3a800197cceafa3aa65f0191f2e31c7169565e7f` passed [GitHub Actions run #42459686126](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42459686126): **1192 passed, 7 skipped, 0 failed**. All four jobs passed: Python test suite, PostgreSQL smoke, PostgreSQL 18/Neon compatibility including disposable-schema preflight, and Docker build. Migration Policy and compileall also passed.
+
+The verified changes include robots fixture correction; migration 0031 crawler audit table; tenant/store/site composite scope; sanitized URL host/fingerprint without query or fragment; bounded event fields and explicit caller-supplied retention; updated Alembic head, baseline classification, PostgreSQL test fixture and CI schema expectations.
+
+Validation applies to source commit `3a800197cceafa3aa65f0191f2e31c7169565e7f`. Subsequent commits on the PR branch are documentation-only; the runtime source is unchanged. Current documentation branch head at the time of this entry is `4c06e568f9dfed8cd4329d775ef894c35e1cb31e`.
+
+Release boundary remains unchanged: migration 0031 is not applied to UAT or Production; UAT remains at 0029. No customer crawl, live Google request, scheduled job, customer grant, CMS write or deployment was performed. Backend PR #121 and frontend PR #71 remain Draft/unmerged. Current Vercel UAT API and TelBot checks fail due to the free-plan deployment-rate limit; the website check passes. Do not retry deployments until the quota window resets and a deliberate grouped release is approved.
+
+Next engineering gate: add distributed tenant/host concurrency and quota controls, then wire the audit writer into a bounded crawl orchestration service. Only after those controls and explicit customer consent should a default-off technical-audit endpoint be exposed.
