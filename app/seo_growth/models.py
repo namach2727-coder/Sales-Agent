@@ -138,3 +138,31 @@ class SeoCrawlAuditEvent(Base):
     error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+
+class SeoCrawlLease(Base):
+    """Distributed one-at-a-time host lease with a tenant-wide concurrency scope."""
+    __tablename__ = "seo_crawl_leases"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["site_id", "tenant_id", "store_id"],
+            ["seo_sites.id", "seo_sites.tenant_id", "seo_sites.store_id"],
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint("host", name="uq_seo_crawl_lease_host"),
+        CheckConstraint("length(crawl_id) = 36", name="ck_seo_crawl_lease_crawl_id"),
+        CheckConstraint("length(lease_token) = 64", name="ck_seo_crawl_lease_token"),
+        CheckConstraint("lease_expires_at > created_at", name="ck_seo_crawl_lease_expiry"),
+        Index("ix_seo_crawl_lease_tenant_expiry", "tenant_id", "lease_expires_at"),
+        Index("ix_seo_crawl_lease_expiry", "lease_expires_at"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(nullable=False)
+    store_id: Mapped[int] = mapped_column(nullable=False)
+    site_id: Mapped[int] = mapped_column(nullable=False)
+    host: Mapped[str] = mapped_column(String(253), nullable=False)
+    crawl_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    lease_token: Mapped[str] = mapped_column(String(64), nullable=False)
+    lease_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
