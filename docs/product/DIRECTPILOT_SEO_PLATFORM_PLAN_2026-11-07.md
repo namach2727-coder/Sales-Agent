@@ -2,6 +2,15 @@
 
 
 
+### SEO-GROWTH-P2-ROBOTS-REGRESSION-20261108
+
+- Corrected source head: `b7856bf2b78f569a97d42b06cc334ca59a9ae0f4` on `feature/seo-growth-commercial-foundation-20261101`, Draft PR #121.
+- Follow-up source fixes: normalized the crawler policy module docstring; added explicit regression tests for product-specific User-Agent group selection, wildcard path matching, and end-of-pattern anchors in robots rules.
+- The robots policy now selects the most-specific product User-Agent group before wildcard fallback, applies the longest matching path rule, and prefers Allow for equal-length matches.
+- Earlier exact-head CI #42374256973 (pre-correction head `97c3713`) reported 1175 passed, 3 failed, 7 skipped. The three failures were addressed in source/tests, but **no CI run for the current head has been observed**. Vercel checks are pending; these are not a substitute for the GitHub Python test workflow.
+- No UAT/Production deployment or migration, Google API call, customer grant, real-site crawl, or SEO flag change was performed. Migration 0030 remains unapplied; PR #121/#71 remain Draft/unmerged.
+- Next gate: obtain exact-head GitHub CI and review all jobs/logs. Do not wire crawler to customer-facing endpoints or persist crawl results until CI passes and per-tenant/per-host concurrency controls plus audit schema are reviewed.
+
 ### SEO-GROWTH-P2-CI-REMEDIATION-20261108
 
 - Backend runtime source head: `e94071edd589886b8f2af8c96f16d9771e96ab9d` on `feature/seo-growth-commercial-foundation-20261101`, Draft PR #121. The prior exact-head CI run #42374256973 on `97c37135413d5a4cdec0f43c7cb81d1ed0b07f51` completed with **1175 passed, 3 failed, 7 skipped**; Docker build, PostgreSQL smoke and PostgreSQL 18/Neon compatibility passed.
