@@ -46,9 +46,10 @@ def _audit_safe_url(value: str) -> str:
 class CrawlTransportError(RuntimeError):
     """A safe crawler transport operation failed."""
 
-    def __init__(self, code: str):
+    def __init__(self, code: str, *, bytes_received: int = 0):
         super().__init__(code)
         self.code = code
+        self.bytes_received = max(0, int(bytes_received))
 
 
 @dataclass(frozen=True)
@@ -127,6 +128,7 @@ def _request_once(
         if encoding not in {"", "identity"}:
             raise CrawlTransportError("seo_crawler_content_encoding_rejected")
         raw_length = response_headers.get("content-length")
+        declared_length: int | None = None
         if raw_length is not None:
             try:
                 declared_length = int(raw_length)
@@ -137,15 +139,25 @@ def _request_once(
             if declared_length > max_body_bytes:
                 raise CrawlTransportError("seo_crawler_response_too_large")
         body = bytearray()
-        while True:
+        # A declared length lets us accept an exact-fit response without probing
+        # one byte beyond the cap. Without it, filling the cap is conservatively
+        # treated as truncation because EOF cannot be established without over-read.
+        read_limit = declared_length if declared_length is not None else max_body_bytes
+        while len(body) < read_limit:
             if connection.sock is not None:
                 connection.sock.settimeout(connection._remaining_timeout())
-            chunk = response.read(min(64 * 1024, max_body_bytes + 1 - len(body)))
+            chunk = response.read(min(64 * 1024, read_limit - len(body)))
             if not chunk:
                 break
             body.extend(chunk)
-            if len(body) > max_body_bytes:
-                raise CrawlTransportError("seo_crawler_response_too_large")
+        if declared_length is not None and len(body) != declared_length:
+            raise CrawlTransportError(
+                "seo_crawler_network_request_failed", bytes_received=len(body),
+            )
+        if declared_length is None and len(body) >= max_body_bytes:
+            raise CrawlTransportError(
+                "seo_crawler_response_too_large", bytes_received=len(body),
+            )
         return status, response_headers, bytes(body), location
     except CrawlTransportError:
         raise
@@ -207,7 +219,9 @@ def _request_with_redirects(
                 raise CrawlTransportError("seo_crawler_content_encoding_rejected")
             raw_length = headers.get("content-length")
             if len(body) > max_body_bytes:
-                raise CrawlTransportError("seo_crawler_response_too_large")
+                raise CrawlTransportError(
+                    "seo_crawler_response_too_large", bytes_received=len(body),
+                )
             if raw_length is not None:
                 try:
                     declared_length = int(raw_length)
@@ -216,7 +230,9 @@ def _request_with_redirects(
                 if declared_length < 0:
                     raise CrawlTransportError("seo_crawler_invalid_content_length")
                 if declared_length > max_body_bytes:
-                    raise CrawlTransportError("seo_crawler_response_too_large")
+                    raise CrawlTransportError(
+                        "seo_crawler_response_too_large", bytes_received=len(body),
+                    )
             return target, status, headers, body
         if redirects >= max_redirects:
             raise CrawlTransportError("seo_crawler_redirect_limit_exceeded")
@@ -256,27 +272,44 @@ def fetch_html_page(
     path_prefix = normalize_crawl_path_prefix(allowed_path_prefix)
     if not crawl_path_in_scope(urlsplit(target.url).path or "/", path_prefix):
         raise CrawlTransportError("seo_crawler_url_out_of_scope")
+    if budget.total_bytes >= budget.limits.max_total_bytes:
+        raise CrawlPolicyError("seo_crawler_total_byte_budget_exceeded")
     budget.record_page(target.url, depth=depth)
     parsed = urlsplit(target.url)
     robots_url = urlunsplit((parsed.scheme, parsed.netloc, "/robots.txt", "", ""))
     robots_started = budget.clock()
+    robots_response_limit = min(MAX_ROBOTS_BYTES, budget.limits.max_response_bytes)
+    robots_remaining = budget.limits.max_total_bytes - budget.total_bytes
+    if robots_remaining <= 0:
+        raise CrawlPolicyError("seo_crawler_total_byte_budget_exceeded")
+    robots_total_limited = robots_remaining <= robots_response_limit
+    robots_body_limit = min(robots_response_limit, robots_remaining)
     try:
         robots_target, robots_status, _robots_headers, robots_body = _request_with_redirects(
             robots_url, resolver=resolver, budget=budget,
             max_redirects=budget.limits.max_redirects,
-            max_body_bytes=min(MAX_ROBOTS_BYTES, budget.limits.max_response_bytes),
+            max_body_bytes=robots_body_limit,
             request_once=request_once,
         )
     except (CrawlPolicyError, CrawlTargetError, CrawlTransportError) as exc:
+        received = getattr(exc, "bytes_received", 0)
+        if received:
+            try:
+                budget.record_response_bytes(received)
+            except CrawlPolicyError as budget_exc:
+                exc = budget_exc
+        if (isinstance(exc, CrawlTransportError) and robots_total_limited
+                and exc.code == "seo_crawler_response_too_large"):
+            exc = CrawlPolicyError("seo_crawler_total_byte_budget_exceeded")
         if audit_callback is not None:
             audit_callback(
                 event_kind="robots", outcome="failed", raw_url=robots_url,
                 robots_decision="unavailable_block", http_status=None,
-                bytes_received=0,
+                bytes_received=received,
                 duration_ms=max(0, int((budget.clock() - robots_started) * 1000)),
                 error_code=exc.code,
             )
-        raise
+        raise exc
 
     robots_allowed = robots_allows(
         robots_url=robots_url, page_url=target.url, user_agent=CRAWLER_PRODUCT_TOKEN,
@@ -317,29 +350,43 @@ def fetch_html_page(
     page_started = budget.clock()
     status: int | None = None
     body = b""
+    page_remaining = budget.limits.max_total_bytes - budget.total_bytes
+    if page_remaining <= 0:
+        raise CrawlPolicyError("seo_crawler_total_byte_budget_exceeded")
+    page_total_limited = page_remaining <= budget.limits.max_response_bytes
+    page_body_limit = min(budget.limits.max_response_bytes, page_remaining)
     try:
         final_target, status, headers, body = _request_with_redirects(
             target.url, resolver=resolver, budget=budget,
             max_redirects=budget.limits.max_redirects,
-            max_body_bytes=budget.limits.max_response_bytes,
+            max_body_bytes=page_body_limit,
             request_once=request_once,
             allowed_path_prefix=path_prefix,
         )
+        budget.record_response_bytes(len(body))
         validate_html_response(
             status, headers, max_response_bytes=budget.limits.max_response_bytes,
         )
-        budget.record_response_bytes(len(body))
         budget.check_time()
     except (CrawlPolicyError, CrawlTargetError, CrawlTransportError) as exc:
+        received = getattr(exc, "bytes_received", 0)
+        if received:
+            try:
+                budget.record_response_bytes(received)
+            except CrawlPolicyError as budget_exc:
+                exc = budget_exc
+        if (isinstance(exc, CrawlTransportError) and page_total_limited
+                and exc.code == "seo_crawler_response_too_large"):
+            exc = CrawlPolicyError("seo_crawler_total_byte_budget_exceeded")
         if audit_callback is not None:
             audit_callback(
                 event_kind="page", outcome="failed", raw_url=_audit_safe_url(target.url),
                 robots_decision="not_checked", http_status=status,
-                bytes_received=len(body),
+                bytes_received=len(body) + received,
                 duration_ms=max(0, int((budget.clock() - page_started) * 1000)),
                 error_code=exc.code,
             )
-        raise
+        raise exc
 
     page_duration_ms = max(0, int((budget.clock() - page_started) * 1000))
     if audit_callback is not None:
