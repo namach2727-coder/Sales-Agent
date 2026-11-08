@@ -121,9 +121,8 @@ def _robots_rule_matches(pattern: str, path: str) -> bool:
     if not pattern:
         return False
     anchored = pattern.endswith("$")
-    expression = re.escape(pattern[:-1] if anchored else pattern).replace(r"\\*", ".*")
-    # re.escape does not escape '*' on all supported Python versions.
-    expression = expression.replace(r"\\*", ".*").replace("*", ".*")
+    source = pattern[:-1] if anchored else pattern
+    expression = ".*".join(re.escape(part) for part in source.split("*"))
     return re.match("^" + expression + ("$" if anchored else ""), path) is not None
 
 
