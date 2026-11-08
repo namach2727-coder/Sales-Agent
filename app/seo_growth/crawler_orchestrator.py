@@ -112,7 +112,6 @@ def run_crawl_preview(
     crawl_id: str | None = None,
     lease_seconds: int = 180,
     max_concurrent_per_tenant: int = 1,
-    fetch_page: Callable[..., Any] | None = None,
 ) -> dict[str, Any]:
     """Run one bounded crawl with consent rechecks, distributed lease and durable audit.
 
@@ -198,10 +197,7 @@ def run_crawl_preview(
         "before_page": before_page,
         "audit_callback": audit_callback,
     }
-    if fetch_page is not None:
-        kwargs["fetch_page"] = fetch_page
-    else:
-        kwargs["request_once"] = guarded_request_once
+    kwargs["request_once"] = guarded_request_once
 
     try:
         result = crawl_preview(canonical_seed, **kwargs)
