@@ -1097,3 +1097,16 @@ Migration 0031 exists only in source/CI. UAT remains at 0029; no UAT/Production 
 The fixture correction from commit `c8181dc065307271fbb568311da5d5628a1d87a3` is now validated by [CI run #42458901036](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42458901036): **1180 passed, 7 skipped, 0 failed**. Docker build, PostgreSQL smoke and PostgreSQL 18/Neon compatibility also passed. This run validates the robots-fixture correction only; it predates the crawler-audit schema changes and must not be used as evidence that migration 0031 or its writer passed.
 
 The crawler-audit implementation is separately under validation in run [#42459236808](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42459236808). Its migration-policy, PostgreSQL smoke, PostgreSQL 18 compatibility/preflight and Docker build jobs have passed. Full pytest is still running at this checkpoint.
+
+
+
+### Crawler audit test correction · 2026-11-08
+
+Run [#42459236808](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42459236808) completed with **1179 passed, 13 failed, 7 skipped**. The four infrastructure jobs were otherwise green: Docker, PostgreSQL smoke, PostgreSQL 18 compatibility and disposable-schema preflight, and migration policy.
+
+The 13 failures were test-contract alignment issues:
+- Two immutable-baseline tests needed to classify the new crawler audit table as post-baseline.
+- Three remaining tests still expected migration 0030 instead of the new single head 0031.
+- Eight invalid-input cases omitted the now-required explicit `retention_days` argument, so they failed at Python argument binding rather than reaching validation.
+
+These are corrected in source commit `3a800197cceafa3aa65f0191f2e31c7169565e7f`. CI run [#42459686126](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42459686126) is queued for the corrected source. Do not claim the full suite green until this run completes.
