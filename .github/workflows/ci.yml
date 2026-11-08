@@ -159,10 +159,10 @@ jobs:
           preflight.EXPECTED_VERSION = "0031_seo_crawler_audit"
           # Extra archive table and indexes exist ONLY in the disposable CI schema.
           # Do not relax production restored-Neon preflight invariants.
-          preflight.EXPECTED_TABLES = 93
-          preflight.EXPECTED_SEQUENCES = 87
-          preflight.EXPECTED_INDEXES = 570
-          preflight.EXPECTED_CONSTRAINTS = 508
+          preflight.EXPECTED_TABLES = 94
+          preflight.EXPECTED_SEQUENCES = 88
+          preflight.EXPECTED_INDEXES = 574
+          preflight.EXPECTED_CONSTRAINTS = 514
           preflight.validate_target_url = lambda raw: make_url(raw)
           result = preflight.run_preflight(os.environ["DATABASE_URL"])
           assert result["connection_read_only"] is True
