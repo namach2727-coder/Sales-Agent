@@ -132,17 +132,21 @@ def run_crawl_preview(
     if not host:
         raise CrawlOrchestrationError("seo_crawler_invalid_seed_url", 400)
 
-    grant = acquire_crawl_lease(
-        db,
-        tenant_id=tenant_id,
-        store_id=store_id,
-        site_id=site_id,
-        host=host,
-        crawl_id=crawl_id,
-        lease_seconds=lease_seconds,
-        max_concurrent_per_tenant=max_concurrent_per_tenant,
-    )
-    db.commit()
+    try:
+        grant = acquire_crawl_lease(
+            db,
+            tenant_id=tenant_id,
+            store_id=store_id,
+            site_id=site_id,
+            host=host,
+            crawl_id=crawl_id,
+            lease_seconds=lease_seconds,
+            max_concurrent_per_tenant=max_concurrent_per_tenant,
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
     current_grant: CrawlLeaseGrant = grant
 
@@ -205,7 +209,11 @@ def run_crawl_preview(
             db.rollback()
         raise
     else:
-        db.rollback()
-        release_crawl_lease(db, current_grant)
-        db.commit()
+        try:
+            db.rollback()
+            release_crawl_lease(db, current_grant)
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
         return {"crawl_id": current_grant.crawl_id, **result}
