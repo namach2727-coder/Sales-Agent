@@ -320,7 +320,7 @@ def test_robots_body_counts_toward_total_crawl_byte_budget():
 
 
 def test_exhausted_total_byte_budget_stops_before_page_request():
-    limits = CrawlLimits(max_response_bytes=20, max_total_bytes=14)
+    limits = CrawlLimits(max_response_bytes=14, max_total_bytes=14)
     robots_body = b"User-agent: *\n"
     requests = []
     budget = CrawlBudget(limits)
