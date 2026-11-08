@@ -59,10 +59,47 @@ def upgrade() -> None:
     )
 
 
+    op.create_table(
+        "seo_crawl_leases",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("tenant_id", sa.Integer(), nullable=False),
+        sa.Column("store_id", sa.Integer(), nullable=False),
+        sa.Column("site_id", sa.Integer(), nullable=False),
+        sa.Column("host", sa.String(253), nullable=False),
+        sa.Column("crawl_id", sa.String(36), nullable=False),
+        sa.Column("lease_token", sa.String(64), nullable=False),
+        sa.Column("lease_expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["site_id", "tenant_id", "store_id"],
+            ["seo_sites.id", "seo_sites.tenant_id", "seo_sites.store_id"],
+            ondelete="CASCADE",
+        ),
+        sa.UniqueConstraint("host", name="uq_seo_crawl_lease_host"),
+        sa.CheckConstraint("length(crawl_id) = 36", name="ck_seo_crawl_lease_crawl_id"),
+        sa.CheckConstraint("length(lease_token) = 64", name="ck_seo_crawl_lease_token"),
+        sa.CheckConstraint(
+            "lease_expires_at > created_at", name="ck_seo_crawl_lease_expiry"
+        ),
+    )
+    op.create_index(
+        "ix_seo_crawl_lease_tenant_expiry", "seo_crawl_leases",
+        ["tenant_id", "lease_expires_at"],
+    )
+    op.create_index(
+        "ix_seo_crawl_lease_expiry", "seo_crawl_leases", ["lease_expires_at"]
+    )
+
+
 def downgrade() -> None:
     bind = op.get_bind()
     if bind.scalar(sa.text("SELECT count(*) FROM seo_crawl_audit_events")):
         raise RuntimeError("Refusing downgrade: SEO crawler audit evidence exists")
+    if bind.scalar(sa.text("SELECT count(*) FROM seo_crawl_leases")):
+        raise RuntimeError("Refusing downgrade: active SEO crawler leases exist")
+    op.drop_index("ix_seo_crawl_lease_expiry", table_name="seo_crawl_leases")
+    op.drop_index("ix_seo_crawl_lease_tenant_expiry", table_name="seo_crawl_leases")
+    op.drop_table("seo_crawl_leases")
     op.drop_index("ix_seo_crawl_audit_expiry", table_name="seo_crawl_audit_events")
     op.drop_index("ix_seo_crawl_audit_site_created", table_name="seo_crawl_audit_events")
     op.drop_index("ix_seo_crawl_audit_crawl_id", table_name="seo_crawl_audit_events")
