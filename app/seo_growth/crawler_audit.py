@@ -49,7 +49,7 @@ def record_crawl_audit_event(
     bytes_received: int = 0,
     duration_ms: int = 0,
     error_code: str | None = None,
-    retention_days: int = 90,
+    retention_days: int,
 ) -> SeoCrawlAuditEvent:
     """Stage one sanitized event; transaction ownership remains with the caller."""
     if any(type(value) is not int or value < 1 for value in (tenant_id, store_id, site_id)):
