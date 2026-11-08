@@ -1,3 +1,43 @@
+## SEO Growth — UAT callback and proxy preflight
+
+Backend Draft #121 callback fix `5764245db46e620fa1862f8079e9c5f419b45238` clears OAuth query values before session checks and applies privacy headers to rejected requests and redirects. 105 focused tests pass. The local HTTPS Next-to-Uvicorn rehearsal passes secure-cookie login, CSRF, callback and replay, site/report, request limit and cleanup with synthetic Google. The application server access log contained no synthetic callback query.
+
+The canonical UAT web release still points to the existing UAT source. Neon UAT is already 0029 with zero grants and Google connections. Dedicated Vercel SEO variables and the frontend flag are absent. Google Cloud browser access requires the originating connected browser context. Next is dedicated Google OAuth and private UAT configuration, actual hosted query-log verification with synthetic markers, and real consent/report acceptance. See the F2a runbook. Earlier checkpoints remain as dated evidence.
+
+## SEO Growth — published bounded preview checkpoint
+
+DRAFT backend #121 report source `f031e8e6cf11dec5b4c807f7d948e98d715c7d00` and frontend #71 combined source `53da098d8457a72d226922402215dfcbe130babd` are published and mergeable, preserving current main work. Frontend documentation follows at `7ec27b584a8ab09def33b2c874cefe1019226c49`. Preview reports are request/page-only, separately default-off, with current scope/credential checks and bounded workspace requests. No metric history, scheduled sync, paid plan, new migration or website write is introduced.
+
+Final evidence: backend 1061 passed / 7 skipped, all four exact-source GitHub CI jobs PASS; combined frontend 298 passed, TypeScript/full lint (0 errors / 3 existing warnings), Next webpack and Vinext builds PASS. Backend feature Preview is READY; the frontend runtime Preview is CANCELED. Frontend hosted validate/verify PASS on the documentation head with unchanged runtime; automated Lighthouse also PASS for the existing public pages (not the authenticated report). Neither establishes real Google or customer UAT. Source and original UAT remain 0029; do not replay its completed migration.
+
+Next action: dedicated UAT OAuth/configuration and private routing/database/encryption mapping, current frontend CI/hosted validation and real customer report/mobile acceptance. No canonical UAT/Production, live database/secret, customer grant or CMS change was performed. Both PRs stay DRAFT/unmerged; earlier checkpoints retain history.
+
+## SEO Growth — current analysis preview checkpoint
+
+DRAFT backend PR #121 and frontend PR #71 now implement an explicit bounded customer report preview on the existing authorized Google connection. It compares two 28-day Pacific-calendar windows, keeps missing dates unknown, computes totals from date rows and limits non-exhaustive query/page review candidates. A separate backend flag defaults off; current role/grant/site/credential checks and store-wide request guards apply. Reports exist only in the response/page, with no metric history, background sync, new schema or CMS writes.
+
+Full backend **1061 passed, 7 skipped, zero failed**; local migration naming/graph, schema drift and base→head→base→head checks PASS at the unchanged single head 0029. Frontend full 297 passed; focused report/provider 53 and rendered report/onboarding 5 passed, TypeScript/changed-file lint/Next build pass. Real Google, multi-worker PostgreSQL, proxy and visual/mobile acceptance remain pending. Schema remains 0029; no live database or Production change was performed. Independent main website documentation and the previous UAT migration history are preserved.
+
+Next action: dedicated UAT OAuth/configuration and private upstream/database mapping, then reviewed UAT deployment and real customer report acceptance. See the F2a runbook; older checkpoints below retain their original scope and evidence.
+
+## SEO Growth — current UAT schema checkpoint
+
+The approved additive 0027→0029 migration is APPLIED and read-only postchecks PASS on the original isolated Neon UAT database. All 83 pre-existing table row counts match; the four new SEO tables are empty and their revision/scope constraints are validated. A fresh readable 0027 recovery branch and the earlier checkpoint are retained. Production was not targeted. See the completion record and pilot runbook for exact scope and evidence; the migration must not be replayed.
+
+Backend runtime code remains 862d37c and frontend c42a852 in DRAFT PRs #121/#71. This operation changed schema only: no canonical runtime release, customer grant, feature activation, payment, provider secret or customer website edit. Prior local/CI source checks remain separately recorded; real Google/browser/mobile acceptance is pending.
+
+Next action: dedicated UAT OAuth/configuration and private upstream/database mapping, then controlled deployment and real customer acceptance. Older checkpoints below are historical and their 0027/pending-migration statements are superseded.
+
+## SEO Growth — current feature checkpoint
+
+DRAFT backend PR #121 (`feature/seo-growth-commercial-foundation-20261101`, runtime code `862d37c955760073257a516ced18edea45b60d1b`) and frontend PR #71 (code `c42a8520ec0a0e254956f892c0049b72607a3665`) implement customer Google onboarding plus role-protected, revisioned internal pilot administration. Schema source head is 0029 after 0028; original UAT remains 0027. The exact upgrade has passed on an isolated PostgreSQL branch, and a separate readable 0027 checkpoint is retained. No Production release, commercial offer or real customer activation has occurred. Both SEO flags default off; paid commerce and existing channel products are unchanged.
+
+Final full backend suite: **1025 passed, 7 skipped, zero failures**. Frontend full suite: 293 passed. TypeScript, changed-file lint, Next webpack build, local migration drift/round-trip and actual ASGI import pass. The unchanged private operator component has an existing global-lint failure. Real Google consent and browser/mobile acceptance remain pending.
+
+Current backend-main a810228df804976cbccfee39c961239001b422a6 contains documentation-only brand-release history, synchronized into the feature while preserving both histories and tested runtime blobs. All four GitHub CI jobs pass on runtime code 862d37c.
+
+Next action: decide on and complete/discard the prepared UAT migration with explicit owner confirmation; then configure dedicated UAT OAuth privately and verify the real customer flow. See the pilot runbook and the six mandatory release documents for exact review artifacts. The older project notes below remain historical.
+
 # DirectPilot Project Status
 
 ## Current website SEO checkpoint

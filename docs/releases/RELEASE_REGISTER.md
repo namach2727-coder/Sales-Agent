@@ -1,6 +1,226 @@
 > **DIRECTPILOT — MANDATORY CONTINUITY AND CHANGE-LOG RULE (owner decision, 2026-10-17).**
 > This file is one of the **six mandatory handoff/release artifacts**. On every DirectPilot / DirectPilot TelBot task, the assistant must read current `AI_HANDOFF.md`, `PROJECT_ROADMAP.md`, `DECISIONS.md`, `CURRENT_STATE.md`, `NEXT_ACTIONS.md`, and `docs/releases/RELEASE_REGISTER.md` **before making changes**; reconcile against actual GitHub/Vercel/Neon state, not chat memory. **After every meaningful change**, update all five main files **and the Release Register** coherently: scope and owner approval, PR/commit, changed artifacts, UAT/Production status, automated and manual evidence, unresolved risks, next action. Keep the current summary easy to scan, preserve history (archive older detail in runbooks; do not delete evidence), and never call code-merged "deployed" or a proposed feature "active". Never publish to Production, touch live data/secrets, or switch Meta/Telegram outbound functionality without specific owner approval. This rule itself MUST remain at the very TOP of each of the six files and must be propagated in any handoff to a new chat.
 
+
+
+### SEO-GROWTH-P2-ROBOTS-REGRESSION-20261108
+
+- Corrected source head: `b7856bf2b78f569a97d42b06cc334ca59a9ae0f4` on `feature/seo-growth-commercial-foundation-20261101`, Draft PR #121.
+- Follow-up source fixes: normalized the crawler policy module docstring; added explicit regression tests for product-specific User-Agent group selection, wildcard path matching, and end-of-pattern anchors in robots rules.
+- The robots policy now selects the most-specific product User-Agent group before wildcard fallback, applies the longest matching path rule, and prefers Allow for equal-length matches.
+- Earlier exact-head CI #42374256973 (pre-correction head `97c3713`) reported 1175 passed, 3 failed, 7 skipped. The three failures were addressed in source/tests, but **GitHub Actions CI run #42458086591 is now running for the current source head; Docker build and PostgreSQL 18/Neon compatibility have passed, while the full pytest and PostgreSQL smoke jobs are still in progress**. Vercel deployment checks are not release evidence; the GitHub Python test workflow is the validation gate.
+- No UAT/Production deployment or migration, Google API call, customer grant, real-site crawl, or SEO flag change was performed. Migration 0030 remains unapplied; PR #121/#71 remain Draft/unmerged.
+- Next gate: obtain exact-head GitHub CI and review all jobs/logs. Do not wire crawler to customer-facing endpoints or persist crawl results until CI passes and per-tenant/per-host concurrency controls plus audit schema are reviewed.
+
+### SEO-GROWTH-P2-CI-REMEDIATION-20261108
+
+- Backend runtime source head: `e94071edd589886b8f2af8c96f16d9771e96ab9d` on `feature/seo-growth-commercial-foundation-20261101`, Draft PR #121. The prior exact-head CI run #42374256973 on `97c37135413d5a4cdec0f43c7cb81d1ed0b07f51` completed with **1175 passed, 3 failed, 7 skipped**; Docker build, PostgreSQL smoke and PostgreSQL 18/Neon compatibility passed.
+- Failure analysis from the test log:
+  1. Robots `Allow` did not override a less-specific `Disallow`. The parser now selects the most-specific user-agent groups, applies longest matching path rule, and prefers `Allow` on equal-length matches.
+  2. The pinned socket test compared a monotonic-deadline timeout to exactly `3.0`; the assertion now checks the numeric-IP destination and uses a small timing tolerance.
+  3. The aggregate-byte test fixture configured `max_response_bytes > max_total_bytes`, which the policy correctly rejects, and its page body did not exceed the intended aggregate limit. The fixture now respects the invariant and exceeds the aggregate budget.
+- Code changes: `crawler_policy.py` commits `3326a7fffa3765ad0bd1f3469bef105bdf538455` and `fdac376218942a688401fdd7910530c1fcd8b145`; transport test commits `28bab39d3e8278aeb6042053df925a3e8774b320`, `4c7eb29e4d4e34749811433a3a1f27975ee5c913`, and final `e94071edd589886b8f2af8c96f16d9771e96ab9d`.
+- **Validation is pending on the corrected source.** No workflow run or combined status was returned for exact head `e94071e`; do not claim the three failures are fixed until exact-head CI completes. The code correction is source-only.
+- Release boundary unchanged: PR #121 remains Draft/unmerged; PR #71 remains Draft/unmerged; UAT schema remains `0029_seo_pilot_revision`; migration `0030_seo_growth_durable_data` remains unapplied; SEO flags remain default-off. No UAT/Production deployment or migration, real Google Sync, customer grant, scheduled job, billing, retention/purge, CMS write, or live URL fetch was performed.
+- Next: obtain full CI on the corrected source head; fix any new failures. Only then continue distributed per-host/per-tenant rate and concurrency controls plus durable crawl audit persistence before any crawler route integration.
+
+### SEO-GROWTH-P2-TRANSPORT-DEADLINE-20261107
+
+- Latest backend source head: `97c37135413d5a4cdec0f43c7cb81d1ed0b07f51`, branch `feature/seo-growth-commercial-foundation-20261101`, Draft PR #121. Exact-head CI run #42374256973 is in progress; do not call the transport validated until the full test job and all infrastructure jobs pass.
+- The pinned transport now uses an absolute per-request deadline across TCP connect, TLS handshake, request send, response headers and body reads. Remaining time is recalculated before each validated-IP retry. Socket timeouts map to a stable crawler time-budget error.
+- User-Agent matching is fixed to the DirectPilotBot product token used by the actual request header. Cross-origin redirects are rejected, preventing a redirect from silently switching robots.txt scope; same-origin redirects are re-resolved, revalidated and pinned.
+- Transport and test suite include regression checks for same-origin redirect validation, cross-origin redirect rejection, robots-before-page behavior, byte accounting, compressed response rejection, numeric-IP connection pinning, SNI preservation and total timeout handling.
+- The service remains a library-level capability only. No public route, worker, queue, DB crawl record, distributed host/tenant rate limiter or concurrency lease is implemented. Injected DNS must be bounded by its caller. No external URL was fetched by tests.
+- UAT remains at `0029_seo_pilot_revision`; source migration `0030_seo_growth_durable_data` is unapplied; SEO flags remain default-off. No customer grant, Google Sync, billing, CMS write, UAT/Production deployment or migration was performed.
+- Next: complete exact-head CI, address any failures, then design persistent per-host/per-tenant concurrency and rate controls and audit persistence before route integration.
+
+
+
+### SEO-GROWTH-P2-PINNED-TRANSPORT-20261107
+
+- Backend branch `feature/seo-growth-commercial-foundation-20261101`, source head before documentation update: `a61798ed29c7277aa2dc44ecb0c48c6bd6932f16`; Draft PR #121 remains open and unmerged.
+- Added `app/seo_growth/crawler_transport.py`: synchronous GET-only HTTP transport opens sockets to validated numeric IPs (no HTTP-client hostname lookup), preserves HTTPS certificate verification and original hostname SNI, sends the matching Host header, disables compression/cookies/auth, manually follows only same-origin redirects, and checks every redirect through URL/DNS validation.
+- Fetch orchestration requests `/robots.txt` before the page, applies the Robots decision, rejects non-HTML responses and non-identity content encodings, enforces response/robots byte limits, total crawl byte budget, redirect count and elapsed/request timeouts. DNS is re-resolved and pinned for each redirect; IP retries recompute remaining time. The current function is not wired to any public API route.
+- Added focused transport tests for numeric-IP socket pinning, TLS SNI hostname preservation, redirect validation and limits, robots-before-page behavior, compression rejection, byte accounting and timeout recomputation. Tests use fake request handlers; no external URL was fetched.
+- Exact-head CI for `a61798ed29c7277aa2dc44ecb0c48c6bd6932f16` is queued (Docker build, PostgreSQL smoke, PostgreSQL 18/Neon compatibility and full tests). The earlier preflight-only head `e550c25eb5613d0ef1c8fe74b208ead82903af50` passed all four jobs; that does not validate the new transport.
+- Scope deliberately remains incomplete: no distributed per-host/tenant concurrency or rate limiter, no crawler queue/worker, no crawl graph/depth traversal, no persistent crawl records or API endpoint. The injected DNS resolver must be bounded by its caller. Cross-origin redirects are rejected rather than silently transferring robots scope. These are explicit follow-up gates.
+- No UAT/Production migration or deployment, SEO flag activation, real Google Sync, customer grant, billing activation, CMS write, or live URL fetch was performed. UAT remains at `0029_seo_pilot_revision`; migration `0030_seo_growth_durable_data` remains unapplied.
+- Next: exact-head CI; fix any failures; then add distributed host/tenant rate and concurrency controls plus audit persistence before any endpoint integration. Keep PR #121 Draft and do not enable crawling until security review and controlled UAT acceptance.
+
+
+
+### SEO-GROWTH-P2-POLICY-LAYER-20261107
+
+- Backend branch: `feature/seo-growth-commercial-foundation-20261101`; source head before documentation update: `866799fdb86847244e02758f508f4317eed7d675`; Draft PR #121 remains open and unmerged.
+- Exact-head CI for this source is queued: Docker build, PostgreSQL smoke, PostgreSQL 18/Neon compatibility and full test job. The prior source head `e550c25eb5613d0ef1c8fe74b208ead82903af50` completed all four jobs successfully; that result does not validate later commits.
+- A source review found that `resolve_public_addresses` trusted the caller-supplied `CrawlTarget.hostname` fields instead of re-normalizing `target.url`. This was corrected in `68369dfbf7331624de263e6fbacc4bda30e2ae81`, with forged-object regression tests. DNS resolution now derives the hostname and port from the canonicalized URL.
+- Added `app/seo_growth/crawler_policy.py` and focused tests: bounded page/per-host/depth/redirect/response-byte/total-byte/time settings; budget accounting; HTML/XHTML response and Content-Length validation; and robots.txt allow/disallow parsing. Robots 401/403/429 and server errors fail closed; 404/410 mean no robots file. The module remains network-independent.
+- These are policy primitives, not an operational crawler. No HTTP transport, DNS resolver, endpoint, scheduler, or customer URL fetch is enabled. The transport must still pin each connection to validated IPs, preserve TLS hostname verification/SNI and Host, stream-enforce wire and decoded byte limits, enforce redirect limits, and apply robots policy before page fetches.
+- No UAT/Production migration or deployment, SEO flag activation, real Google Sync, billing activation, customer grant, CMS write, or live URL fetch was performed. UAT remains at migration `0029_seo_pilot_revision`; migration `0030_seo_growth_durable_data` remains unapplied.
+- Next: exact-head CI; then implement/test the pinned HTTP transport and integrate robots + budgets behind a non-public internal service boundary. Do not expose a customer crawler endpoint until security tests and controlled UAT acceptance are complete.
+
+
+
+### SEO-GROWTH-P2-MULTICAST-VALIDATION-FIX-20261107
+
+- Backend source head: `e550c25eb5613d0ef1c8fe74b208ead82903af50`, Draft PR #121.
+- The prior P2 CI run exposed a Python 3.12 `ipaddress.is_global` behavior: multicast addresses such as `224.0.0.1` and `ff02::1` can still report global. The crawler preflight now explicitly rejects multicast, private, reserved, unspecified, loopback and link-local destinations in addition to transition prefixes. DNS-answer tests also cover multicast.
+- Exact-head CI run #42370736355 is pending. Docker build, PostgreSQL smoke and PostgreSQL 18/Neon compatibility jobs have passed; the full test job is still running. Do not mark P2 validated until that job passes.
+- Vercel backend API preview for this branch is READY with `target=null` and only a Git-branch preview alias; no canonical UAT/Production alias was created. A separate `directpilot-telbot-uat-api` preview check failed because its Vercel Root Directory is configured as nonexistent `experiments/telegram_bot_builder`; this is unrelated to SEO source and requires a separate Vercel project-settings correction.
+- F2b source validation remains: backend commit `4856b6f71956031f58c834dfcfa8899621521097` passed 1094 tests (7 skipped, 3 warnings); frontend PR #71 commit `0ff906946a88d86d9b4d5bbb03606326de6eabfa` passed 301 tests, TypeScript, lint, production-static build, verification and mobile audit.
+- Both PRs remain Draft/unmerged. UAT Neon remains at `0029_seo_pilot_revision`, with zero SEO grants, zero Google connections and zero SEO sites. Migration `0030_seo_growth_durable_data` is source-only and unapplied; all SEO flags remain default-off. No live Google Sync, UAT/Production migration, canonical deployment, billing activation, retention/purge, or CMS write was performed.
+- Next: finish P2 CI, then build the pinned HTTP(S) transport, redirect-count enforcement, robots.txt policy, host/tenant rate limits and hard crawl resource budgets. No crawler endpoint may fetch URLs before those controls pass.
+
+
+
+### SEO-GROWTH-P2-CRAWLER-SECURITY-PREFLIGHT-20261107
+
+- Backend source head: `4cb701b6849e2dc341afd6f098f894a2d8c242a1`, Draft PR #121. New module: `app/seo_growth/crawler_security.py`; focused tests: `tests/test_seo_growth_crawler_security.py`.
+- Implemented network-free URL/DNS policy primitives: HTTP(S)-only normalization, IDN canonicalization, rejection of URL credentials and non-default ports, rejection of local/single-label/reserved hostnames, public-IP validation, rejection of private/reserved/mixed DNS answers and IPv4-mapped/NAT64/6to4/Teredo transition addresses, and redirect-target revalidation.
+- DNS resolution is injected through a required resolver interface; there is no default socket resolver. Tests use synthetic resolver results. The module does not perform HTTP fetches, and no crawler endpoint calls it yet. A future transport must pin the connection to a returned IP while preserving the original Host header and TLS SNI; it must not resolve the hostname again.
+- Backend CI run #42370354421 for this exact source head is pending. Docker build, PostgreSQL smoke and PostgreSQL 18/Neon compatibility jobs have passed; the full test job is still running. Earlier F2b backend head `4856b6f71956031f58c834dfcfa8899621521097` passed 1094 tests (7 skipped, 3 warnings). Frontend PR #71 head `110e9380de492864d74e2dc3904b45d67b3ce064` passed 301 tests, type-check, lint, production-static build, verification and mobile audit.
+- F2b customer workflow is implemented in both Draft PRs: explicit 56-day daily sync + 28-day query/page sample, persisted report, dimension-level sync history, and no automatic retry of an ambiguous Sync POST. Both PRs remain Draft/unmerged.
+- UAT Neon remains at `0029_seo_pilot_revision`, with zero SEO grants, zero Google connections and zero SEO sites. Migration `0030_seo_growth_durable_data` is source-only and unapplied; all SEO flags remain default-off. No live Google customer Sync, UAT/Production migration or canonical deployment, billing activation, retention/purge, or CMS write was performed.
+- Next: validate this security preflight, then implement the pinned HTTP(S) transport, bounded redirect count, robots.txt policy, per-host/tenant rate limits, crawl depth/page/body/total-byte/time budgets and audit trail. Only after those tests pass may a crawler endpoint be exposed. UAT activation remains a separate approval gate.
+
+
+
+### SEO-GROWTH-F2B-END-TO-END-VALIDATION-20261107
+
+- Backend source head: `4856b6f71956031f58c834dfcfa8899621521097` in Draft PR #121. The final test correction tracks actual provider refresh calls rather than the OAuth exchange counter, which is already incremented during test setup.
+- Backend CI run #42369504917: PASS. `1094 passed, 7 skipped, 3 warnings`; Docker build, PostgreSQL smoke and PostgreSQL 18/Neon compatibility jobs also passed. The run includes the 56-day daily + 28-day query/page sync contract, persisted analysis and per-dimension sync-history tests.
+- Frontend source head: `0ff906946a88d86d9b4d5bbb03606326de6eabfa` in Draft PR #71. Frontend validation passed: 301 tests, TypeScript type-check, ESLint and production-static Next build. Both verification jobs and the mobile audit passed; Vercel Preview Comments passed.
+- Customer flow now reads the backend's `data_sync_enabled` flag, does not sync on page load, sends one explicit bounded Sync POST, reads persisted analysis/history, and does not retry an ambiguous mutation. The 56-day daily range and current 28-day query/page window are sent separately.
+- Both PRs remain Draft/unmerged. The UAT Neon project was independently checked Read-only: migration `0029_seo_pilot_revision`, zero SEO access grants, zero Google connections and zero SEO sites. Migration `0030_seo_growth_durable_data` remains source-only and unapplied. SEO flags remain default-off.
+- No live Google customer consent, real customer Sync, scheduled job, UAT/Production migration or canonical deployment, billing activation, retention/purge policy, or CMS write was performed. Preview checks are not UAT/Production release evidence.
+- Next gate: after explicit authorization, apply/verify migration 0030 in UAT, grant one controlled test tenant, connect a test Google account, run one manual sync, and verify the stored report/history. Only after that acceptance should the PRs be considered for merge. Keep the SSRF-safe crawler as the next separate engineering phase.
+
+
+
+### SEO-GROWTH-F2B-REPORT-WINDOW-ALIGNMENT-20261107
+
+- Backend source commit: `d925c2c1c7a718a5de8780ec0ecd5a31fe1e5c55`, Draft PR #121, feature branch `feature/seo-growth-commercial-foundation-20261101`.
+- A single bounded 56-day sync can now persist daily property totals for both adjacent 28-day reporting periods while the query/page sample is fetched and stored only for the current 28-day period. The optional `query_page_start_date` must fall inside the daily window and is capped at 28 days; existing callers omitting it retain the prior behavior.
+- Sync history now returns tenant/store/site-scoped coverage by dimension and source run. The customer status response exposes the independent `data_sync_enabled` gate.
+- Added API regression tests using a synthetic Google provider: a 56-day daily window plus a 28-day query/page window, persisted analysis and history verification, and rejection of oversized query windows before provider calls.
+- The P1 parser test correction from commit `41f88ae3df1c6efde19198a58c148db9b1b8035a` is in this source lineage. CI run #42368681391 for that parent was still in progress when the F2b contract fix was committed; the exact current head must pass its own complete CI before this slice is considered validated.
+- Backend PR #121 and Frontend PR #71 remain Draft/unmerged. All SEO flags remain default-off. UAT remains at `0029_seo_pilot_revision`; source migration `0030_seo_growth_durable_data` is not applied. No real Google connection, customer grant, scheduler, UAT/Production migration or deployment, billing, retention/purge, or CMS write was performed.
+- Next: validate the exact backend head, then connect explicit Sync, persisted analysis and per-dimension sync history to Frontend Draft PR #71. Crawler work remains separate until DNS/IP pinning, redirect revalidation, robots policy and bounded resource controls have dedicated security tests.
+
+
+
+### SEO-GROWTH-P1-HTML-AUDIT-CI-CORRECTION-20261107
+
+- Scope: correct the technical-audit regression test after the parser intentionally began including H1 in the document heading outline. The expected sequence for the fixture is now `[1, 2]`, not `[2]`.
+- Source: backend Draft PR #121, branch `feature/seo-growth-commercial-foundation-20261101`; parent source head before this correction: `d51dbc84b1bb025b8805f28e806ae675d84d9107`.
+- Validation evidence at parent: GitHub Actions run #42354762290 failed only in the `test` job; `postgres-smoke`, `postgres18-neon-compatibility` and `docker-build` passed. The parser's H1 inclusion was added in commit `64046f12e987de30105fd8dee47781d3cc374523`; the test fixture expectation had not been updated.
+- This commit changes the test expectation and reconciles this checkpoint across the six mandatory continuity/release records. The correction's own CI result remains pending until GitHub completes checks on the new exact head.
+- Release boundary: both SEO PRs remain Draft/unmerged; SEO feature flags remain default-off; UAT stays at schema `0029_seo_pilot_revision`; source migration `0030_seo_growth_durable_data` is not authorized for UAT or Production. No live Google connection, customer grant, scheduled sync, retention/purge, billing, CMS write, or Production action was performed.
+- Next: verify the correction's full CI result, then continue the SSRF-safe crawler design/implementation only with DNS/IP validation, redirect revalidation, robots policy, bounded resource limits and dedicated security tests. Do not enable outbound URL fetching before those controls pass.
+
+
+### SEO-GROWTH-PLATFORM-PLAN-20261107 — competitor-informed product direction and current source checkpoint
+
+- Product direction: evolve the independent commercial SEO service into a multi-tenant SEO analysis and improvement platform: Business Profile → Data Collection → SEO Intelligence → SEO Action Center → Continuous Improvement. Faravis screenshots are product inspiration only; no competitor metrics or implementation claims are treated as verified facts.
+- Data-source boundaries: Google Search Console is authoritative for Search performance metrics; a first-party crawler is responsible for crawlable HTML/technical facts; PageSpeed Insights supplies performance/lab and field signals where available; competitor analysis must label its source and limitations. Never infer site totals from query/page samples.
+- Product intake: collect business category, primary SEO objective, concise business description, target audience/market and up to three competitor URLs. Make competitor URLs optional and validate/normalize them. No pricing, billing entitlement, or automatic CMS changes are authorized by this plan.
+- Technical audit scope: begin with deterministic HTML analysis (title, meta description, canonical, robots directives, H1 hierarchy, language, image alt coverage, internal/external links). Network crawling is a separate gated layer requiring SSRF-safe DNS/IP validation, redirect revalidation, robots policy, strict time/size/page limits, and per-site rate controls. Never fetch arbitrary URLs before those protections exist.
+- Action Center contract: every finding must carry severity, affected URL/count, evidence, recommended remediation, confidence/source, and whether a safe automated fix is technically possible. Execution remains proposal-only until a separate explicit approval and reversible implementation workflow exists.
+- Existing source reconciliation: PR #121 branch already contains explicit F2b sync, GET /sync-runs, and persisted GET /analysis paths via persisted_reporting.py; do not rebuild them. The authoritative migration is 0030_seo_growth_durable_data (source graph only). The UAT database remains at 0029_seo_pilot_revision; do not apply 0030 without explicit approval.
+- CI run #42012950916 completed successfully on source 52909808babad964da8c19612e12a9837d033a24: 1080 passed, 7 skipped, 3 warnings; test, postgres-smoke, postgres18-neon-compatibility, and docker-build all passed. This is source/CI evidence, not live Google acceptance, UAT deployment, or Production release.
+- Release boundaries unchanged: backend PR #121 and frontend PR #71 remain Draft/unmerged; SEO flags remain default-off; no scheduler, live Google/customer sync, UAT/Production migration/deploy, retention/purge policy, billing activation, or CMS write is authorized. Retention remains undecided; do not encode a TTL or deletion job.
+- Next implementation slice: add a pure, deterministic HTML technical-audit parser and focused tests without network access. Follow with a separately reviewed SSRF-safe fetch/crawl service, then business profile persistence and action findings. Reconcile every meaningful change across these six artifacts and the product design note.
+
+
+### SEO-GROWTH-F2B-PLANNING-20261104 — durable Search Console data foundation
+
+- Authoritative backend remains Draft PR #121 on `feature/seo-growth-commercial-foundation-20261101`; companion frontend Draft PR #71 remains separate. Keep both DRAFT/unmerged pending owner release approval.
+- F1 tenant/store-scoped Google OAuth, PKCE, encrypted refresh credentials, property selection and revisioned pilot grants are implemented. F2a provides explicit on-demand 56-day comparison (two adjacent 28-day periods), up to 500 query/page sample rows and proposal-only opportunities. Results remain response-only; no durable metrics, scheduled sync, report history, billing activation or CMS mutation exists.
+- PR #121 review head `5c3621b1d4203f8b1f1a8b88809e51af10e2be27`: all four GitHub Actions jobs passed; recorded suite result 1063 passed / 7 skipped. This is synthetic/provider-mocked evidence, not live Google/customer acceptance. Read-only UAT Neon evidence remains at `0029_seo_pilot_revision`, zero SEO grants and zero Google connections. **Do not replay 0027→0029.**
+- Separate Draft PR #130 is a divergent duplicate OAuth implementation with different 0028 migration assumptions. It is not authoritative for the commercial SEO product and must not be merged into #121 or main. Its separate CI success does not validate #121 or establish compatibility.
+- Vercel reported the free-plan daily deployment limit (`api-deployments-free-per-day`) for preview attempts on 2026-11-04. Avoid repeated preview builds; no plan change or paid upgrade is authorized. Deployment quota failure is not a source-code failure.
+- F2b direction: durable tenant/store/site-scoped Search Console snapshots with source date, search type, dimension, keys, metrics, coverage and sync-run status. Preserve current report contract over normalized observations; never aggregate truncated query/page samples into property totals. Design idempotent upserts, bounded windows, resumable partition sync, per-site DB leases, quota-aware retries and audit-safe errors before enabling a scheduler.
+- Retention is **not approved**. A 13-month period may be evaluated as a proposal only; do not encode a purge policy, delete history or present it as an owner decision. Until approved, implementation must be non-destructive and omit automatic deletion.
+- No canonical UAT deployment, live secret/config write, UAT grant, Production change, customer consent, paid plan, CMS edit or Meta/Telegram outbound action in this checkpoint. Keep SEO flags default-off. Next: F2b schema/service/tests on this branch, migration graph and PostgreSQL verification, then update all six records again. Dedicated UAT OAuth, hosted callback-query logging and real Google acceptance remain separate gates.
+
+### SEO-GROWTH-UAT-PREFLIGHT-20261103 — OAuth callback and proxy rehearsal
+
+- The owner continued commercial SEO development toward the UAT OAuth pilot. Backend Draft PR #121 now contains callback privacy fix `5764245db46e620fa1862f8079e9c5f419b45238`. Frontend Draft PR #71 retains runtime `53da098d8457a72d226922402215dfcbe130babd` and documentation head `7ec27b584a8ab09def33b2c874cefe1019226c49`. The UAT web alias is READY on existing branch `UAT` at `eda6143d4be34634425206b8582450eb523ab7f2`. This checkpoint is development and local verification. Canonical UAT SEO activation and Production release remain pending.
+- A synthetic unauthenticated callback reproduced HTTP 401 with OAuth query values still in the ASGI request target at response start. The exact callback route now parses the parameters for its authenticated handler and clears the raw query before FastAPI authentication runs. Redirects and expected HTTP errors carry `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. Session/state/PKCE checks and the callback URI are preserved.
+- **105 focused backend tests passed**, including the missing/invalid session regressions. Local HTTPS Next webpack build and real Next rewrite to Uvicorn/ASGI passed login with a Secure HttpOnly SameSite=Lax cookie, CSRF rejection, callback 401/303/400 and replay rejection, site selection, report, cooldown, disconnect and logout. Uvicorn access logging was enabled and the synthetic callback query was absent. Google responses and database were synthetic. See current-source CI in PR #121 and detailed evidence in the F2a runbook.
+- Read-only UAT Neon check confirmed `0029_seo_pilot_revision`, PostgreSQL 18.6, zero SEO pilot grants and zero Google connections. The completed migration remains authoritative. Vercel metadata shows neither dedicated backend SEO variables nor the frontend SEO Growth flag. The new browser attempt was rejected because this session lacks its originating connected browser context. Google project client and consent state remain unverified. This checkpoint changes two source files plus documentation and uses no live credentials, grant writes or schema changes.
+- The release gate remains dedicated Google Web OAuth and approved private UAT configuration. Vercel documents query parameters in Runtime Logs and in some Drain records. Use synthetic markers to check the actual frontend/backend logging path before real consent. Local query clearing proves only the app-server boundary. Confirm upstream and DB mapping privately, then exercise real Google consent and customer report acceptance. See `docs/product/SEO_GROWTH_F2A_PREVIEW_2026-11-02.md` for the exact proposed callback and settings.
+
+| Release key | Source | Evidence | Hosted status and next gate |
+|---|---|---|---|
+| SEO-GROWTH-UAT-PREFLIGHT-20261103 | Backend Draft #121 runtime `5764245db46e620fa1862f8079e9c5f419b45238`, frontend Draft #71 runtime `53da098d8457a72d226922402215dfcbe130babd` | 105 focused tests and local HTTPS proxy/ASGI rehearsal pass with synthetic Google. UAT schema 0029 verified. | Existing UAT web source `eda6143` is READY. OAuth/configuration, hosted query logging and real customer acceptance pending. Production release pending. |
+
+### SEO-GROWTH-F2A-PUBLISHED-20261102 — exact source / validation checkpoint
+
+- **Scope/authorization:** owner requested continuation of the independent commercial SEO module. Existing backend DRAFT PR #121 and frontend DRAFT PR #71 now include the explicit, bounded, transient report preview. Both remain DRAFT/unmerged. This checkpoint records development publication and source verification, not live customer activation or a canonical UAT/Production release.
+- **Exact source:** backend report runtime `f031e8e6cf11dec5b4c807f7d948e98d715c7d00` / tree `6c2dc178a39a29634462e71acc84910ef37d7c1c`; frontend combined runtime/source `53da098d8457a72d226922402215dfcbe130babd` / tree `9470140f11929d469469314a0436dab460643ca0`, report ancestor `7f8f5057d22441b9ace9b61541fe92b1f01fbad9`, following frontend documentation head `7ec27b584a8ab09def33b2c874cefe1019226c49`. The following backend documentation commit retains its runtime unchanged. All 21 initial backend and nine initial frontend intended blobs matched tested source. The complete combined frontend remote tree matched the expected feature-plus-main paths, including the 28 intended synchronization/doc blobs.
+- **Parallel work preserved:** backend main `a83488dbe9633652fac2891de760914fc5c2ff18` contributes only seven documentation files after the synchronized main. Frontend main `cfa4b880a9f921236377ab540f953aac26c5143f` is retained as a second parent of the combined source; its public website, TelBot portfolio and independent private-operator lint fix are preserved. Only frontend `docs/project-status.md` overlapped, resolved retaining both complete histories. Both PRs are mergeable as last checked; no full UAT merge or published-history rewrite is performed.
+- **Final local evidence:** backend **1061 passed / 7 skipped / zero failed**, focused report/provider **53 passed**, compile and migration graph/naming/drift/base→head→base→head PASS at unchanged 0029. Combined frontend **298 passed / zero failed**, five focused report/onboarding cases PASS, TypeScript PASS, **full lint 0 errors / 3 existing warnings**, SEO-flag Next webpack and Vinext builds PASS. The earlier 297-test/old-feature global-lint limitation below is historical and superseded for combined source. These are synthetic checks; real Google, report-specific PostgreSQL multi-worker concurrency, proxy/timeout and visual/mobile acceptance remain pending.
+- **Hosted evidence:** exact backend report source passed all four GitHub CI jobs (`test`, `postgres-smoke`, `postgres18-neon-compatibility`, `docker-build`; PR run `41503275832`). Backend automatic feature Preview `dpl_CaonR3K27HANYFDdBNnnMmPAmtpD` is READY, target `null`, at that exact source. Frontend automatic runtime Preview `dpl_6HiEEpnmzTgJgd4kx3aRndfPirZT` is CANCELED at exact combined source, so no usable hosted frontend/customer preview is claimed. Frontend GitHub `validate` and `verify` are PASS on documentation head `7ec27b584a8ab09def33b2c874cefe1019226c49`, whose runtime is unchanged from combined source `53da098d8457a72d226922402215dfcbe130babd`. Automated Mobile Lighthouse Baseline also PASS on that exact frontend head (workflow `41504908097`, verify + mobile jobs). It audits existing public homepage/DM landing URLs, not the new authenticated report; no report-specific visual/mobile/business acceptance follows from it. The separate TelBot Preview fails for its absent configured `experiments/telegram_bot_builder` root on the SEO branch; the private GSC-MCP Preview also reports ERROR. No unrelated project setting, paid plan, manual rebuild loop or private MCP credential is changed.
+- **Release/data boundary:** new `SEO_ANALYSIS_PREVIEW_ENABLED=false` and existing SEO gates remain default-off. No new metric storage/job/table/migration, successful background-sync timestamp, commercial price, customer grant or CMS action. Original isolated UAT is already 0029 with the completed migration evidence preserved; **do not replay 0027→0029**. This continuation performs no live database, secret/config write, Production publication or Meta/Telegram outbound action. No real customer Google connection is established.
+- **Next:** dedicated UAT Web OAuth/client/consent and private upstream/database/encryption mapping, current-source frontend CI/hosted UAT validation and real customer report/permission/timeout/mobile acceptance. The originating-browser/Google Console setup blocker remains unresolved. Durable ingestion/history, retention, billing and separately approved CMS edits remain later work. Contract and remaining limits: `docs/product/SEO_GROWTH_F2A_PREVIEW_2026-11-02.md`. Prior checkpoints below preserve their original scope and evidence.
+
+| Release key | Backend source / review | Frontend source / review | Automated evidence | Hosted / customer acceptance | Production |
+|---|---|---|---|---|---|
+| SEO-GROWTH-F2A-PUBLISHED-20261102 | Runtime `f031e8e6cf11dec5b4c807f7d948e98d715c7d00`, DRAFT #121; following backend commit is docs-only | Combined source `53da098d8457a72d226922402215dfcbe130babd`, docs `7ec27b584a8ab09def33b2c874cefe1019226c49`, DRAFT #71 | Backend 1061/7 skipped and four GitHub CI jobs PASS; frontend 298, TS/full lint/Next/Vinext and hosted validate/verify and public-page Lighthouse PASS | Backend feature Preview READY; frontend runtime Preview CANCELED; real Google/mobile and canonical UAT pending | No release/config/data change |
+
+### SEO-GROWTH-F2A-PREVIEW-20261102 — current development checkpoint
+
+- Owner instructed continuation of the independent commercial SEO service. Backend DRAFT PR #121 and frontend DRAFT PR #71 add a bounded, explicit customer analysis preview while dedicated Google configuration remains pending. Work stays on isolated development refs; no Production or canonical UAT release is performed.
+- POST scoped `.../seo/sites/{site_public_id}/analysis-preview` accepts only `{}`. Existing HttpOnly auth, exact Origin/custom CSRF marker, current workspace write authority, operational tenant/store, explicit SEO grant and the connecting user's own Google credential are required. Authority is refreshed after the store lock and again after provider I/O; concurrent role/grant/site/credential changes prevent report return. Permission is rechecked against Google's property list.
+- Report: two equal 28-day Pacific-calendar windows, finalized Web Search requests, date-only property totals, recomputed CTR and impression-weighted position. Missing dates are null/unknown, not zero. Comparisons are disabled unless both windows have full date rows, with undefined zero-denominator percentages. At most 500 query/page rows and 20 proposal-only review candidates; the top-row sample is explicitly non-exhaustive and is never summed as site totals.
+- New backend `SEO_ANALYSIS_PREVIEW_ENABLED=false` independently gates this feature, alongside the existing default-off flags. A store-locked, committed attempt audit enforces a 60-second interval and 12 starts per rolling 24 hours/workspace before Google. Audit stores no queries, metrics, reports or OAuth secrets. The UI requests explicitly, never retries POST, shows loading/error/unknown coverage and clears reports after scope/connection changes or successful stop even when refresh fails.
+- Preview results live only in the response/current page. No metric history, background job, successful-sync timestamp, new table/migration, price, customer grant or CMS edit is introduced. `sync_status` remains `not_started`; source and original UAT remain 0029. The completed 0027→0029 migration must not be replayed. `tzdata==2026.6` makes the Pacific calendar available without host timezone files.
+- Validation: Full backend **1061 passed, 7 skipped, zero failed**; local migration naming/graph, schema drift and base→head→base→head checks PASS at the unchanged single head 0029. Focused report/provider **53 PASS**; frontend full **297 PASS**, five focused rendered report/onboarding cases PASS, TypeScript/changed-file lint/UAT-flag Next build PASS. Data and Google sessions are synthetic. Real provider, PostgreSQL multi-worker concurrency, proxy/timeout, visual browser/mobile and cloud customer acceptance remain pending. The tested older frontend feature checkout has a pre-existing private-operator full-lint error; changed files pass.
+- Current main `a83488dbe9633652fac2891de760914fc5c2ff18` contributes only seven parallel website-release documentation files, reconciled preserving both histories and the mandatory top rule. Independent public non-brand content/Production work remains separate from this customer SEO module. Detailed contract, limits and next steps: `docs/product/SEO_GROWTH_F2A_PREVIEW_2026-11-02.md`.
+- Next: dedicated UAT OAuth/client/consent and private routing/DB/encryption configuration, then reviewed UAT source and real report/mobile acceptance. The browser/OAuth blocker remains unresolved; this task does not relabel source tests as a connected customer. Durable sync/report storage, billing and approved CMS automation remain future work. Earlier F0/F1 checkpoints below are preserved historical evidence.
+
+| Release key | Source / review | Implemented | Automated evidence | UAT / customer acceptance | Production |
+|---|---|---|---|---|---|
+| SEO-GROWTH-F2A-PREVIEW-20261102 | Backend DRAFT #121 / feature ref; parent `4d6d5fe9573db79695aa6460d625cd47450e1872`, main-doc parent `a83488dbe9633652fac2891de760914fc5c2ff18`; frontend DRAFT #71 / parent `19d5845614d5701e37d3a0e0f5a76fb19ea25a0b` | Explicit scoped response-only report + customer UI, independent off-by-default flag, no schema change | Final validation above; synthetic Google | No canonical release or real Google/mobile acceptance; OAuth/routing config pending; schema remains 0029 | Not released or changed by this task |
+
+### SEO-GROWTH-UAT-SCHEMA-20261102 — approved source migration APPLIED / VERIFIED
+
+- **Owner authorization:** after the explicit question asking to apply the reviewed 0027→0029 SQL only to UAT, the owner replied «ادامه بده» on 2026-11-02. This authorizes that prepared UAT migration and its evidence recording; it does not authorize Production or silently activate customer SEO.
+- **Applied target:** Neon `directpilot-uat-v2` / `round-shape-42044596`, database `neondb`, source `br-spring-dream-arhxt1ji` (branch name `production` inside the UAT project). Source now reports **0029_seo_pilot_revision** on PostgreSQL 18.6. The separate Production project `billowing-poetry-05589994` was not targeted.
+- **Exact operation:** completed prepared migration `af53e764-685a-4146-97ba-8b81d9a1c279` with its unchanged reviewed SQL, SHA-256 `742134da2c68f564c789031b73b2a338eae1398f3d31350477c9db0492c0be9a`. The completion tool reported successful application and deleted only temporary branch `br-jolly-poetry-aroels8l`. **Do not replay or complete that migration again.** Prepared metadata is marked completed; the original SQL and preparation context are retained.
+- **Read-only postchecks PASS:** all **83/83 original table row counts** match the baseline. Tables **83→87 (+4)**, indexes **530→552 (+22)**, sequences **77→81 (+4)** and primary/foreign/unique/check constraints **436→460 (+24)**. All four new SEO tables contain zero rows. Grant revision is DEFAULT 1 / NOT NULL / CHECK >=1; composite site→connection/tenant/store FK and all SEO constraints are validated. Counts are not row-content checksums; no customer data is exported into these documents.
+- **Recovery:** fresh pre-migration checkpoint `br-holy-shape-arwz1kyp` / `seo-f1-pre0029-checkpoint-20261102`, parent LSN `0/3CBB5E0`, matched all 83 table row counts before application and remains readable at 0027 afterward. Prior checkpoint `br-small-hat-ar1zf7mf` is retained. Neither is claimed as an independently verified offsite backup or a destructive restore rehearsal. Preserve recovery branches through UAT acceptance.
+- **Source/release separation:** Backend DRAFT PR #121, branch `feature/seo-growth-commercial-foundation-20261101`, reviewed parent `ef3526bd460ec8f7d163f26b8f6c7023368ab181`, runtime `862d37c955760073257a516ced18edea45b60d1b`; Frontend DRAFT PR #71, runtime `c42a8520ec0a0e254956f892c0049b72607a3665`. No runtime code, canonical deployment, environment secret, pilot grant, subscription/price, Meta/Telegram send or website content was changed by this schema operation. Previous 1025 backend / 293 frontend local test results and four runtime CI passes remain prior source evidence; they were not rerun or relabelled as real Google acceptance.
+- **Evidence / next action:** `docs/migrations/SEO_GROWTH_UAT_0027_TO_0029_COMPLETED_2026-11-02.json` and current pilot runbook. UAT schema preparation is complete. A fresh 2026-11-02 browser attempt could not configure OAuth: the Browser connector requires the originating connected-browser context, and cloud Google Auth Clients shows "Site Unavailable / Unable to access this site". This is not evidence of a global outage, a Google account failure or bot detection; no sign-in/client/consent change was attempted. Next is dedicated UAT Google OAuth/consent, private hosting upstream/DB mapping and encryption configuration, followed by controlled UAT deployment and real Google/browser/mobile acceptance. A fresh 2026-11-02 metadata-only Vercel read confirms dedicated backend SEO settings and the frontend SEO Growth flag are absent; existing private operator GSC keys remain separate and untouched. Feature flags therefore remain at source defaults off; no customer site is connected by this migration. Earlier “source still 0027 / awaiting migration approval” notes below are preserved historical checkpoints.
+
+| Release key | Source / review | UAT database | Integrity evidence | Canonical runtime / customer acceptance | Production |
+|---|---|---|---|---|---|
+| SEO-GROWTH-UAT-SCHEMA-20261102 | Backend DRAFT #121 / reviewed parent `ef3526bd460ec8f7d163f26b8f6c7023368ab181`, runtime `862d37c955760073257a516ced18edea45b60d1b`; frontend DRAFT #71 | Original UAT 0027→0029 APPLIED by prepared completion flow | 83/83 original table counts unchanged; four empty SEO tables; 87 tables / 552 indexes / 81 sequences / 460 constraints; fresh 0027 checkpoint retained | No canonical runtime release or real Google/mobile acceptance; OAuth/config pending | Not targeted or changed |
+
+### SEO-GROWTH-F1-PILOT-PUBLISHED-20261101 — exact source and hosting evidence
+
+- Backend runtime code **862d37c955760073257a516ced18edea45b60d1b** is published in DRAFT PR #121; frontend code **c42a8520ec0a0e254956f892c0049b72607a3665** in DRAFT PR #71. All 28 backend and 7 frontend intended Git blobs match tested source. Both PRs remain DRAFT/unmerged. This following documentation-only checkpoint records those code commits and does not claim its own documentation head is deployed.
+- Final local backend **1025 passed / 7 skipped / zero failed**; frontend **293 passed / zero failed**, TypeScript and changed-file lint PASS, UAT-flag Next webpack build PASS. On backend code, GitHub `postgres-smoke`, `postgres18-neon-compatibility` and `docker-build` are PASS; the separate general `test` job is also PASS. All four GitHub CI jobs pass on the exact runtime code; this documentation synchronization adds no runtime changes.
+- Backend `directpilot-uat-api` automatically built feature Preview **dpl_AWNk7ifD4bMuo7mg5ortQtrfN7x6**, **READY**, exact code SHA above, target `null`. No canonical UAT release, original database migration, real Google consent or customer acceptance follows from READY. Separate TelBot feature Preview **dpl_8MbyM8uVMiUFiSy1McccAWwpKbz2** is ERROR because its configured `experiments/telegram_bot_builder` root is absent on this SEO branch; no TelBot project configuration was changed.
+- Frontend web Preview **dpl_HoiYVsTTMkbtvpZdxqKbZ1jMBNoT** is **CANCELED** by the existing main/UAT-only Ignored Build Step. Separate private GSC-MCP feature Preview **dpl_Epv9Nih8szW1wEVDcUVj2xZ8JWhi** is ERROR for absent configured `docs/seo/gsc-mcp-service` on this older feature branch. GitHub also reports success for `directpilotwebsite`, but deployment detail is inaccessible (404); no target/runtime claim is made for it. No manual deployment retry, paid upgrade or unrelated project-setting change was performed.
+- Canonical aliases rechecked: `directpilot.ir` remains READY on main **e12727fef3236322484a0b6ddd688fab5bc05d00** / **dpl_8KsMiAjoi6MrPPTTUb2JXCSydCXk**; `uat.directpilot.ir` READY on UAT **eda6143d4be34634425206b8582450eb523ab7f2** / **dpl_13RZkY7jNoAQq2qPP2967uK1DZSN**. Preserve this independent website work. Current backend-main `a810228df804976cbccfee39c961239001b422a6` adds only the six brand-release documents. Its parallel insertions are reconciled into this feature with a two-parent documentation merge preserving both histories and the single top continuity rule; runtime blobs remain identical to tested code. This does not merge PR #121 or release Production.
+- Original Neon UAT remains **0027** with no SEO tables. Prepared temporary 0029 and separate readable 0027 checkpoint are retained. Exact SQL and completion metadata are in `docs/migrations/`; **apply/discard still awaits explicit owner confirmation**, required by the Neon completion tool and the top continuity rule. Dedicated Google config and real Google/mobile UAT remain pending; both feature flags stay default off. Production, paid commerce, existing provider secrets and customer websites were not intentionally changed.
+
+### SEO-GROWTH-F1-PILOT-ADMIN-20261101 — current development checkpoint
+
+- Owner authorized continued SEO product development. Backend DRAFT PR #121 (`feature/seo-growth-commercial-foundation-20261101`) and frontend DRAFT PR #71 (`docs/seo-growth-customer-portal-contract-20261101`) add reviewed, revisioned pilot administration. Neither is merged. Both feature flags remain off by default. No customer grant, Production release, Google credential configuration, commercial price or website edit was performed.
+- Implemented: GET/POST `/api/v1/admin/seo/pilot-grants` and `/admin/seo-customers`; trusted `platform_super_admin` plus current exact active DB role/permission (operator fallback denied after revocation), exact Origin/custom CSRF marker, explicit workspace selection/confirmation, 1–30 day expiry, bounded capacity, usage floor, revision conflict protection, store lock shared with customer writes and credential-free before/after audit. Revocation preserves history/Google credentials while customer disconnect remains available. Fresh grant reads prevent stale quotas during an in-flight Google response. Billing/subscriptions and private operator `/admin/seo` are unchanged.
+- Schema source head is now **0029_seo_pilot_revision**, after immutable 0028; revision defaults to 1 and populated downgrade refuses evidence loss. Fixed the pre-existing literal-backslash-newline syntax defect in `api/index.py`; actual ASGI import passes and CI now compiles `api`.
+- Validation: Final full backend suite: **1025 passed, 7 skipped, zero failures**. Frontend **293 passed / 0 failed**, TypeScript and changed-file lint PASS, UAT-flag-enabled Next webpack build PASS. Local migration drift/round-trip and populated 0028→0029 preservation PASS. The stale-capacity regression first reproduced the defect and then passed. Existing global frontend lint error in unchanged `components/admin-seo.tsx:74` remains. Real Google, browser/mobile visuals, proxy cookie/query-log behavior and cloud customer acceptance are still pending.
+- Neon project **directpilot-uat-v2** (`round-shape-42044596`): exact PostgreSQL 18.6 0027→0029 SQL succeeded on a temporary branch, with empty SEO tables, revision default/check and composite scope FK verified. Separate pre-migration checkpoint is readable at 0027. **Original UAT remains 0027; no source migration applied.** Review SQL and exact completion metadata under `docs/migrations/`; complete/apply or discard requires explicit owner confirmation by the Neon tool. Keep the checkpoint until acceptance; six-hour project history is not an independent offsite backup guarantee.
+- Configuration/hosting: `directpilot-uat-api` reports `APP_ENV=uat` but lacks dedicated SEO config; frontend flag is absent. UAT DB-secret-to-Neon-branch mapping could not be independently read and must be privately verified before deployment. Google Cloud Auth Clients is unavailable in this session browser; no OAuth client was created. Frontend code `c42a8520ec0a0e254956f892c0049b72607a3665` is published; all 7 intended blobs match local source. Its web Preview is CANCELED by the existing main/UAT-only Ignored Build Step; its separate GSC-MCP Preview is ERROR for an absent configured root on this older feature branch. Previous previews hit build-rate-limit; no retry loop, plan purchase or unrelated project-setting change. Automatic preview builds are separate from canonical UAT acceptance. Preserve unrelated website main/UAT changes.
+- Exact review/continuation instructions: `docs/product/SEO_GROWTH_F1_PILOT_ADMIN_2026-11-01.md`. Next: specific UAT migration decision and safe completion; dedicated Google configuration and real Google/mobile acceptance. F2 ingestion/reporting, paid SEO billing and CMS adapters remain future work. Earlier F0/F1-only notes below are historical snapshots superseded by this section.
+
+| Release key | Review source | Local evidence | UAT database | Canonical UAT / customer acceptance | Production |
+|---|---|---|---|---|---|
+| SEO-GROWTH-F1-PILOT-ADMIN-20261101 | Backend #121 / frontend #71, DRAFT feature refs above; source parent backend `8df3c596cce2f1478dd16b121e1a4e9fa56cf9e6`, frontend `4226e0fe02283514db3584e819c3718b87f8e7d3` | Full validation stated above; PostgreSQL temporary-branch rehearsal PASS | Original 0027 unchanged; prepared 0029 and readable 0027 checkpoint; apply/discard awaiting owner | No canonical release or real Google/mobile acceptance; OAuth config missing; prior web preview capacity block | Not released or modified |
+
 ### SEO-NONBRAND-LANDINGS-20261102 — PRODUCTION RELEASE VERIFIED (current)
 
 - **Documentation follow-up (owner request; [backend docs PR #129](https://github.com/namach2727-coder/Sales-Agent/pull/129), source checkpoint `4228cedde6ec17eb8f98dc48c7f561a5ad49bbfc`):** [frontend docs PR #75](https://github.com/namach2727-coder/directpilot-web/pull/75) reconciles SEO policy, release runbook, README/deployment guidance and project status; documentation source `136218e0c143ddd99987cb26a6a638778c3796ab` passed GitHub `validate`/`verify` and MERGED as `cfa4b880a9f921236377ab540f953aac26c5143f`; all changed paths are Markdown, so this is not a new runtime feature. Prior backend docs PR #128 is MERGED at `28b2b699c59bc38d44c42aef76f576ee7b6900b5`. This documentation pass synchronizes these six files and backend `docs/project-status.md`; no new application, database or provider acceptance is claimed.
@@ -85,6 +305,28 @@
 
 ---
 
+### SEO-GROWTH-F1-PUBLISHED-SOURCE-20261101 — exact source and automatic-build snapshot
+
+- Backend code commit **a941ee8903341a5d4974723202f95e1dbaf2e2b4** is published in DRAFT PR #121; frontend code commit **4226e0fe02283514db3584e819c3718b87f8e7d3** in DRAFT PR #71. Remote Git blob SHA checks match all 30 backend and 14 frontend intended files. No PR was merged.
+- Pushing the feature commits automatically triggered existing Vercel integrations. Backend `directpilot-uat-api` has **READY Preview** `dpl_8dyA8f6J5pEqm33FQaN5G2am71HH`, feature ref and code SHA a941ee8 verified, target null/Preview. This is **not** canonical UAT rollout, live Google consent, successful schema migration or business acceptance. No explicit deployment API was invoked by this task.
+- Frontend code SHA 4226e0f statuses `Vercel – directpilot-web` and `Vercel – directpilot-gsc-mcp` failed with **build-rate-limit**. No frontend SEO onboarding deployment is accepted. Do not retry builds in a loop or purchase an upgrade.
+- Canonical frontend aliases independently verified: Production `directpilot.ir` remains READY **main e12727fef3236322484a0b6ddd688fab5bc05d00**, deployment `dpl_8KsMiAjoi6MrPPTTUb2JXCSydCXk` (separate brand-content work; preserve it); `uat.directpilot.ir` remains READY **UAT eda6143d4be34634425206b8582450eb523ab7f2**, deployment `dpl_13RZkY7jNoAQq2qPP2967uK1DZSN`. Neither alias points to this F1 frontend commit. Do not overwrite parallel brand/SEO work.
+- GitHub reported Backend PR mergeability `dirty` even though its compare shows base 9a12661 is the merge base/ancestor and native `git merge-tree` succeeds to the exact feature tree. Treat hosted mergeability as unresolved; do not force/rebase/merge. No PR-triggered GitHub Actions run was returned for code SHA a941ee8 at this check. Local tests are the recorded evidence, not a claim of hosted CI PASS.
+- Final broad tests: 1004 passed / 7 skipped, with one configuration-template mismatch subsequently fixed; the complete profile suite then passed **14/14**. SEO suite **60/60**, frontend **290/290**, local builds/type-check/changed-file lint pass. Existing operator frontend lint error and real Google/PostgreSQL/browser/mobile acceptance remain pending. The following documentation-only commit records this snapshot; it does not assert the new documentation head is deployed.
+
+### SEO-GROWTH-F1-20261101 — customer Google onboarding implementation (DRAFT)
+
+- Owner authorized continuation of the independent commercial SEO service. **Backend PR #121** now includes F1 tenant/store/user/session-bound Google OAuth, atomic one-use state, encrypted PKCE and refresh credentials, Google-granted property selection, bounded pilot access, disconnect and credential-free audit. **Frontend PR #71** now includes an authenticated Persian/RTL customer onboarding implementation at `/dashboard/seo`, independent of Instagram subscription data. Both remain DRAFT; no merge or deployment is authorized by this checkpoint.
+- Backend branch `feature/seo-growth-commercial-foundation-20261101`; frontend branch `docs/seo-growth-customer-portal-contract-20261101`. Exact heads are recorded by the matching PR commit history. Alembic proposed head **0028_seo_google_onboarding**, additive four-table schema, no plan/price/grant seed. Defaults: `SEO_GROWTH_ENABLED=false`, `NEXT_PUBLIC_SEO_GROWTH_ENABLED=false`.
+- Credential lifecycle: token ciphertext bound to tenant/store/user/purpose; no persisted access token, raw state or raw PKCE. Callback requires the original authenticated session and a fixed same-origin `/api/v1/seo/google/callback`; one-time state is committed before Google exchange. Restart/disconnect cancels outstanding attempts. Reconnect never silently reauthorizes old sites. Expired SEO access still permits authorized local disconnect; provider revocation is separately requested and reports confirmed/unconfirmed honestly.
+- Independent **internal pilot grant**, not commercial billing: `seo_access_grants` controls expiry, max sites and max connections. No Instagram subscription grants SEO access. No public grant-administration UI/API, prices or paid SEO checkout are implemented. Do not enable real customers until the grant-administration and commercial/privacy gates are reviewed.
+- Validation and limitations: see `docs/product/SEO_GROWTH_F1_ONBOARDING_2026-11-01.md` for exact final checks. Google is synthetic/offline in tests. Local schema migration/drift/round-trip and PostgreSQL DDL compilation are verified; a live PostgreSQL/Neon migration, Google consent, browser/mobile visual UAT and production end-to-end are **NOT VERIFIED**. Full-repository frontend lint has one pre-existing error in unchanged `components/admin-seo.tsx`; changed SEO files are checked separately.
+- **Next:** finish review and pilot-grant administration, configure dedicated UAT Google OAuth credentials/consent and encryption key privately, validate UAT backup/migration, then run real customer OAuth/property selection and browser/mobile acceptance. Metrics sync/dashboard, billing and CMS changes remain later phases. Production, existing operator GSC/MCP, Instagram, Telegram and customer websites were not changed by these commits.
+
+| Release key | PR / exact ref | Local evidence | UAT | Production | Owner acceptance |
+|---|---|---|---|---|---|
+| SEO-GROWTH-F1-20261101 | Backend #121 / `feature/seo-growth-commercial-foundation-20261101`; frontend #71 / `docs/seo-growth-customer-portal-contract-20261101` | Final evidence in F1 runbook; source heads in PR histories | Not deployed; no live Google consent or Neon migration | No release; defaults OFF | Development continuation authorized; real pilot and commercial acceptance pending |
+
 2026-10-28 TelBot UAT activation release status: PR #98 was merged after 3/3 GitHub CI PASS on isolated feature branch, merge SHA f31249005fee63017e25185fab5f533a1d6fd86f. Adds explicit tenant-owner activation of existing encrypted-credential Managed Bot with server-side getMe identity verification, no foreign webhook overwrite, child setWebhook with new random secret, getWebhookInfo verification and pending->active DB update, plus owner-only UI button and offline regression tests. Vercel TelBot UAT deployment is FAILED due to Hobby build-rate limit ('retry in 24 hours'); code is NOT live yet, NO actual child bot was activated. Manager Webhook diagnostic from owner PASS (URL expected, managed_bot subscribed, zero pending/error); Neon UAT linked one bot with encrypted credential and pending status. End-to-end child webhook and /start response not yet PASS; automatic replies are NOT implemented in this PR. Release Register must distinguish CI, merged code, UAT deployment, actual owner acceptance. DirectPilot Instagram Production unchanged.
 
 2026-10-28 TelBot PR #96: user webhook action feedback still apparently inert. Diagnosis: "no bot connected" is bots-list empty state while webhook diagnostics were sent only to global notice at top of page. PR #96 adds dedicated aria-live webhook output directly below buttons, busy/error/API feedback and refreshed app.js cache key; merged into isolated TelBot feature SHA 7854a586b37f7309f10d8d500c8a7bd91e28b323; CI 3/3 PASS. Vercel directpilot-telbot-uat-api release FAILED: Hobby build-rate limit, retry after cooldown; feature NOT deployed. Do not mark UAT PASS. Verified live Telegram webhook configuration and linking of existing mobile-created child bot remain open. No production modifications; avoid new bot creation and don't link by username alone.
@@ -108,6 +350,21 @@
 **Release register entry (2026-10-25):** TelBot diagnostic series PR #76–#82; branch feature/telegram-managed-bots-spike-20261017. UAT #76–#81 preview/live tests included user-observed Ed25519 valid + HMAC invalid; #82 CI PASS and MERGED, deployment PENDING / no acceptance. **Production:** not promoted. **Owner acceptance:** pending. **Blocker:** manager HMAC mismatch. See commit lineage above. Historical register remains intact.
 
 ---
+
+### SEO-GROWTH-F0-20261101 — separate commercial Search Console service
+
+- **New owner-authorized commercial product proposal (2026-11-01):** **DirectPilot SEO Growth**, separately billable SaaS module for each tenant's own Google Search Console sites (not tied to Instagram). Customer connects through **their own Google OAuth `webmasters.readonly`**; selects Google-granted properties; receives evidence-based analysis and proposed tasks; future website edits require **separate site/CMS permission, customer approval, audit and rollback**. Google cannot guarantee search ranking; Google Indexing API is NOT for ordinary pages.
+- **F0 implementation: [Backend PR #121](https://github.com/namach2727-coder/Sales-Agent/pull/121) is DRAFT/UNMERGED**, branch `feature/seo-growth-commercial-foundation-20261101`. New isolated `app/seo_growth/google_client.py` Google OAuth/PKCE read-only provider boundary, `app/seo_growth/analysis.py` evidence-aware proposal-only analyzer, unit tests and `docs/product/SEO_GROWTH_FOUNDATION_2026-11-01.md`. **Exact GitHub code** independently materialized and run in temporary sandbox: Python 3.14, pytest 8.4.1/httpx 0.28.1, **29 passed / 0 failed**, compileall PASS. Google token/profile access NOT attempted; no secrets or customer database touched.
+- **F0 is NOT a live customer integration:** no authenticated customer OAuth callbacks, saved credentials, tenancy/plan entitlements, schema migration, scheduled Google sync, customer-facing UI, CMS write adapters or commercial offer. Previous private single-site GSC MCP remains separate. Earlier owner-provided Oct 25–30 report with missing Oct 31 is a test fixture to prevent imputing missing date rows as zero.
+- **Frontend customer UX/API proposal:** [Frontend PR #71](https://github.com/namach2727-coder/directpilot-web/pull/71), DRAFT, single product contract markdown; mobile-first Persian RTL route proposed `/dashboard/seo` under existing login, separate from operator's `/admin/seo`. All endpoints **proposed, not implemented**.
+- **Dependencies/issues:** tenant-safe Google OAuth + encrypted refresh tokens + select verified property [backend #122](https://github.com/namach2727-coder/Sales-Agent/issues/122); mobile customer UI [frontend #70](https://github.com/namach2727-coder/directpilot-web/issues/70); quota-aware data sync [backend #123](https://github.com/namach2727-coder/Sales-Agent/issues/123); approval-gated WordPress automation and rollback [backend #124](https://github.com/namach2727-coder/Sales-Agent/issues/124); billing/Google verification/privacy [backend #125](https://github.com/namach2727-coder/Sales-Agent/issues/125). Separate Google OAuth clients for staging and Production, Google consent verification for public use as applicable.
+- **Safety/release:** Both new PRs remain **DRAFT**; no new API routes, Alembic migration, commercial price, UAT/Production release, or user website edits. Existing DirectPilot Instagram/Meta, commercial website, operator private SEO, GSC REST/MCP and secrets remain untouched. User must explicitly approve any high-risk CMS automation and Production release. Do not report sites connected or automatic SEO functioning at F0.
+
+| Release key | New scope | Source state | Verified tests | UAT | Production | Owner acceptance |
+|---|---|---|---|---|---|---|
+| SEO-GROWTH-F0-20261101 | Commercial multi-tenant SEO service foundation; Google read-only client + analysis engine | Backend PR #121 **DRAFT/UNMERGED**; frontend contract PR #71 **DRAFT** | Exact GitHub code `29 PASS / 0 FAIL`, Python compileall PASS, synthetic Google/previous GSC row tests | **Not deployed / no customer consent** | **Not released; no current service altered** | Product direction requested; F1 OAuth, paid service and CMS writes still need implementation and safety approval |
+
+
 
 
 ### GSC-MCP-PLUS-PLAN-GATE-20261101 — correction to previous web Custom MCP instructions
@@ -779,3 +1036,155 @@ Owner explicitly approved promotion. Frontend SEO-only PR [#47](https://github.c
 ### SEO PR48 promotion 2026-10-25
 
 Frontend PR #48 MERGED into `main`, commit `3e263e5a208b0ab9be2ddf0cf872d2586daf4795`; production deployment `dpl_2nsyRVMpvHwT7h71T1QeAGfcZS2P` created QUEUED. UAT `45593d9` READY; isolated PR preview `2be4bad` READY. **Production runtime/alias not yet verified READY**. Public pricing SSR displays plan cards only when public API returns valid data; live cards/JSON-LD still need HTTP validation.
+
+
+### F2b CI correction checkpoint · 2026-11-05
+
+The first full CI run for F2b completed with 1064 passed, 2 failed and 7 skipped. Both failures were stale migration-head assertions that still expected `0029_seo_pilot_revision` after the additive `0030_seo_growth_durable_data` revision became Alembic head. No migration execution or persistence-contract test failed.
+
+Corrected the readiness assertion in `tests/test_environment_deployment.py` and the single-head assertion in `tests/test_seeding.py` to expect `0030_seo_growth_durable_data`. The corrected source head is `5cd2ad78eadfa9455883f469bb947baa1bb40a9d`; CI run [#42010674663](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42010674663) is currently in progress. Docker build, PostgreSQL smoke and PostgreSQL 18 compatibility/preflight have passed on this run; the full pytest job is still running. Do not claim the full suite green until its conclusion is recorded.
+
+No UAT or Production migration/deployment was performed. Vercel checks currently show the DirectPilot UAT API and website successful, while the TelBot UAT API check is failed; this is separate from the GitHub CI jobs. Keep PR #121 Draft and unmerged.
+
+
+**CI result update · 2026-11-05:** The corrected source head `5cd2ad78eadfa9455883f469bb947baa1bb40a9d` passed CI run [#42010674663](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42010674663): **1066 passed, 7 skipped, 0 failed**. Docker build, PostgreSQL smoke and PostgreSQL 18 compatibility/preflight passed. This is source/test evidence only, not a UAT/Production release or live Google acceptance.
+
+
+### F2b explicit ingestion implementation · 2026-11-05
+
+Added the first user-triggered ingestion path on this branch:
+
+- New `seo_data_sync_enabled` setting and `SEO_DATA_SYNC_ENABLED=false` in environment examples; the new path is disabled by default.
+- Authenticated, CSRF-protected `POST /sites/{site_public_id}/sync` accepts an explicit date range only. It rejects windows over 90 days and dates newer than the three-day final-data delay.
+- Google access is refreshed and property permission is rechecked before ingestion. Daily property totals and query/page samples are fetched independently.
+- Daily metrics are replaced for the requested window so stale dates omitted by a successful provider response are removed; query/page samples are replaced by deterministic SHA-256 row keys. Successful empty and truncated query/page coverage are explicitly recorded.
+- Per-site database lease, sync-run state, sanitized audit events and revalidation of site/connection/grant authority are implemented. There is no scheduler or automatic backfill.
+
+**Validation pending:** this implementation and the additional schema constraints are newer than CI run #42010674663. Do not treat the new sync path as tested until the next full CI run passes. No live Google request, customer grant, UAT/Production migration or deployment was performed. Bounded retry/backoff, sync history/read APIs and reports reading persisted data remain follow-up work. Retention remains unapproved.
+
+
+### SEO-GROWTH-P1-HTML-AUDIT-20261107 — parser implementation checkpoint
+
+- Added app/seo_growth/technical_audit.py: a deterministic, network-free HTML parser returning page-level title/description/canonical/language/robots/H1-heading/image-alt/internal-external-link observations and evidence-backed initial findings.
+- Added tests/test_seo_growth_technical_audit.py for metadata extraction, missing metadata/noindex, multiple H1, truncated input, URL validation and non-text rejection. H1 is included in the heading outline.
+- No outbound HTTP, crawler, database writes, endpoint, customer data access or feature-flag activation is included. This is the safe parser foundation only; findings are observations, not ranking penalties or Google index claims.
+- CI run #42354653450 was queued for the test commit when checked. The subsequent small H1-outline correction is later than that queued test commit and is not yet confirmed by CI. Do not claim P1 validation until CI covers the exact branch head.
+- Next: inspect CI outcome and exact tested SHA; fix actual failures only. Then design/implement a separately gated SSRF-safe fetcher (DNS/IP checks, redirect revalidation, robots, byte/page/time/rate limits) before any URL fetching. Keep all release boundaries unchanged.
+
+
+
+### P2 crawler audit foundation · 2026-11-08
+
+Added a tenant/store/site-scoped crawler audit data foundation on top of migration 0030:
+
+- Alembic revision `0031_seo_crawler_audit` adds `seo_crawl_audit_events`, with composite site-scope FK, crawl correlation ID, event kind, outcome, robots decision, HTTP status, byte count, duration, sanitized error code, creation time and explicit expiry.
+- The audit writer requires an explicit retention duration (1–365 days); no retention period is silently selected by the persistence helper and no purge job is implemented.
+- URL evidence stores only host and a SHA-256 fingerprint of scheme/host/path. Query strings and fragments are excluded; raw URLs, headers, response bodies, credentials and arbitrary exception text are not persisted.
+- Added metadata, URL-sanitization, validation and migration-chain tests. PostgreSQL disposable-CI schema expectations were advanced to 0031 (93 tables, 87 sequences, 570 indexes, 508 constraints); production restored-schema expectations were not changed.
+- Crawler audit persistence is not yet connected to the transport or a customer API. Distributed per-tenant/per-host concurrency, durable cancellation, rate/quota enforcement and a reviewed purge process remain gates before endpoint exposure.
+
+Validation boundary:
+- The earlier fixture-only CI run #42458901036 has Docker, PostgreSQL smoke and PostgreSQL 18 compatibility jobs passing; full pytest was still running at the last status read.
+- CI run #42459069120 failed before pytest. Its migration-policy job found ORM/migration drift (default/index/unique metadata), and its PostgreSQL 18 job found stale expected head 0030. The ORM drift was corrected in subsequent commits; PostgreSQL fixture head and disposable CI schema counts were advanced to 0031.
+- The current branch head is newer than those run results. A successful CI result for the exact current head has not yet been observed. Do not report this foundation as validated until CI completes successfully.
+
+Migration 0031 exists only in source/CI. UAT remains at 0029; no UAT/Production migration or deployment, live crawl, live Google request, customer grant, scheduled job, or CMS write was performed. Keep backend PR #121 and frontend PR #71 Draft/unmerged. Vercel deployment quota remains a release constraint; do not attempt repeated Preview deployments.
+
+
+
+### Robots regression CI confirmation · 2026-11-08
+
+The fixture correction from commit `c8181dc065307271fbb568311da5d5628a1d87a3` is now validated by [CI run #42458901036](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42458901036): **1180 passed, 7 skipped, 0 failed**. Docker build, PostgreSQL smoke and PostgreSQL 18/Neon compatibility also passed. This run validates the robots-fixture correction only; it predates the crawler-audit schema changes and must not be used as evidence that migration 0031 or its writer passed.
+
+The crawler-audit implementation is separately under validation in run [#42459236808](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42459236808). Its migration-policy, PostgreSQL smoke, PostgreSQL 18 compatibility/preflight and Docker build jobs have passed. Full pytest is still running at this checkpoint.
+
+
+
+### Crawler audit test correction · 2026-11-08
+
+Run [#42459236808](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42459236808) completed with **1179 passed, 13 failed, 7 skipped**. The four infrastructure jobs were otherwise green: Docker, PostgreSQL smoke, PostgreSQL 18 compatibility and disposable-schema preflight, and migration policy.
+
+The 13 failures were test-contract alignment issues:
+- Two immutable-baseline tests needed to classify the new crawler audit table as post-baseline.
+- Three remaining tests still expected migration 0030 instead of the new single head 0031.
+- Eight invalid-input cases omitted the now-required explicit `retention_days` argument, so they failed at Python argument binding rather than reaching validation.
+
+These are corrected in source commit `3a800197cceafa3aa65f0191f2e31c7169565e7f`. CI run [#42459686126](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42459686126) is queued for the corrected source. Do not claim the full suite green until this run completes.
+
+
+
+### Crawler audit CI green · 2026-11-08
+
+Corrected source commit `3a800197cceafa3aa65f0191f2e31c7169565e7f` passed [GitHub Actions run #42459686126](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42459686126): **1192 passed, 7 skipped, 0 failed**. All four jobs passed: Python test suite, PostgreSQL smoke, PostgreSQL 18/Neon compatibility including disposable-schema preflight, and Docker build. Migration Policy and compileall also passed.
+
+The verified changes include robots fixture correction; migration 0031 crawler audit table; tenant/store/site composite scope; sanitized URL host/fingerprint without query or fragment; bounded event fields and explicit caller-supplied retention; updated Alembic head, baseline classification, PostgreSQL test fixture and CI schema expectations.
+
+Validation applies to source commit `3a800197cceafa3aa65f0191f2e31c7169565e7f`. Subsequent commits on the PR branch are documentation-only; the runtime source is unchanged. Current documentation branch head at the time of this entry is `4c06e568f9dfed8cd4329d775ef894c35e1cb31e`.
+
+Release boundary remains unchanged: migration 0031 is not applied to UAT or Production; UAT remains at 0029. No customer crawl, live Google request, scheduled job, customer grant, CMS write or deployment was performed. Backend PR #121 and frontend PR #71 remain Draft/unmerged. Current Vercel UAT API and TelBot checks fail due to the free-plan deployment-rate limit; the website check passes. Do not retry deployments until the quota window resets and a deliberate grouped release is approved.
+
+Next engineering gate: add distributed tenant/host concurrency and quota controls, then wire the audit writer into a bounded crawl orchestration service. Only after those controls and explicit customer consent should a default-off technical-audit endpoint be exposed.
+
+
+
+### Distributed crawler concurrency foundation · 2026-11-08
+
+Extended migration 0031 with `seo_crawl_leases` and added `app/seo_growth/crawl_leases.py`:
+
+- One active lease per normalized hostname globally, enforced by a unique host constraint.
+- Tenant-wide active crawl quota, serialized by locking the tenant row before counting active leases. Default limit is one active crawl per tenant; the internal service accepts only 1–5.
+- Cross-tenant first-claim races are resolved through a unique constraint and nested transaction/savepoint; expired host leases can be reclaimed.
+- Lease tokens are 256-bit random values stored as 64-character hex, correlated to a UUID crawl ID, and have bounded 30–600 second durations (180 seconds by default).
+- Renewal requires the current host/crawl/token tuple and a non-expired lease. Release requires the same current token. The lease table cascades with its site because it is coordination state, not retained audit evidence.
+- PostgreSQL row locks and uniqueness provide cross-worker coordination. The helper does not create an API route or start network work; callers must commit the lease transaction before beginning a crawl.
+- Disposable PostgreSQL CI schema expectations are now 94 tables, 88 sequences, 574 indexes and 514 constraints. Production/UAT expectations remain untouched.
+
+This is source-only and not yet validated by a CI run for the latest source head. The previous green run #42459686126 validated migration 0031 before the lease table was added. Re-run and complete CI on the new head before treating the expanded migration as validated.
+
+The crawler remains unexposed to customers. A future route must enforce the lease, bounded CrawlBudget, explicit customer consent, site/host ownership, cancellation and audit persistence in one controlled orchestration flow. No UAT/Production migration, deployment, live crawl, Google request, customer grant, scheduled job or CMS write was performed.
+
+
+
+### Distributed crawler lease CI green · 2026-11-08
+
+Source commit `68e10af7bbb350c59aef71de3525c0cbe4e0f83b` passed [GitHub Actions run #42460429897](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42460429897): **1206 passed, 7 skipped, 0 failed**. All four jobs passed: Python tests, PostgreSQL smoke, PostgreSQL 18/Neon compatibility with the disposable-schema preflight, and Docker build. Compileall and migration-policy validation also passed.
+
+The validated 0031 source now contains both the credential-free crawler audit event table and the distributed host lease table. Lease behavior covered by tests includes tenant-wide concurrency ceilings, one active lease per normalized hostname, expired lease reclamation, IPv6 host normalization, bounded token/lease duration, renewal and token-checked release. PostgreSQL preflight passed with the expanded disposable CI schema expectations: 94 tables, 88 sequences, 574 indexes and 514 constraints.
+
+This validation applies to source commit `68e10af7bbb350c59aef71de3525c0cbe4e0f83b`. Documentation-only commits followed; runtime source is unchanged. Migration 0031 remains unapplied to UAT and Production. UAT remains at revision 0029. PR #121 remains Draft/unmerged.
+
+The crawler transport and audit/lease foundations are still not wired to a customer-facing crawl route. Before exposure, the remaining work is bounded crawl orchestration, URL discovery/sitemap policy, cancellation, page-level analysis persistence, retention/purge approval, explicit customer consent and final tenant/host authority revalidation. No live crawl, live Google request, scheduled job, customer grant, CMS write or deployment was performed. Vercel UAT API/TelBot checks remain blocked by the free-plan deployment-rate limit; do not retry until quota reset and deliberate grouped deployment.
+
+
+### Crawl preview budget preflight CI green · 2026-11-08
+
+The crawler path-scope transport fix and crawl-preview budget preflight are now validated on the exact feature branch:
+
+- `e9addd80940895167f642b2a0447d87c5bfcdbc8` passes the allowed path prefix into the redirect transport so the initial page and every same-origin redirect are checked against the configured path scope.
+- CI run [#42473221274](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42473221274) exposed one regression-test failure: the preview orchestrator called the page fetch callback before checking the global page budget.
+- `03cd1faa5778b949a11f14108a7514b019f17ee5` moves elapsed-time, global-page and per-host-page budget checks ahead of the lease callback and transport invocation. Host-page budget exhaustion is classified as a truncated crawl, not a page failure.
+- `c2ff5e791e54048ef1cf4e71507a9b64e521ff07` adds a dedicated host-budget preflight regression test.
+
+Validation: CI run [#42473693841](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42473693841) passed **1218 tests, 7 skipped, 0 failed**. The follow-up run [#42473755764](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42473755764), including the new host-budget test, passed **1219 tests, 7 skipped, 0 failed**. Docker build, PostgreSQL smoke, PostgreSQL 18/Neon compatibility and disposable-schema preflight all passed. Compileall and migration-policy checks passed. Three non-blocking deprecation warnings remain.
+
+The latest validated source head is `c2ff5e791e54048ef1cf4e71507a9b64e521ff07`. This is source/CI validation only. Migration 0031 remains unapplied; UAT remains at revision 0029. Backend PR #121 and frontend PR #71 remain Draft/unmerged. No Vercel deployment, customer crawl, live Google request, customer grant, scheduled job, CMS write or Production change was performed. The Vercel free-plan daily deployment limit remains a release constraint; do not retry Preview deployments until quota reset and a deliberate grouped release.
+
+Next engineering gates: enforce the aggregate byte budget while streaming (rather than only after a response completes), make link-discovery truncation explicit in crawl coverage, then design a cancellable durable crawl job and customer-consent lifecycle. Do not expose a customer crawl endpoint until these controls, page-observation persistence, retention/purge approval and final tenant/site authority revalidation are complete.
+
+
+### Aggregate byte budget and coverage reporting CI green · 2026-11-08
+
+The crawler now enforces the aggregate response-byte budget during transport, not only after a response completes:
+
+- Each robots/page response is capped by the remaining crawl-wide byte budget as well as its per-response cap.
+- Declared Content-Length is rejected before body reads when it exceeds the remaining cap. For responses without Content-Length, the transport never probes one byte beyond the cap; a full cap is conservatively treated as oversized.
+- Bytes received by rejected/partial responses are accounted against the aggregate budget and retained in sanitized audit metadata. Received bytes are recorded before the elapsed-time check so deadline failures do not erase resource accounting.
+- Crawl Preview stops before the next lease callback when aggregate bytes are exhausted.
+- Per-page link discovery is capped at 500 eligible links and reports `link_discovery_truncated`; coverage is marked truncated rather than complete.
+- Canonical URLs in crawl output are normalized and stripped of query strings and fragments.
+
+CI run [#42475087348](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42475087348) passed **1223 tests, 7 skipped, 0 failed**. The latest source head, `c3b049aed1c4cdc0f77d8fccbbaa2dc5cbf00fc2`, was validated by CI run [#42475149729](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42475149729): **1224 passed, 7 skipped, 0 failed**. Docker build, PostgreSQL smoke, PostgreSQL 18/Neon compatibility and disposable-schema preflight all passed. Compileall and migration-policy checks passed. Three non-blocking deprecation warnings remain.
+
+This remains internal source/CI validation. No customer-facing crawler endpoint is exposed. Migration 0031 remains unapplied; UAT remains at revision 0029. Backend PR #121 and frontend PR #71 remain Draft/unmerged. No Vercel deployment, customer crawl, live Google request, customer grant, scheduled job, CMS write or Production change was performed. Vercel's free-plan daily deployment limit remains in effect; do not retry Preview deployments until quota reset and a deliberate grouped release.
+
+Next release gates: persist customer crawler consent and revocation; define and approve audit/page-observation retention and purge behavior; design cancellable durable crawl jobs and worker execution; persist page observations under tenant/site scope; then add a customer API behind default-off flags. Do not expose the crawler to customers before those controls and final tenant/site authority checks are implemented and validated.
