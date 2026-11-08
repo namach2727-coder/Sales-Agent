@@ -51,6 +51,10 @@ class FetchedHTMLPage:
     headers: dict[str, str]
     body: bytes
     robots_url: str
+    robots_status_code: int | None = None
+    robots_bytes_received: int = 0
+    page_bytes_received: int = 0
+    duration_ms: int = 0
 
 
 class _PinnedHTTPConnection(http.client.HTTPConnection):
@@ -225,41 +229,115 @@ def fetch_html_page(
     budget: CrawlBudget,
     depth: int = 0,
     request_once: RequestOnce = _request_once,
+    audit_callback: Callable[..., None] | None = None,
 ) -> FetchedHTMLPage:
     """Fetch one public HTML page after robots checks and all resource controls.
 
     DNS resolution is injected. The transport pins every connection to the
-    validated address. This function is not wired to a public API endpoint.
+    validated address. An optional callback receives sanitized event fields;
+    it is expected to persist them synchronously when audit is mandatory.
     """
     target = normalize_crawl_url(raw_url)
     budget.record_page(target.url, depth=depth)
     parsed = urlsplit(target.url)
     robots_url = urlunsplit((parsed.scheme, parsed.netloc, "/robots.txt", "", ""))
-    robots_target, robots_status, _robots_headers, robots_body = _request_with_redirects(
-        robots_url, resolver=resolver, budget=budget,
-        max_redirects=budget.limits.max_redirects,
-        max_body_bytes=min(MAX_ROBOTS_BYTES, budget.limits.max_response_bytes),
-        request_once=request_once,
-    )
-    budget.record_response_bytes(len(robots_body))
-    if not robots_allows(
+    robots_started = budget.clock()
+    try:
+        robots_target, robots_status, _robots_headers, robots_body = _request_with_redirects(
+            robots_url, resolver=resolver, budget=budget,
+            max_redirects=budget.limits.max_redirects,
+            max_body_bytes=min(MAX_ROBOTS_BYTES, budget.limits.max_response_bytes),
+            request_once=request_once,
+        )
+    except (CrawlPolicyError, CrawlTargetError, CrawlTransportError) as exc:
+        if audit_callback is not None:
+            audit_callback(
+                event_kind="robots", outcome="failed", raw_url=robots_url,
+                robots_decision="unavailable_block", http_status=None,
+                bytes_received=0,
+                duration_ms=max(0, int((budget.clock() - robots_started) * 1000)),
+                error_code=exc.code,
+            )
+        raise
+
+    robots_allowed = robots_allows(
         robots_url=robots_url, page_url=target.url, user_agent=CRAWLER_PRODUCT_TOKEN,
         status_code=robots_status, body=robots_body,
-    ):
+    )
+    if robots_status in {404, 410}:
+        robots_decision = "unavailable_allow"
+    elif robots_status < 200 or robots_status >= 300 or robots_body is None:
+        robots_decision = "unavailable_block"
+    else:
+        robots_decision = "allow" if robots_allowed else "disallow"
+    robots_duration_ms = max(0, int((budget.clock() - robots_started) * 1000))
+    try:
+        budget.record_response_bytes(len(robots_body))
+    except CrawlPolicyError as exc:
+        if audit_callback is not None:
+            audit_callback(
+                event_kind="robots", outcome="failed", raw_url=robots_url,
+                robots_decision=robots_decision, http_status=robots_status,
+                bytes_received=len(robots_body), duration_ms=robots_duration_ms,
+                error_code=exc.code,
+            )
+        raise
+    if audit_callback is not None:
+        audit_callback(
+            event_kind="robots",
+            outcome="allowed" if robots_allowed else "blocked",
+            raw_url=robots_url,
+            robots_decision=robots_decision,
+            http_status=robots_status,
+            bytes_received=len(robots_body),
+            duration_ms=robots_duration_ms,
+            error_code=None,
+        )
+    if not robots_allowed:
         raise CrawlTransportError("seo_crawler_robots_disallowed")
 
-    final_target, status, headers, body = _request_with_redirects(
-        target.url, resolver=resolver, budget=budget,
-        max_redirects=budget.limits.max_redirects,
-        max_body_bytes=budget.limits.max_response_bytes,
-        request_once=request_once,
-    )
-    validate_html_response(
-        status, headers, max_response_bytes=budget.limits.max_response_bytes,
-    )
-    budget.record_response_bytes(len(body))
-    budget.check_time()
+    page_started = budget.clock()
+    status: int | None = None
+    body = b""
+    try:
+        final_target, status, headers, body = _request_with_redirects(
+            target.url, resolver=resolver, budget=budget,
+            max_redirects=budget.limits.max_redirects,
+            max_body_bytes=budget.limits.max_response_bytes,
+            request_once=request_once,
+        )
+        validate_html_response(
+            status, headers, max_response_bytes=budget.limits.max_response_bytes,
+        )
+        budget.record_response_bytes(len(body))
+        budget.check_time()
+    except (CrawlPolicyError, CrawlTargetError, CrawlTransportError) as exc:
+        if audit_callback is not None:
+            audit_callback(
+                event_kind="page", outcome="failed", raw_url=target.url,
+                robots_decision="not_checked", http_status=status,
+                bytes_received=len(body),
+                duration_ms=max(0, int((budget.clock() - page_started) * 1000)),
+                error_code=exc.code,
+            )
+        raise
+
+    page_duration_ms = max(0, int((budget.clock() - page_started) * 1000))
+    if audit_callback is not None:
+        audit_callback(
+            event_kind="page", outcome="fetched", raw_url=final_target.url,
+            robots_decision="not_checked", http_status=status,
+            bytes_received=len(body), duration_ms=page_duration_ms,
+            error_code=None,
+        )
     return FetchedHTMLPage(
-        url=final_target.url, status_code=status, headers=headers,
-        body=body, robots_url=robots_target.url,
+        url=final_target.url,
+        status_code=status,
+        headers=headers,
+        body=body,
+        robots_url=robots_target.url,
+        robots_status_code=robots_status,
+        robots_bytes_received=len(robots_body),
+        page_bytes_received=len(body),
+        duration_ms=robots_duration_ms + page_duration_ms,
     )
