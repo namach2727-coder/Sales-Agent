@@ -168,7 +168,7 @@ def test_fetch_emits_blocked_robots_audit_before_rejecting_page():
 
     def request_once(target, pinned_ip, *, timeout, max_body_bytes):
         requests.append(target.path_and_query)
-        return 200, {}, b"User-agent: *\\nDisallow: /private\\n", None
+        return 200, {}, b"User-agent: *\nDisallow: /private\n", None
 
     with pytest.raises(CrawlTransportError, match="seo_crawler_robots_disallowed"):
         fetch_html_page(
