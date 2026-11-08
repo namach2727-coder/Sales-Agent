@@ -24,6 +24,7 @@ from app.seo_growth.technical_audit import analyze_html
 MAX_LINKS_PER_PAGE = 500
 STOP_CODES = {
     "seo_crawler_page_budget_exceeded",
+    "seo_crawler_host_page_budget_exceeded",
     "seo_crawler_time_budget_exceeded",
     "seo_crawler_total_byte_budget_exceeded",
 }
@@ -129,6 +130,21 @@ def crawl_preview(
         if url in visited:
             continue
         visited.add(url)
+        try:
+            # Enforce budgets before lease callbacks or transport invocation.
+            budget.check_time()
+            host = urlsplit(url).hostname
+            if budget.pages >= budget.limits.max_pages:
+                raise CrawlPolicyError("seo_crawler_page_budget_exceeded")
+            if host and budget.pages_by_host.get(host, 0) >= budget.limits.max_pages_per_host:
+                raise CrawlPolicyError("seo_crawler_host_page_budget_exceeded")
+        except CrawlPolicyError as exc:
+            if exc.code in STOP_CODES:
+                stop_reason = exc.code
+                break
+            failures.append({"url": url, "depth": depth, "error_code": exc.code})
+            continue
+
         if before_page is not None:
             before_page(url, depth)
         try:
