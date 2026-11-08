@@ -71,7 +71,7 @@ def test_redirects_are_revalidated_and_connection_uses_redirect_ip():
         calls.append((target.url, pinned_ip))
         if target.path_and_query == "/start":
             return 302, {"location": "/final"}, b"", "/final"
-        return 200, {"content-type": "text/html"}, b"123456", None
+        return 200, {"content-type": "text/html"}, b"ok", None
     target, status, headers, body = _request_with_redirects(
         "https://first.example.com/start", resolver=_resolver,
         budget=CrawlBudget(), max_redirects=2, max_body_bytes=100,
@@ -196,7 +196,7 @@ def test_robots_body_counts_toward_total_crawl_byte_budget():
     def request_once(target, pinned_ip, *, timeout, max_body_bytes):
         if target.path_and_query == "/robots.txt":
             return 200, {"content-type": "text/plain"}, b"User-agent: *\n", None
-        return 200, {"content-type": "text/html"}, b"ok", None
+        return 200, {"content-type": "text/html"}, b"123456", None
     with pytest.raises(CrawlPolicyError, match="seo_crawler_total_byte_budget_exceeded"):
         fetch_html_page(
             "https://public.example.com/", resolver=_resolver,
