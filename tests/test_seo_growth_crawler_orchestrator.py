@@ -324,7 +324,7 @@ def test_orchestrator_rolls_back_when_initial_lease_commit_fails(monkeypatch):
     "property_id,seed_url",
     [
         ("https://www.example.com/blog/?token=secret", "https://www.example.com/blog/article"),
-        ("sc-domain:example.com:8443", "https://example.com:8443/"),
+        ("sc-domain:example.com:8443", "https://example.com/"),
     ],
 )
 def test_orchestrator_rejects_noncanonical_gsc_property_identifiers(
