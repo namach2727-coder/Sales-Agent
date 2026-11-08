@@ -884,3 +884,22 @@ Added the first user-triggered ingestion path on this branch:
 - No outbound HTTP, crawler, database writes, endpoint, customer data access or feature-flag activation is included. This is the safe parser foundation only; findings are observations, not ranking penalties or Google index claims.
 - CI run #42354653450 was queued for the test commit when checked. The subsequent small H1-outline correction is later than that queued test commit and is not yet confirmed by CI. Do not claim P1 validation until CI covers the exact branch head.
 - Next: inspect CI outcome and exact tested SHA; fix actual failures only. Then design/implement a separately gated SSRF-safe fetcher (DNS/IP checks, redirect revalidation, robots, byte/page/time/rate limits) before any URL fetching. Keep all release boundaries unchanged.
+
+
+
+### P2 crawler audit foundation · 2026-11-08
+
+Added a tenant/store/site-scoped crawler audit data foundation on top of migration 0030:
+
+- Alembic revision `0031_seo_crawler_audit` adds `seo_crawl_audit_events`, with composite site-scope FK, crawl correlation ID, event kind, outcome, robots decision, HTTP status, byte count, duration, sanitized error code, creation time and explicit expiry.
+- The audit writer requires an explicit retention duration (1–365 days); no retention period is silently selected by the persistence helper and no purge job is implemented.
+- URL evidence stores only host and a SHA-256 fingerprint of scheme/host/path. Query strings and fragments are excluded; raw URLs, headers, response bodies, credentials and arbitrary exception text are not persisted.
+- Added metadata, URL-sanitization, validation and migration-chain tests. PostgreSQL disposable-CI schema expectations were advanced to 0031 (93 tables, 87 sequences, 570 indexes, 508 constraints); production restored-schema expectations were not changed.
+- Crawler audit persistence is not yet connected to the transport or a customer API. Distributed per-tenant/per-host concurrency, durable cancellation, rate/quota enforcement and a reviewed purge process remain gates before endpoint exposure.
+
+Validation boundary:
+- The earlier fixture-only CI run #42458901036 has Docker, PostgreSQL smoke and PostgreSQL 18 compatibility jobs passing; full pytest was still running at the last status read.
+- CI run #42459069120 failed before pytest. Its migration-policy job found ORM/migration drift (default/index/unique metadata), and its PostgreSQL 18 job found stale expected head 0030. The ORM drift was corrected in subsequent commits; PostgreSQL fixture head and disposable CI schema counts were advanced to 0031.
+- The current branch head is newer than those run results. A successful CI result for the exact current head has not yet been observed. Do not report this foundation as validated until CI completes successfully.
+
+Migration 0031 exists only in source/CI. UAT remains at 0029; no UAT/Production migration or deployment, live crawl, live Google request, customer grant, scheduled job, or CMS write was performed. Keep backend PR #121 and frontend PR #71 Draft/unmerged. Vercel deployment quota remains a release constraint; do not attempt repeated Preview deployments.
