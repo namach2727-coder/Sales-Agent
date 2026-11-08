@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import ipaddress
 import re
 from typing import Callable, Iterable
-from urllib.parse import urljoin, urlsplit, urlunsplit
+from urllib.parse import unquote, urljoin, urlsplit, urlunsplit
 
 
 MAX_CRAWL_URL_LENGTH = 2048
@@ -57,6 +57,40 @@ def _is_public_address(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -
                 or any(address in prefix for prefix in NAT64_PREFIXES)):
             return False
     return True
+
+
+def _decode_path_safely(path: str) -> str | None:
+    decoded = path
+    for _ in range(3):
+        expanded = unquote(decoded)
+        if expanded == decoded:
+            break
+        decoded = expanded
+    if "\\\\" in decoded or any(part in {".", ".."} for part in decoded.split("/")):
+        return None
+    return decoded
+
+
+def normalize_crawl_path_prefix(value: str) -> str:
+    """Normalize a URL path scope and reject encoded traversal segments."""
+    if not isinstance(value, str) or not value.startswith("/") or "?" in value or "#" in value:
+        raise CrawlTargetError("seo_crawler_invalid_path_prefix")
+    decoded = _decode_path_safely(value)
+    if decoded is None:
+        raise CrawlTargetError("seo_crawler_invalid_path_prefix")
+    if decoded == "/":
+        return "/"
+    return decoded.rstrip("/") + "/"
+
+
+def crawl_path_in_scope(path: str, prefix: str) -> bool:
+    decoded = _decode_path_safely(path)
+    if decoded is None:
+        return False
+    if prefix == "/":
+        return True
+    root = prefix.rstrip("/")
+    return decoded == root or decoded.startswith(prefix)
 
 
 def normalize_crawl_url(raw_url: str) -> CrawlTarget:
