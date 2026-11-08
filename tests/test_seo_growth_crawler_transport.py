@@ -196,7 +196,7 @@ def test_robots_body_counts_toward_total_crawl_byte_budget():
     def request_once(target, pinned_ip, *, timeout, max_body_bytes):
         if target.path_and_query == "/robots.txt":
             return 200, {"content-type": "text/plain"}, b"User-agent: *\n", None
-        return 200, {"content-type": "text/html"}, b"123456", None
+        return 200, {"content-type": "text/html"}, b"1234567", None
     with pytest.raises(CrawlPolicyError, match="seo_crawler_total_byte_budget_exceeded"):
         fetch_html_page(
             "https://public.example.com/", resolver=_resolver,
