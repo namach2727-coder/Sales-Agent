@@ -930,3 +930,15 @@ Extended migration 0031 with `seo_crawl_leases` and added `app/seo_growth/crawl_
 This is source-only and not yet validated by a CI run for the latest source head. The previous green run #42459686126 validated migration 0031 before the lease table was added. Re-run and complete CI on the new head before treating the expanded migration as validated.
 
 The crawler remains unexposed to customers. A future route must enforce the lease, bounded CrawlBudget, explicit customer consent, site/host ownership, cancellation and audit persistence in one controlled orchestration flow. No UAT/Production migration, deployment, live crawl, Google request, customer grant, scheduled job or CMS write was performed.
+
+
+
+### Distributed crawler lease CI green · 2026-11-08
+
+Source commit `68e10af7bbb350c59aef71de3525c0cbe4e0f83b` passed [GitHub Actions run #42460429897](https://github.com/namach2727-coder/Sales-Agent/actions/runs/42460429897): **1206 passed, 7 skipped, 0 failed**. All four jobs passed: Python tests, PostgreSQL smoke, PostgreSQL 18/Neon compatibility with the disposable-schema preflight, and Docker build. Compileall and migration-policy validation also passed.
+
+The validated 0031 source now contains both the credential-free crawler audit event table and the distributed host lease table. Lease behavior covered by tests includes tenant-wide concurrency ceilings, one active lease per normalized hostname, expired lease reclamation, IPv6 host normalization, bounded token/lease duration, renewal and token-checked release. PostgreSQL preflight passed with the expanded disposable CI schema expectations: 94 tables, 88 sequences, 574 indexes and 514 constraints.
+
+This validation applies to source commit `68e10af7bbb350c59aef71de3525c0cbe4e0f83b`. Documentation-only commits followed; runtime source is unchanged. Migration 0031 remains unapplied to UAT and Production. UAT remains at revision 0029. PR #121 remains Draft/unmerged.
+
+The crawler transport and audit/lease foundations are still not wired to a customer-facing crawl route. Before exposure, the remaining work is bounded crawl orchestration, URL discovery/sitemap policy, cancellation, page-level analysis persistence, retention/purge approval, explicit customer consent and final tenant/host authority revalidation. No live crawl, live Google request, scheduled job, customer grant, CMS write or deployment was performed. Vercel UAT API/TelBot checks remain blocked by the free-plan deployment-rate limit; do not retry until quota reset and deliberate grouped deployment.
