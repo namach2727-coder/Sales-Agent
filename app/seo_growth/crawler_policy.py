@@ -1,4 +1,4 @@
-""""Network-independent crawl policy, robots decisions and resource budgets.
+"""Network-independent crawl policy, robots decisions and resource budgets.
 
 This module does not perform network I/O. The eventual transport must enforce
 wire-byte and decoded-byte limits while streaming, use bounded timeouts, and
