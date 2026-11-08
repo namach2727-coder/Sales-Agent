@@ -317,3 +317,32 @@ def test_orchestrator_rolls_back_when_initial_lease_commit_fails(monkeypatch):
 
     assert db.rollbacks == 1
     assert released == []
+
+
+
+@pytest.mark.parametrize(
+    "property_id,seed_url",
+    [
+        ("https://www.example.com/blog/?token=secret", "https://www.example.com/blog/article"),
+        ("sc-domain:example.com:8443", "https://example.com:8443/"),
+    ],
+)
+def test_orchestrator_rejects_noncanonical_gsc_property_identifiers(
+    monkeypatch, property_id, seed_url,
+):
+    site, connection = _scope(property_id)
+    db = _Session(site, connection)
+
+    def unexpected_claim(*_args, **_kwargs):
+        raise AssertionError("invalid property identifiers must not claim a lease")
+
+    monkeypatch.setattr(
+        "app.seo_growth.crawler_orchestrator.acquire_crawl_lease", unexpected_claim,
+    )
+    with pytest.raises(CrawlOrchestrationError, match="seo_crawler_invalid_site_property"):
+        run_crawl_preview(
+            db, tenant_id=11, store_id=22, site_id=33,
+            seed_url=seed_url,
+            consent_check=lambda: True, retention_days=30,
+            resolver=lambda _host, _port: ["93.184.216.34"],
+        )
