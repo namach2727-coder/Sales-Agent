@@ -303,15 +303,42 @@ def test_cross_origin_redirect_is_rejected_even_when_public():
 
 def test_robots_body_counts_toward_total_crawl_byte_budget():
     limits = CrawlLimits(max_response_bytes=20, max_total_bytes=20)
+    page_limits = []
+
     def request_once(target, pinned_ip, *, timeout, max_body_bytes):
         if target.path_and_query == "/robots.txt":
             return 200, {"content-type": "text/plain"}, b"User-agent: *\n", None
+        page_limits.append(max_body_bytes)
         return 200, {"content-type": "text/html"}, b"1234567", None
+
     with pytest.raises(CrawlPolicyError, match="seo_crawler_total_byte_budget_exceeded"):
         fetch_html_page(
             "https://public.example.com/", resolver=_resolver,
             budget=CrawlBudget(limits), request_once=request_once,
         )
+    assert page_limits == [6]
+
+
+def test_exhausted_total_byte_budget_stops_before_page_request():
+    limits = CrawlLimits(max_response_bytes=20, max_total_bytes=14)
+    robots_body = b"User-agent: *\n"
+    requests = []
+    budget = CrawlBudget(limits)
+
+    def request_once(target, pinned_ip, *, timeout, max_body_bytes):
+        requests.append(target.path_and_query)
+        if target.path_and_query == "/robots.txt":
+            return 200, {"content-type": "text/plain"}, robots_body, None
+        return 200, {"content-type": "text/html"}, b"<html></html>", None
+
+    with pytest.raises(CrawlPolicyError, match="seo_crawler_total_byte_budget_exceeded"):
+        fetch_html_page(
+            "https://public.example.com/", resolver=_resolver,
+            budget=budget, request_once=request_once,
+        )
+
+    assert requests == ["/robots.txt"]
+    assert budget.total_bytes == len(robots_body)
 
 
 def test_injected_transport_cannot_return_body_over_configured_cap():
@@ -319,12 +346,13 @@ def test_injected_transport_cannot_return_body_over_configured_cap():
         if target.path_and_query == "/robots.txt":
             return 404, {}, b"", None
         return 200, {"content-type": "text/html"}, b"x" * (max_body_bytes + 1), None
-    with pytest.raises(CrawlTransportError, match="seo_crawler_response_too_large"):
+    with pytest.raises(CrawlTransportError, match="seo_crawler_response_too_large") as exc:
         fetch_html_page(
             "https://public.example.com/", resolver=_resolver,
             budget=CrawlBudget(CrawlLimits(max_response_bytes=8, max_total_bytes=20)),
             request_once=request_once,
         )
+    assert exc.value.bytes_received == 9
 
 
 def test_timeout_is_recomputed_before_each_pinned_ip_attempt():
