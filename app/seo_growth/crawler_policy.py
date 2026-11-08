@@ -79,11 +79,13 @@ class CrawlBudget:
         self.pages += 1
         self.pages_by_host[host] = host_count + 1
 
-    def record_response_bytes(self, byte_count: int) -> None:
+    def record_response_bytes(
+        self, byte_count: int, *, enforce_response_limit: bool = True,
+    ) -> None:
         self.check_time()
         if type(byte_count) is not int or byte_count < 0:
             raise CrawlPolicyError("seo_crawler_invalid_byte_count")
-        if byte_count > self.limits.max_response_bytes:
+        if enforce_response_limit and byte_count > self.limits.max_response_bytes:
             raise CrawlPolicyError("seo_crawler_response_too_large")
         if self.total_bytes + byte_count > self.limits.max_total_bytes:
             raise CrawlPolicyError("seo_crawler_total_byte_budget_exceeded")
