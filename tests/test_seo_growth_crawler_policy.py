@@ -110,8 +110,8 @@ def test_robots_fetch_failure_policy(status, expected):
 
 def test_robots_parser_uses_specific_agent_group_over_wildcard():
     body = (
-        b"User-agent: *\\nDisallow: /private\\n"
-        b"User-agent: DirectPilotBot\\nAllow: /private/public\\n"
+        b"User-agent: *\nDisallow: /private\n"
+        b"User-agent: DirectPilotBot\nAllow: /private/public\n"
     )
     assert robots_allows(
         robots_url="https://example.com/robots.txt",
@@ -130,7 +130,7 @@ def test_robots_parser_uses_specific_agent_group_over_wildcard():
 
 
 def test_robots_parser_supports_wildcard_and_end_anchor():
-    body = b"User-agent: *\\nDisallow: /*.pdf$\\nAllow: /public/*.pdf$\\n"
+    body = b"User-agent: *\nDisallow: /*.pdf$\nAllow: /public/*.pdf$\n"
     assert not robots_allows(
         robots_url="https://example.com/robots.txt",
         page_url="https://example.com/files/report.pdf",
