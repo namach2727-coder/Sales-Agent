@@ -24,6 +24,8 @@ from app.seo_growth.crawler_policy import (
 from app.seo_growth.crawler_security import (
     CrawlTarget,
     CrawlTargetError,
+    crawl_path_in_scope,
+    normalize_crawl_path_prefix,
     Resolver,
     normalize_crawl_url,
     resolve_public_addresses,
@@ -166,6 +168,9 @@ def _request_with_redirects(
     if type(max_redirects) is not int or max_redirects < 0 or max_redirects > budget.limits.max_redirects:
         raise CrawlPolicyError("seo_crawler_invalid_limits")
     target = normalize_crawl_url(raw_url)
+    if (allowed_path_prefix is not None
+            and not crawl_path_in_scope(urlsplit(target.url).path or "/", allowed_path_prefix)):
+        raise CrawlTransportError("seo_crawler_url_out_of_scope")
     addresses = resolve_public_addresses(target, resolver=resolver)
     redirects = 0
     while True:
@@ -224,6 +229,9 @@ def _request_with_redirects(
             target.scheme, target.hostname, target.port,
         ):
             raise CrawlTransportError("seo_crawler_cross_origin_redirect_rejected")
+        if (allowed_path_prefix is not None
+                and not crawl_path_in_scope(urlsplit(next_target.url).path or "/", allowed_path_prefix)):
+            raise CrawlTransportError("seo_crawler_redirect_out_of_scope")
         target, addresses = next_target, next_addresses
         redirects += 1
 
@@ -235,6 +243,7 @@ def fetch_html_page(
     depth: int = 0,
     request_once: RequestOnce = _request_once,
     audit_callback: Callable[..., None] | None = None,
+    allowed_path_prefix: str = "/",
 ) -> FetchedHTMLPage:
     """Fetch one public HTML page after robots checks and all resource controls.
 
@@ -243,6 +252,9 @@ def fetch_html_page(
     it is expected to persist them synchronously when audit is mandatory.
     """
     target = normalize_crawl_url(raw_url)
+    path_prefix = normalize_crawl_path_prefix(allowed_path_prefix)
+    if not crawl_path_in_scope(urlsplit(target.url).path or "/", path_prefix):
+        raise CrawlTransportError("seo_crawler_url_out_of_scope")
     budget.record_page(target.url, depth=depth)
     parsed = urlsplit(target.url)
     robots_url = urlunsplit((parsed.scheme, parsed.netloc, "/robots.txt", "", ""))
@@ -310,6 +322,7 @@ def fetch_html_page(
             max_redirects=budget.limits.max_redirects,
             max_body_bytes=budget.limits.max_response_bytes,
             request_once=request_once,
+            allowed_path_prefix=path_prefix,
         )
         validate_html_response(
             status, headers, max_response_bytes=budget.limits.max_response_bytes,
