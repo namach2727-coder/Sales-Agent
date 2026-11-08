@@ -132,13 +132,15 @@ def crawl_preview(
         if before_page is not None:
             before_page(url, depth)
         try:
-            page = fetch_page(
-                url,
-                resolver=resolver,
-                budget=budget,
-                depth=depth,
-                audit_callback=audit_callback,
-            )
+            fetch_kwargs = {
+                "resolver": resolver,
+                "budget": budget,
+                "depth": depth,
+                "audit_callback": audit_callback,
+            }
+            if fetch_page is fetch_html_page:
+                fetch_kwargs["allowed_path_prefix"] = prefix
+            page = fetch_page(url, **fetch_kwargs)
         except (CrawlPolicyError, CrawlTransportError, CrawlTargetError) as exc:
             code = exc.code
             failures.append({"url": url, "depth": depth, "error_code": code})
