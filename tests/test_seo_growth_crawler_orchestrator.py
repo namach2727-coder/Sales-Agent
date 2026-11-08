@@ -283,3 +283,37 @@ def test_orchestrator_rechecks_consent_before_each_http_request(monkeypatch):
 
     assert transport_calls == []
     assert released == [grant]
+
+
+
+def test_orchestrator_rolls_back_when_initial_lease_commit_fails(monkeypatch):
+    site, connection = _scope()
+
+    class _FailFirstCommitSession(_Session):
+        def commit(self):
+            self.commits += 1
+            if self.commits == 1:
+                raise RuntimeError("commit failed")
+
+    db = _FailFirstCommitSession(site, connection)
+    grant = _grant()
+    released = []
+    monkeypatch.setattr(
+        "app.seo_growth.crawler_orchestrator.acquire_crawl_lease",
+        lambda _db, **_kwargs: grant,
+    )
+    monkeypatch.setattr(
+        "app.seo_growth.crawler_orchestrator.release_crawl_lease",
+        lambda _db, current: released.append(current) or True,
+    )
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        run_crawl_preview(
+            db, tenant_id=11, store_id=22, site_id=33,
+            seed_url="https://blog.example.com/",
+            consent_check=lambda: True, retention_days=30,
+            resolver=lambda _host, _port: ["93.184.216.34"],
+        )
+
+    assert db.rollbacks == 1
+    assert released == []
