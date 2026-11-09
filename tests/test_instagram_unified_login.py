@@ -31,6 +31,8 @@ class Client:
             return Response({"access_token": "system-user-token", "token_type": "bearer"})
         if url.endswith("/me/assigned_instagram_accounts"):
             return Response({"data": [{"id": "17841400000000000", "username": "directpilot_test"}]})
+        if url.endswith("/subscribed_apps"):
+            return Response({"success": True})
         raise AssertionError(f"Unexpected endpoint: {url}")
 
 
@@ -77,7 +79,10 @@ def test_unified_exchange_discovers_single_assigned_instagram_account(monkeypatc
     assert [call[1].rsplit("/", 1)[-1] for call in fake.calls] == [
         "access_token",
         "assigned_instagram_accounts",
+        "subscribed_apps",
     ]
+    assert fake.calls[2][0] == "POST"
+    assert fake.calls[2][2]["data"]["subscribed_fields"] == "messages,comments"
     token_request = fake.calls[0][2]
     assert token_request["params"]["client_secret"] == "app-secret"
     assert token_request["params"]["code"] == "auth-code"
