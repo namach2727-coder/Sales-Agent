@@ -25,6 +25,10 @@ class Client:
     def __exit__(self, *_args):
         return None
 
+    def post(self, url, **kwargs):
+        self.calls.append(("POST", url, kwargs))
+        raise AssertionError(f"Unexpected endpoint: {url}")
+
     def request(self, method, url, **kwargs):
         self.calls.append((method, url, kwargs))
         if url.endswith("/oauth/access_token"):
@@ -79,8 +83,9 @@ def test_unified_exchange_discovers_single_assigned_instagram_account(monkeypatc
     assert [call[1].rsplit("/", 1)[-1] for call in fake.calls] == [
         "access_token",
         "assigned_instagram_accounts",
-        "subscribed_apps",
     ]
+
+    MetaUnifiedInstagramOAuthClient(unified_settings()).subscribe_webhooks(account)
     assert fake.calls[2][0] == "POST"
     assert fake.calls[2][2]["data"]["subscribed_fields"] == "messages,comments"
     token_request = fake.calls[0][2]
