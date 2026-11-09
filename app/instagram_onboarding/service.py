@@ -241,7 +241,7 @@ class InstagramOnboardingService:
             connection.instagram_account_id = account.account_id
             connection.instagram_username = account.username
             connection.status = "active"
-            connection.status_reason = "Connected with official Instagram Login"
+            connection.status_reason = "Connected with official Instagram API"
             connection.connected_at = connection.connected_at or now
             connection.disconnected_at = None
             connection.last_verified_at = now
@@ -250,8 +250,11 @@ class InstagramOnboardingService:
         connection.token_type = account.token_type
         connection.token_scopes = list(account.scopes)
         connection.token_updated_at = now
-        if account.expires_in is not None:
-            connection.token_expires_at = now + timedelta(seconds=account.expires_in)
+        connection.token_expires_at = (
+            now + timedelta(seconds=account.expires_in)
+            if account.expires_in is not None
+            else None
+        )
         try:
             self.session.flush()
             self.session.add(
