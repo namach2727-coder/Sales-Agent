@@ -145,6 +145,18 @@ class MetaUnifiedInstagramOAuthClient:
             account_id, profile = next(iter(unique.items()))
             username = str(profile.get("username") or "").strip() or None
 
+            # Subscribe this selected Instagram asset to the app's supported
+            # inbound event families. Dashboard callback verification and
+            # app-level field selection remain separate prerequisites.
+            request(
+                client, "webhook_subscription", f"{base}/{account_id}/subscribed_apps",
+                method="POST",
+                data={
+                    "subscribed_fields": "messages,comments",
+                    "access_token": token,
+                },
+            )
+
             # The System User token is already the credential used for Graph API.
             # Do not perform Instagram Login's long-lived-token exchange.
             return InstagramOAuthAccount(
