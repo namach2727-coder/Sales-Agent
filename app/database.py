@@ -36,6 +36,17 @@ class Base(DeclarativeBase):
     pass
 
 
+
+def database_runtime_identity(target: Engine = engine) -> dict[str, str]:
+    """Return non-secret database routing metadata for deployment diagnostics."""
+    url = target.url
+    return {
+        "driver": url.drivername,
+        "host": url.host or "local",
+        "port": str(url.port or "-"),
+        "database": url.database or "-",
+    }
+
 def check_database_connection(target: Engine = engine) -> None:
     with target.connect() as connection:
         connection.execute(text("SELECT 1"))
