@@ -26,7 +26,14 @@ from app.commerce.router import router as commerce_router
 from app.commerce.service import manual_payment_runtime_summary
 from app.conversation_core.router import router as conversation_core_router
 from app.config import (get_settings, llm_provider_readiness, llm_runtime_summary, payexa_runtime_summary, validate_runtime_settings)
-from app.database import Base, SessionLocal, check_database_connection, engine, get_db
+from app.database import (
+    Base,
+    SessionLocal,
+    check_database_connection,
+    database_runtime_identity,
+    engine,
+    get_db,
+)
 from app.instagram import router as instagram_router
 from app.instagram_channel.router import (
     public_router as instagram_channel_public_router,
@@ -96,6 +103,15 @@ async def lifespan(_: FastAPI):
     if DEPLOYED_AT_BOOT:
         try:
             check_database_connection(engine)
+            database_identity = database_runtime_identity(engine)
+            logger.info(
+                "database runtime identity driver=%s host=%s port=%s database=%s",
+                database_identity["driver"],
+                database_identity["host"],
+                database_identity["port"],
+                database_identity["database"],
+                extra={"event_code": "database.runtime_identity"},
+            )
             require_database_at_head(engine)
             with SessionLocal() as payment_runtime_db:
                 active_cards, active_default_cards = manual_payment_runtime_summary(
