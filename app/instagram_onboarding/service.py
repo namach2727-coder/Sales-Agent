@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 import hashlib
+import logging
 import secrets
 
 from sqlalchemy import select
@@ -30,6 +31,9 @@ from app.models import (
     TenantSubscription,
     utc_now,
 )
+
+
+logger = logging.getLogger("sales_assistant.instagram_onboarding")
 
 
 class InstagramOnboardingError(Exception):
@@ -207,9 +211,36 @@ class InstagramOnboardingService:
         if self.account_limit(subscription) < 1:
             raise InstagramOnboardingForbidden("Instagram entitlement is no longer active")
         subscribe_webhooks = getattr(provider, "subscribe_webhooks", None)
+        unsubscribe_webhooks = getattr(provider, "unsubscribe_webhooks", None)
+        subscribed = False
         if callable(subscribe_webhooks):
             subscribe_webhooks(account)
-        connection = self._save_connection(oauth_state, account)
+            subscribed = True
+        try:
+            connection = self._save_connection(oauth_state, account)
+        except Exception:
+            # Meta subscription is an external side effect. If the local
+            # transaction fails, compensate so Meta does not keep delivering
+            # events for an account that DirectPilot failed to persist.
+            if subscribed:
+                if callable(unsubscribe_webhooks):
+                    try:
+                        unsubscribe_webhooks(account)
+                    except Exception as cleanup_error:
+                        logger.critical(
+                            "instagram_onboarding stage=webhook_compensation status=failed "
+                            "account_id_suffix=%s error_type=%s",
+                            account.account_id[-6:],
+                            type(cleanup_error).__name__,
+                            exc_info=True,
+                        )
+                else:
+                    logger.critical(
+                        "instagram_onboarding stage=webhook_compensation status=unsupported "
+                        "account_id_suffix=%s",
+                        account.account_id[-6:],
+                    )
+            raise
         return connection, tenant, store
 
     def _save_connection(
