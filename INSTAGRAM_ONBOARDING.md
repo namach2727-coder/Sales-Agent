@@ -40,7 +40,7 @@ Never paste access tokens, app secrets, or encryption keys into chat, source con
 
 - Dashboard callback verification confirms only that Meta can verify the receiver.
 - App-level field subscriptions and per-account `/{ig-user-id}/subscribed_apps` are separate.
-- This provider revision does not claim that per-account subscription has succeeded; that must be implemented/verified before accepting live inbound events.
+- On successful account discovery, the provider subscribes the selected account to `messages,comments` through `/{ig-user-id}/subscribed_apps`. This call fails closed if Meta rejects it. App-level webhook field subscriptions and callback verification must also be enabled in the dashboard.
 - Outbound sending remains disabled by default (`META_SEND_ENABLED=false`). Do not enable globally as part of OAuth migration.
 
 ## Migration and rollback
@@ -53,5 +53,5 @@ Never paste access tokens, app secrets, or encryption keys into chat, source con
 ## Current implementation limits / next validation
 
 - One assigned Instagram account is supported per onboarding operation. Multiple assets need an explicit account-selection UX and server-side selection token before support is enabled.
-- This revision discovers and stores the token/account. Per-account webhook subscription and diagnostics remain a required follow-up before production messaging is considered ready.
+- The provider now performs per-account webhook subscription for `messages,comments`. Real Meta delivery still requires an end-to-end test and webhook delivery diagnostics.
 - Meta App Review / advanced access may be required for customers outside app roles during live use.
