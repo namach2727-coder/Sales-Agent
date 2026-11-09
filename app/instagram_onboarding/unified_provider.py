@@ -54,6 +54,61 @@ class MetaUnifiedInstagramOAuthClient:
         })
         return f"https://www.facebook.com/{self.settings.meta_api_version.strip('/')}/dialog/oauth?{query}"
 
+    def subscribe_webhooks(self, account: InstagramOAuthAccount) -> None:
+        """Subscribe an already-authorized Instagram asset to inbound events."""
+        app_id, app_secret, _redirect_uri, _config_id = self._config()
+        # The token is intentionally supplied only by the in-memory account
+        # returned from this OAuth exchange; it is never logged.
+        token = account.access_token
+        base = f"https://graph.facebook.com/{self.settings.meta_api_version.strip('/')}"
+        timeout = httpx.Timeout(self.settings.meta_oauth_timeout_seconds)
+        with httpx.Client(timeout=timeout) as client:
+            started = perf_counter()
+            try:
+                response = client.post(
+                    f"{base}/{account.account_id}/subscribed_apps",
+                    data={"subscribed_fields": "messages,comments", "access_token": token},
+                )
+            except httpx.HTTPError as exc:
+                logger.warning("instagram_unified stage=webhook_subscription status=network_error")
+                raise InstagramOAuthError(
+                    "Meta webhook subscription request failed",
+                    code="unified_webhook_subscription_network_error",
+                ) from exc
+            if not 200 <= response.status_code < 300:
+                try:
+                    payload = response.json()
+                    error = payload.get("error", {}) if isinstance(payload, dict) else {}
+                    error_code = error.get("code") if isinstance(error, dict) else None
+                    error_type = error.get("type") if isinstance(error, dict) else None
+                except (ValueError, TypeError):
+                    error_code, error_type = None, None
+                logger.warning(
+                    "instagram_unified stage=webhook_subscription status=%s error_type=%s error_code=%s elapsed_ms=%.1f",
+                    response.status_code, str(error_type)[:80], str(error_code)[:40],
+                    (perf_counter()-started)*1000,
+                )
+                raise InstagramOAuthError(
+                    "Meta rejected the Instagram webhook subscription",
+                    code="unified_webhook_subscription_failed",
+                )
+            try:
+                payload = response.json()
+            except (ValueError, TypeError) as exc:
+                raise InstagramOAuthError(
+                    "Meta returned an invalid webhook subscription response",
+                    code="unified_webhook_subscription_invalid_response",
+                ) from exc
+            if not isinstance(payload, dict) or payload.get("success") is not True:
+                raise InstagramOAuthError(
+                    "Meta did not confirm the Instagram webhook subscription",
+                    code="unified_webhook_subscription_unconfirmed",
+                )
+            logger.info(
+                "instagram_unified stage=webhook_subscription status=%s elapsed_ms=%.1f",
+                response.status_code, (perf_counter()-started)*1000,
+            )
+
     def exchange(self, code: str) -> InstagramOAuthAccount:
         app_id, app_secret, redirect_uri, _config_id = self._config()
         normalized_code = code.strip()
@@ -144,18 +199,6 @@ class MetaUnifiedInstagramOAuthClient:
                 )
             account_id, profile = next(iter(unique.items()))
             username = str(profile.get("username") or "").strip() or None
-
-            # Subscribe this selected Instagram asset to the app's supported
-            # inbound event families. Dashboard callback verification and
-            # app-level field selection remain separate prerequisites.
-            request(
-                client, "webhook_subscription", f"{base}/{account_id}/subscribed_apps",
-                method="POST",
-                data={
-                    "subscribed_fields": "messages,comments",
-                    "access_token": token,
-                },
-            )
 
             # The System User token is already the credential used for Graph API.
             # Do not perform Instagram Login's long-lived-token exchange.
