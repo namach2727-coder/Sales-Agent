@@ -54,4 +54,5 @@ Never paste access tokens, app secrets, or encryption keys into chat, source con
 
 - One assigned Instagram account is supported per onboarding operation. Multiple assets need an explicit account-selection UX and server-side selection token before support is enabled.
 - The provider now performs per-account webhook subscription for `messages,comments`. Real Meta delivery still requires an end-to-end test and webhook delivery diagnostics.
+- If Meta subscription succeeds but saving the connection fails, onboarding attempts a compensating `DELETE /{ig-user-id}/subscribed_apps`. A failed compensation is logged as a critical reconciliation event and does not mask the original database error; operators must reconcile that account's Meta subscription before retrying.
 - Meta App Review / advanced access may be required for customers outside app roles during live use.
