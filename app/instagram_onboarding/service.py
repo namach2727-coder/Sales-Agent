@@ -206,6 +206,9 @@ class InstagramOnboardingService:
             )
         if self.account_limit(subscription) < 1:
             raise InstagramOnboardingForbidden("Instagram entitlement is no longer active")
+        subscribe_webhooks = getattr(provider, "subscribe_webhooks", None)
+        if callable(subscribe_webhooks):
+            subscribe_webhooks(account)
         connection = self._save_connection(oauth_state, account)
         return connection, tenant, store
 
