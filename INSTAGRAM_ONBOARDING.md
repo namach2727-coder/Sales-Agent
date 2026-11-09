@@ -56,3 +56,8 @@ Never paste access tokens, app secrets, or encryption keys into chat, source con
 - The provider now performs per-account webhook subscription for `messages,comments`. The inbound parser accepts the Instagram webhook envelope (`object=instagram`) and normalizes messaging timestamps in milliseconds and comment timestamps in seconds or ISO-8601. Real Meta delivery still requires an end-to-end test and webhook delivery diagnostics.
 - If Meta subscription succeeds but saving the connection fails, onboarding attempts a compensating `DELETE /{ig-user-id}/subscribed_apps`. A failed compensation is logged as a critical reconciliation event and does not mask the original database error; operators must reconcile that account's Meta subscription before retrying.
 - Meta App Review / advanced access may be required for customers outside app roles during live use.
+
+
+## Current production evidence and comprehensive test plan
+
+See [Meta Instagram Unified Login Production Runbook & E2E Acceptance](docs/runbooks/META_INSTAGRAM_UNIFIED_LOGIN_E2E_2026-11-09.md) for current app identifiers, environment variable inventory (secret values excluded), production deployment evidence, CI results, OAuth incident/recovery timeline, acceptance matrix and safe test sequence. The owner's success screenshot confirms the browser OAuth flow reached the success page; it does not yet prove persisted account status, webhook delivery, inbound message/comment processing, or outbound automation.
