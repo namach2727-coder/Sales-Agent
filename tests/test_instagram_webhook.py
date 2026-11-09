@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 from pathlib import Path
+from datetime import UTC, datetime
 import uuid
 
 from alembic import command
@@ -160,6 +161,39 @@ def test_parser_handles_messaging_comments_multiple_entries_and_unsupported() ->
     assert [item.position for item in events] == [0, 1, 2, 3]
     assert events[0].provider_event_id == "mid-1"
     assert events[1].provider_event_id == "comment-1"
+
+
+def test_parser_normalizes_meta_messaging_and_comment_timestamp_units() -> None:
+    payload = {
+        "object": "instagram",
+        "entry": [
+            {
+                "id": "ig-time",
+                "messaging": [
+                    {
+                        "sender": {"id": "customer"},
+                        "recipient": {"id": "ig-time"},
+                        "timestamp": 1_720_000_000_000,
+                        "message": {"mid": "mid-ms", "text": "hello"},
+                    }
+                ],
+                "changes": [
+                    {
+                        "field": "comments",
+                        "value": {
+                            "id": "comment-seconds",
+                            "from": {"id": "commenter"},
+                            "text": "price",
+                            "created_time": 1_720_000_000,
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+    events = parse_instagram_webhook(payload)
+    assert events[0].provider_event_at == datetime.fromtimestamp(1_720_000_000, tz=UTC)
+    assert events[1].provider_event_at == datetime.fromtimestamp(1_720_000_000, tz=UTC)
 
 
 def test_parser_marks_story_reply_without_retaining_story_url() -> None:
