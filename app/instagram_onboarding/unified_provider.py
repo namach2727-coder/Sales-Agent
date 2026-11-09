@@ -5,7 +5,6 @@ Legacy Instagram Login remains available through the existing adapter.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
 from time import perf_counter
 from urllib.parse import urlencode, urlsplit
@@ -56,7 +55,7 @@ class MetaUnifiedInstagramOAuthClient:
 
     def subscribe_webhooks(self, account: InstagramOAuthAccount) -> None:
         """Subscribe an already-authorized Instagram asset to inbound events."""
-        app_id, app_secret, _redirect_uri, _config_id = self._config()
+        self._config()
         # The token is intentionally supplied only by the in-memory account
         # returned from this OAuth exchange; it is never logged.
         token = account.access_token
@@ -67,7 +66,8 @@ class MetaUnifiedInstagramOAuthClient:
             try:
                 response = client.post(
                     f"{base}/{account.account_id}/subscribed_apps",
-                    data={"subscribed_fields": "messages,comments", "access_token": token},
+                    data={"subscribed_fields": "messages,comments"},
+                    headers={"Authorization": f"Bearer {token}"},
                 )
             except httpx.HTTPError as exc:
                 logger.warning("instagram_unified stage=webhook_subscription status=network_error")
@@ -166,12 +166,12 @@ class MetaUnifiedInstagramOAuthClient:
             after: str | None = None
             seen_cursors: set[str] = set()
             for _ in range(100):
-                params = {"fields": "id,username", "limit": "100", "access_token": token}
+                params = {"fields": "id,username", "limit": "100"}
                 if after:
                     params["after"] = after
                 page = request(
                     client, "account_discovery", f"{base}/me/assigned_instagram_accounts",
-                    method="GET", params=params,
+                    method="GET", params=params, headers={"Authorization": f"Bearer {token}"},
                 )
                 data = page.get("data")
                 if not isinstance(data, list):
