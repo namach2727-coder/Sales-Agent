@@ -49,3 +49,16 @@ No Production deployment or promotion, merge to backend-main or frontend main, l
 - Frontend: components/automation-rules-workspace.tsx, components/admin-commerce.tsx, components/admin-seo.tsx, app/telbot/, docs/seo/SEO_POST_RELEASE_CHECK_2026-11-08.md.
 - TelBot UAT: docs/TELBOT_STUDIO_20261101.md and Sales-Agent isolated feature branch.
 - GSC MCP: docs/seo/GSC_MCP_CONNECTION_STATUS_2026-10-29.md, GSC_MCP_DESKTOP_CONNECTION_RUNBOOK_2026-10-31.md, GSC_MCP_RELEASE_GATE_2026-10-31.md.
+
+
+### PUBLIC-SEO-PR84-20261109 — frontend pricing-page copy PR status
+
+The owner requested repository-first continuity, source/documentation reconciliation, and an SEO documentation update after the frontend pricing-page work. Frontend `namach2727-coder/directpilot-web` is the public SEO source; Backend `namach2727-coder/Sales-Agent` on `backend-main` carries the six canonical handoff/release files. Those six files are not present in the frontend repo; frontend SEO references are under `docs/seo/`.
+
+Frontend PR [#84](https://github.com/namach2727-coder/directpilot-web/pull/84) remains OPEN / UNMERGED on `seo/pricing-commercial-intent-2026-11`, head `7e6c2cb54f04a5f4078c53c5260662429b280462`, based on `main` `1c0bf5cd60c3f9cd863b4f7fb6401325164874ef`. Only `app/[...slug]/page.tsx` changed. Pricing copy is now formatted readable JSX; it emphasizes choice between Automation and AI Assistant, distinguishes inbound DM from comment-triggered private reply, explains trial evaluation and payment verification, and removes repetitive copy/links. Dynamic API/SSR price cards, the interactive Pricing component, FAQ arrays and SoftwareApplication/FAQPage JSON-LD remain unchanged. DM and comment landing pages/keyword ownership were not changed.
+
+Latest Vercel status for the PR head: both `Vercel – directpilot-web` and `Vercel – directpilot-gsc-mcp` are FAILURE with `build-rate-limit`. This is a hosted build blocker, not evidence of code compilation failure. No passing Preview/build, merge, Production deployment, alias update or post-PR Google result is established. No tests/type-check were run during this docs-only follow-up. Do not hide or downgrade this failed status.
+
+The frontend SEO checkpoint `docs/seo/SEO_POST_RELEASE_CHECK_2026-11-08.md` remains the evidence baseline: Search Console rows through 2026-11-06; its 28-day totals predate the Nov 9 PR #84 copy change and cannot measure its effect. The owner-provided Search Console screenshots confirm /pricing is indexed and its Breadcrumb and Software Apps items are valid; the two SoftwareApplication properties shown as missing are optional warnings. Existing noindex/robots policy remains unchanged: experimental TelBot stays noindex; auth/dashboard/payment routes remain excluded; prelaunch Web Design/TelBot content stays noindex.
+
+Next: resolve the Vercel build-rate-limit only through the existing approved no-cost/manual project workflow, without global setting/plan changes. After successful Preview, verify rendered cards, loading state, copy and JSON-LD; then update the frontend SEO post-release checkpoint and measure only with settled comparable GSC windows. Merge and Production remain separate gates. No deployment is performed by this documentation update.
