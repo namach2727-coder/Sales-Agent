@@ -31,6 +31,10 @@ class Client:
             return Response({"success": True})
         raise AssertionError(f"Unexpected endpoint: {url}")
 
+    def delete(self, url, **kwargs):
+        self.calls.append(("DELETE", url, kwargs))
+        return Response({"success": True})
+
     def request(self, method, url, **kwargs):
         self.calls.append((method, url, kwargs))
         if url.endswith("/oauth/access_token"):
@@ -118,3 +122,23 @@ def test_unified_exchange_fails_closed_for_multiple_accounts(monkeypatch):
     with pytest.raises(InstagramOAuthError) as exc:
         MetaUnifiedInstagramOAuthClient(unified_settings()).exchange("auth-code")
     assert exc.value.code == "unified_multiple_instagram_accounts"
+
+
+
+def test_unified_webhook_subscription_can_be_compensated(monkeypatch):
+    fake = Client()
+    monkeypatch.setattr(
+        "app.instagram_onboarding.unified_provider.httpx.Client",
+        lambda **kwargs: fake,
+    )
+    provider = MetaUnifiedInstagramOAuthClient(unified_settings())
+    account = provider.exchange("auth-code")
+
+    provider.subscribe_webhooks(account)
+    provider.unsubscribe_webhooks(account)
+
+    assert [call[0] for call in fake.calls] == ["GET", "GET", "POST", "DELETE"]
+    method, url, kwargs = fake.calls[-1]
+    assert method == "DELETE"
+    assert url.endswith(f"/{account.account_id}/subscribed_apps")
+    assert kwargs["headers"]["Authorization"] == "Bearer system-user-token"
