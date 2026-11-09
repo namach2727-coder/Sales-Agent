@@ -27,6 +27,8 @@ class Client:
 
     def post(self, url, **kwargs):
         self.calls.append(("POST", url, kwargs))
+        if url.endswith("/subscribed_apps"):
+            return Response({"success": True})
         raise AssertionError(f"Unexpected endpoint: {url}")
 
     def request(self, method, url, **kwargs):
@@ -35,8 +37,6 @@ class Client:
             return Response({"access_token": "system-user-token", "token_type": "bearer"})
         if url.endswith("/me/assigned_instagram_accounts"):
             return Response({"data": [{"id": "17841400000000000", "username": "directpilot_test"}]})
-        if url.endswith("/subscribed_apps"):
-            return Response({"success": True})
         raise AssertionError(f"Unexpected endpoint: {url}")
 
 
