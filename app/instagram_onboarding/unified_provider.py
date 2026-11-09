@@ -109,6 +109,46 @@ class MetaUnifiedInstagramOAuthClient:
                 response.status_code, (perf_counter()-started)*1000,
             )
 
+    def unsubscribe_webhooks(self, account: InstagramOAuthAccount) -> None:
+        """Compensate a successful subscription when local persistence fails."""
+        self._config()
+        base = f"https://graph.facebook.com/{self.settings.meta_api_version.strip('/')}"
+        timeout = httpx.Timeout(self.settings.meta_oauth_timeout_seconds)
+        try:
+            with httpx.Client(timeout=timeout) as client:
+                response = client.delete(
+                    f"{base}/{account.account_id}/subscribed_apps",
+                    headers={"Authorization": f"Bearer {account.access_token}"},
+                )
+        except httpx.HTTPError as exc:
+            logger.error("instagram_unified stage=webhook_compensation status=network_error")
+            raise InstagramOAuthError(
+                "Meta webhook subscription compensation failed",
+                code="unified_webhook_compensation_network_error",
+            ) from exc
+        if not 200 <= response.status_code < 300:
+            logger.error(
+                "instagram_unified stage=webhook_compensation status=%s",
+                response.status_code,
+            )
+            raise InstagramOAuthError(
+                "Meta rejected webhook subscription compensation",
+                code="unified_webhook_compensation_failed",
+            )
+        try:
+            payload = response.json()
+        except (ValueError, TypeError) as exc:
+            raise InstagramOAuthError(
+                "Meta returned an invalid webhook compensation response",
+                code="unified_webhook_compensation_invalid_response",
+            ) from exc
+        if not isinstance(payload, dict) or payload.get("success") is not True:
+            raise InstagramOAuthError(
+                "Meta did not confirm webhook subscription compensation",
+                code="unified_webhook_compensation_unconfirmed",
+            )
+        logger.info("instagram_unified stage=webhook_compensation status=confirmed")
+
     def exchange(self, code: str) -> InstagramOAuthAccount:
         app_id, app_secret, redirect_uri, _config_id = self._config()
         normalized_code = code.strip()
