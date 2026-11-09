@@ -3,12 +3,12 @@
 
 ## ROADMAP-CODE-RECONCILIATION-20261109 — documentation-only source alignment
 
-- **Owner authorization:** user explicitly authorized comparison of Roadmap files against implemented code and requested retaining the matching canonical version. This work is documentation-only on isolated branch docs/roadmap-code-reconciliation-20261109; PR will be opened against backend-main.
+- **Owner authorization:** user explicitly authorized comparison of Roadmap files against implemented code and requested retaining the matching canonical version. This work is documentation-only on isolated branch docs/roadmap-code-reconciliation-20261109; PR [#131](https://github.com/namach2727-coder/Sales-Agent/pull/131) is OPEN against backend-main; source commit 7d2552b2822426b0e4ed9fd9396a430a9fcb0fea.
 - **Inspected source refs:** Backend backend-main 8062c204d928e8f014ef985c66b5ef3abf6e137c; Frontend main 1c0bf5cd60c3f9cd863b4f7fb6401325164874ef; isolated TelBot backend feature/telegram-managed-bots-spike-20261017 70cf3585db0dd006530098b23eca145621a81111.
 - **Changed docs:** concise current PROJECT_ROADMAP.md; byte-for-byte archive of its prior content at docs/runbooks/history/20261109_pre_reconciliation/PROJECT_ROADMAP_2026-11-09_PRE_RECONCILIATION.md; synchronized the five canonical handoff files and this register; aligned docs/project-status.md.
 - **Source findings:** both Payexa and KPay remain in backend source/migrations/tests; frontend main is newer than last documented production SEO deployment SHA; GSC MCP owner Desktop OAuth/tool call and TelBot authenticated end-to-end UAT remain unverified; commercial SEO is a separate product scope.
 - **Validation boundary:** documentation-only changes. No application code, dependency, schema, migration, environment, secret, data, deployment, billing, Meta or Telegram outbound changes. No backend/frontend test suite or live UAT was run as part of this documentation review.
-- **Release state:** branch commit and PR metadata to be recorded after the documentation commit is created. No merge or Production deployment is authorized.
+- **Release state:** PR #131 OPEN / UNMERGED; branch source commit 7d2552b2822426b0e4ed9fd9396a430a9fcb0fea. No merge or Production deployment is authorized.
 
 ### SEO-NONBRAND-LANDINGS-20261102 — PRODUCTION RELEASE VERIFIED (current)
 
