@@ -13,7 +13,8 @@ from app.authentication.context import AuthenticatedPrincipal
 from app.authentication.dependencies import require_authenticated_principal
 from app.config import Settings, get_settings
 from app.database import get_db
-from app.instagram_onboarding.unified_provider import MetaUnifiedInstagramOAuthClient\nfrom app.instagram_onboarding.provider import (
+from app.instagram_onboarding.unified_provider import MetaUnifiedInstagramOAuthClient
+from app.instagram_onboarding.provider import (
     InstagramOAuthError,
     InstagramOAuthProvider,
     MetaInstagramOAuthClient,
@@ -42,7 +43,9 @@ router = APIRouter(prefix="/api/v1/integrations/instagram", tags=["instagram-onb
 def get_instagram_oauth_provider(
     settings: Settings = Depends(get_settings),
 ) -> InstagramOAuthProvider:
-    if settings.meta_oauth_mode == "unified_login":\n        return MetaUnifiedInstagramOAuthClient(settings)\n    return MetaInstagramOAuthClient(settings)
+    if settings.meta_oauth_mode == "unified_login":
+        return MetaUnifiedInstagramOAuthClient(settings)
+    return MetaInstagramOAuthClient(settings)
 
 
 def _raise(error: Exception) -> None:
