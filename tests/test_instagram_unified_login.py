@@ -88,9 +88,11 @@ def test_unified_exchange_discovers_single_assigned_instagram_account(monkeypatc
     MetaUnifiedInstagramOAuthClient(unified_settings()).subscribe_webhooks(account)
     assert fake.calls[2][0] == "POST"
     assert fake.calls[2][2]["data"]["subscribed_fields"] == "messages,comments"
+    assert fake.calls[2][2]["headers"]["Authorization"] == "Bearer system-user-token"
     token_request = fake.calls[0][2]
     assert token_request["params"]["client_secret"] == "app-secret"
     assert token_request["params"]["code"] == "auth-code"
+    assert fake.calls[1][2]["headers"]["Authorization"] == "Bearer system-user-token"
 
 
 def test_unified_exchange_fails_closed_for_multiple_accounts(monkeypatch):
