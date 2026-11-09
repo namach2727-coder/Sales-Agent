@@ -1,6 +1,16 @@
 > **DIRECTPILOT — MANDATORY CONTINUITY AND CHANGE-LOG RULE (owner decision, 2026-10-17).**
 > This file is one of the **six mandatory handoff/release artifacts**. On every DirectPilot / DirectPilot TelBot task, the assistant must read current `AI_HANDOFF.md`, `PROJECT_ROADMAP.md`, `DECISIONS.md`, `CURRENT_STATE.md`, `NEXT_ACTIONS.md`, and `docs/releases/RELEASE_REGISTER.md` **before making changes**; reconcile against actual GitHub/Vercel/Neon state, not chat memory. **After every meaningful change**, update all five main files **and the Release Register** coherently: scope and owner approval, PR/commit, changed artifacts, UAT/Production status, automated and manual evidence, unresolved risks, next action. Keep the current summary easy to scan, preserve history (archive older detail in runbooks; do not delete evidence), and never call code-merged "deployed" or a proposed feature "active". Never publish to Production, touch live data/secrets, or switch Meta/Telegram outbound functionality without specific owner approval. This rule itself MUST remain at the very TOP of each of the six files and must be propagated in any handoff to a new chat.
 
+## Current source reconciliation — 2026-11-09
+
+The concise source-aligned status and priorities are in PROJECT_ROADMAP.md. Inspected refs: backend backend-main 8062c204d928e8f014ef985c66b5ef3abf6e137c; frontend main 1c0bf5cd60c3f9cd863b4f7fb6401325164874ef; isolated TelBot branch 70cf3585db0dd006530098b23eca145621a81111.
+
+- Backend automation/AI and commerce source modules and tests exist. Existing project-status records completed/cloud-verified phases; no new test or runtime acceptance was performed by this documentation reconciliation.
+- Both KPay and Payexa implementations/migrations/tests remain in source. Provider configuration and live transaction acceptance are not established here.
+- Public SEO latest live evidence is the 2026-11-08 checkpoint; frontend main HEAD is 1c0bf5, later than the last documented production deployment SHA 1b7d8eab. Verify alias before treating the newest source as live.
+- GSC MCP Desktop OAuth/tool-call and TelBot authenticated end-to-end UAT remain open verification gates.
+- Commercial SEO service is distinct from public SEO and GSC MCP; no release claim is made.
+
 ### SEO-NONBRAND-LANDINGS-20261102 — PRODUCTION RELEASE VERIFIED (current)
 
 - **Documentation follow-up (owner request; [backend docs PR #129](https://github.com/namach2727-coder/Sales-Agent/pull/129), source checkpoint `4228cedde6ec17eb8f98dc48c7f561a5ad49bbfc`):** [frontend docs PR #75](https://github.com/namach2727-coder/directpilot-web/pull/75) reconciles SEO policy, release runbook, README/deployment guidance and project status; documentation source `136218e0c143ddd99987cb26a6a638778c3796ab` passed GitHub `validate`/`verify` and MERGED as `cfa4b880a9f921236377ab540f953aac26c5143f`; all changed paths are Markdown, so this is not a new runtime feature. Prior backend docs PR #128 is MERGED at `28b2b699c59bc38d44c42aef76f576ee7b6900b5`. This documentation pass synchronizes these six files and backend `docs/project-status.md`; no new application, database or provider acceptance is claimed.

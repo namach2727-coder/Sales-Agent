@@ -1,5 +1,16 @@
 # DirectPilot Project Status
 
+## Current code-aligned status — 2026-11-09
+
+Use the current roadmap at ../PROJECT_ROADMAP.md for source refs, product boundaries and next priorities. This status summary was reconciled against backend backend-main 8062c204d928e8f014ef985c66b5ef3abf6e137c, frontend main 1c0bf5cd60c3f9cd863b4f7fb6401325164874ef, and isolated TelBot backend 70cf3585db0dd006530098b23eca145621a81111.
+
+- Backend source includes automation/AI runtime modules and both KPay and Payexa provider implementations, migrations and tests. This review did not rerun the suites or verify live provider configuration/transactions.
+- Frontend latest main source is 1c0bf5; last documented live SEO deployment evidence is 1b7d8eab (PR #77). The latest source is not assumed deployed.
+- GSC MCP Staging/plugin creation is documented; owner Desktop OAuth and authenticated tool call remain unverified.
+- TelBot is an independent custom-development/inquiry product direction; its isolated backend UAT and end-to-end operational acceptance remain separate.
+- Public website SEO, private GSC MCP and the commercial multi-tenant SEO product are separate scopes. Do not infer a commercial SEO product release from the other two.
+
+
 ## Current website SEO checkpoint
 
 The owner prioritizes service-keyword acquisition. The website content batch is
