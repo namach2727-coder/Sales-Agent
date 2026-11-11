@@ -53,34 +53,28 @@ class InstagramGraphSender:
             f"{self._sender_account_id}/messages"
         )
 
+    def comment_reply_url(self, comment_id: str) -> str:
+        safe_comment_id = _identifier(comment_id, "comment")
+        return f"{self.base_url}/{self.api_version}/{safe_comment_id}/replies"
+
     def send(self, message: OutboundMessage) -> OutboundDeliveryResult:
         if not self._send_enabled:
             raise OutboundConnectionUnavailableError(
                 "Instagram outbound delivery is disabled"
             )
-        request = {
-            "headers": {
-                "Authorization": f"Bearer {self._access_token}",
-                "Content-Type": "application/json",
-            },
-            "json": {
-                "recipient": {
-                    (
-                        "comment_id"
-                        if message.recipient_type == "comment"
-                        else "id"
-                    ): message.recipient_external_id
-                },
-                "message": {"text": message.text},
-            },
-            "timeout": self.timeout_seconds,
-        }
+        headers = {"Authorization": f"Bearer {self._access_token}", "Content-Type": "application/json"}
+        if message.recipient_type == "comment_reply":
+            url = self.comment_reply_url(message.recipient_external_id)
+            request = {"headers": headers, "data": {"message": message.text}, "timeout": self.timeout_seconds}
+        else:
+            url = self.send_url
+            request = {"headers": headers, "json": {"recipient": {("comment_id" if message.recipient_type == "comment" else "id"): message.recipient_external_id}, "message": {"text": message.text}}, "timeout": self.timeout_seconds}
         try:
             if self._client is None:
                 with httpx.Client() as client:
-                    response = client.post(self.send_url, **request)
+                    response = client.post(url, **request)
             else:
-                response = self._client.post(self.send_url, **request)
+                response = self._client.post(url, **request)
         except httpx.TimeoutException as exc:
             raise OutboundAmbiguousDeliveryError(
                 "Instagram delivery outcome is unknown"
@@ -101,7 +95,7 @@ class InstagramGraphSender:
             raise OutboundAmbiguousDeliveryError(
                 "Instagram delivery outcome is unknown"
             )
-        provider_message_id = payload.get("message_id")
+        provider_message_id = payload.get("id") if message.recipient_type == "comment_reply" else payload.get("message_id")
         if not isinstance(provider_message_id, str) or not provider_message_id.strip():
             raise OutboundAmbiguousDeliveryError(
                 "Instagram delivery outcome is unknown"
