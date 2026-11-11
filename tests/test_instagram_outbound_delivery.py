@@ -666,6 +666,29 @@ def test_graph_adapter_builds_documented_comment_private_reply() -> None:
     }
     assert result.provider_message_id == "mid-comment"
 
+def test_graph_adapter_builds_documented_public_comment_reply() -> None:
+    client = FakeHttpClient(FakeHttpResponse(200, {"id": "public-reply-1"}))
+    sender = _graph_sender(client)
+    message = OutboundMessage(
+        message_public_id=MESSAGE_PUBLIC_ID,
+        conversation_public_id=CONVERSATION_PUBLIC_ID,
+        tenant_public_id=TENANT_PUBLIC_ID,
+        store_public_id=STORE_PUBLIC_ID,
+        channel="instagram",
+        recipient_external_id="comment-1",
+        recipient_type="comment_reply",
+        text="Public response",
+    )
+
+    result = sender.send(message)
+
+    url, request = client.calls[0]
+    assert url == "https://graph.instagram.com/v24.0/comment-1/replies"
+    assert request["data"] == {"message": "Public response"}
+    assert "json" not in request
+    assert result.provider_message_id == "public-reply-1"
+
+
 
 @pytest.mark.parametrize(
     ("status", "error_type"),
