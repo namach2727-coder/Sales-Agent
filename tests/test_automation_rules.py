@@ -117,6 +117,14 @@ def test_invalid_trigger_action_combination_is_rejected(rules_api) -> None:
     data["action_type"] = "SEND_MESSAGE"
     assert client.post(route(scope), headers=headers, json=data).status_code == 422
 
+def test_comment_rule_requires_public_and_private_responses(rules_api) -> None:
+    client, _ = rules_api
+    headers, scope = customer(client, "comment-dual-required")
+    data = payload("COMMENT_KEYWORD")
+    data["action_payload"] = {"text": "private response"}
+    response = client.post(route(scope), headers=headers, json=data)
+    assert response.status_code == 422
+
 
 def test_crud_revision_pagination_and_limit(rules_api) -> None:
     client, engine = rules_api
