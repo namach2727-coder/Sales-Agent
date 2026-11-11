@@ -109,7 +109,7 @@ class AutomationRuleService:
             raise AutomationRuleLimitReached("automation rule limit reached")
         action_payload = values["action_payload"]
         values["action_payload"] = (
-            action_payload.model_dump()
+            action_payload.model_dump(exclude_none=True)
             if hasattr(action_payload, "model_dump")
             else dict(action_payload)
         )
