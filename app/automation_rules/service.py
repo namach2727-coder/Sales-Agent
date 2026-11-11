@@ -138,6 +138,10 @@ class AutomationRuleService:
                 if hasattr(action_payload, "model_dump")
                 else dict(action_payload)
             )
+        if trigger == "COMMENT_KEYWORD":
+            payload = supplied.get("action_payload", item.action_payload or {})
+            if not isinstance(payload.get("comment_reply_text"), str) or not payload["comment_reply_text"].strip():
+                raise AutomationRuleValidation("comment rules require a public comment reply")
         if not supplied:
             raise AutomationRuleValidation("at least one field must be updated")
         result = self.session.execute(update(AutomationRule).where(
