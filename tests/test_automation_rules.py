@@ -77,7 +77,7 @@ def payload(trigger: str = "DM_KEYWORD", *, expected_revision: int = 0) -> dict:
         "match_type": "CONTAINS",
         "keywords": [" قیمت ", "موجودی"],
         "action_type": "SEND_PRIVATE_MESSAGE" if trigger == "COMMENT_KEYWORD" else "SEND_MESSAGE",
-        "action_payload": {"text": " پاسخ قطعی فروشگاه "},
+        "action_payload": {"text": " پاسخ قطعی فروشگاه ", **({"comment_reply_text": "پاسخ عمومی فروشگاه"} if trigger == "COMMENT_KEYWORD" else {})},
         "priority": 100,
     }
 
@@ -91,7 +91,9 @@ def test_valid_trigger_rules_create_with_clean_data_and_revision(rules_api, trig
     body = response.json()
     assert body["revision"] == 1
     assert body["keywords"] == ["قیمت", "موجودی"]
-    assert body["action_payload"] == {"text": "پاسخ قطعی فروشگاه"}
+    assert body["action_payload"]["text"] == "پاسخ قطعی فروشگاه"
+    if trigger == "COMMENT_KEYWORD":
+        assert body["action_payload"]["comment_reply_text"] == "پاسخ عمومی فروشگاه"
 
 
 @pytest.mark.parametrize("field,value", [
@@ -159,7 +161,7 @@ def test_edit_at_capacity_updates_same_rule_without_consuming_capacity(rules_api
     update_payload = payload("COMMENT_KEYWORD", expected_revision=target["revision"])
     update_payload.update({
         "name": "Edited existing rule", "match_type": "EXACT", "keywords": ["new-trigger"],
-        "action_payload": {"text": "updated deterministic response"}, "priority": 777, "enabled": False,
+        "action_payload": {"text": "updated deterministic response", "comment_reply_text": "updated public response"}, "priority": 777, "enabled": False,
     })
 
     response = client.patch(route(scope, target["public_id"]), headers=headers, json=update_payload)
@@ -172,7 +174,7 @@ def test_edit_at_capacity_updates_same_rule_without_consuming_capacity(rules_api
     assert updated["action_type"] == "SEND_PRIVATE_MESSAGE"
     assert updated["match_type"] == "EXACT"
     assert updated["keywords"] == ["new-trigger"]
-    assert updated["action_payload"] == {"text": "updated deterministic response"}
+    assert updated["action_payload"] == {"text": "updated deterministic response", "comment_reply_text": "updated public response"}
     assert updated["priority"] == 777
     assert updated["enabled"] is False
     listing = client.get(route(scope), headers=headers).json()
