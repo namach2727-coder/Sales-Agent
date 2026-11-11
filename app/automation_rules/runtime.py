@@ -132,67 +132,97 @@ class InstagramAutomationRuleRuntime:
             _log_decision(context, correlation_id, matched=False, trigger=trigger)
             return AutomationRuntimeResult(handled=False)
 
-        key = "automation:" + hashlib.sha256(
-            f"{inbound.public_id}:{winner.public_id}".encode("utf-8")
-        ).hexdigest()[:48]
-        outbound = self.session.scalar(
-            select(ConversationMessage).where(
-                ConversationMessage.tenant_id == context.tenant_id,
-                ConversationMessage.store_id == context.store_id,
-                ConversationMessage.idempotency_key == key,
+        action_payload = dict(winner.action_payload or {})
+        deliveries: list[tuple[str, str, str]] = []
+        if trigger == "COMMENT_KEYWORD":
+            comment_id = (inbound.metadata_json or {}).get("instagram_comment_id")
+            if not isinstance(comment_id, str) or not comment_id.strip():
+                return AutomationRuntimeResult(
+                    handled=True, matched=True, delivery_status="failed",
+                    rule_public_id=winner.public_id, safe_reason="comment_id_unavailable",
+                )
+            deliveries = [
+                ("public_comment_reply", "comment_reply", str(action_payload.get("comment_reply_text") or "")),
+                ("private_comment_reply", "comment", str(action_payload.get("text") or "")),
+            ]
+        else:
+            deliveries = [("message", "account", str(action_payload.get("text") or ""))]
+
+        results: list[str] = []
+        outbound_ids: list[str] = []
+        failures: list[str] = []
+        for delivery_kind, recipient_type, response_text in deliveries:
+            if not response_text.strip():
+                failures.append("response_text_unavailable")
+                results.append("failed")
+                continue
+            key = "automation:" + hashlib.sha256(
+                f"{inbound.public_id}:{winner.public_id}:{delivery_kind}".encode("utf-8")
+            ).hexdigest()[:48]
+            outbound = self.session.scalar(
+                select(ConversationMessage).where(
+                    ConversationMessage.tenant_id == context.tenant_id,
+                    ConversationMessage.store_id == context.store_id,
+                    ConversationMessage.idempotency_key == key,
+                )
             )
-        )
-        if outbound is None:
-            outbound = self.conversations.append_message(
-                conversation.public_id,
-                tenant_id=context.tenant_id,
-                store_id=context.store_id,
-                idempotency_key=key,
-                direction="outbound",
-                content_type="text",
-                occurred_at=datetime.now(UTC),
-                text=str((winner.action_payload or {}).get("text") or ""),
-                reply_to_message_id=inbound.id,
-                metadata={
+            if outbound is None:
+                outbound_metadata = {
                     "author_type": "automation",
                     "source": "automation_rule",
                     "automation_rule_public_id": winner.public_id,
                     "automation_trigger_type": trigger,
                     "automation_action_type": winner.action_type,
-                },
-            )
-        try:
-            delivery = self.outbound.deliver(
-                outbound.public_id,
-                conversation_public_id=conversation.public_id,
-                context=context,
-                correlation_id=correlation_id,
-                before_provider_call=self.session.commit,
-            )
-            self.session.commit()
-        except OutboundDeliveryError as exc:
+                    "automation_delivery_kind": delivery_kind,
+                }
+                if recipient_type in {"comment", "comment_reply"}:
+                    outbound_metadata.update({
+                        "instagram_recipient_type": recipient_type,
+                        "instagram_comment_id": str((inbound.metadata_json or {}).get("instagram_comment_id") or ""),
+                    })
+                outbound = self.conversations.append_message(
+                    conversation.public_id,
+                    tenant_id=context.tenant_id,
+                    store_id=context.store_id,
+                    idempotency_key=key,
+                    direction="outbound",
+                    content_type="text",
+                    occurred_at=datetime.now(UTC),
+                    text=response_text.strip(),
+                    reply_to_message_id=inbound.id,
+                    metadata=outbound_metadata,
+                )
+            outbound_ids.append(outbound.public_id)
             try:
+                delivery = self.outbound.deliver(
+                    outbound.public_id,
+                    conversation_public_id=conversation.public_id,
+                    context=context,
+                    correlation_id=correlation_id,
+                    before_provider_call=self.session.commit,
+                )
                 self.session.commit()
-            except Exception:
-                self.session.rollback()
-            _log_decision(
-                context, correlation_id, matched=True, trigger=trigger,
-                rule_public_id=winner.public_id, delivery="failed",
-            )
-            return AutomationRuntimeResult(
-                handled=True, matched=True, delivery_status="failed",
-                outbound_message_public_id=outbound.public_id,
-                rule_public_id=winner.public_id, safe_reason=exc.category,
-            )
+                results.append("already_delivered" if delivery.already_delivered else "sent")
+            except OutboundDeliveryError as exc:
+                try:
+                    self.session.commit()
+                except Exception:
+                    self.session.rollback()
+                results.append("failed")
+                failures.append(exc.category)
+
+        matched_delivery = "sent" if all(value in {"sent", "already_delivered"} for value in results) else (
+            "partial" if any(value in {"sent", "already_delivered"} for value in results) else "failed"
+        )
         _log_decision(
             context, correlation_id, matched=True, trigger=trigger,
-            rule_public_id=winner.public_id,
-            delivery="already_delivered" if delivery.already_delivered else "sent",
+            rule_public_id=winner.public_id, delivery=matched_delivery,
         )
         return AutomationRuntimeResult(
-            handled=True, matched=True, delivery_status="sent",
-            outbound_message_public_id=outbound.public_id,
+            handled=True, matched=True, delivery_status=matched_delivery,
+            outbound_message_public_id=outbound_ids[0] if outbound_ids else None,
             rule_public_id=winner.public_id,
+            safe_reason=failures[0] if failures else None,
         )
 
 
