@@ -111,10 +111,32 @@ def deterministic_key(*parts: object) -> str:
 
 
 def _timestamp(value: Any) -> datetime | None:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    """Parse Meta event timestamps in seconds, milliseconds, or ISO-8601 form."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return None
+        try:
+            numeric = float(normalized)
+        except ValueError:
+            try:
+                parsed = datetime.fromisoformat(
+                    normalized[:-1] + "+00:00" if normalized.endswith("Z") else normalized
+                )
+                return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed.astimezone(UTC)
+            except ValueError:
+                return None
+    elif isinstance(value, (int, float)):
+        numeric = float(value)
+    else:
         return None
     try:
-        return datetime.fromtimestamp(value / 1000, tz=UTC)
+        # Meta messaging timestamps are commonly milliseconds; comment
+        # created_time values may be Unix seconds. Distinguish by magnitude.
+        seconds = numeric / 1000 if abs(numeric) >= 100_000_000_000 else numeric
+        return datetime.fromtimestamp(seconds, tz=UTC)
     except (OverflowError, OSError, ValueError):
         return None
 
