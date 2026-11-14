@@ -24,7 +24,7 @@ jobs:
       - run: python -m tools.migration_policy
       - run: python -m tools.seed_data --list
       - name: Focused Instagram outbound regression tests
-        run: python -m pytest tests/test_instagram_outbound_delivery.py tests/test_instagram_oauth_permissions.py -q
+        run: python -m pytest tests/test_instagram_outbound_delivery.py tests/test_instagram_oauth_permissions.py tests/test_instagram_onboarding.py -q
       - run: python -m pytest
 
   postgres-smoke:
