@@ -52,16 +52,6 @@ class Settings(BaseSettings):
     application_secret: SecretStr = SecretStr("")
     application_secret_file: str | None = None
 
-    # Independent commercial SEO pilot. Never borrow the operator GSC key.
-    seo_growth_enabled: bool = False
-    seo_analysis_preview_enabled: bool = False
-    seo_google_client_id: str = ""
-    seo_google_client_secret: SecretStr = SecretStr("")
-    seo_google_redirect_uri: str = ""
-    seo_frontend_origin: str = ""
-    seo_token_encryption_key: SecretStr = SecretStr("")
-    seo_token_key_version: str = "v1"
-
     # Deprecated compatibility setting. Seed execution is now CLI-only.
     seed_demo_data: bool = False
     meta_verify_token: str = ""
@@ -76,6 +66,8 @@ class Settings(BaseSettings):
     meta_api_version: str = "v24.0"
     meta_graph_base_url: str = "https://graph.instagram.com"
     meta_oauth_authorize_url: str = "https://www.instagram.com/oauth/authorize"
+    meta_oauth_config_id: str = ""
+    meta_oauth_mode: Literal["instagram_login", "unified_login"] = "instagram_login"
     meta_oauth_token_url: str = "https://api.instagram.com/oauth/access_token"
     meta_oauth_redirect_uri: str = ""
     meta_oauth_state_prefix: str = Field(default="", max_length=64)
