@@ -417,6 +417,41 @@ def test_known_delivery_failure_is_persisted_and_remains_retryable(
     )
 
 
+def test_meta_error_diagnostics_are_persisted_without_raw_provider_payload(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    failure = OutboundAuthenticationError(
+        "Instagram authentication failed",
+        provider_http_status=401,
+        provider_error_code=190,
+        provider_error_subcode=463,
+        provider_error_type="OAuthException",
+        provider_trace_id="trace_123",
+    )
+    setup = _setup(factory=FakeFactory(sender=FakeSender(error=failure)))
+
+    with caplog.at_level(
+        logging.WARNING,
+        logger="app.application.services.instagram_outbound_delivery",
+    ):
+        with pytest.raises(OutboundAuthenticationError):
+            _deliver(setup, correlation_id="meta-auth-correlation")
+
+    metadata = setup.repository.updates[-1]["metadata"]
+    assert metadata["provider_http_status"] == 401
+    assert metadata["provider_error_code"] == 190
+    assert metadata["provider_error_subcode"] == 463
+    assert metadata["provider_error_type"] == "OAuthException"
+    assert metadata["provider_trace_id"] == "trace_123"
+    rendered = " ".join(
+        f"{record.getMessage()} {record.__dict__}" for record in caplog.records
+    )
+    assert "meta-auth-correlation" in rendered
+    assert "trace_123" in rendered
+    assert "access_token" not in rendered
+    assert "Bearer " not in rendered
+
+
 def test_failed_message_cannot_bypass_explicit_safe_retry_claim() -> None:
     repo = FakeRepository(
         message=_message(
@@ -685,6 +720,35 @@ def test_graph_statuses_map_to_safe_errors(status: int, error_type: type[Excepti
     with pytest.raises(error_type) as raised:
         _graph_sender(client).send(_outbound_message())
     assert "raw secret" not in str(raised.value)
+
+
+def test_graph_adapter_captures_only_allowlisted_meta_error_fields() -> None:
+    response = FakeHttpResponse(
+        401,
+        {
+            "error": {
+                "message": "SECRET provider response text",
+                "type": "OAuthException",
+                "code": 190,
+                "error_subcode": 463,
+                "fbtrace_id": "trace_123",
+                "access_token": "SECRET token",
+                "unexpected": "SECRET extra",
+            }
+        },
+    )
+    with pytest.raises(OutboundAuthenticationError) as raised:
+        _graph_sender(FakeHttpClient(response)).send(_outbound_message())
+
+    assert raised.value.provider_diagnostics == {
+        "provider_http_status": 401,
+        "provider_error_code": 190,
+        "provider_error_subcode": 463,
+        "provider_error_type": "OAuthException",
+        "provider_trace_id": "trace_123",
+    }
+    assert "SECRET" not in str(raised.value)
+    assert "SECRET" not in repr(raised.value.provider_diagnostics)
 
 
 @pytest.mark.parametrize(
