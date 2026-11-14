@@ -406,6 +406,10 @@ class InstagramOutboundDeliveryService:
             reconciliation_value=NOT_REQUIRED,
             safe_retry=safe_retry,
         )
+        provider_diagnostics = getattr(failure, "provider_diagnostics", {})
+        if isinstance(provider_diagnostics, dict):
+            # The adapter has already allowlisted and bounded these values.
+            failed.update(provider_diagnostics)
         self._update(
             persisted,
             tenant_id=tenant_id,
@@ -423,6 +427,11 @@ class InstagramOutboundDeliveryService:
                     outcome="failed",
                 ),
                 "failure_category": failure.category,
+                **(
+                    provider_diagnostics
+                    if isinstance(provider_diagnostics, dict)
+                    else {}
+                ),
                 "latency_ms": round(
                     (perf_counter() - operation_started) * 1000, 3
                 ),
