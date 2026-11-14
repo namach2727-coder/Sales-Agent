@@ -123,7 +123,15 @@ class InstagramOnboardingService:
             raise InstagramOnboardingForbidden(
                 "An active Instagram entitlement with available capacity is required"
             )
-        nonce = f"{self.settings.meta_oauth_state_prefix}{secrets.token_urlsafe(32)}"
+        # Meta has one registered Production callback. UAT-originated OAuth
+        # transactions use a fixed state marker so Production can relay them
+        # to the fixed UAT callback without accepting caller-selected targets.
+        state_prefix = (
+            "uat."
+            if self.settings.app_env == "uat"
+            else self.settings.meta_oauth_state_prefix
+        )
+        nonce = f"{state_prefix}{secrets.token_urlsafe(32)}"
         authorization_url = provider.authorization_url(nonce)
         expires_at = datetime.now(UTC) + timedelta(
             minutes=self.settings.meta_oauth_state_ttl_minutes
