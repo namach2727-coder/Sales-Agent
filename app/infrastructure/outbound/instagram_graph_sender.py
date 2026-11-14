@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import httpx
@@ -146,23 +147,72 @@ def _raise_for_status(response: Any) -> None:
         )
     if 200 <= status < 300:
         return
+
+    diagnostics = _safe_provider_diagnostics(response, status)
     if status in {401, 403}:
-        error = OutboundAuthenticationError("Instagram authentication failed")
+        error = OutboundAuthenticationError(
+            "Instagram authentication failed", **diagnostics
+        )
     elif status == 404:
         error = OutboundRecipientUnavailableError(
-            "Instagram recipient is unavailable"
+            "Instagram recipient is unavailable", **diagnostics
         )
     elif status == 429:
-        error = OutboundRateLimitError("Instagram rate limit reached")
+        error = OutboundRateLimitError(
+            "Instagram rate limit reached", **diagnostics
+        )
     elif status >= 500:
-        error = OutboundUnavailableError("Instagram delivery is unavailable")
+        error = OutboundUnavailableError(
+            "Instagram delivery is unavailable", **diagnostics
+        )
     elif status in {409, 410}:
-        error = OutboundRejectedError("Instagram rejected the message")
-    elif status in {400, 405, 422}:
-        error = OutboundRequestError("Instagram delivery request failed")
+        error = OutboundRejectedError(
+            "Instagram rejected the message", **diagnostics
+        )
     else:
-        error = OutboundRequestError("Instagram delivery request failed")
+        error = OutboundRequestError(
+            "Instagram delivery request failed", **diagnostics
+        )
     raise error
+
+
+def _safe_provider_diagnostics(response: Any, status: int) -> dict[str, object]:
+    """Extract only bounded Meta error identifiers; never retain raw payloads."""
+    diagnostics: dict[str, object] = {"provider_http_status": status}
+    try:
+        payload = response.json()
+    except (AttributeError, TypeError, ValueError):
+        return diagnostics
+    if not isinstance(payload, dict):
+        return diagnostics
+    error = payload.get("error")
+    if not isinstance(error, dict):
+        return diagnostics
+
+    for source, target in (
+        ("code", "provider_error_code"),
+        ("error_subcode", "provider_error_subcode"),
+    ):
+        value = error.get(source)
+        if isinstance(value, int) and not isinstance(value, bool):
+            diagnostics[target] = value
+
+    error_type = error.get("type")
+    if (
+        isinstance(error_type, str)
+        and len(error_type) <= 64
+        and re.fullmatch(r"[A-Za-z0-9_.-]+", error_type)
+    ):
+        diagnostics["provider_error_type"] = error_type
+
+    trace_id = error.get("fbtrace_id")
+    if (
+        isinstance(trace_id, str)
+        and len(trace_id) <= 128
+        and re.fullmatch(r"[A-Za-z0-9_-]+", trace_id)
+    ):
+        diagnostics["provider_trace_id"] = trace_id
+    return diagnostics
 
 
 def _credential(value: object) -> str:
