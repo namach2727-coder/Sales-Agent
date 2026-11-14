@@ -4,6 +4,31 @@
 class OutboundDeliveryError(Exception):
     category = "delivery_error"
 
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        provider_http_status: int | None = None,
+        provider_error_code: int | None = None,
+        provider_error_subcode: int | None = None,
+        provider_error_type: str | None = None,
+        provider_trace_id: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        # Only allowlisted, non-secret provider diagnostics may cross this
+        # boundary. Raw response bodies and credentials are never retained.
+        self.provider_diagnostics = {
+            key: value
+            for key, value in {
+                "provider_http_status": provider_http_status,
+                "provider_error_code": provider_error_code,
+                "provider_error_subcode": provider_error_subcode,
+                "provider_error_type": provider_error_type,
+                "provider_trace_id": provider_trace_id,
+            }.items()
+            if value is not None
+        }
+
 
 class OutboundScopeError(OutboundDeliveryError):
     category = "invalid_scope"
