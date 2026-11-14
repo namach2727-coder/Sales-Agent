@@ -907,3 +907,117 @@ def test_oauth_browser_navigation_detected_without_html_accept() -> None:
     assert _browser_request(Request(scope, receive)) is True
     scope["headers"] = [(b"accept", b"application/json")]
     assert _browser_request(Request(scope, receive)) is False
+
+
+
+def test_webhook_subscription_is_compensated_when_connection_persistence_fails(
+    onboarding_api, monkeypatch
+) -> None:
+    from app.instagram_onboarding.service import (
+        InstagramOnboardingConflict,
+        InstagramOnboardingService,
+    )
+
+    client, engine, _ = onboarding_api
+    events: list[str] = []
+
+    class WebhookProvider(FakeOAuthProvider):
+        def subscribe_webhooks(self, account: InstagramOAuthAccount) -> None:
+            events.append("subscribe")
+
+        def unsubscribe_webhooks(self, account: InstagramOAuthAccount) -> None:
+            events.append("unsubscribe")
+
+    provider = WebhookProvider()
+    client.app.dependency_overrides[get_instagram_oauth_provider] = lambda: provider
+    _register(client, "compensate")
+    headers = _login(client, "compensate")
+    _trial_entitlement(client, headers)
+    state = _start(client, headers)
+
+    def fail_save(self, oauth_state, account):
+        raise InstagramOnboardingConflict("simulated persistence failure")
+
+    monkeypatch.setattr(InstagramOnboardingService, "_save_connection", fail_save)
+    response = client.get(
+        "/api/v1/integrations/instagram/callback",
+        params={"state": state, "code": "compensate"},
+    )
+
+    assert response.status_code == 409
+    assert events == ["subscribe", "unsubscribe"]
+    with Session(engine) as db:
+        assert list(db.scalars(select(InstagramConnection)).all()) == []
+
+
+def test_webhook_compensation_failure_does_not_mask_persistence_error(
+    onboarding_api, monkeypatch, caplog
+) -> None:
+    from app.instagram_onboarding.service import (
+        InstagramOnboardingConflict,
+        InstagramOnboardingService,
+    )
+
+    client, _engine, _ = onboarding_api
+    events: list[str] = []
+
+    class WebhookProvider(FakeOAuthProvider):
+        def subscribe_webhooks(self, account: InstagramOAuthAccount) -> None:
+            events.append("subscribe")
+
+        def unsubscribe_webhooks(self, account: InstagramOAuthAccount) -> None:
+            events.append("unsubscribe")
+            raise InstagramOAuthError(
+                "compensation unavailable",
+                code="unified_webhook_compensation_failed",
+            )
+
+    provider = WebhookProvider()
+    client.app.dependency_overrides[get_instagram_oauth_provider] = lambda: provider
+    _register(client, "compensate-fail")
+    headers = _login(client, "compensate-fail")
+    _trial_entitlement(client, headers)
+    state = _start(client, headers)
+
+    def fail_save(self, oauth_state, account):
+        raise InstagramOnboardingConflict("simulated persistence failure")
+
+    monkeypatch.setattr(InstagramOnboardingService, "_save_connection", fail_save)
+    response = client.get(
+        "/api/v1/integrations/instagram/callback",
+        params={"state": state, "code": "compensate-fail"},
+    )
+
+    assert response.status_code == 409
+    assert events == ["subscribe", "unsubscribe"]
+    assert "stage=webhook_compensation status=failed" in caplog.text
+    assert "simulated persistence failure" in response.text
+
+
+def test_webhook_subscription_failure_prevents_connection_persistence(
+    onboarding_api, monkeypatch
+) -> None:
+    client, engine, _ = onboarding_api
+
+    class WebhookProvider(FakeOAuthProvider):
+        def subscribe_webhooks(self, account: InstagramOAuthAccount) -> None:
+            raise InstagramOAuthError(
+                "subscription rejected",
+                code="unified_webhook_subscription_failed",
+            )
+
+    provider = WebhookProvider()
+    client.app.dependency_overrides[get_instagram_oauth_provider] = lambda: provider
+    _register(client, "subscribe-fail")
+    headers = _login(client, "subscribe-fail")
+    _trial_entitlement(client, headers)
+    state = _start(client, headers)
+    response = client.get(
+        "/api/v1/integrations/instagram/callback",
+        params={"state": state, "code": "subscribe-fail"},
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"]["code"] == "unified_webhook_subscription_failed"
+    with Session(engine) as db:
+        assert list(db.scalars(select(InstagramConnection)).all()) == []
