@@ -34,7 +34,7 @@ class OutboundMessage:
         recipient_type = _single_line(
             self.recipient_type, "recipient_type", maximum=20
         )
-        if recipient_type not in {"account", "comment"}:
+        if recipient_type not in {"account", "comment", "comment_reply"}:
             raise ValueError("invalid recipient_type")
         object.__setattr__(self, "recipient_type", recipient_type)
         if self.correlation_id is not None:

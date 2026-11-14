@@ -14,6 +14,7 @@ Keyword = Annotated[str, Field(min_length=1, max_length=100)]
 
 class ActionPayload(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
+    comment_reply_text: str | None = Field(default=None, min_length=1, max_length=2200)
 
     @field_validator("text")
     @classmethod
@@ -21,6 +22,16 @@ class ActionPayload(BaseModel):
         value = value.strip()
         if not value:
             raise ValueError("action text cannot be empty")
+        return value
+
+    @field_validator("comment_reply_text")
+    @classmethod
+    def clean_comment_reply_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("comment reply text cannot be empty")
         return value
 
 
@@ -55,6 +66,8 @@ class RuleFields(BaseModel):
         expected = "SEND_PRIVATE_MESSAGE" if self.trigger_type == "COMMENT_KEYWORD" else "SEND_MESSAGE"
         if self.action_type != expected:
             raise ValueError("action type is incompatible with trigger type")
+        if self.trigger_type == "COMMENT_KEYWORD" and not self.action_payload.comment_reply_text:
+            raise ValueError("comment rules require a public comment reply")
         return self
 
 

@@ -137,15 +137,18 @@ class InstagramOutboundDeliveryService:
                 "failed Instagram delivery requires explicit safe retry"
             )
 
-        recipient_type = _metadata_text(
-            persisted.reply_to_metadata.get("instagram_recipient_type")
-        ) or "account"
+        recipient_type = (
+            _metadata_text(metadata.get("instagram_recipient_type"))
+            or _metadata_text(persisted.reply_to_metadata.get("instagram_recipient_type"))
+            or "account"
+        )
+        comment_id = (
+            _metadata_text(metadata.get("instagram_comment_id"))
+            or _metadata_text(persisted.reply_to_metadata.get("instagram_comment_id"))
+        )
         recipient = (
-            _metadata_text(
-                persisted.reply_to_metadata.get("instagram_comment_id")
-            )
-            or ""
-            if recipient_type == "comment"
+            comment_id or ""
+            if recipient_type in {"comment", "comment_reply"}
             else persisted.provider_participant_key.strip()
         )
         if not recipient:

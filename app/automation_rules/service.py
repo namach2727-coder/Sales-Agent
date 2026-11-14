@@ -109,7 +109,7 @@ class AutomationRuleService:
             raise AutomationRuleLimitReached("automation rule limit reached")
         action_payload = values["action_payload"]
         values["action_payload"] = (
-            action_payload.model_dump()
+            action_payload.model_dump(exclude_none=True)
             if hasattr(action_payload, "model_dump")
             else dict(action_payload)
         )
@@ -138,6 +138,10 @@ class AutomationRuleService:
                 if hasattr(action_payload, "model_dump")
                 else dict(action_payload)
             )
+        if trigger == "COMMENT_KEYWORD" and ("action_payload" in supplied or supplied.get("trigger_type") == "COMMENT_KEYWORD"):
+            payload = supplied.get("action_payload", item.action_payload or {})
+            if not isinstance(payload.get("comment_reply_text"), str) or not payload["comment_reply_text"].strip():
+                raise AutomationRuleValidation("comment rules require a public comment reply")
         if not supplied:
             raise AutomationRuleValidation("at least one field must be updated")
         result = self.session.execute(update(AutomationRule).where(
