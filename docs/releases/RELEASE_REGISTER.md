@@ -868,3 +868,15 @@ Owner explicitly approved promotion. Frontend SEO-only PR [#47](https://github.c
 ### SEO PR48 promotion 2026-10-25
 
 Frontend PR #48 MERGED into `main`, commit `3e263e5a208b0ab9be2ddf0cf872d2586daf4795`; production deployment `dpl_2nsyRVMpvHwT7h71T1QeAGfcZS2P` created QUEUED. UAT `45593d9` READY; isolated PR preview `2be4bad` READY. **Production runtime/alias not yet verified READY**. Public pricing SSR displays plan cards only when public API returns valid data; live cards/JSON-LD still need HTTP validation.
+
+
+### UAT-LOGIN-RECOVERY-20261114 — schema 0029-compatible backend deployed
+
+- UAT-only backend source branch: `fix/uat-login-schema0029-meta-unified-20261114`; deployed commit `42e066b7320b96b57e4c05e8968f3d4817752d1b`.
+- Source baseline `f031e8e6cf11dec5b4c807f7d948e98d715c7d00` was previously validated at Alembic revision `0029_seo_pilot_revision` (1061 passed, 7 skipped; migration graph and schema round-trip passed). Meta Unified Login changes from PR #132 were applied on top without adding migrations 0030/0031.
+- Neon UAT migration record identifies project `round-shape-42044596`, branch `br-spring-dream-arhxt1ji`, revision `0029_seo_pilot_revision`; this migration is already applied and must not be replayed. Vercel does not expose the secret DATABASE_URL value through the available read API, so host-level URL equality is not independently proven. However, the deployed app successfully completed startup database validation and returned `/ready: database=available, migration=current` against its configured DATABASE_URL.
+- Vercel UAT deployment `dpl_DjAw3bQJMyhAzVSUQqtbFmU818JF` is READY and alias `https://directpilot-uat-api.vercel.app` points to it. Separate Production project was not changed.
+- HTTP probes: `GET /ready` = 200, `{"status":"ready","database":"available","migration":"current"}`; `GET /version` = 200, environment `uat`; invalid-credential `POST /api/v1/auth/login` = expected 401 `invalid_credentials` (proves the login handler is responding rather than 500). Real user login and Meta OAuth round-trip still require tester acceptance.
+- GitHub PR #138 is Draft/open and currently non-mergeable due branch divergence; no merge was performed. Full CI run #43561887573: PostgreSQL smoke, PostgreSQL 18 compatibility and Docker build passed; full pytest was still running at this checkpoint. Do not claim full CI green until it completes.
+- No database migration, DB mutation, secret write, Production deployment, Meta outbound enablement, or token-key rotation was performed.
+- Next: capture final exact-head CI result; user to verify normal UAT login, then perform Meta Unified Login flow and inspect relay/callback.
