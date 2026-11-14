@@ -721,3 +721,15 @@ STAGED: standalone source and read-only Google API client in directpilot-web/doc
 - GitHub PR #138 is Draft/open and currently non-mergeable due branch divergence; no merge was performed. Full CI run #43561887573: PostgreSQL smoke, PostgreSQL 18 compatibility and Docker build passed; full pytest was still running at this checkpoint. Do not claim full CI green until it completes.
 - No database migration, DB mutation, secret write, Production deployment, Meta outbound enablement, or token-key rotation was performed.
 - Next: capture final exact-head CI result; user to verify normal UAT login, then perform Meta Unified Login flow and inspect relay/callback.
+
+### META-OAUTH-SINGLE-REDIRECT-RELAY-20261114 — fixed Production callback, UAT state relay
+
+- Requirement: keep the single Redirect URI already registered in Meta (`https://directpilot-prod-api.vercel.app/api/v1/integrations/instagram/callback`). Do not register a second Meta URI and do not modify Production environment settings.
+- UAT onboarding now prefixes generated OAuth state with the code-owned marker `uat.` when `APP_ENV=uat`; state remains random and persisted only as a SHA-256 digest in the UAT database.
+- The shared callback relay now runs only when `APP_ENV=production` and the received state starts with `uat.`. Its destination is a fixed code-owned allowlist: `https://directpilot-uat-api.vercel.app/api/v1/integrations/instagram/callback`. No request parameter, header, or environment variable can select a destination.
+- Production relays only `code` and `state`; UAT validates and consumes the state against its own database, enforces expiry/single-use, then exchanges the code using its configured `META_OAUTH_REDIRECT_URI`, which must equal the single Meta-registered Production callback.
+- Non-Production callbacks do not relay. Non-UAT states do not relay from Production. Caller-supplied `redirect_uri` remains rejected.
+- Code and regression tests are committed on UAT recovery branch `fix/uat-login-schema0029-meta-unified-20261114`; relay test commit: `afbdc9888b18a074def85a1288b4ed134be59f05`.
+- CI run `43567288711` was in progress at documentation update time. No claim of test success until final results are recorded.
+- Not deployed to the Production project. No Meta settings, Production environment variables, DB schema/data, secrets, token encryption keys, or outbound messaging settings were changed.
+- Activation sequence still required: pass CI; review/merge the backend PR through the normal approval gate; deploy shared callback code to Production; update only the UAT backend project's `META_OAUTH_REDIRECT_URI` to the already-registered Production callback (not a Production setting); deploy UAT; verify the generated OAuth URL, Production-to-UAT 303 relay, and UAT state consumption end-to-end.
