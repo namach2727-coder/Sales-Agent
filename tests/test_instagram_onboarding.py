@@ -337,6 +337,7 @@ def test_short_token_explicit_user_probe_failure_is_non_blocking(
             {
                 "access_token": "short-lived-token",
                 "user_id": "17841401850458391",
+                "permissions": list(INSTAGRAM_LOGIN_SCOPES),
             }
         ),
         profile_explicit=_ProviderResponse(
