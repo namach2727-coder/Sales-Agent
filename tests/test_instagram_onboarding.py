@@ -97,7 +97,12 @@ class _ProviderHttpClient:
                 {"access_token": "long-lived-token", "token_type": "bearer"}
             )
         self.short_method = "POST"
-        return _ProviderResponse({"access_token": "short-lived-token"})
+        return _ProviderResponse(
+            {
+                "access_token": "short-lived-token",
+                "permissions": list(INSTAGRAM_LOGIN_SCOPES),
+            }
+        )
 
     def get(self, url: str, **kwargs: object) -> _ProviderResponse:
         params = kwargs["params"]
@@ -146,6 +151,29 @@ def test_meta_oauth_prefers_user_id_for_webhook_routing(monkeypatch) -> None:
         "access_token": "short-lived-token",
     }
 
+
+def test_meta_oauth_rejects_successful_token_exchange_missing_required_permission(
+    monkeypatch,
+) -> None:
+    http_client = _ScenarioHttpClient(
+        short=_ProviderResponse(
+            {
+                "access_token": "short-lived-token",
+                "permissions": ["instagram_business_basic"],
+            }
+        )
+    )
+    monkeypatch.setattr(
+        "app.instagram_onboarding.provider.httpx.Client",
+        lambda **_kwargs: http_client,
+    )
+
+    with pytest.raises(InstagramOAuthError) as raised:
+        MetaInstagramOAuthClient(_oauth_settings()).exchange("authorization-code")
+
+    assert raised.value.code == "oauth_permissions_missing"
+    assert http_client.long_method is None
+    assert http_client.profile_calls == 0
 
 def test_short_token_metadata_and_profile_probe_are_redacted(monkeypatch, caplog) -> None:
     http_client = _ScenarioHttpClient(
@@ -355,7 +383,12 @@ class _ScenarioHttpClient:
         profile_explicit: _ProviderResponse | Exception | None = None,
         profile_explicit_versioned: _ProviderResponse | Exception | None = None,
     ) -> None:
-        self.short = short or _ProviderResponse({"access_token": "short-lived-token"})
+        self.short = short or _ProviderResponse(
+            {
+                "access_token": "short-lived-token",
+                "permissions": list(INSTAGRAM_LOGIN_SCOPES),
+            }
+        )
         self.long = long or _ProviderResponse(
             {"access_token": "long-lived-token", "token_type": "bearer"}
         )
