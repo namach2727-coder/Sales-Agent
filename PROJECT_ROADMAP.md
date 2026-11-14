@@ -1,6 +1,8 @@
 > **DIRECTPILOT — MANDATORY CONTINUITY AND CHANGE-LOG RULE (owner decision, 2026-10-17).**
 > This file is one of the **six mandatory handoff/release artifacts**. On every DirectPilot / DirectPilot TelBot task, the assistant must read current `AI_HANDOFF.md`, `PROJECT_ROADMAP.md`, `DECISIONS.md`, `CURRENT_STATE.md`, `NEXT_ACTIONS.md`, and `docs/releases/RELEASE_REGISTER.md` **before making changes**; reconcile against actual GitHub/Vercel/Neon state, not chat memory. **After every meaningful change**, update all five main files **and the Release Register** coherently: scope and owner approval, PR/commit, changed artifacts, UAT/Production status, automated and manual evidence, unresolved risks, next action. Keep the current summary easy to scan, preserve history (archive older detail in runbooks; do not delete evidence), and never call code-merged "deployed" or a proposed feature "active". Never publish to Production, touch live data/secrets, or switch Meta/Telegram outbound functionality without specific owner approval. This rule itself MUST remain at the very TOP of each of the six files and must be propagated in any handoff to a new chat.
 
+> **Current infrastructure source of truth — 2026-11-14:** DirectPilot Backend/API and Frontend run on **Vercel**; persistent application data runs on **Neon**. Vercel and Neon are the only active hosting/data platforms in the current architecture. Any older provider references in the chronology below are historical context only and must not be used for current deployment, runtime, database, credential, or incident decisions. Verify live state against the Vercel and Neon projects before operational changes.
+
 ## Current implementation-aligned roadmap — 2026-11-09
 
 **Status rule:** this is the concise current roadmap. The previous long-form file is preserved byte-for-byte in docs/runbooks/history/20261109_pre_reconciliation/PROJECT_ROADMAP_2026-11-09_PRE_RECONCILIATION.md and the dated Release Register. A Git merge, passing CI, or READY deployment is not by itself customer acceptance.
@@ -40,7 +42,7 @@ The 2026-11-08 checkpoint reports Search Console property sc-domain:directpilot.
 
 ### Explicitly not authorized by this roadmap
 
-No Production deployment or promotion, merge to backend-main or frontend main, live database migration/write, destructive cleanup, credential rotation, pricing/subscription/payment mutation, Meta/Telegram outbound action, or change to Vercel/Render/Neon configuration. Obtain separate owner approval for each such action.
+No Production deployment or promotion, merge to backend-main or frontend main, live database migration/write, destructive cleanup, credential rotation, pricing/subscription/payment mutation, Meta/Telegram outbound action, or change to Vercel/legacy hosting provider/Neon configuration. Obtain separate owner approval for each such action.
 
 ### Code references
 
