@@ -215,7 +215,9 @@ class MetaInstagramOAuthClient:
                         "Meta returned an invalid token response",
                         code="oauth_token_exchange_failed",
                     ) from exc
-                if not isinstance(short_payload, dict):
+                try:
+                    short_payload = _normalize_short_token_payload(short_payload)
+                except InstagramOAuthError:
                     _log_stage(
                         stage="oauth_token_exchange",
                         hostname=urlsplit(self.settings.meta_oauth_token_url).hostname
@@ -224,14 +226,11 @@ class MetaInstagramOAuthClient:
                         status=short_response.status_code,
                         error_type=None,
                         error_code=None,
-                        message="Meta returned a non-object token response",
-                        exception_class="TypeError",
+                        message="Meta returned an invalid token response shape",
+                        exception_class="InstagramOAuthError",
                         elapsed_ms=0.0,
                     )
-                    raise InstagramOAuthError(
-                        "Meta returned an invalid token response",
-                        code="oauth_token_exchange_failed",
-                    )
+                    raise
                 _log_short_token_metadata(short_payload, short_response.status_code)
                 short_user_id = str(short_payload.get("user_id") or "").strip()
                 _log_short_token_user_id_presence(bool(short_user_id))
@@ -254,7 +253,20 @@ class MetaInstagramOAuthClient:
                         code="oauth_token_exchange_failed",
                     )
 
-                _log_short_token_permissions(short_payload)
+                granted_scopes = _log_short_token_permissions(short_payload)
+                missing_scopes = set(INSTAGRAM_LOGIN_SCOPES).difference(granted_scopes)
+                if missing_scopes:
+                    logger.warning(
+                        "instagram_oauth stage=permission_validation required_scopes_granted=false "
+                        "granted_scope_count=%s missing_scope_count=%s",
+                        len(granted_scopes),
+                        len(missing_scopes),
+                        extra={"event_code": "instagram.oauth.required_permissions_missing"},
+                    )
+                    raise InstagramOAuthError(
+                        "Instagram account did not grant all required permissions",
+                        code="oauth_permissions_missing",
+                    )
                 short_profile_url = f"{self.settings.meta_graph_base_url}/me"
                 _probe_short_token_profile(
                     self,
@@ -452,7 +464,7 @@ class MetaInstagramOAuthClient:
             access_token=access_token,
             token_type=str(long_payload.get("token_type") or "bearer"),
             expires_in=expires_in,
-            scopes=INSTAGRAM_LOGIN_SCOPES,
+            scopes=tuple(sorted(granted_scopes)),
         )
 
 
@@ -577,9 +589,31 @@ def _log_short_token_user_id_presence(present: bool) -> None:
     )
 
 
-def _log_short_token_permissions(payload: dict[str, object]) -> None:
+def _normalize_short_token_payload(payload: object) -> dict[str, object]:
+    """Accept Meta's documented single-item data envelope and flat responses."""
+    if not isinstance(payload, dict):
+        raise InstagramOAuthError(
+            "Meta returned an invalid token response",
+            code="oauth_token_exchange_failed",
+        )
+    data = payload.get("data")
+    if data is None:
+        return payload
+    if (
+        not isinstance(data, list)
+        or len(data) != 1
+        or not isinstance(data[0], dict)
+        or "access_token" in payload
+    ):
+        raise InstagramOAuthError(
+            "Meta returned an ambiguous token response",
+            code="oauth_token_exchange_failed",
+        )
+    return data[0]
+
+
+def _log_short_token_permissions(payload: dict[str, object]) -> tuple[str, ...]:
     raw_permissions = payload.get("permissions")
-    permissions_present = raw_permissions is not None
     permission_names: set[str] = set()
     if isinstance(raw_permissions, (list, tuple, set)):
         permission_names = {
@@ -587,27 +621,24 @@ def _log_short_token_permissions(payload: dict[str, object]) -> None:
             for value in raw_permissions
             if isinstance(value, str) and value.strip()
         }
-        permission_count = len(raw_permissions)
     elif isinstance(raw_permissions, str):
         permission_names = {
             value.strip()
             for value in raw_permissions.split(",")
             if value.strip()
         }
-        permission_count = len(permission_names)
-    else:
-        permission_count = 0
     requested_permissions_all_present = set(INSTAGRAM_LOGIN_SCOPES).issubset(
         permission_names
     )
     logger.info(
         "instagram_oauth stage=short_token_permissions permissions_present=%s "
         "permission_count=%s requested_permissions_all_present=%s",
-        _bool_text(permissions_present),
-        permission_count,
+        _bool_text(raw_permissions is not None),
+        len(permission_names),
         _bool_text(requested_permissions_all_present),
         extra={"event_code": "instagram.oauth.short_token_permissions"},
     )
+    return tuple(sorted(permission_names))
 
 
 def _probe_short_token_profile(
