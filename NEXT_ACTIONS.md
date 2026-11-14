@@ -715,3 +715,16 @@ The 24-file public redesign is merged through [Frontend PR #43](https://github.c
 - Latest Search Console pull via the connected Windsor.ai Search Console connector, property `sc-domain:directpilot.ir`, requested `2026-10-14..2026-11-11`, returned 89 query/page/date rows; newest returned date remains `2026-11-08`. No rows for Nov 9–11 were returned; this is a data-freshness limitation, not evidence of zero impressions/clicks.
 - Low-volume latest pricing observations remain: `قیمت دایرکت هوشمند اینستاگرام` on `/pricing` had one impression, zero clicks, average position 26 on Nov 2; `هزینه دایرکت خودکار اینستاگرام` had one impression, zero clicks, position 28 on Nov 2. These isolated observations are directional only and cannot establish a ranking trend or PR #84 impact.
 - No SEO release occurred; consequently no causal post-release measurement window exists. Keep the prior matched-window property-level comparison as historical baseline only.
+
+
+### META-OAUTH-SINGLE-REDIRECT-UAT-RELAY-20261114
+
+- Requirement confirmed: retain exactly one Meta Redirect URI, the existing Production callback `https://directpilot-prod-api.vercel.app/api/v1/integrations/instagram/callback`; do not add a UAT URI or modify Meta settings.
+- UAT onboarding creates a cryptographically random state with the code-owned `uat.` prefix; the state is persisted in the UAT database as a SHA-256 digest and remains subject to expiry and single-use validation.
+- Only the shared Production callback relays `uat.` states to the fixed code-owned UAT callback `https://directpilot-uat-api.vercel.app/api/v1/integrations/instagram/callback`. Destination is not read from environment, query parameters, or headers.
+- Non-UAT state does not relay from Production; non-Production environments do not relay; caller-controlled `redirect_uri` remains rejected.
+- UAT must use the same Meta-registered Production callback as `META_OAUTH_REDIRECT_URI` for authorization URL generation and token exchange.
+- Implementation and focused regression tests are in PR #139 (`fix/meta-single-redirect-uat-relay-20261114`), based directly on current `backend-main` to avoid the unrelated schema/SEO branch divergence found in PR #138.
+- Added a focused GitHub Actions workflow for Instagram onboarding and Unified Login tests. Full CI is separately blocked at test collection by missing `app.seo_growth.crawler_policy` on the current base branch; this is not an OAuth Relay failure.
+- No Meta settings, Production environment variables, database contents, credentials, encryption keys, or outbound messaging settings were changed. No Production deployment was initiated.
+- Remaining activation gates: focused tests pass; review/merge PR #139; deploy shared callback change to Production through the normal approved release process; set only UAT project's `META_OAUTH_REDIRECT_URI` to the already-registered Production callback; deploy UAT; verify live 303 relay and state consumption end-to-end.

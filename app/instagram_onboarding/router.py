@@ -35,6 +35,13 @@ from app.instagram_onboarding.service import (
 
 logger = logging.getLogger("sales_assistant.instagram_oauth_relay")
 
+# Fixed code-owned relay destination; never sourced from request or environment.
+_UAT_OAUTH_STATE_PREFIX = "uat."
+_UAT_OAUTH_CALLBACK_URL = (
+    "https://directpilot-uat-api.vercel.app"
+    "/api/v1/integrations/instagram/callback"
+)
+
 
 router = APIRouter(prefix="/api/v1/integrations/instagram", tags=["instagram-onboarding"])
 
@@ -114,10 +121,11 @@ def _oauth_relay_redirect(
     code: str,
     state: str,
 ) -> RedirectResponse | None:
-    target = settings.meta_oauth_relay_target_url.strip()
-    prefix = settings.meta_oauth_relay_state_prefix.strip()
-    if not target or not prefix or not state.startswith(prefix):
+    # Only the shared Production callback may relay UAT-originated transactions.
+    # Destination is fixed in code; no env var, query, or header can override it.
+    if settings.app_env != "production" or not state.startswith(_UAT_OAUTH_STATE_PREFIX):
         return None
+    target = _UAT_OAUTH_CALLBACK_URL
     logger.info(
         "Instagram OAuth callback relayed",
         extra={
